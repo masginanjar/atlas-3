@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ATLAS 3.0 — 247 Sworn Translator</title>
+<style>
+:root{
+  --bg:#f7f8fa; --surface:#ffffff; --surface2:#fbfcfe; --border:#e7e9ef; --border2:#eef0f5;
+  --text:#101828; --muted:#667085; --faint:#98a2b3;
+  --primary:#2563eb; --primary-strong:#1d4ed8; --primary-soft:#eff4ff; --primary-border:#c7d7fe;
+  --green:#067647; --green-bg:#ecfdf3; --amber:#b54708; --amber-bg:#fffaeb;
+  --red:#b42318; --red-bg:#fef3f2; --violet:#5925dc; --violet-bg:#f4f3ff;
+  --cyan:#0e7090; --cyan-bg:#ecfdff; --pink:#c11574; --pink-bg:#fdf2fa;
+  --gray-bg:#f2f4f7; --shadow:0 1px 2px rgba(16,24,40,.05); --shadow-lg:0 12px 32px -8px rgba(16,24,40,.18);
+  --r:12px; --sidebar:236px;
+}
+[data-theme="dark"]{
+  --bg:#0c0f14; --surface:#12161d; --surface2:#161b24; --border:#232936; --border2:#1c2230;
+  --text:#e7ebf0; --muted:#8b94a7; --faint:#5d667a;
+  --primary:#4c8dff; --primary-strong:#6ba1ff; --primary-soft:#152238; --primary-border:#274a80;
+  --green:#4ade80; --green-bg:#0d2318; --amber:#fbbf24; --amber-bg:#271d05;
+  --red:#f87171; --red-bg:#2a1210; --violet:#a78bfa; --violet-bg:#1c1533;
+  --cyan:#22d3ee; --cyan-bg:#082a33; --pink:#f472b6; --pink-bg:#2b1020;
+  --gray-bg:#1a202c; --shadow:0 1px 2px rgba(0,0,0,.4); --shadow-lg:0 16px 40px -8px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased}
+button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font:inherit;color:var(--text)}
+a{color:var(--primary);text-decoration:none}
+::placeholder{color:var(--faint)}
+h1,h2,h3{letter-spacing:-.02em}
+.mono{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- Login ---------- */
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px;background:
+  radial-gradient(1000px 500px at 15% -10%, var(--primary-soft), transparent 60%), var(--bg)}
+.login-card{width:100%;max-width:880px}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+.brand-mark{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,var(--primary),#7c3aed);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;letter-spacing:0}
+.brand h1{font-size:22px;font-weight:700}
+.brand small{display:block;color:var(--muted);font-weight:500;font-size:12.5px;letter-spacing:.02em}
+.login-sub{color:var(--muted);margin:10px 0 24px;max-width:560px;line-height:1.55}
+.role-group{margin-bottom:18px}
+.role-group h4{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);margin-bottom:8px;font-weight:600}
+.user-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:10px}
+.user-chip{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);text-align:left;transition:border-color .15s, transform .15s, box-shadow .15s}
+.user-chip:hover{border-color:var(--primary-border);transform:translateY(-1px);box-shadow:var(--shadow-lg)}
+.user-chip b{display:block;font-size:13px}
+.user-chip span{font-size:11.5px;color:var(--muted)}
+
+/* ---------- Avatar ---------- */
+.av{width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex:none;position:relative}
+.av.sm{width:24px;height:24px;font-size:9.5px}
+.av.lg{width:44px;height:44px;font-size:15px}
+.av .dot-on{position:absolute;right:-1px;bottom:-1px;width:9px;height:9px;border-radius:50%;background:#12b76a;border:2px solid var(--surface)}
+
+/* ---------- Shell ---------- */
+.shell{display:flex;min-height:100vh}
+.sidebar{width:var(--sidebar);flex:none;background:var(--surface);border-right:1px solid var(--border);position:sticky;top:0;height:100vh;display:flex;flex-direction:column;z-index:30}
+.side-brand{display:flex;align-items:center;gap:10px;padding:16px 16px 12px}
+.side-brand .brand-mark{width:32px;height:32px;border-radius:9px;font-size:12px}
+.side-brand b{font-size:14px}
+.side-brand small{display:block;font-size:10.5px;color:var(--faint);font-weight:500}
+.nav{padding:8px 10px;overflow-y:auto;flex:1}
+.nav-label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);padding:12px 8px 5px;font-weight:600}
+.nav-item{display:flex;align-items:center;gap:10px;width:100%;padding:7.5px 10px;border-radius:9px;color:var(--muted);font-weight:500;font-size:13.5px;margin-bottom:1px;transition:background .12s,color .12s}
+.nav-item:hover{background:var(--gray-bg);color:var(--text)}
+.nav-item.active{background:var(--primary-soft);color:var(--primary);font-weight:600}
+.nav-item .ico{width:17px;text-align:center;font-size:14px}
+.nav-item .count{margin-left:auto;font-size:11px;background:var(--gray-bg);color:var(--muted);border-radius:20px;padding:1px 7px;font-weight:600}
+.nav-item.active .count{background:var(--primary);color:#fff}
+.side-user{border-top:1px solid var(--border);padding:12px;display:flex;align-items:center;gap:10px}
+.side-user b{font-size:12.5px;display:block}
+.side-user span{font-size:11px;color:var(--muted)}
+.side-user button{margin-left:auto;color:var(--faint);font-size:15px;padding:6px;border-radius:8px}
+.side-user button:hover{background:var(--gray-bg);color:var(--text)}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:25;background:color-mix(in srgb, var(--surface) 85%, transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:10px 24px;min-height:56px}
+.crumb{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:7px;white-space:nowrap}
+.crumb b{color:var(--text);font-weight:600}
+.searchbox{margin-left:auto;position:relative;width:300px;max-width:34vw}
+.searchbox input{width:100%;padding:7px 12px 7px 32px;border:1px solid var(--border);background:var(--surface);border-radius:9px;font-size:13px;outline:none;transition:border-color .15s, box-shadow .15s}
+.searchbox input:focus{border-color:var(--primary-border);box-shadow:0 0 0 3px var(--primary-soft)}
+.searchbox .ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--faint);font-size:13px}
+.searchbox kbd{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;color:var(--faint);border:1px solid var(--border);border-radius:5px;padding:1px 5px;background:var(--surface2);font-family:inherit}
+.search-pop{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-lg);max-height:340px;overflow-y:auto;z-index:50}
+.icon-btn{position:relative;width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;transition:background .12s}
+.icon-btn:hover{background:var(--gray-bg);color:var(--text)}
+.icon-btn .bubble{position:absolute;top:2px;right:2px;background:var(--red);color:#fff;font-size:9px;font-weight:700;border-radius:12px;min-width:15px;height:15px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+
+.view{padding:24px;max-width:1440px;width:100%;margin:0 auto;animation:fadeUp .22s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.page-head{display:flex;align-items:flex-start;gap:14px;margin-bottom:20px;flex-wrap:wrap}
+.page-head h2{font-size:19px;font-weight:700}
+.page-head p{color:var(--muted);font-size:13px;margin-top:3px}
+.page-head .actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+
+/* ---------- Buttons / badges / inputs ---------- */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:7.5px 14px;border-radius:9px;font-weight:600;font-size:13px;border:1px solid var(--border);background:var(--surface);transition:all .13s;white-space:nowrap}
+.btn:hover{background:var(--gray-bg)}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.primary:hover{background:var(--primary-strong);border-color:var(--primary-strong)}
+.btn.danger{color:var(--red);border-color:color-mix(in srgb,var(--red) 35%,var(--border))}
+.btn.danger:hover{background:var(--red-bg)}
+.btn.success{background:#079455;border-color:#079455;color:#fff}
+.btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:2.5px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.badge .b-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface);outline:none;font-size:13.5px;transition:border-color .15s, box-shadow .15s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--primary-border);box-shadow:0 0 0 3px var(--primary-soft)}
+.field textarea{resize:vertical;min-height:70px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:0 16px}
+
+/* ---------- Cards ---------- */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow)}
+.card-h{padding:14px 18px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:10px}
+.card-h h3{font-size:14px;font-weight:600}
+.card-h .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.card-b{padding:18px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:12px;margin-bottom:22px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow);cursor:pointer;transition:transform .14s,border-color .14s}
+.stat:hover{transform:translateY(-2px);border-color:var(--primary-border)}
+.stat .k{font-size:11.5px;color:var(--muted);font-weight:600;display:flex;align-items:center;gap:6px}
+.stat .v{font-size:24px;font-weight:700;margin-top:5px;letter-spacing:-.03em}
+.stat .sub{font-size:11px;color:var(--faint);margin-top:2px}
+
+/* ---------- Table ---------- */
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow)}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:980px}
+thead th{position:sticky;top:0;background:var(--surface2);text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600;padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap;z-index:5}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--border2);vertical-align:middle;white-space:nowrap}
+tbody tr{transition:background .1s;cursor:pointer}
+tbody tr:hover{background:var(--surface2)}
+tbody tr:last-child td{border-bottom:none}
+.cell-main b{display:block;font-weight:600}
+.cell-main span{font-size:11.5px;color:var(--muted)}
+.progress{width:84px;height:5px;border-radius:6px;background:var(--gray-bg);overflow:hidden}
+.progress i{display:block;height:100%;border-radius:6px;background:var(--primary);transition:width .3s}
+.filters{position:sticky;top:56px;z-index:20;display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 0;background:var(--bg);margin-bottom:10px}
+.filters select,.filters input{padding:6.5px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);font-size:12.5px;outline:none}
+
+/* ---------- Kanban ---------- */
+.kanban{display:flex;gap:12px;overflow-x:auto;padding-bottom:16px;align-items:flex-start}
+.kcol{flex:none;width:264px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r)}
+.kcol-h{padding:11px 13px;display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;border-bottom:1px solid var(--border2)}
+.kcol-h .count{margin-left:auto;font-size:11px;color:var(--muted);background:var(--gray-bg);padding:1px 8px;border-radius:12px;font-weight:600}
+.kcol-b{padding:10px;display:flex;flex-direction:column;gap:8px;min-height:70px;max-height:calc(100vh - 250px);overflow-y:auto}
+.kcol.dragover{outline:2px dashed var(--primary-border);outline-offset:-4px}
+.kcard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 12px;cursor:pointer;box-shadow:var(--shadow);transition:transform .13s,border-color .13s}
+.kcard:hover{border-color:var(--primary-border);transform:translateY(-1px)}
+.kcard .inv{font-size:11px;color:var(--faint);font-weight:600}
+.kcard .ttl{font-weight:600;font-size:13px;margin:3px 0 7px}
+.kcard .meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.kcard.dragging{opacity:.4}
+
+/* ---------- Detail / pipeline ---------- */
+.rail{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:18px 8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);margin-bottom:18px}
+.rail-step{flex:1;min-width:78px;text-align:center;position:relative}
+.rail-step::before{content:"";position:absolute;top:9px;left:-50%;width:100%;height:2px;background:var(--border)}
+.rail-step:first-child::before{display:none}
+.rail-step.done::before{background:var(--primary)}
+.rail-dot{width:20px;height:20px;border-radius:50%;background:var(--surface);border:2px solid var(--border);margin:0 auto;position:relative;z-index:2;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;transition:all .2s}
+.rail-step.done .rail-dot{background:var(--primary);border-color:var(--primary)}
+.rail-step.now .rail-dot{border-color:var(--primary);box-shadow:0 0 0 4px var(--primary-soft)}
+.rail-step.now .rail-dot::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--primary)}
+.rail-step span{display:block;font-size:9.5px;font-weight:600;color:var(--faint);margin-top:7px;text-transform:uppercase;letter-spacing:.03em;line-height:1.3;padding:0 3px}
+.rail-step.now span{color:var(--primary)}
+.rail-step.done span{color:var(--muted)}
+.detail-grid{display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start}
+.subtabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.subtab{padding:6px 13px;border-radius:20px;border:1px solid var(--border);background:var(--surface);font-size:12.5px;font-weight:600;color:var(--muted)}
+.subtab.active{background:var(--primary);border-color:var(--primary);color:#fff}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:9px 12px;font-size:13px}
+.kv dt{color:var(--muted)}
+.kv dd{font-weight:500}
+.timeline{position:relative;padding-left:22px}
+.timeline::before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;background:var(--border)}
+.tl-item{position:relative;padding-bottom:16px}
+.tl-item::before{content:"";position:absolute;left:-20.5px;top:4px;width:11px;height:11px;border-radius:50%;background:var(--surface);border:2.5px solid var(--primary)}
+.tl-item .t{font-size:11px;color:var(--faint);font-weight:600}
+.tl-item .x{font-size:13px;margin-top:1px;line-height:1.45}
+.tl-item .x b{font-weight:600}
+.file-folder{border:1px solid var(--border);border-radius:10px;margin-bottom:10px;overflow:hidden}
+.ff-head{display:flex;align-items:center;gap:9px;padding:10px 13px;background:var(--surface2);font-weight:600;font-size:13px;cursor:pointer}
+.ff-head .n{margin-left:auto;font-size:11px;color:var(--muted);background:var(--gray-bg);border-radius:12px;padding:1px 8px}
+.file-row{display:flex;align-items:center;gap:10px;padding:9px 13px;border-top:1px solid var(--border2);font-size:12.5px}
+.file-row .fi{flex:1;min-width:0}
+.file-row .fi b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.file-row .fi span{font-size:11px;color:var(--muted)}
+.vtag{font-size:10px;font-weight:700;color:var(--primary);background:var(--primary-soft);border-radius:6px;padding:2px 6px}
+.action-panel{background:var(--primary-soft);border:1px solid var(--primary-border);border-radius:var(--r);padding:16px 18px;margin-bottom:18px}
+.action-panel h4{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:4px;display:flex;gap:8px;align-items:center}
+.action-panel p{font-size:12.5px;color:var(--muted);margin-bottom:12px}
+.checklist label{display:flex;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:9px;margin-bottom:7px;background:var(--surface);font-size:13px;font-weight:500;cursor:pointer}
+.checklist input{width:15px;height:15px;accent-color:var(--primary)}
+
+/* ---------- Translator cards ---------- */
+.tr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.tr-card{border:1px solid var(--border);border-radius:var(--r);padding:14px;background:var(--surface);cursor:pointer;transition:border-color .14s,transform .14s}
+.tr-card:hover{border-color:var(--primary-border);transform:translateY(-2px)}
+.tr-card.sel{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft)}
+.tr-top{display:flex;gap:10px;align-items:center;margin-bottom:11px}
+.tr-top b{font-size:13.5px;display:block}
+.tr-top span{font-size:11.5px;color:var(--muted)}
+.tr-stats{display:grid;grid-template-columns:1fr 1fr;gap:7px;font-size:11.5px}
+.tr-stats div{background:var(--surface2);border:1px solid var(--border2);border-radius:8px;padding:6px 9px}
+.tr-stats b{display:block;font-size:14px}
+.cap{height:5px;background:var(--gray-bg);border-radius:6px;margin-top:11px;overflow:hidden}
+.cap i{display:block;height:100%;border-radius:6px}
+
+/* ---------- Modal / toast / cmdk ---------- */
+.overlay{position:fixed;inset:0;background:rgba(9,12,20,.5);backdrop-filter:blur(3px);z-index:100;display:flex;align-items:flex-start;justify-content:center;padding:8vh 20px;animation:fadeIn .15s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-lg);width:100%;max-width:560px;max-height:82vh;overflow-y:auto;animation:pop .18s ease}
+.modal.wide{max-width:860px}
+@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.modal-h{padding:16px 20px;border-bottom:1px solid var(--border2);display:flex;align-items:center}
+.modal-h h3{font-size:15px;font-weight:700}
+.modal-h button{margin-left:auto;color:var(--faint);font-size:16px;padding:4px 8px;border-radius:7px}
+.modal-h button:hover{background:var(--gray-bg)}
+.modal-b{padding:20px}
+.modal-f{padding:14px 20px;border-top:1px solid var(--border2);display:flex;gap:8px;justify-content:flex-end}
+.toasts{position:fixed;bottom:20px;right:20px;z-index:200;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--text);color:var(--bg);padding:11px 16px;border-radius:11px;font-size:13px;font-weight:500;box-shadow:var(--shadow-lg);display:flex;gap:9px;align-items:center;animation:slideIn .2s ease;max-width:360px}
+@keyframes slideIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+.cmdk{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:100%;max-width:580px;box-shadow:var(--shadow-lg);overflow:hidden;animation:pop .16s ease}
+.cmdk input{width:100%;padding:15px 18px;border:none;outline:none;background:transparent;font-size:15px;border-bottom:1px solid var(--border2)}
+.cmdk-list{max-height:330px;overflow-y:auto;padding:7px}
+.cmdk-item{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:9px;cursor:pointer;font-size:13.5px}
+.cmdk-item:hover,.cmdk-item.hot{background:var(--primary-soft)}
+.cmdk-item .ico{width:20px;text-align:center;color:var(--muted)}
+.cmdk-item small{margin-left:auto;color:var(--faint);font-size:11px}
+.cmdk-empty,.empty{text-align:center;padding:46px 20px;color:var(--muted)}
+.empty .big{font-size:34px;margin-bottom:10px}
+.empty h4{font-size:15px;color:var(--text);margin-bottom:5px}
+.empty p{font-size:13px;max-width:340px;margin:0 auto 16px;line-height:1.5}
+
+/* ---------- Notifications ---------- */
+.notif-pop{position:absolute;top:calc(100% + 8px);right:0;width:360px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-lg);z-index:60;max-height:420px;overflow-y:auto}
+.notif-row{display:flex;gap:11px;padding:12px 15px;border-bottom:1px solid var(--border2);cursor:pointer}
+.notif-row:hover{background:var(--surface2)}
+.notif-row.unread{background:var(--primary-soft)}
+.notif-row .x{font-size:12.5px;line-height:1.45}
+.notif-row .t{font-size:11px;color:var(--faint);margin-top:2px}
+
+/* ---------- Skeleton ---------- */
+.skel{border-radius:10px;background:linear-gradient(90deg,var(--gray-bg) 25%,var(--border2) 50%,var(--gray-bg) 75%);background-size:200% 100%;animation:shine 1.1s infinite}
+@keyframes shine{to{background-position:-200% 0}}
+
+.list-row{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--border2);font-size:13px}
+.list-row:last-child{border-bottom:none}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:12.5px}
+.bar-row .lbl{width:96px;flex:none;font-weight:600}
+.bar-row .bar{flex:1;height:7px;background:var(--gray-bg);border-radius:6px;overflow:hidden}
+.bar-row .bar i{display:block;height:100%;background:var(--primary);border-radius:6px}
+.bar-row .num{width:36px;text-align:right;color:var(--muted);font-weight:600}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.seg button{padding:6px 13px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--primary-soft);color:var(--primary)}
+.hint{font-size:11.5px;color:var(--faint);line-height:1.5}
+
+@media (max-width:1080px){.detail-grid{grid-template-columns:1fr}}
+@media (max-width:860px){
+  .sidebar{width:64px}
+  .sidebar .nav-item span.lbl,.sidebar .nav-label,.side-brand div,.side-user div{display:none}
+  .nav-item{justify-content:center}.nav-item .count{display:none}
+  .view{padding:16px}.searchbox{width:180px}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toasts" id="toasts"></div>
+<div id="modals"></div>
+<script>
+/* =====================================================================
+   ATLAS 3.0 — Enterprise Translation Workflow (single-file prototype)
+   247 Sworn Translator · In-memory demo data (resets on refresh)
+===================================================================== */
+
+/* ---------------- Constants ---------------- */
+const STATUSES = ["NEW","WAITING TRANSLATOR","TRANSLATION","WAITING PROOFREADER","PROOFREADING",
+  "WAITING AUTHORIZER","AUTHORIZATION","FINAL QC","READY TO PRINT","PRINTED","READY DELIVERY","SHIPPED","COMPLETED"];
+
+const ST_META = {
+  "NEW":               {c:"var(--muted)",  bg:"var(--gray-bg)"},
+  "WAITING TRANSLATOR":{c:"var(--amber)",  bg:"var(--amber-bg)"},
+  "TRANSLATION":       {c:"var(--primary)",bg:"var(--primary-soft)"},
+  "WAITING PROOFREADER":{c:"var(--amber)", bg:"var(--amber-bg)"},
+  "PROOFREADING":      {c:"var(--violet)", bg:"var(--violet-bg)"},
+  "WAITING AUTHORIZER":{c:"var(--amber)",  bg:"var(--amber-bg)"},
+  "AUTHORIZATION":     {c:"var(--pink)",   bg:"var(--pink-bg)"},
+  "FINAL QC":          {c:"var(--cyan)",   bg:"var(--cyan-bg)"},
+  "READY TO PRINT":    {c:"var(--primary)",bg:"var(--primary-soft)"},
+  "PRINTED":           {c:"var(--cyan)",   bg:"var(--cyan-bg)"},
+  "READY DELIVERY":    {c:"var(--amber)",  bg:"var(--amber-bg)"},
+  "SHIPPED":           {c:"var(--violet)", bg:"var(--violet-bg)"},
+  "COMPLETED":         {c:"var(--green)",  bg:"var(--green-bg)"}
+};
+const RAIL_SHORT = ["New","Wait TL","Translate","Wait PR","Proofread","Wait AUTH","Authorize","Final QC","Ready Print","Printed","Delivery","Shipped","Done"];
+
+const KANBAN_COLS = [
+  {name:"New",           sts:["NEW"],                              drop:"NEW"},
+  {name:"Assigned",      sts:["WAITING TRANSLATOR"],               drop:"WAITING TRANSLATOR"},
+  {name:"Translation",   sts:["TRANSLATION"],                      drop:"TRANSLATION"},
+  {name:"Proofreading",  sts:["WAITING PROOFREADER","PROOFREADING"],drop:"WAITING PROOFREADER"},
+  {name:"Authorization", sts:["WAITING AUTHORIZER","AUTHORIZATION"],drop:"WAITING AUTHORIZER"},
+  {name:"QC",            sts:["FINAL QC"],                         drop:"FINAL QC"},
+  {name:"Printing",      sts:["READY TO PRINT","PRINTED"],         drop:"READY TO PRINT"},
+  {name:"Shipping",      sts:["READY DELIVERY","SHIPPED"],         drop:"READY DELIVERY"},
+  {name:"Completed",     sts:["COMPLETED"],                        drop:"COMPLETED"}
+];
+
+const PRIORITIES = {Normal:{c:"var(--muted)",bg:"var(--gray-bg)"},Urgent:{c:"var(--amber)",bg:"var(--amber-bg)"},Express:{c:"var(--red)",bg:"var(--red-bg)"}};
+const FOLDERS = ["Source Files","Translation","Proofreading","Authorization","Final PDF","Scanned Files","Customer Files","Shipping Receipt"];
+const AV_COLORS = ["#2563eb","#7c3aed","#0e7090","#c11574","#b54708","#067647","#b42318","#4338ca","#0f766e","#9d174d"];
+const PRIVILEGED = ["Super Admin","Director","Central Admin"]; // may see authorizer identity
+
+/* ---------------- Seed data ---------------- */
+let BRANCHES = ["Bali","Jakarta","Semarang","Surabaya","Bandung","Yogyakarta","Medan","Makassar","Batam"];
+let LANGS = ["English","Japanese","German","Arabic","Mandarin","Korean","French","Dutch"];
+let SERVICE_TYPES = ["Sworn Translation","Regular Translation","Apostille","Legalization","Sworn + Apostille"];
+let DOC_TYPES = ["Ijazah","Akta Kelahiran","Akta Nikah","KTP/KK","SKCK","Transkrip Nilai","Kontrak","Company Deed"];
+
+let USERS = [
+  {id:"u1", name:"GIN",             role:"Super Admin",        branch:"Bali",      online:true},
+  {id:"u2", name:"Dewi Lestari",    role:"Director",           branch:"Jakarta",   online:true},
+  {id:"u3", name:"Raka Pratama",    role:"Assistant Director", branch:"Jakarta",   online:true},
+  {id:"u4", name:"Sinta Maharani",  role:"Central Admin",      branch:"Jakarta",   online:true},
+  {id:"u5", name:"Yoga Mahendra",   role:"Branch Admin",       branch:"Bali",      online:true},
+  {id:"u6", name:"Putri Andini",    role:"Customer Service",   branch:"Bali",      online:true},
+  {id:"u7", name:"Bagus Santoso",   role:"Customer Service",   branch:"Jakarta",   online:false},
+  {id:"t1", name:"Andi Wijaya",     role:"Translator", branch:"Jakarta", online:true,  langs:["English"],          avg:"6.2h", month:31},
+  {id:"t2", name:"Yuki Sari",       role:"Translator", branch:"Bali",    online:true,  langs:["Japanese"],         avg:"8.4h", month:18},
+  {id:"t3", name:"Clara Hartono",   role:"Translator", branch:"Surabaya",online:false, langs:["German"],           avg:"7.1h", month:22},
+  {id:"t4", name:"Fatimah Zahra",   role:"Translator", branch:"Jakarta", online:true,  langs:["Arabic"],           avg:"9.0h", month:14},
+  {id:"t5", name:"Kevin Tan",       role:"Translator", branch:"Batam",   online:true,  langs:["English","Mandarin"],avg:"5.8h", month:27},
+  {id:"pr1",name:"Nadia Rahma",     role:"Proofreader", branch:"Jakarta", online:true},
+  {id:"pr2",name:"Bimo Aji",        role:"Proofreader", branch:"Yogyakarta", online:true},
+  {id:"a1", name:"Muhammad Arifin", role:"Authorizer", branch:"Jakarta", online:true},
+  {id:"a2", name:"Ella",            role:"Authorizer", branch:"Jakarta", online:true},
+  {id:"a3", name:"Novita",          role:"Authorizer", branch:"Jakarta", online:false},
+  {id:"lg1",name:"Joko Susilo",     role:"Logistics",  branch:"Jakarta", online:true},
+  {id:"f1", name:"Mega Utami",      role:"Finance",    branch:"Jakarta", online:false}
+];
+
+const NOW = Date.now();
+const H = 3600e3, D = 24*H;
+function mkFile(name, by, at, comment){ return {v:1, name, by, at, comment: comment||""}; }
+function seedSub(id, lang, status, opt){
+  opt = opt || {};
+  const files = {}; FOLDERS.forEach(f=>files[f]=[]);
+  (opt.files||[]).forEach(f=>{ const arr=files[f.folder]; f.v=arr.length+1; arr.push(f); });
+  return Object.assign({id, lang, status, translatorId:null, proofreaderId:null, authorizerId:null,
+    files, timeline:[], notes:[], qc:{items:[false,false,false,false,false]}, ship:{}, started:{}, authMeta:null}, opt, {files});
+}
+function tl(sub, offsetH, text, actorId, restricted){
+  sub.timeline.push({t: NOW - offsetH*H, text, actorId, restricted: !!restricted});
+}
+
+let PROJECTS = [
+  {id:"p1", invoice:"INV/2026/07/0231", customer:{name:"Kartika Dewi", phone:"+62 812-3345-7788", email:"kartika.d@gmail.com"},
+   branch:"Bali", service:"Sworn Translation", docType:"Ijazah", qty:3, priority:"Urgent",
+   dlSoft: NOW + 1*D, dlHard: NOW + 3*D, printLoc:"Bali", notes:"Klien butuh untuk pendaftaran kampus di Jerman.",
+   createdAt: NOW - 2*D, createdBy:"u6",
+   subs:[
+     seedSub("p1-de","German","PROOFREADING",{translatorId:"t3",proofreaderId:"pr1",
+       files:[{folder:"Source Files",name:"ijazah_kartika.pdf",by:"u6",at:NOW-2*D,comment:"Scan asli dari klien"},
+              {folder:"Translation",name:"ijazah_kartika_DE_draft.docx",by:"t3",at:NOW-1*D,comment:"Draft pertama"}]}),
+     seedSub("p1-en","English","WAITING AUTHORIZER",{translatorId:"t1",proofreaderId:"pr2",
+       files:[{folder:"Source Files",name:"ijazah_kartika.pdf",by:"u6",at:NOW-2*D},
+              {folder:"Translation",name:"ijazah_kartika_EN_draft.docx",by:"t1",at:NOW-1.5*D},
+              {folder:"Proofreading",name:"ijazah_kartika_EN_proofed.docx",by:"pr2",at:NOW-5,comment:"Approve, minor typo fixed"}]})
+   ]},
+  {id:"p2", invoice:"INV/2026/07/0234", customer:{name:"PT Global Niaga Sejahtera", phone:"+62 21-5566-8899", email:"legal@globalniaga.co.id"},
+   branch:"Jakarta", service:"Sworn + Apostille", docType:"Company Deed", qty:12, priority:"Express",
+   dlSoft: NOW + 0.5*D, dlHard: NOW + 2*D, printLoc:"Jakarta", notes:"Akta perusahaan untuk tender internasional. Perlakukan sebagai prioritas tertinggi.",
+   createdAt: NOW - 1*D, createdBy:"u7",
+   subs:[ seedSub("p2-en","English","TRANSLATION",{translatorId:"t5",
+       files:[{folder:"Source Files",name:"akta_globalniaga_2026.pdf",by:"u7",at:NOW-1*D}]}) ]},
+  {id:"p3", invoice:"INV/2026/07/0228", customer:{name:"Budi Hartanto", phone:"+62 813-9922-1100", email:"budihart@yahoo.com"},
+   branch:"Semarang", service:"Sworn Translation", docType:"Akta Kelahiran", qty:2, priority:"Normal",
+   dlSoft: NOW + 4*D, dlHard: NOW + 6*D, printLoc:"Semarang", notes:"",
+   createdAt: NOW - 3*H, createdBy:"u6",
+   subs:[ seedSub("p3-jp","Japanese","NEW",{files:[{folder:"Source Files",name:"akta_budi.pdf",by:"u6",at:NOW-3*H}]}) ]},
+  {id:"p4", invoice:"INV/2026/07/0225", customer:{name:"Sarah Wijayanti", phone:"+62 811-2200-4433", email:"sarahwj@gmail.com"},
+   branch:"Surabaya", service:"Apostille", docType:"SKCK", qty:1, priority:"Normal",
+   dlSoft: NOW - 0.3*D, dlHard: NOW + 1*D, printLoc:"Surabaya", notes:"Untuk visa kerja Australia.",
+   createdAt: NOW - 4*D, createdBy:"u7",
+   subs:[ seedSub("p4-en","English","FINAL QC",{translatorId:"t1",proofreaderId:"pr1",authorizerId:"a2",
+       authMeta:{at:NOW-6*H, ip:"114.10.44.embed", device:"MacBook Pro", browser:"Chrome 126"},
+       files:[{folder:"Source Files",name:"skck_sarah.pdf",by:"u7",at:NOW-4*D},
+              {folder:"Translation",name:"skck_sarah_EN.docx",by:"t1",at:NOW-3*D},
+              {folder:"Proofreading",name:"skck_sarah_EN_final.docx",by:"pr1",at:NOW-2*D},
+              {folder:"Authorization",name:"skck_sarah_EN_authorized.pdf",by:"a2",at:NOW-6*H,comment:"Stamped and signed"}]}) ]},
+  {id:"p5", invoice:"INV/2026/07/0219", customer:{name:"Yayasan Pelita Bangsa", phone:"+62 274-556-778", email:"admin@pelitabangsa.or.id"},
+   branch:"Yogyakarta", service:"Sworn Translation", docType:"Transkrip Nilai", qty:6, priority:"Normal",
+   dlSoft: NOW - 1*D, dlHard: NOW + 0.5*D, printLoc:"Yogyakarta", notes:"6 transkrip mahasiswa exchange.",
+   createdAt: NOW - 6*D, createdBy:"u6",
+   subs:[ seedSub("p5-en","English","READY TO PRINT",{translatorId:"t5",proofreaderId:"pr2",authorizerId:"a1",
+       authMeta:{at:NOW-1.2*D, ip:"36.68.222.embed", device:"Windows 11", browser:"Edge 125"},
+       qc:{items:[true,true,true,true,true]},
+       files:[{folder:"Source Files",name:"transkrip_6mhs.zip",by:"u6",at:NOW-6*D},
+              {folder:"Translation",name:"transkrip_EN_all.docx",by:"t5",at:NOW-4*D},
+              {folder:"Proofreading",name:"transkrip_EN_proofed.docx",by:"pr2",at:NOW-3*D},
+              {folder:"Authorization",name:"transkrip_EN_auth.pdf",by:"a1",at:NOW-1.2*D},
+              {folder:"Final PDF",name:"transkrip_EN_FINAL.pdf",by:"u4",at:NOW-1*D,comment:"Lolos QC"}]}) ]},
+  {id:"p6", invoice:"INV/2026/07/0212", customer:{name:"Michael Tanuwijaya", phone:"+62 819-8877-5544", email:"mtanu@outlook.com"},
+   branch:"Medan", service:"Sworn Translation", docType:"Akta Nikah", qty:2, priority:"Urgent",
+   dlSoft: NOW - 2*D, dlHard: NOW - 0.5*D, printLoc:"Medan", notes:"",
+   createdAt: NOW - 8*D, createdBy:"u7",
+   subs:[ seedSub("p6-ar","Arabic","READY DELIVERY",{translatorId:"t4",proofreaderId:"pr1",authorizerId:"a3",
+       authMeta:{at:NOW-3*D, ip:"103.28.11.embed", device:"iPad Pro", browser:"Safari 17"},
+       qc:{items:[true,true,true,true,true]},
+       files:[{folder:"Source Files",name:"akta_nikah_michael.pdf",by:"u7",at:NOW-8*D},
+              {folder:"Final PDF",name:"akta_nikah_AR_FINAL.pdf",by:"u4",at:NOW-2*D},
+              {folder:"Scanned Files",name:"akta_nikah_AR_scan.pdf",by:"u5",at:NOW-1*D,comment:"Hasil scan setelah cetak"}]}) ]},
+  {id:"p7", invoice:"INV/2026/06/0198", customer:{name:"Linda Kusuma", phone:"+62 812-4455-6677", email:"lindak@gmail.com"},
+   branch:"Bali", service:"Sworn Translation", docType:"KTP/KK", qty:4, priority:"Normal",
+   dlSoft: NOW - 10*D, dlHard: NOW - 7*D, printLoc:"Bali", notes:"",
+   createdAt: NOW - 14*D, createdBy:"u6",
+   subs:[ seedSub("p7-en","English","COMPLETED",{translatorId:"t1",proofreaderId:"pr2",authorizerId:"a1",
+       authMeta:{at:NOW-10*D, ip:"180.244.9.embed", device:"MacBook Air", browser:"Chrome 126"},
+       qc:{items:[true,true,true,true,true]},
+       ship:{courier:"JNE", tracking:"JNE8827736451", date:NOW-8*D, receipt:true},
+       files:[{folder:"Source Files",name:"kk_ktp_linda.pdf",by:"u6",at:NOW-14*D},
+              {folder:"Final PDF",name:"kk_ktp_EN_FINAL.pdf",by:"u4",at:NOW-10*D},
+              {folder:"Shipping Receipt",name:"resi_JNE8827736451.jpg",by:"lg1",at:NOW-8*D}]}) ]},
+  {id:"p8", invoice:"INV/2026/07/0236", customer:{name:"Kementerian Investasi RI", phone:"+62 21-3344-5566", email:"kerjasama@investasi.go.id"},
+   branch:"Jakarta", service:"Sworn Translation", docType:"Kontrak", qty:8, priority:"Express",
+   dlSoft: NOW + 2*D, dlHard: NOW + 5*D, printLoc:"Jakarta", notes:"Proyek multi-bahasa dalam satu invoice — MoU kerja sama bilateral.",
+   createdAt: NOW - 5*H, createdBy:"u7",
+   subs:[
+     seedSub("p8-en","English","WAITING TRANSLATOR",{translatorId:"t1", files:[{folder:"Source Files",name:"mou_bilateral.pdf",by:"u7",at:NOW-5*H}]}),
+     seedSub("p8-jp","Japanese","NEW",{files:[{folder:"Source Files",name:"mou_bilateral.pdf",by:"u7",at:NOW-5*H}]}),
+     seedSub("p8-de","German","NEW",{files:[{folder:"Source Files",name:"mou_bilateral.pdf",by:"u7",at:NOW-5*H}]}),
+     seedSub("p8-ar","Arabic","NEW",{files:[{folder:"Source Files",name:"mou_bilateral.pdf",by:"u7",at:NOW-5*H}]})
+   ]}
+];
+
+/* seed timelines */
+(function(){
+  const s=(pid,sid)=>PROJECTS.find(p=>p.id===pid).subs.find(x=>x.id===sid);
+  let x=s("p1","p1-de"); tl(x,48,"Project created by Putri Andini (CS Bali)","u6"); tl(x,46,"Translator assigned: Clara Hartono","u3"); tl(x,40,"Translation started","t3"); tl(x,24,"Draft uploaded — ijazah_kartika_DE_draft.docx","t3"); tl(x,22,"Submitted to proofreader Nadia Rahma","t3"); tl(x,20,"Proofreading started","pr1");
+  x=s("p1","p1-en"); tl(x,48,"Project created by Putri Andini (CS Bali)","u6"); tl(x,46,"Translator assigned: Andi Wijaya","u3"); tl(x,36,"Draft uploaded","t1"); tl(x,10,"Proofreading approved — sent to authorization queue","pr2");
+  x=s("p2","p2-en"); tl(x,24,"Project created (Express)","u7"); tl(x,22,"Translator assigned: Kevin Tan","u3"); tl(x,20,"Translation started","t5");
+  x=s("p4","p4-en"); tl(x,96,"Project created","u7"); tl(x,10,"Authorized version uploaded","a2",true); tl(x,6,"Approved by authorizer — sent to Central Admin","a2",true);
+  x=s("p5","p5-en"); tl(x,144,"Project created","u6"); tl(x,26,"Authorization approved","a1",true); tl(x,24,"Final QC passed — ready to print at Yogyakarta branch","u4");
+  x=s("p6","p6-ar"); tl(x,192,"Project created","u7"); tl(x,48,"Printed at Medan branch — blanko reduced by 2","u5"); tl(x,24,"Scanned copy uploaded, customer link generated","u5");
+  x=s("p7","p7-en"); tl(x,336,"Project created","u6"); tl(x,240,"Authorization approved","a1",true); tl(x,192,"Shipped via JNE — JNE8827736451","lg1"); tl(x,168,"Delivered. Project completed","lg1");
+  x=s("p8","p8-en"); tl(x,5,"Project created (multi-language)","u7"); tl(x,3,"Translator assigned: Andi Wijaya","u3");
+  ["p8-jp","p8-de","p8-ar"].forEach(id=>{ tl(s("p8",id),5,"Project created (multi-language)","u7"); });
+  tl(s("p3","p3-jp"),3,"Project created by CS","u6");
+})();
+
+let BLANKO = {Bali:120, Jakarta:340, Semarang:85, Surabaya:140, Bandung:95, Yogyakarta:60, Medan:14, Makassar:70, Batam:55};
+
+let AUDIT = [
+  {t:NOW-6*H, userId:"a2", action:"AUTHORIZE", detail:"INV/2026/07/0225 · English — authorized version approved", ip:"114.10.44.embed", device:"MacBook Pro · Chrome 126"},
+  {t:NOW-1*D, userId:"u4", action:"QC PASS", detail:"INV/2026/07/0219 · English — final QC checklist completed", ip:"36.68.10.embed", device:"Windows 11 · Edge 125"},
+  {t:NOW-1*D, userId:"u5", action:"PRINT", detail:"INV/2026/07/0212 · Arabic — printed 2 documents, blanko Medan -2", ip:"103.28.11.embed", device:"iMac · Chrome 126"},
+  {t:NOW-2*D, userId:"t3", action:"UPLOAD", detail:"INV/2026/07/0231 · German — draft uploaded", ip:"36.72.88.embed", device:"Windows 10 · Firefox 127"},
+  {t:NOW-8*D, userId:"lg1", action:"SHIP", detail:"INV/2026/06/0198 — JNE JNE8827736451", ip:"36.68.14.embed", device:"Android · Chrome Mobile"}
+];
+
+let NOTIFS = []; // {id, userId, text, t, read, link:{pid,subId}}
+let seq = 100;
+const uid = p => p + (++seq);
+
+/* ---------------- App state & helpers ---------------- */
+let S = { user:null, route:{name:"dashboard"}, theme:"light", filters:{branch:"",translator:"",lang:"",status:"",priority:"",q:""}, notifOpen:false, searchQ:"" };
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const U = id => USERS.find(u=>u.id===id);
+const initials = n => n.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
+const avColor = id => AV_COLORS[(String(id).charCodeAt(String(id).length-1)) % AV_COLORS.length];
+function av(userId, size, showOnline){
+  const u = U(userId); if(!u) return '<span class="av sm" style="background:var(--faint)">?</span>';
+  return '<span class="av '+(size||"")+'" style="background:'+avColor(u.id)+'" title="'+esc(u.name)+'">'+initials(u.name)+
+    (showOnline&&u.online?'<span class="dot-on"></span>':'')+'</span>';
+}
+const fmtD = t => new Date(t).toLocaleDateString("en-GB",{day:"2-digit",month:"short"});
+const fmtDT = t => new Date(t).toLocaleDateString("en-GB",{day:"2-digit",month:"short"})+" "+new Date(t).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+function rel(t){ const d=NOW-t; if(d<0) return "in "+Math.round(-d/H)+"h"; if(d<H) return Math.max(1,Math.round(d/60000))+"m ago"; if(d<D) return Math.round(d/H)+"h ago"; return Math.round(d/D)+"d ago"; }
+const stBadge = st => '<span class="badge" style="color:'+ST_META[st].c+';background:'+ST_META[st].bg+'"><span class="b-dot"></span>'+st+'</span>';
+const prBadge = p => '<span class="badge" style="color:'+PRIORITIES[p].c+';background:'+PRIORITIES[p].bg+'">'+p+'</span>';
+const progressOf = st => Math.round(STATUSES.indexOf(st)/(STATUSES.length-1)*100);
+const isLate = (p,sub) => sub.status!=="COMPLETED" && p.dlSoft < NOW;
+const dueToday = p => Math.abs(p.dlSoft-NOW) < D && p.dlSoft >= NOW-2*H;
+
+function canSeeAuth(){ return S.user && PRIVILEGED.includes(S.user.role); }
+function authName(sub){ if(!sub.authorizerId) return "—"; return canSeeAuth() ? U(sub.authorizerId).name : "Authorizer ●●●"; }
+
+/* flattened sub list with parent, filtered by role visibility */
+function allSubs(){
+  const out=[]; PROJECTS.forEach(p=>p.subs.forEach(sub=>out.push({p,sub})));
+  return out;
+}
+function visibleSubs(){
+  const u=S.user, all=allSubs();
+  if(!u) return [];
+  switch(u.role){
+    case "Translator":   return all.filter(x=>x.sub.translatorId===u.id);
+    case "Proofreader":  return all.filter(x=>x.sub.proofreaderId===u.id || (x.sub.status==="WAITING PROOFREADER" && x.sub.proofreaderId===u.id));
+    case "Authorizer":   return all.filter(x=>x.sub.status==="WAITING AUTHORIZER" || x.sub.authorizerId===u.id);
+    case "Logistics":    return all.filter(x=>["READY DELIVERY","SHIPPED","COMPLETED"].includes(x.sub.status));
+    case "Customer Service": case "Branch Admin": return all.filter(x=>x.p.branch===u.branch);
+    default: return all; // Super Admin, Director, Assistant Director, Central Admin, Finance
+  }
+}
+
+function log(action, detail){
+  AUDIT.unshift({t:Date.now(), userId:S.user?S.user.id:"system", action, detail,
+    ip:"114.10."+(Math.floor(Math.random()*200)+10)+".embed", device: navigator.platform + " · " + (navigator.userAgent.includes("Chrome")?"Chrome":"Browser")});
+}
+function notify(userIds, text, pid, subId){
+  userIds.filter(Boolean).forEach(uidX=>{
+    if(S.user && uidX===S.user.id) return;
+    NOTIFS.unshift({id:uid("n"), userId:uidX, text, t:Date.now(), read:false, pid, subId});
+  });
+}
+function notifyAdmins(text, pid, subId){
+  notify(USERS.filter(u=>["Super Admin","Director","Assistant Director","Central Admin"].includes(u.role)).map(u=>u.id), text, pid, subId);
+}
+function myNotifs(){ return NOTIFS.filter(n=>n.userId===S.user.id); }
+function toast(msg, icon){
+  const el=document.createElement("div"); el.className="toast"; el.innerHTML=(icon||"✓")+" "+esc(msg);
+  $("#toasts").appendChild(el); setTimeout(()=>{el.style.opacity="0";el.style.transition="opacity .3s";setTimeout(()=>el.remove(),320)},2600);
+}
+function setStatus(p, sub, status, text, opts){
+  opts=opts||{};
+  sub.status=status;
+  sub.timeline.push({t:Date.now(), text, actorId:S.user.id, restricted:!!opts.restricted});
+  log(opts.action||"STATUS", p.invoice+" · "+sub.lang+" — "+text);
+  const targets=[p.createdBy, sub.translatorId, sub.proofreaderId];
+  notify(targets, p.invoice+" ("+sub.lang+"): "+text, p.id, sub.id);
+  notifyAdmins(p.invoice+" ("+sub.lang+") → "+status, p.id, sub.id);
+}
+function findSub(pid, subId){ const p=PROJECTS.find(x=>x.id===pid); return {p, sub:p.subs.find(s=>s.id===subId)}; }
+
+/* ---------------- Router ---------------- */
+function go(name, params){
+  S.route = Object.assign({name}, params||{});
+  S.notifOpen=false;
+  render(true);
+}
+function render(withSkeleton){
+  const app=$("#app");
+  if(!S.user){ app.innerHTML=loginView(); return; }
+  app.innerHTML=shell();
+  const v=$("#viewbox");
+  if(withSkeleton){
+    v.innerHTML='<div class="view">'+skeleton()+'</div>';
+    setTimeout(()=>{ v.innerHTML=routeView(); afterRender(); }, 230);
+  } else { v.innerHTML=routeView(); afterRender(); }
+}
+function skeleton(){
+  return '<div style="display:flex;gap:12px;margin-bottom:18px">'+ '<div class="skel" style="height:86px;flex:1"></div>'.repeat(4) +'</div>'+
+    '<div class="skel" style="height:44px;margin-bottom:10px"></div>'+
+    '<div class="skel" style="height:340px"></div>';
+}
+function routeView(){
+  switch(S.route.name){
+    case "dashboard": return vDashboard();
+    case "projects":  return vProjects();
+    case "kanban":    return vKanban();
+    case "detail":    return vDetail();
+    case "create":    return vCreate();
+    case "reports":   return vReports();
+    case "audit":     return vAudit();
+    case "settings":  return vSettings();
+    case "notifs":    return vNotifs();
+    default: return vDashboard();
+  }
+}
+function afterRender(){ bindDnd(); }
+
+/* ---------------- Login ---------------- */
+function loginView(){
+  const groups={};
+  USERS.forEach(u=>{ (groups[u.role]=groups[u.role]||[]).push(u); });
+  let html='<div class="login"><div class="login-card">'+
+    '<div class="brand"><div class="brand-mark">A3</div><div><h1>ATLAS 3.0</h1><small>247 SWORN TRANSLATOR · ENTERPRISE WORKFLOW</small></div></div>'+
+    '<p class="login-sub">Prototype demo — pilih user untuk masuk. Setiap role hanya melihat menu, project, dan aksi miliknya sendiri. Data berjalan di memori dan ter-reset saat halaman dimuat ulang.</p>';
+  Object.keys(groups).forEach(role=>{
+    html+='<div class="role-group"><h4>'+esc(role)+'</h4><div class="user-grid">';
+    groups[role].forEach(u=>{
+      html+='<button class="user-chip" onclick="login(\''+u.id+'\')">'+av(u.id,"",true)+'<div><b>'+esc(u.name)+'</b><span>'+esc(u.branch)+(u.langs?' · '+u.langs.join(", "):'')+'</span></div></button>';
+    });
+    html+='</div></div>';
+  });
+  return html+'</div></div>';
+}
+function login(id){
+  S.user=U(id);
+  S.route={name:"dashboard"};
+  log("LOGIN", S.user.name+" signed in ("+S.user.role+")");
+  render(true);
+  toast("Signed in as "+S.user.name, "👋");
+}
+function logout(){ log("LOGOUT", S.user.name+" signed out"); S.user=null; render(); }
+
+/* ---------------- Shell ---------------- */
+function menuFor(role){
+  const m=[{label:"Workspace"}];
+  const item=(n,ico,txt,count)=>({n,ico,txt,count});
+  m.push(item("dashboard","▦","Dashboard"));
+  const mine=visibleSubs().filter(x=>x.sub.status!=="COMPLETED").length;
+  if(["Translator","Proofreader","Authorizer","Logistics"].includes(role)){
+    m.push(item("projects","◧", role==="Logistics"?"Delivery Queue":"My Jobs", mine));
+  } else {
+    m.push(item("projects","◧","Projects", mine));
+    m.push(item("kanban","▤","Kanban Board"));
+  }
+  if(["Customer Service","Branch Admin","Super Admin","Director"].includes(role)) m.push(item("create","＋","New Project"));
+  m.push({label:"Insight"});
+  if(["Super Admin","Director","Assistant Director","Central Admin","Finance","Branch Admin"].includes(role)) m.push(item("reports","◔","Reports"));
+  if(["Super Admin","Director"].includes(role)) m.push(item("audit","☰","Audit Log"));
+  m.push(item("notifs","◍","Notifications", myNotifs().filter(n=>!n.read).length||""));
+  if(["Super Admin","Director","Central Admin"].includes(role)){ m.push({label:"Admin"}); m.push(item("settings","⚙","Settings")); }
+  return m;
+}
+function shell(){
+  const u=S.user;
+  const unread=myNotifs().filter(n=>!n.read).length;
+  let nav="";
+  menuFor(u.role).forEach(it=>{
+    if(it.label){ nav+='<div class="nav-label">'+it.label+'</div>'; return; }
+    nav+='<button class="nav-item '+(S.route.name===it.n?"active":"")+'" onclick="go(\''+it.n+'\')"><span class="ico">'+it.ico+'</span><span class="lbl">'+it.txt+'</span>'+(it.count?'<span class="count">'+it.count+'</span>':'')+'</button>';
+  });
+  const crumbs={dashboard:"Dashboard",projects:"Projects",kanban:"Kanban Board",detail:"Project Detail",create:"New Project",reports:"Reports",audit:"Audit Log",settings:"Settings",notifs:"Notifications"};
+  return '<div class="shell">'+
+    '<aside class="sidebar"><div class="side-brand"><div class="brand-mark">A3</div><div><b>ATLAS 3.0</b><small>247 Sworn Translator</small></div></div>'+
+    '<nav class="nav">'+nav+'</nav>'+
+    '<div class="side-user">'+av(u.id,"",true)+'<div><b>'+esc(u.name)+'</b><span>'+esc(u.role)+'</span></div><button onclick="logout()" title="Sign out">⏻</button></div></aside>'+
+    '<div class="main"><header class="topbar">'+
+      '<div class="crumb">247 ST <span style="color:var(--faint)">/</span> <b>'+crumbs[S.route.name]+'</b></div>'+
+      '<div class="searchbox"><span class="ico">⌕</span><input id="gsearch" placeholder="Search invoice, customer, tracking..." oninput="globalSearch(this.value)" autocomplete="off"><kbd>Ctrl K</kbd><div id="searchpop"></div></div>'+
+      '<button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">'+(S.theme==="light"?"◑":"◐")+'</button>'+
+      '<button class="icon-btn" onclick="toggleNotif(event)" title="Notifications">◍'+(unread?'<span class="bubble">'+unread+'</span>':'')+'<div id="notifpop"></div></button>'+
+    '</header><div id="viewbox"></div></div></div>';
+}
+function toggleTheme(){ S.theme=S.theme==="light"?"dark":"light"; document.documentElement.dataset.theme=S.theme; render(); }
+
+/* ---------------- Dashboard ---------------- */
+function vDashboard(){
+  const subs=visibleSubs();
+  const cnt=st=>subs.filter(x=>x.sub.status===st).length;
+  const grp=arr=>subs.filter(x=>arr.includes(x.sub.status)).length;
+  const urgent=subs.filter(x=>x.p.priority!=="Normal" && x.sub.status!=="COMPLETED").length;
+  const late=subs.filter(x=>isLate(x.p,x.sub)).length;
+  const today=subs.filter(x=>dueToday(x.p) && x.sub.status!=="COMPLETED").length;
+  const done=subs.filter(x=>x.sub.status==="COMPLETED").length;
+  const stats=[
+    ["New", cnt("NEW"), "waiting assignment", "NEW"],
+    ["Translation", grp(["WAITING TRANSLATOR","TRANSLATION"]), "in progress", "TRANSLATION"],
+    ["Proofreading", grp(["WAITING PROOFREADER","PROOFREADING"]), "in review", "PROOFREADING"],
+    ["Authorization", grp(["WAITING AUTHORIZER","AUTHORIZATION"]), "in queue", "WAITING AUTHORIZER"],
+    ["Final QC", cnt("FINAL QC"), "central admin", "FINAL QC"],
+    ["Printing", grp(["READY TO PRINT","PRINTED"]), "at branches", "READY TO PRINT"],
+    ["Delivery", grp(["READY DELIVERY","SHIPPED"]), "with logistics", "READY DELIVERY"],
+    ["Completed", done, "all time", "COMPLETED"]
+  ];
+  let html='<div class="view"><div class="page-head"><div><h2>'+greet()+', '+esc(S.user.name.split(" ")[0])+'</h2><p>'+
+    (S.user.role==="Translator"||S.user.role==="Proofreader"||S.user.role==="Authorizer"?'Ringkasan pekerjaan yang ditugaskan kepada Anda.':'Ringkasan operasional lintas cabang, '+fmtD(NOW)+'.')+'</p></div>'+
+    '<div class="actions">'+(["Customer Service","Branch Admin","Super Admin","Director"].includes(S.user.role)?'<button class="btn primary" onclick="go(\'create\')">＋ New Project</button>':'')+'</div></div>';
+  html+='<div class="stat-grid">';
+  stats.forEach(s=>{ html+='<div class="stat" onclick="filterStatus(\''+s[3]+'\')"><div class="k">'+s[0]+'</div><div class="v mono">'+s[1]+'</div><div class="sub">'+s[2]+'</div></div>'; });
+  html+='<div class="stat" onclick="filterStatus(\'\')" style="border-color:color-mix(in srgb,var(--amber) 40%,var(--border))"><div class="k" style="color:var(--amber)">⚡ Urgent + Express</div><div class="v mono">'+urgent+'</div><div class="sub">need attention</div></div>';
+  html+='<div class="stat" style="border-color:color-mix(in srgb,var(--red) 40%,var(--border))"><div class="k" style="color:var(--red)">Late</div><div class="v mono">'+late+'</div><div class="sub">past softcopy deadline</div></div>';
+  html+='<div class="stat"><div class="k">Due Today</div><div class="v mono">'+today+'</div><div class="sub">softcopy deadline</div></div>';
+  html+='<div class="stat"><div class="k">Avg Completion</div><div class="v mono">2.4d</div><div class="sub">last 30 days</div></div>';
+  html+='</div>';
+
+  /* attention list + performance */
+  const attention=subs.filter(x=>x.sub.status!=="COMPLETED" && (isLate(x.p,x.sub)||x.p.priority!=="Normal")).slice(0,6);
+  html+='<div class="detail-grid"><div>';
+  html+='<div class="card" style="margin-bottom:18px"><div class="card-h"><h3>Needs attention</h3><div class="right"><button class="btn sm" onclick="go(\'projects\')">View all</button></div></div><div class="card-b" style="padding:6px 18px">';
+  if(!attention.length) html+='<div class="empty"><div class="big">🎉</div><h4>Semua terkendali</h4><p>Tidak ada project terlambat atau prioritas tinggi yang menunggu.</p></div>';
+  attention.forEach(x=>{
+    html+='<div class="list-row" style="cursor:pointer" onclick="go(\'detail\',{pid:\''+x.p.id+'\',subId:\''+x.sub.id+'\'})">'+
+      '<div class="cell-main" style="flex:1;min-width:0"><b>'+esc(x.p.customer.name)+' · '+x.sub.lang+'</b><span>'+x.p.invoice+' · '+esc(x.p.branch)+'</span></div>'+
+      (isLate(x.p,x.sub)?'<span class="badge" style="color:var(--red);background:var(--red-bg)">Late</span>':'')+prBadge(x.p.priority)+stBadge(x.sub.status)+'</div>';
+  });
+  html+='</div></div>';
+  /* branch performance */
+  if(!["Translator","Proofreader","Authorizer","Logistics"].includes(S.user.role)){
+    html+='<div class="card"><div class="card-h"><h3>Branch performance</h3><div class="right hint">active sub-projects</div></div><div class="card-b">';
+    BRANCHES.forEach(b=>{
+      const n=allSubs().filter(x=>x.p.branch===b && x.sub.status!=="COMPLETED").length;
+      const max=Math.max(1,...BRANCHES.map(bb=>allSubs().filter(x=>x.p.branch===bb && x.sub.status!=="COMPLETED").length));
+      html+='<div class="bar-row"><span class="lbl">'+b+'</span><div class="bar"><i style="width:'+(n/max*100)+'%"></i></div><span class="num mono">'+n+'</span></div>';
+    });
+    html+='</div></div>';
+  }
+  html+='</div><div>';
+  /* translator performance */
+  html+='<div class="card" style="margin-bottom:18px"><div class="card-h"><h3>Translator workload</h3></div><div class="card-b" style="padding:6px 18px">';
+  USERS.filter(u=>u.role==="Translator").forEach(t=>{
+    const cur=allSubs().filter(x=>x.sub.translatorId===t.id && !["COMPLETED"].includes(x.sub.status)).length;
+    html+='<div class="list-row">'+av(t.id,"",true)+'<div style="flex:1"><b style="font-size:12.5px">'+esc(t.name)+'</b><div class="hint">'+t.langs.join(", ")+' · avg '+t.avg+'</div></div><span class="badge" style="color:'+(cur>=4?"var(--red)":"var(--muted)")+';background:'+(cur>=4?"var(--red-bg)":"var(--gray-bg)")+'">'+cur+' active</span></div>';
+  });
+  html+='</div></div>';
+  /* activity */
+  html+='<div class="card"><div class="card-h"><h3>Recent activity</h3></div><div class="card-b"><div class="timeline">';
+  const acts=[]; allSubs().forEach(x=>x.sub.timeline.forEach(e=>acts.push({e,x})));
+  acts.sort((a,b)=>b.e.t-a.e.t).slice(0,7).forEach(({e,x})=>{
+    const who=e.restricted&&!canSeeAuth()?"Authorizer ●●●":(U(e.actorId)?U(e.actorId).name:"System");
+    html+='<div class="tl-item"><div class="t">'+rel(e.t)+' · '+x.p.invoice+'</div><div class="x"><b>'+esc(who)+'</b> — '+esc(e.text)+'</div></div>';
+  });
+  html+='</div></div></div>';
+  return html+'</div></div></div>';
+}
+function greet(){ const h=new Date().getHours(); return h<11?"Selamat pagi":h<15?"Selamat siang":h<19?"Selamat sore":"Selamat malam"; }
+function filterStatus(st){ S.filters={branch:"",translator:"",lang:"",status:st,priority:"",q:""}; go("projects"); }
+
+/* ---------------- Projects table ---------------- */
+function vProjects(){
+  const f=S.filters;
+  let rows=visibleSubs();
+  if(f.branch) rows=rows.filter(x=>x.p.branch===f.branch);
+  if(f.translator) rows=rows.filter(x=>x.sub.translatorId===f.translator);
+  if(f.lang) rows=rows.filter(x=>x.sub.lang===f.lang);
+  if(f.status) rows=rows.filter(x=>x.sub.status===f.status || (f.status==="TRANSLATION"&&["WAITING TRANSLATOR","TRANSLATION"].includes(x.sub.status)) || (f.status==="PROOFREADING"&&["WAITING PROOFREADER","PROOFREADING"].includes(x.sub.status)) || (f.status==="WAITING AUTHORIZER"&&["WAITING AUTHORIZER","AUTHORIZATION"].includes(x.sub.status)) || (f.status==="READY TO PRINT"&&["READY TO PRINT","PRINTED"].includes(x.sub.status)) || (f.status==="READY DELIVERY"&&["READY DELIVERY","SHIPPED"].includes(x.sub.status)));
+  if(f.priority) rows=rows.filter(x=>x.p.priority===f.priority);
+  if(f.q){ const q=f.q.toLowerCase(); rows=rows.filter(x=> (x.p.invoice+x.p.customer.name+x.p.customer.phone+x.sub.lang+x.p.branch+(x.sub.ship.tracking||"")).toLowerCase().includes(q)); }
+  rows.sort((a,b)=>a.p.dlSoft-b.p.dlSoft);
+  const isStaff=["Translator","Proofreader","Authorizer","Logistics"].includes(S.user.role);
+  const opt=(arr,sel,all)=>'<option value="">'+all+'</option>'+arr.map(v=>'<option '+(sel===v?"selected":"")+'>'+v+'</option>').join("");
+  let html='<div class="view"><div class="page-head"><div><h2>'+(isStaff?(S.user.role==="Logistics"?"Delivery Queue":"My Jobs"):"Projects")+'</h2><p>'+rows.length+' sub-project'+(rows.length!==1?"s":"")+(isStaff?" ditugaskan kepada Anda":" · semua cabang sesuai akses Anda")+'</p></div>'+
+    '<div class="actions">'+(["Customer Service","Branch Admin","Super Admin","Director"].includes(S.user.role)?'<button class="btn primary" onclick="go(\'create\')">＋ New Project</button>':'')+'</div></div>';
+  html+='<div class="filters">'+
+    '<input placeholder="⌕ Filter results..." value="'+esc(f.q)+'" oninput="S.filters.q=this.value;refreshTable()" style="width:190px">'+
+    '<select onchange="S.filters.branch=this.value;refreshTable()">'+opt(BRANCHES,f.branch,"All branches")+'</select>'+
+    '<select onchange="S.filters.lang=this.value;refreshTable()">'+opt(LANGS,f.lang,"All languages")+'</select>'+
+    '<select onchange="S.filters.status=this.value;refreshTable()">'+opt(STATUSES,f.status,"All statuses")+'</select>'+
+    '<select onchange="S.filters.priority=this.value;refreshTable()">'+opt(Object.keys(PRIORITIES),f.priority,"All priorities")+'</select>'+
+    '<select onchange="S.filters.translator=this.value;refreshTable()"><option value="">All translators</option>'+USERS.filter(u=>u.role==="Translator").map(t=>'<option value="'+t.id+'" '+(f.translator===t.id?"selected":"")+'>'+t.name+'</option>').join("")+'</select>'+
+    (Object.values(f).some(v=>v)?'<button class="btn sm" onclick="S.filters={branch:\'\',translator:\'\',lang:\'\',status:\'\',priority:\'\',q:\'\'};refreshTable()">✕ Clear</button>':'')+
+    '</div><div id="tblhost">'+tableHtml(rows)+'</div></div>';
+  return html;
+}
+function refreshTable(){ $("#viewbox").innerHTML=vProjects(); }
+function tableHtml(rows){
+  if(!rows.length) return '<div class="card"><div class="empty"><div class="big">◫</div><h4>Tidak ada project</h4><p>Ubah filter, atau buat project baru untuk memulai alur kerja.</p></div></div>';
+  let h='<div class="tbl-wrap"><table><thead><tr><th>Invoice</th><th>Customer</th><th>Language</th><th>Branch</th><th>Translator</th><th>Proofreader</th><th>Authorizer</th><th>Deadline</th><th>Priority</th><th>Status</th><th>Progress</th><th>Updated</th></tr></thead><tbody>';
+  rows.forEach(x=>{
+    const last=x.sub.timeline.length?x.sub.timeline[x.sub.timeline.length-1].t:x.p.createdAt;
+    h+='<tr onclick="go(\'detail\',{pid:\''+x.p.id+'\',subId:\''+x.sub.id+'\'})">'+
+      '<td class="mono" style="font-weight:600">'+x.p.invoice+'</td>'+
+      '<td class="cell-main"><b>'+esc(x.p.customer.name)+'</b><span>'+esc(x.p.service)+'</span></td>'+
+      '<td>'+x.sub.lang+'</td><td>'+esc(x.p.branch)+'</td>'+
+      '<td>'+(x.sub.translatorId?av(x.sub.translatorId,"sm")+" "+esc(U(x.sub.translatorId).name.split(" ")[0]):'<span class="hint">—</span>')+'</td>'+
+      '<td>'+(x.sub.proofreaderId?av(x.sub.proofreaderId,"sm")+" "+esc(U(x.sub.proofreaderId).name.split(" ")[0]):'<span class="hint">—</span>')+'</td>'+
+      '<td>'+(x.sub.authorizerId?(canSeeAuth()?av(x.sub.authorizerId,"sm")+" "+esc(U(x.sub.authorizerId).name.split(" ")[0]):'<span class="hint">●●●</span>'):'<span class="hint">—</span>')+'</td>'+
+      '<td class="mono" style="color:'+(isLate(x.p,x.sub)?"var(--red)":"inherit")+'">'+fmtD(x.p.dlSoft)+(isLate(x.p,x.sub)?" ⚠":"")+'</td>'+
+      '<td>'+prBadge(x.p.priority)+'</td><td>'+stBadge(x.sub.status)+'</td>'+
+      '<td><div class="progress"><i style="width:'+progressOf(x.sub.status)+'%"></i></div></td>'+
+      '<td class="hint">'+rel(last)+'</td></tr>';
+  });
+  return h+'</tbody></table></div>';
+}
+
+/* ---------------- Kanban ---------------- */
+const CAN_DRAG = ()=>["Super Admin","Director","Assistant Director","Central Admin"].includes(S.user.role);
+function vKanban(){
+  const subs=visibleSubs();
+  let html='<div class="view" style="max-width:none"><div class="page-head"><div><h2>Kanban Board</h2><p>'+
+    (CAN_DRAG()?'Tarik kartu antar kolom untuk mengubah status secara langsung.':'Tampilan baca — perubahan status mengikuti alur kerja masing-masing role.')+'</p></div></div><div class="kanban">';
+  KANBAN_COLS.forEach((col,ci)=>{
+    const cards=subs.filter(x=>col.sts.includes(x.sub.status));
+    html+='<div class="kcol" data-col="'+ci+'"><div class="kcol-h"><span class="b-dot" style="width:8px;height:8px;border-radius:50%;background:'+ST_META[col.drop].c+'"></span>'+col.name+'<span class="count mono">'+cards.length+'</span></div><div class="kcol-b" data-col="'+ci+'">';
+    if(!cards.length) html+='<div class="hint" style="text-align:center;padding:14px 6px">Kosong</div>';
+    cards.forEach(x=>{
+      html+='<div class="kcard" draggable="'+CAN_DRAG()+'" data-key="'+x.p.id+'|'+x.sub.id+'" onclick="go(\'detail\',{pid:\''+x.p.id+'\',subId:\''+x.sub.id+'\'})">'+
+        '<div class="inv mono">'+x.p.invoice+'</div><div class="ttl">'+esc(x.p.customer.name)+'</div>'+
+        '<div class="meta"><span class="badge" style="background:var(--gray-bg);color:var(--muted)">'+x.sub.lang+'</span>'+prBadge(x.p.priority)+
+        (isLate(x.p,x.sub)?'<span class="badge" style="color:var(--red);background:var(--red-bg)">Late</span>':'')+
+        '<span style="margin-left:auto">'+(x.sub.translatorId?av(x.sub.translatorId,"sm"):"")+'</span></div></div>';
+    });
+    html+='</div></div>';
+  });
+  return html+'</div></div>';
+}
+function bindDnd(){
+  document.querySelectorAll(".kcard[draggable='true']").forEach(c=>{
+    c.addEventListener("dragstart",e=>{ e.dataTransfer.setData("text/plain",c.dataset.key); c.classList.add("dragging"); });
+    c.addEventListener("dragend",()=>c.classList.remove("dragging"));
+  });
+  document.querySelectorAll(".kcol").forEach(col=>{
+    col.addEventListener("dragover",e=>{ e.preventDefault(); col.classList.add("dragover"); });
+    col.addEventListener("dragleave",()=>col.classList.remove("dragover"));
+    col.addEventListener("drop",e=>{
+      e.preventDefault(); col.classList.remove("dragover");
+      const key=e.dataTransfer.getData("text/plain"); if(!key) return;
+      const [pid,subId]=key.split("|"); const {p,sub}=findSub(pid,subId);
+      const target=KANBAN_COLS[+col.dataset.col].drop;
+      if(sub.status===target) return;
+      setStatus(p,sub,target,"Status changed to "+target+" via Kanban drag",{action:"KANBAN"});
+      toast(p.invoice+" ("+sub.lang+") → "+target);
+      render();
+    });
+  });
+}
+
+/* ---------------- Create project (Step 1: Customer Service) ---------------- */
+function vCreate(){
+  const branchDefault=S.user.branch;
+  const langChecks=LANGS.map(l=>'<label style="display:inline-flex;gap:6px;align-items:center;margin:0 14px 8px 0;font-size:13px;font-weight:500"><input type="checkbox" class="langck" value="'+l+'" style="accent-color:var(--primary)"> '+l+'</label>').join("");
+  return '<div class="view" style="max-width:820px"><div class="page-head"><div><h2>New Project</h2><p>Step 1 — Customer Service membuat project. Setiap bahasa yang dipilih menjadi sub-project dengan alur kerja sendiri dalam satu invoice.</p></div></div>'+
+  '<div class="card"><div class="card-b">'+
+  '<div class="grid2">'+
+    fld("Invoice Number","c_inv","INV/2026/07/0"+(237+PROJECTS.length))+
+    fld("Customer Name","c_name","")+
+    fld("Phone","c_phone","+62 ")+
+    fld("Email","c_email","")+
+    sel("Branch","c_branch",BRANCHES,branchDefault)+
+    sel("Service Type","c_service",SERVICE_TYPES)+
+    sel("Document Type","c_doc",DOC_TYPES)+
+    fld("Document Quantity","c_qty","2","number")+
+    fld("Deadline Softcopy","c_dls","","date")+
+    fld("Deadline Hardcopy","c_dlh","","date")+
+    sel("Print Location","c_print",BRANCHES,branchDefault)+
+    sel("Priority","c_prio",["Normal","Urgent","Express"])+
+  '</div>'+
+  '<div class="field"><label>Language Pairs (Indonesian → …) — pilih satu atau lebih</label><div style="padding:6px 2px">'+langChecks+'</div></div>'+
+  '<div class="field"><label>Internal Notes</label><textarea id="c_notes" placeholder="Catatan internal, tidak terlihat oleh klien"></textarea></div>'+
+  '<div class="field"><label>Upload Source Files</label><div id="dropzone" style="border:1.5px dashed var(--border);border-radius:11px;padding:22px;text-align:center;color:var(--muted);cursor:pointer;transition:border-color .15s" onclick="mockAddSource()" ondragover="event.preventDefault();this.style.borderColor=\'var(--primary)\'" ondragleave="this.style.borderColor=\'var(--border)\'" ondrop="event.preventDefault();this.style.borderColor=\'var(--border)\';mockAddSource()">⇪ Drag & drop file di sini, atau klik untuk menambahkan <div class="hint" style="margin-top:4px">(simulasi — metadata file dicatat, file tidak benar-benar diunggah)</div></div><div id="srcfiles" style="margin-top:8px"></div></div>'+
+  '</div><div class="modal-f" style="border:none;padding:0 0 30px"><button class="btn" onclick="go(\'dashboard\')">Cancel</button><button class="btn primary" onclick="createProject()">Create Project</button></div></div></div>';
+}
+let PENDING_SRC=[];
+function fld(label,id,val,type){ return '<div class="field"><label>'+label+'</label><input id="'+id+'" type="'+(type||"text")+'" value="'+esc(val)+'"></div>'; }
+function sel(label,id,arr,defVal){ return '<div class="field"><label>'+label+'</label><select id="'+id+'">'+arr.map(v=>'<option '+(v===defVal?"selected":"")+'>'+v+'</option>').join("")+'</select></div>'; }
+function mockAddSource(){
+  const names=["dokumen_scan.pdf","ijazah_asli.pdf","akta_scan.jpg","paspor_hal1.pdf","transkrip.pdf"];
+  const n=names[PENDING_SRC.length%names.length].replace(".", "_"+(PENDING_SRC.length+1)+".");
+  PENDING_SRC.push(n);
+  $("#srcfiles").innerHTML=PENDING_SRC.map(f=>'<span class="badge" style="background:var(--primary-soft);color:var(--primary);margin:0 6px 6px 0">📄 '+f+'</span>').join("");
+}
+function createProject(){
+  const v=id=>$("#"+id).value.trim();
+  const langs=[...document.querySelectorAll(".langck:checked")].map(c=>c.value);
+  if(!v("c_name")) return toast("Nama customer wajib diisi","⚠");
+  if(!langs.length) return toast("Pilih minimal satu bahasa","⚠");
+  const pid=uid("p");
+  const files=(PENDING_SRC.length?PENDING_SRC:["source_document.pdf"]).map(n=>({folder:"Source Files",name:n,by:S.user.id,at:Date.now(),comment:"Uploaded at project creation"}));
+  const p={id:pid, invoice:v("c_inv"), customer:{name:v("c_name"),phone:v("c_phone"),email:v("c_email")},
+    branch:v("c_branch"), service:v("c_service"), docType:v("c_doc"), qty:+v("c_qty")||1, priority:v("c_prio"),
+    dlSoft: v("c_dls")?new Date(v("c_dls")).getTime():Date.now()+3*D, dlHard: v("c_dlh")?new Date(v("c_dlh")).getTime():Date.now()+5*D,
+    printLoc:v("c_print"), notes:v("c_notes"), createdAt:Date.now(), createdBy:S.user.id,
+    subs: langs.map(l=>seedSub(pid+"-"+l.slice(0,2).toLowerCase(),l,"NEW",{files:files.map(f=>Object.assign({},f))}))
+  };
+  p.subs.forEach(sub=>sub.timeline.push({t:Date.now(),text:"Project created by "+S.user.name+" ("+S.user.role+" "+S.user.branch+")",actorId:S.user.id}));
+  PROJECTS.unshift(p);
+  PENDING_SRC=[];
+  log("CREATE", p.invoice+" — "+langs.length+" language(s), "+p.priority);
+  notifyAdmins("New project "+p.invoice+" ("+langs.join(", ")+") — "+p.priority, p.id, p.subs[0].id);
+  toast("Project "+p.invoice+" dibuat — status NEW");
+  go("detail",{pid:p.id, subId:p.subs[0].id});
+}
+
+/* ---------------- Project detail ---------------- */
+function vDetail(){
+  const p=PROJECTS.find(x=>x.id===S.route.pid); if(!p) return vDashboard();
+  const sub=p.subs.find(s=>s.id===S.route.subId)||p.subs[0];
+  const idx=STATUSES.indexOf(sub.status);
+  let html='<div class="view"><div class="page-head"><div>'+
+    '<div class="hint" style="margin-bottom:4px"><a onclick="go(\'projects\')" style="cursor:pointer">Projects</a> / <span class="mono">'+p.invoice+'</span></div>'+
+    '<h2>'+esc(p.customer.name)+'</h2><p>'+esc(p.service)+' · '+esc(p.docType)+' · '+p.qty+' dokumen · '+esc(p.branch)+' branch</p></div>'+
+    '<div class="actions">'+prBadge(p.priority)+stBadge(sub.status)+'</div></div>';
+  /* sub-project tabs */
+  if(p.subs.length>1){
+    html+='<div class="subtabs">'+p.subs.map(s=>'<button class="subtab '+(s.id===sub.id?"active":"")+'" onclick="go(\'detail\',{pid:\''+p.id+'\',subId:\''+s.id+'\'})">'+s.lang+' · '+RAIL_SHORT[STATUSES.indexOf(s.status)]+'</button>').join("")+'</div>';
+  }
+  /* pipeline rail */
+  html+='<div class="rail">'+STATUSES.map((st,i)=>'<div class="rail-step '+(i<idx?"done":i===idx?"now":"")+'"><div class="rail-dot">'+(i<idx?"✓":"")+'</div><span>'+RAIL_SHORT[i]+'</span></div>').join("")+'</div>';
+  /* action panel for current user */
+  html+=actionPanel(p,sub);
+  html+='<div class="detail-grid"><div>';
+  /* info */
+  html+='<div class="card" style="margin-bottom:18px"><div class="card-h"><h3>Project information</h3></div><div class="card-b"><dl class="kv">'+
+    kv("Invoice",'<span class="mono">'+p.invoice+'</span>')+kv("Customer",esc(p.customer.name))+
+    kv("Phone",esc(p.customer.phone))+kv("Email",esc(p.customer.email))+
+    kv("Language",sub.lang+" (ID → "+sub.lang+")")+kv("Service",esc(p.service))+
+    kv("Deadline Soft",'<span class="mono" style="color:'+(isLate(p,sub)?"var(--red)":"inherit")+'">'+fmtDT(p.dlSoft)+(isLate(p,sub)?" · LATE":"")+'</span>')+
+    kv("Deadline Hard",'<span class="mono">'+fmtDT(p.dlHard)+'</span>')+
+    kv("Print Location",esc(p.printLoc))+
+    kv("Translator",sub.translatorId?av(sub.translatorId,"sm")+" "+esc(U(sub.translatorId).name):"—")+
+    kv("Proofreader",sub.proofreaderId?av(sub.proofreaderId,"sm")+" "+esc(U(sub.proofreaderId).name):"—")+
+    kv("Authorizer",authName(sub)+(sub.authMeta&&canSeeAuth()?' <span class="hint">· '+sub.authMeta.browser+' · '+sub.authMeta.device+' · IP '+sub.authMeta.ip+'</span>':""))+
+    (sub.ship.tracking?kv("Shipping",esc(sub.ship.courier)+' · <span class="mono">'+esc(sub.ship.tracking)+'</span> · <a href="#" onclick="toast(\'Tracking link disalin (simulasi)\',\'🔗\');return false">tracking link</a>'):"")+
+    '</dl>'+(p.notes?'<div style="margin-top:14px;padding:11px 13px;background:var(--amber-bg);border-radius:10px;font-size:12.5px"><b style="color:var(--amber)">Internal notes:</b> '+esc(p.notes)+'</div>':'')+'</div></div>';
+  /* file manager */
+  html+='<div class="card"><div class="card-h"><h3>File Manager</h3><div class="right hint">setiap upload = versi baru, tidak pernah menimpa</div></div><div class="card-b">'+fileManager(p,sub)+'</div></div>';
+  html+='</div><div>';
+  /* internal notes (proofreader notes hidden from translator) */
+  const visNotes=sub.notes.filter(n=>!(n.hideFromTranslator && S.user.role==="Translator"));
+  html+='<div class="card" style="margin-bottom:18px"><div class="card-h"><h3>Internal notes</h3><div class="right"><button class="btn sm" onclick="addNoteModal(\''+p.id+'\',\''+sub.id+'\')">＋ Note</button></div></div><div class="card-b" style="padding:8px 18px">';
+  if(!visNotes.length) html+='<div class="hint" style="padding:10px 0">Belum ada catatan.</div>';
+  visNotes.forEach(n=>{ html+='<div class="list-row">'+av(n.by,"sm")+'<div style="flex:1"><div style="font-size:12.5px">'+esc(n.text)+'</div><div class="hint">'+esc(U(n.by).name)+' · '+rel(n.t)+(n.hideFromTranslator?' · <span style="color:var(--violet)">hidden from translator</span>':'')+'</div></div></div>'; });
+  html+='</div></div>';
+  /* timeline */
+  html+='<div class="card"><div class="card-h"><h3>Timeline</h3></div><div class="card-b"><div class="timeline">';
+  if(!sub.timeline.length) html+='<div class="hint">Belum ada aktivitas.</div>';
+  [...sub.timeline].reverse().forEach(e=>{
+    const who=e.restricted&&!canSeeAuth()?"Authorizer ●●●":(U(e.actorId)?U(e.actorId).name:"System");
+    html+='<div class="tl-item"><div class="t mono">'+fmtDT(e.t)+'</div><div class="x"><b>'+esc(who)+'</b> · '+esc(e.text)+'</div></div>';
+  });
+  html+='</div></div></div></div></div></div>';
+  return html;
+}
+function kv(k,v){ return '<dt>'+k+'</dt><dd>'+v+'</dd>'; }
+
+function fileManager(p,sub){
+  let h="";
+  FOLDERS.forEach(folder=>{
+    const files=sub.files[folder];
+    const canUp=canUpload(p,sub,folder);
+    h+='<div class="file-folder"><div class="ff-head" onclick="this.parentNode.classList.toggle(\'open\')">🗂 '+folder+
+       (canUp?'<button class="btn sm" style="margin-left:10px" onclick="event.stopPropagation();uploadModal(\''+p.id+'\',\''+sub.id+'\',\''+folder+'\')">⇪ Upload</button>':'')+
+       '<span class="n mono">'+files.length+'</span></div>';
+    if(!files.length) h+='<div class="file-row hint">Folder kosong.</div>';
+    [...files].reverse().forEach(f=>{
+      h+='<div class="file-row"><span class="vtag mono">v'+f.v+'</span><div class="fi"><b>'+esc(f.name)+'</b><span>'+esc(U(f.by)?U(f.by).name:"?")+' · '+fmtDT(f.at)+(f.comment?' · “'+esc(f.comment)+'”':"")+'</span></div>'+
+        '<button class="btn sm" onclick="toast(\'Preview '+esc(f.name)+' (simulasi)\',\'👁\')">Preview</button>'+
+        '<button class="btn sm" onclick="dlFile(\''+p.id+'\',\''+sub.id+'\',\''+esc(f.name)+'\')">Download</button>'+
+        (f.v<files.length?'<button class="btn sm" onclick="restoreVer(\''+p.id+'\',\''+sub.id+'\',\''+folder+'\','+f.v+')">Restore</button>':"")+
+        '</div>';
+    });
+    h+='</div>';
+  });
+  return h;
+}
+function canUpload(p,sub,folder){
+  const r=S.user.role, st=sub.status;
+  if(["Super Admin","Director"].includes(r)) return true;
+  if(folder==="Source Files") return ["Customer Service","Branch Admin","Central Admin"].includes(r);
+  if(folder==="Translation") return r==="Translator" && sub.translatorId===S.user.id && st==="TRANSLATION";
+  if(folder==="Proofreading") return r==="Proofreader" && sub.proofreaderId===S.user.id && st==="PROOFREADING";
+  if(folder==="Authorization") return r==="Authorizer" && sub.authorizerId===S.user.id && st==="AUTHORIZATION";
+  if(folder==="Final PDF") return r==="Central Admin" && st==="FINAL QC";
+  if(folder==="Scanned Files"||folder==="Customer Files") return ["Customer Service","Branch Admin","Central Admin"].includes(r) && ["PRINTED","READY DELIVERY"].includes(st);
+  if(folder==="Shipping Receipt") return r==="Logistics";
+  return false;
+}
+function dlFile(pid,subId,name){
+  const {p,sub}=findSub(pid,subId);
+  log("DOWNLOAD", p.invoice+" · "+sub.lang+" — "+name);
+  toast("Downloading "+name+" (simulasi)","⬇");
+}
+function restoreVer(pid,subId,folder,v){
+  const {p,sub}=findSub(pid,subId);
+  const src=sub.files[folder].find(f=>f.v===v);
+  sub.files[folder].push({v:sub.files[folder].length+1,name:src.name,by:S.user.id,at:Date.now(),comment:"Restored from v"+v});
+  log("RESTORE", p.invoice+" — "+folder+" restored to v"+v);
+  toast("Versi v"+v+" dipulihkan sebagai versi baru");
+  render();
+}
+
+/* ---------------- Modals ---------------- */
+function modal(title, body, footer, wide){
+  $("#modals").innerHTML='<div class="overlay" onclick="if(event.target===this)closeModal()"><div class="modal '+(wide?"wide":"")+'"><div class="modal-h"><h3>'+title+'</h3><button onclick="closeModal()">✕</button></div><div class="modal-b">'+body+'</div>'+(footer?'<div class="modal-f">'+footer+'</div>':"")+'</div></div>';
+}
+function closeModal(){ $("#modals").innerHTML=""; }
+function uploadModal(pid,subId,folder){
+  modal("Upload — "+folder,
+    '<div class="field"><label>File name</label><input id="up_name" value="'+suggestName(pid,subId,folder)+'"></div>'+
+    '<div class="field"><label>Version comment</label><input id="up_comment" placeholder="Apa yang berubah di versi ini?"></div>'+
+    '<div class="hint">Simulasi prototype: metadata versi dicatat lengkap (uploader, waktu, komentar) tanpa file fisik.</div>',
+    '<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="doUpload(\''+pid+'\',\''+subId+'\',\''+folder+'\')">Upload version</button>');
+}
+function suggestName(pid,subId,folder){
+  const {p,sub}=findSub(pid,subId);
+  const base=p.invoice.split("/").pop()+"_"+sub.lang.slice(0,2).toUpperCase();
+  const map={"Translation":base+"_draft.docx","Proofreading":base+"_proofed.docx","Authorization":base+"_authorized.pdf","Final PDF":base+"_FINAL.pdf","Scanned Files":base+"_scan.pdf","Shipping Receipt":"resi_"+base+".jpg","Customer Files":base+"_customer.pdf","Source Files":"source_"+base+".pdf"};
+  return map[folder]||base+".pdf";
+}
+function doUpload(pid,subId,folder){
+  const {p,sub}=findSub(pid,subId);
+  const name=$("#up_name").value.trim()||"file.pdf", comment=$("#up_comment").value.trim();
+  sub.files[folder].push({v:sub.files[folder].length+1,name,by:S.user.id,at:Date.now(),comment});
+  sub.timeline.push({t:Date.now(),text:"Uploaded to "+folder+": "+name,actorId:S.user.id, restricted:S.user.role==="Authorizer"});
+  log("UPLOAD", p.invoice+" · "+sub.lang+" — "+folder+": "+name);
+  closeModal(); toast("v"+sub.files[folder].length+" tersimpan di "+folder); render();
+}
+function addNoteModal(pid,subId){
+  const canHide=["Proofreader","Central Admin","Super Admin","Director","Authorizer"].includes(S.user.role);
+  modal("Add internal note",
+    '<div class="field"><label>Note</label><textarea id="nt_text" placeholder="Catatan internal tim"></textarea></div>'+
+    (canHide?'<label style="display:flex;gap:8px;align-items:center;font-size:13px"><input type="checkbox" id="nt_hide" style="accent-color:var(--primary)"> Sembunyikan dari Translator</label>':""),
+    '<button class="btn" onclick="closeModal()">Cancel</button><button class="btn primary" onclick="saveNote(\''+pid+'\',\''+subId+'\')">Save note</button>');
+}
+function saveNote(pid,subId){
+  const {p,sub}=findSub(pid,subId);
+  const t=$("#nt_text").value.trim(); if(!t) return;
+  sub.notes.push({text:t, by:S.user.id, t:Date.now(), hideFromTranslator: $("#nt_hide")?$("#nt_hide").checked:false});
+  log("NOTE", p.invoice+" — internal note added");
+  closeModal(); toast("Catatan tersimpan"); render();
+}
+
+/* ---------------- Workflow action panel (Steps 2–8) ---------------- */
+function actionPanel(p,sub){
+  const r=S.user.role, st=sub.status, me=S.user.id;
+  const panel=(t,d,body)=>'<div class="action-panel"><h4>⚡ '+t+'</h4><p>'+d+'</p>'+body+'</div>';
+  const key="'"+p.id+"','"+sub.id+"'";
+
+  /* STEP 2 — assign translator */
+  if(st==="NEW"){
+    const canAssign = ["Assistant Director","Super Admin","Director"].includes(r) || (r==="Customer Service" && p.priority!=="Normal");
+    if(canAssign) return panel("Step 2 — Assign Translator","Pilih translator berdasarkan beban kerja saat ini."+(r==="Customer Service"?" (Anda dapat assign langsung karena project "+p.priority+".)":""),
+      '<button class="btn primary" onclick="assignModal('+key+')">Pilih Translator</button>');
+    return panel("Waiting assignment","Project baru — menunggu Assistant Director menugaskan translator.","");
+  }
+  /* STEP 3 — translator */
+  if(st==="WAITING TRANSLATOR" && r==="Translator" && sub.translatorId===me)
+    return panel("Step 3 — Mulai Terjemahan","Klik START untuk mencatat timestamp dan membuka akses download source file.",
+      '<button class="btn primary" onclick="startTranslation('+key+')">▶ START</button>');
+  if(st==="TRANSLATION" && r==="Translator" && sub.translatorId===me){
+    const hasDraft=sub.files["Translation"].length>0;
+    return panel("Step 3 — Translation in progress","Download source → terjemahkan → upload draft → pilih proofreader → submit.",
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
+      '<button class="btn" onclick="dlFile('+key+',\''+(sub.files["Source Files"][0]?esc(sub.files["Source Files"][0].name):"source.pdf")+'\')">⬇ Download Source</button>'+
+      '<button class="btn" onclick="uploadModal('+key+',\'Translation\')">⇪ Upload Draft</button>'+
+      '<select id="pr_sel" style="padding:7px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface)"><option value="">Pilih proofreader…</option>'+
+      USERS.filter(u=>u.role==="Proofreader").map(u=>'<option value="'+u.id+'" '+(sub.proofreaderId===u.id?"selected":"")+'>'+u.name+(u.online?" · online":"")+'</option>').join("")+'</select>'+
+      '<button class="btn primary" '+(hasDraft?"":"disabled title='Upload draft dulu'")+' onclick="submitTranslation('+key+')">Submit → Proofreading</button></div>'+
+      (hasDraft?"":'<div class="hint" style="margin-top:8px">Tombol submit aktif setelah draft diunggah.</div>'));
+  }
+  /* STEP 4 — proofreader */
+  if(st==="WAITING PROOFREADER" && r==="Proofreader" && sub.proofreaderId===me)
+    return panel("Step 4 — Mulai Proofreading","Klik START untuk membuka source file dan draft terjemahan.",
+      '<button class="btn primary" onclick="startProof('+key+')">▶ START</button>');
+  if(st==="PROOFREADING" && r==="Proofreader" && sub.proofreaderId===me){
+    const hasResult=sub.files["Proofreading"].length>0;
+    return panel("Step 4 — Proofreading","Periksa draft, upload hasil, tambahkan catatan internal (tidak terlihat translator), lalu putuskan.",
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+      '<button class="btn" onclick="dlFile('+key+',\'source + draft\')">⬇ Source & Draft</button>'+
+      '<button class="btn" onclick="uploadModal('+key+',\'Proofreading\')">⇪ Upload Hasil</button>'+
+      '<button class="btn" onclick="addNoteModal('+key+')">✎ Internal Note</button></div>'+
+      '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'+
+      '<button class="btn success" '+(hasResult?"":"disabled")+' onclick="proofDecision('+key+',\'approve\')">✓ Approve</button>'+
+      '<button class="btn" onclick="proofDecision('+key+',\'minor\')">↺ Minor Revision</button>'+
+      '<button class="btn danger" onclick="proofDecision('+key+',\'major\')">↺ Major Revision</button></div>');
+  }
+  /* STEP 5 — authorizer queue */
+  if(st==="WAITING AUTHORIZER" && r==="Authorizer"){
+    if(!S.user.online) return panel("Antrian Otorisasi","Status Anda offline — hanya Authorizer online yang dapat mengambil project.","");
+    return panel("Step 5 — Antrian Otorisasi","Project ini berada di satu antrian bersama. Yang pertama klik START menjadi Authorizer penanggung jawab — sistem mencatat nama, waktu, IP, browser, dan perangkat.",
+      '<button class="btn primary" onclick="authTake('+key+')">▶ START — Ambil dari antrian</button>');
+  }
+  if(st==="AUTHORIZATION" && r==="Authorizer" && sub.authorizerId===me){
+    const hasAuth=sub.files["Authorization"].length>0;
+    return panel("Step 5 — Authorization","Review hasil proofreading, upload versi ter-otorisasi, lalu approve untuk dikirim otomatis ke Central Admin.",
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+      '<button class="btn" onclick="dlFile('+key+',\'source + proofreading result\')">⬇ Download Files</button>'+
+      '<button class="btn" onclick="uploadModal('+key+',\'Authorization\')">⇪ Upload Authorized</button>'+
+      '<button class="btn success" '+(hasAuth?"":"disabled")+' onclick="authApprove('+key+')">✓ Approve → Central Admin</button></div>');
+  }
+  /* STEP 6 — central admin QC */
+  if(st==="FINAL QC" && ["Central Admin","Super Admin","Director"].includes(r)){
+    const items=["File Complete","Correct Stamp","Correct Signature","Correct Format","Correct Page Count"];
+    const all=sub.qc.items.every(Boolean);
+    return panel("Step 6 — Final Quality Control","Central Admin memverifikasi kelengkapan sebelum dikirim ke cabang "+esc(p.printLoc)+".",
+      '<div class="checklist">'+items.map((it,i)=>'<label><input type="checkbox" '+(sub.qc.items[i]?"checked":"")+' onchange="qcToggle('+key+','+i+',this.checked)"> '+it+'</label>').join("")+'</div>'+
+      '<div style="display:flex;gap:8px;margin-top:4px"><button class="btn" onclick="uploadModal('+key+',\'Final PDF\')">⇪ Upload Final PDF</button>'+
+      '<button class="btn primary" '+(all&&sub.files["Final PDF"].length?"":"disabled")+' onclick="qcPass('+key+')">✓ Ready To Print → kirim ke '+esc(p.printLoc)+'</button></div>'+
+      (all&&!sub.files["Final PDF"].length?'<div class="hint" style="margin-top:8px">Upload Final PDF untuk melanjutkan.</div>':""));
+  }
+  /* STEP 7 — branch printing */
+  if(["READY TO PRINT","PRINTED"].includes(st) && (["Customer Service","Branch Admin"].includes(r)&&S.user.branch===p.printLoc || ["Super Admin","Director","Central Admin"].includes(r))){
+    if(st==="READY TO PRINT")
+      return panel("Step 7 — Cetak di cabang "+esc(p.printLoc),"Download Final PDF, cetak di blanko, lalu tandai PRINTED. Stok blanko "+esc(p.printLoc)+" saat ini: <b>"+BLANKO[p.printLoc]+"</b> — akan berkurang "+p.qty+" otomatis.",
+        '<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="dlFile('+key+',\'FINAL PDF\')">⬇ Download Final PDF</button>'+
+        '<button class="btn primary" onclick="markPrinted('+key+')">🖨 PRINTED</button></div>');
+    return panel("Step 7 — Setelah cetak","Upload hasil scan, kirim PDF ke customer, buat label pengiriman, lalu serahkan ke Logistics.",
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+      '<button class="btn" onclick="uploadModal('+key+',\'Scanned Files\')">⇪ Upload Scan</button>'+
+      '<button class="btn" onclick="custLink('+key+')">🔗 Customer Download Link</button>'+
+      '<button class="btn" onclick="toast(\'PDF terkirim ke '+esc(p.customer.email)+' (simulasi)\',\'✉\')">✉ Send Customer PDF</button>'+
+      '<button class="btn" onclick="toast(\'Label pengiriman dibuat (simulasi)\',\'🏷\')">🏷 Shipping Label</button>'+
+      '<button class="btn primary" onclick="toLogistics('+key+')">→ Send to Logistics</button></div>');
+  }
+  /* STEP 8 — logistics */
+  if(st==="READY DELIVERY" && (r==="Logistics"||["Super Admin","Director"].includes(r)))
+    return panel("Step 8 — Pengiriman","Pilih kurir, masukkan resi dan tanggal kirim, upload bukti resi.",
+      '<div class="grid3">'+
+      sel("Courier","sh_courier",["JNE","J&T","SiCepat","AnterAja","Gojek Instant","Grab Express","Pos Indonesia"])+
+      fld("Tracking Number","sh_track","")+fld("Shipping Date","sh_date",new Date().toISOString().slice(0,10),"date")+'</div>'+
+      '<div style="display:flex;gap:8px"><button class="btn" onclick="uploadModal('+key+',\'Shipping Receipt\')">⇪ Upload Resi</button>'+
+      '<button class="btn primary" onclick="shipIt('+key+')">📦 SHIPPED — kirim notifikasi customer</button></div>');
+  if(st==="SHIPPED" && (r==="Logistics"||["Super Admin","Director"].includes(r)))
+    return panel("Step 8 — Dalam pengiriman","Resi: <span class=mono>"+esc(sub.ship.tracking||"-")+"</span> via "+esc(sub.ship.courier||"-")+". Customer sudah menerima notifikasi tracking otomatis.",
+      '<button class="btn success" onclick="completeIt('+key+')">✓ Delivered — COMPLETED</button>');
+  if(st==="COMPLETED")
+    return '<div class="action-panel" style="background:var(--green-bg);border-color:color-mix(in srgb,var(--green) 35%,var(--border))"><h4 style="color:var(--green)">✓ Project selesai</h4><p>Seluruh alur kerja telah dilalui. Dokumen terkirim'+(sub.ship.tracking?' via '+esc(sub.ship.courier)+' ('+esc(sub.ship.tracking)+')':'')+'.</p></div>';
+  /* default: waiting on someone else */
+  const waitMap={"WAITING TRANSLATOR":"translator "+(sub.translatorId?U(sub.translatorId).name:""),"TRANSLATION":"translator","WAITING PROOFREADER":"proofreader "+(sub.proofreaderId?U(sub.proofreaderId).name:""),"PROOFREADING":"proofreader","WAITING AUTHORIZER":"antrian Authorizer","AUTHORIZATION":canSeeAuth()&&sub.authorizerId?U(sub.authorizerId).name:"Authorizer","FINAL QC":"Central Admin","READY TO PRINT":"cabang "+p.printLoc,"PRINTED":"cabang "+p.printLoc,"READY DELIVERY":"Logistics","SHIPPED":"Logistics"};
+  return '<div class="action-panel" style="background:var(--surface2);border-color:var(--border)"><h4 style="color:var(--muted)">⏳ Menunggu '+esc(waitMap[st]||"proses berikutnya")+'</h4><p>Tidak ada aksi untuk role Anda pada tahap ini. Status akan diperbarui otomatis di timeline.</p></div>';
+}
+
+/* ---------------- Workflow mutations ---------------- */
+function assignModal(pid,subId){
+  const {p,sub}=findSub(pid,subId);
+  const trs=USERS.filter(u=>u.role==="Translator");
+  let body='<p class="hint" style="margin-bottom:14px">Kartu menampilkan beban kerja real-time. Translator dengan bahasa <b>'+sub.lang+'</b> ditampilkan lebih dulu.</p><div class="tr-grid">';
+  trs.sort((a,b)=>(b.langs.includes(sub.lang)?1:0)-(a.langs.includes(sub.lang)?1:0)).forEach(t=>{
+    const cur=allSubs().filter(x=>x.sub.translatorId===t.id && x.sub.status!=="COMPLETED").length;
+    const due=allSubs().filter(x=>x.sub.translatorId===t.id && dueToday(x.p) && x.sub.status!=="COMPLETED").length;
+    const late=allSubs().filter(x=>x.sub.translatorId===t.id && isLate(x.p,x.sub)).length;
+    const cap=Math.min(100,Math.round(cur/5*100));
+    body+='<div class="tr-card" onclick="doAssign(\''+pid+'\',\''+subId+'\',\''+t.id+'\')">'+
+      '<div class="tr-top">'+av(t.id,"lg",true)+'<div><b>'+esc(t.name)+'</b><span>'+t.langs.join(", ")+' · '+(t.online?'<span style="color:var(--green)">● online</span>':'<span>○ offline</span>')+'</span></div></div>'+
+      '<div class="tr-stats"><div><b class="mono">'+cur+'</b>Current projects</div><div><b class="mono">'+due+'</b>Due today</div>'+
+      '<div><b class="mono" style="color:'+(late?"var(--red)":"inherit")+'">'+late+'</b>Late</div><div><b class="mono">'+t.avg+'</b>Avg completion</div>'+
+      '<div><b class="mono">'+t.month+'</b>This month</div><div><b class="mono">'+cap+'%</b>Capacity</div></div>'+
+      '<div class="cap"><i style="width:'+cap+'%;background:'+(cap>80?"var(--red)":cap>50?"var(--amber)":"var(--primary)")+'"></i></div></div>';
+  });
+  modal("Step 2 — Assign Translator · "+sub.lang, body+"</div>", null, true);
+}
+function doAssign(pid,subId,tid){
+  const {p,sub}=findSub(pid,subId);
+  sub.translatorId=tid;
+  closeModal();
+  setStatus(p,sub,"WAITING TRANSLATOR","Translator assigned: "+U(tid).name,{action:"ASSIGN"});
+  notify([tid],"Anda ditugaskan: "+p.invoice+" ("+sub.lang+") — deadline "+fmtD(p.dlSoft),p.id,sub.id);
+  toast(U(tid).name+" ditugaskan"); render();
+}
+function startTranslation(pid,subId){
+  const {p,sub}=findSub(pid,subId);
+  sub.started.translation=Date.now();
+  setStatus(p,sub,"TRANSLATION","Translation started — timestamp recorded, source download enabled",{action:"START"});
+  toast("Mulai! Source file terbuka untuk download","▶"); render();
+}
+function submitTranslation(pid,subId){
+  const {p,sub}=findSub(pid,subId);
+  const prid=$("#pr_sel").value;
+  if(!prid) return toast("Pilih proofreader terlebih dahulu","⚠");
+  sub.proofreaderId=prid;
+  setStatus(p,sub,"WAITING PROOFREADER","Draft submitted to proofreader "+U(prid).name,{action:"SUBMIT"});
+  notify([prid],"Job proofreading baru: "+p.invoice+" ("+sub.lang+")",p.id,sub.id);
+  toast("Terkirim ke "+U(prid).name); render();
+}
+function startProof(pid,subId){
+  const {p,sub}=findSub(pid,subId);
+  sub.started.proof=Date.now();
+  setStatus(p,sub,"PROOFREADING","Proofreading started — source & draft download enabled",{action:"START"});
+  render();
+}
+function proofDecision(pid,subId,dec){
+  const {p,sub}=findSub(pid,subId);
+  if(dec==="approve"){
+    setStatus(p,sub,"WAITING AUTHORIZER","Proofreading approved — entered authorization queue",{action:"APPROVE"});
+    notify(USERS.filter(u=>u.role==="Authorizer"&&u.online).map(u=>u.id),"Antrian otorisasi: "+p.invoice+" ("+sub.lang+")",p.id,sub.id);
+    toast("Approved → antrian Authorizer");
+  } else {
+    const label=dec==="minor"?"Minor Revision":"Major Revision";
+    setStatus(p,sub,"TRANSLATION",label+" — returned to translator",{action:"REVISION"});
+    notify([sub.translatorId],label+": "+p.invoice+" ("+sub.lang+") dikembalikan kepada Anda",p.id,sub.id);
+    toast(label+" — kembali ke translator","↺");
+  }
+  render();
+}
+function authTake(pid,subId){
+  const {p,sub}=findSub(pid,subId);
+  sub.authorizerId=S.user.id;
+  sub.authMeta={at:Date.now(), ip:"114.10."+(Math.floor(Math.random()*200)+10)+".embed", device:navigator.platform||"Device", browser:(navigator.userAgent.match(/(Chrome|Firefox|Safari|Edg)[\/ ][\d.]+/)||["Browser"])[0]};
+  setStatus(p,sub,"AUTHORIZATION","Taken from authorization queue — session metadata recorded",{action:"AUTH TAKE",restricted:true});
+  toast("Anda menjadi Authorizer penanggung jawab","🔒"); render();
+}
+function authApprove(pid,subId){
+  const {p,sub}=findSub(pid,subId);
+  setStatus(p,sub,"FINAL QC","Authorization approved — sent automatically to Central Admin",{action:"AUTHORIZE",restricted:true});
+  notify(USERS.filter(u=>u.role==="Central Admin").map(u=>u.id),"Final QC: "+p.invoice+" ("+sub.lang+")",p.id,sub.id);
+  toast("Approved → Central Admin"); render();
+}
+function qcToggle(pid,subId,i,val){ findSub(pid,subId).sub.qc.items[i]=val; render(); }
+function qcPass(pid,subId){
+  const {p,sub}=findSub(pid,subId);
+  setStatus(p,sub,"READY TO PRINT","Final QC passed — sent to "+p.printLoc+" branch for printing",{action:"QC PASS"});
+  notify(USERS.filter(u=>["Customer Service","Branch Admin"].includes(u.role)&&u.branch===p.printLoc).map(u=>u.id),"Siap cetak: "+p.invoice+" ("+sub.lang+")",p.id,sub.id);
+  toast("QC lolos → cabang "+p.printLoc); render();
+}
+function markPrinted(pid,subId){
+  const {p,sub}=findSub(pid,subId);
+  BLANKO[p.printLoc]=Math.max(0,(BLANKO[p.printLoc]||0)-p.qty);
+  setStatus(p,sub,"PRINTED","Printed at "+p.printLoc+" — blanko inventory reduced by "+p.qty+" (remaining "+BLANKO[p.printLoc]+")",{action:"PRINT"});
+  toast("Dicetak. Blanko "+p.printLoc+" −"+p.qty+" → sisa "+BLANKO[p.printLoc],"🖨");
+  if(BLANKO[p.printLoc]<20) notifyAdmins("⚠ Stok blanko "+p.printLoc+" menipis: "+BLANKO[p.printLoc]+" lembar");
+  render();
+}
+function custLink(pid,subId){
+  const {p,sub}=findSub(pid,subId);
+  sub.timeline.push({t:Date.now(),text:"Customer download link generated & shared",actorId:S.user.id});
+  log("LINK",p.invoice+" — customer download link generated");
+  toast("Link download customer dibuat & disalin (simulasi)","🔗"); render();
+}
+function toLogistics(pid,subId){
+  const {p,sub}=findSub(pid,subId);
+  setStatus(p,sub,"READY DELIVERY","Handed over to Logistics with shipping label",{action:"HANDOVER"});
+  notify(USERS.filter(u=>u.role==="Logistics").map(u=>u.id),"Paket siap kirim: "+p.invoice+" — "+p.customer.name,p.id,sub.id);
+  toast("Diserahkan ke Logistics"); render();
+}
+function shipIt(pid,subId){
+  const {p,sub}=findSub(pid,subId);
+  const track=$("#sh_track").value.trim();
+  if(!track) return toast("Isi nomor resi","⚠");
+  sub.ship={courier:$("#sh_courier").value, tracking:track, date:new Date($("#sh_date").value||Date.now()).getTime(), receipt:sub.files["Shipping Receipt"].length>0};
+  setStatus(p,sub,"SHIPPED","Shipped via "+sub.ship.courier+" — "+track+". Tracking link sent to customer automatically",{action:"SHIP"});
+  toast("Terkirim via "+sub.ship.courier+" · notifikasi customer terkirim","📦"); render();
+}
+function completeIt(pid,subId){
+  const {p,sub}=findSub(pid,subId);
+  setStatus(p,sub,"COMPLETED","Delivered to customer. Project completed",{action:"COMPLETE"});
+  toast("Project selesai 🎉"); render();
+}
+
+/* ---------------- Reports ---------------- */
+let REPORT_RANGE="Monthly";
+function vReports(){
+  const subs=allSubs();
+  const doneAll=subs.filter(x=>x.sub.status==="COMPLETED").length;
+  const lateAll=subs.filter(x=>isLate(x.p,x.sub)).length;
+  let html='<div class="view"><div class="page-head"><div><h2>Reports</h2><p>Produktivitas tim dan performa cabang · periode '+REPORT_RANGE.toLowerCase()+'.</p></div>'+
+    '<div class="actions"><div class="seg">'+["Daily","Weekly","Monthly"].map(rg=>'<button class="'+(REPORT_RANGE===rg?"on":"")+'" onclick="REPORT_RANGE=\''+rg+'\';render()">'+rg+'</button>').join("")+'</div>'+
+    '<button class="btn" onclick="exportCSV()">⬇ Export CSV</button><button class="btn" onclick="toast(\'Export Excel & PDF tersedia di versi produksi\',\'📊\')">⬇ Excel / PDF</button></div></div>';
+  html+='<div class="stat-grid">'+
+    '<div class="stat"><div class="k">Completed</div><div class="v mono">'+doneAll+'</div><div class="sub">'+REPORT_RANGE.toLowerCase()+'</div></div>'+
+    '<div class="stat"><div class="k">Avg Turnaround</div><div class="v mono">2.4d</div><div class="sub">create → complete</div></div>'+
+    '<div class="stat"><div class="k">Late Projects</div><div class="v mono" style="color:'+(lateAll?"var(--red)":"inherit")+'">'+lateAll+'</div><div class="sub">past softcopy deadline</div></div>'+
+    '<div class="stat"><div class="k">On-time Rate</div><div class="v mono">91%</div><div class="sub">last 30 days</div></div></div>';
+  html+='<div class="detail-grid"><div>';
+  /* translator productivity */
+  html+='<div class="card" style="margin-bottom:18px"><div class="card-h"><h3>Translator productivity</h3></div><div class="tbl-wrap" style="border:none;box-shadow:none;border-radius:0"><table style="min-width:0"><thead><tr><th>Translator</th><th>Active</th><th>Completed</th><th>Avg Time</th><th>This Month</th></tr></thead><tbody>';
+  USERS.filter(u=>u.role==="Translator").forEach(t=>{
+    const act=subs.filter(x=>x.sub.translatorId===t.id&&x.sub.status!=="COMPLETED").length;
+    const dn=subs.filter(x=>x.sub.translatorId===t.id&&x.sub.status==="COMPLETED").length;
+    html+='<tr style="cursor:default"><td>'+av(t.id,"sm")+' '+esc(t.name)+'</td><td class="mono">'+act+'</td><td class="mono">'+dn+'</td><td class="mono">'+t.avg+'</td><td class="mono">'+t.month+'</td></tr>';
+  });
+  html+='</tbody></table></div></div>';
+  /* proofreader + authorizer productivity */
+  html+='<div class="card"><div class="card-h"><h3>Proofreader & Authorizer productivity</h3></div><div class="tbl-wrap" style="border:none;box-shadow:none"><table style="min-width:0"><thead><tr><th>Staff</th><th>Role</th><th>Handled</th><th>Approve Rate</th></tr></thead><tbody>';
+  USERS.filter(u=>["Proofreader","Authorizer"].includes(u.role)).forEach(u=>{
+    const handled=u.role==="Proofreader"?subs.filter(x=>x.sub.proofreaderId===u.id).length:subs.filter(x=>x.sub.authorizerId===u.id).length;
+    const nm=u.role==="Authorizer"&&!canSeeAuth()?"Authorizer ●●●":u.name;
+    html+='<tr style="cursor:default"><td>'+(u.role==="Authorizer"&&!canSeeAuth()?'<span class="av sm" style="background:var(--faint)">●</span> ':av(u.id,"sm")+" ")+esc(nm)+'</td><td>'+u.role+'</td><td class="mono">'+handled+'</td><td class="mono">'+(88+handled*2)+'%</td></tr>';
+  });
+  html+='</tbody></table></div></div></div><div>';
+  /* branch performance */
+  html+='<div class="card" style="margin-bottom:18px"><div class="card-h"><h3>Branch performance</h3></div><div class="card-b">';
+  BRANCHES.forEach(b=>{
+    const tot=subs.filter(x=>x.p.branch===b).length;
+    const max=Math.max(1,...BRANCHES.map(bb=>subs.filter(x=>x.p.branch===bb).length));
+    html+='<div class="bar-row"><span class="lbl">'+b+'</span><div class="bar"><i style="width:'+(tot/max*100)+'%"></i></div><span class="num mono">'+tot+'</span></div>';
+  });
+  html+='</div></div>';
+  /* blanko */
+  html+='<div class="card"><div class="card-h"><h3>Blanko inventory</h3></div><div class="card-b">';
+  BRANCHES.forEach(b=>{
+    const q=BLANKO[b]||0;
+    html+='<div class="bar-row"><span class="lbl">'+b+'</span><div class="bar"><i style="width:'+Math.min(100,q/3.5)+'%;background:'+(q<20?"var(--red)":q<60?"var(--amber)":"var(--green)")+'"></i></div><span class="num mono" style="color:'+(q<20?"var(--red)":"var(--muted)")+'">'+q+'</span></div>';
+  });
+  html+='</div></div></div></div></div>';
+  return html;
+}
+function exportCSV(){
+  let csv="Invoice,Customer,Language,Branch,Translator,Proofreader,Status,Priority,Deadline\n";
+  allSubs().forEach(x=>{
+    csv+=[x.p.invoice,'"'+x.p.customer.name+'"',x.sub.lang,x.p.branch,
+      x.sub.translatorId?U(x.sub.translatorId).name:"", x.sub.proofreaderId?U(x.sub.proofreaderId).name:"",
+      x.sub.status,x.p.priority,new Date(x.p.dlSoft).toISOString().slice(0,10)].join(",")+"\n";
+  });
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  a.download="atlas3_report_"+new Date().toISOString().slice(0,10)+".csv"; a.click();
+  log("EXPORT","Report exported to CSV"); toast("Report CSV terunduh","📊");
+}
+
+/* ---------------- Audit log ---------------- */
+function vAudit(){
+  let html='<div class="view"><div class="page-head"><div><h2>Audit Log</h2><p>Catatan permanen seluruh aktivitas sistem — tidak dapat diubah atau dihapus.</p></div><div class="actions"><span class="badge" style="background:var(--gray-bg);color:var(--muted)">🔒 Read-only</span></div></div>';
+  html+='<div class="tbl-wrap"><table><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Detail</th><th>IP Address</th><th>Device / Browser</th></tr></thead><tbody>';
+  AUDIT.forEach(a=>{
+    const u=U(a.userId);
+    html+='<tr style="cursor:default"><td class="mono hint">'+fmtDT(a.t)+'</td><td>'+(u?av(a.userId,"sm")+" "+esc(u.name):"System")+'</td>'+
+      '<td><span class="badge" style="background:var(--gray-bg);color:var(--text)">'+a.action+'</span></td>'+
+      '<td style="white-space:normal;min-width:260px">'+esc(a.detail)+'</td><td class="mono hint">'+a.ip+'</td><td class="hint">'+esc(a.device)+'</td></tr>';
+  });
+  return html+'</tbody></table></div></div>';
+}
+
+/* ---------------- Notifications ---------------- */
+function toggleNotif(e){
+  e.stopPropagation();
+  S.notifOpen=!S.notifOpen;
+  const host=$("#notifpop");
+  if(!S.notifOpen){ host.innerHTML=""; return; }
+  let h='<div class="notif-pop" onclick="event.stopPropagation()"><div class="card-h"><h3>Notifications</h3><div class="right"><button class="btn sm" onclick="markAllRead()">Mark all read</button></div></div>';
+  const list=myNotifs().slice(0,15);
+  if(!list.length) h+='<div class="empty" style="padding:28px"><div class="big">◍</div><p>Belum ada notifikasi.</p></div>';
+  list.forEach(n=>{
+    h+='<div class="notif-row '+(n.read?"":"unread")+'" onclick="openNotif(\''+n.id+'\')"><div><div class="x">'+esc(n.text)+'</div><div class="t">'+rel(n.t)+'</div></div></div>';
+  });
+  host.innerHTML=h+'</div>';
+}
+function openNotif(id){
+  const n=NOTIFS.find(x=>x.id===id); n.read=true;
+  if(n.pid) go("detail",{pid:n.pid,subId:n.subId}); else render();
+}
+function markAllRead(){ myNotifs().forEach(n=>n.read=true); render(); toast("Semua notifikasi ditandai dibaca"); }
+function vNotifs(){
+  let html='<div class="view" style="max-width:760px"><div class="page-head"><div><h2>Notifications</h2><p>Riwayat notifikasi in-app Anda. Kanal Email & WhatsApp siap dihubungkan di versi produksi.</p></div><div class="actions"><button class="btn" onclick="markAllRead()">Mark all read</button></div></div><div class="card">';
+  const list=myNotifs();
+  if(!list.length) html+='<div class="empty"><div class="big">◍</div><h4>Kotak masuk kosong</h4><p>Notifikasi muncul saat ada penugasan baru atau perubahan status pada project Anda.</p></div>';
+  list.forEach(n=>{ html+='<div class="notif-row '+(n.read?"":"unread")+'" onclick="openNotif(\''+n.id+'\')"><div><div class="x">'+esc(n.text)+'</div><div class="t">'+rel(n.t)+'</div></div></div>'; });
+  return html+'</div></div>';
+}
+
+/* ---------------- Settings ---------------- */
+let SET_TAB="Branches";
+function vSettings(){
+  const tabs=["Branches","Languages","Service Types","Users","Blanko Inventory","Templates"];
+  let html='<div class="view" style="max-width:900px"><div class="page-head"><div><h2>Settings</h2><p>Master data perusahaan — hanya Super Admin, Director, dan Central Admin.</p></div></div>'+
+    '<div class="subtabs">'+tabs.map(t=>'<button class="subtab '+(SET_TAB===t?"active":"")+'" onclick="SET_TAB=\''+t+'\';render()">'+t+'</button>').join("")+'</div><div class="card"><div class="card-b">';
+  if(SET_TAB==="Branches"||SET_TAB==="Languages"||SET_TAB==="Service Types"){
+    const arr=SET_TAB==="Branches"?BRANCHES:SET_TAB==="Languages"?LANGS:SERVICE_TYPES;
+    html+='<div style="display:flex;gap:8px;margin-bottom:14px"><input id="set_new" placeholder="Tambah '+SET_TAB.toLowerCase()+'…" style="flex:1;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface)"><button class="btn primary" onclick="setAdd()">＋ Add</button></div>';
+    arr.forEach(v=>{ html+='<div class="list-row"><b>'+esc(v)+'</b><span style="margin-left:auto" class="hint">'+(SET_TAB==="Branches"?allSubs().filter(x=>x.p.branch===v).length+" projects":"")+'</span></div>'; });
+  }
+  if(SET_TAB==="Users"){
+    html+='<div class="tbl-wrap" style="border:none;box-shadow:none"><table style="min-width:0"><thead><tr><th>User</th><th>Role</th><th>Branch</th><th>Online</th></tr></thead><tbody>';
+    USERS.forEach(u=>{
+      html+='<tr style="cursor:default"><td>'+av(u.id,"sm",true)+' '+esc(u.name)+'</td><td>'+u.role+'</td><td>'+esc(u.branch)+'</td>'+
+        '<td><label style="display:inline-flex;gap:7px;align-items:center;cursor:pointer"><input type="checkbox" '+(u.online?"checked":"")+' onchange="toggleOnline(\''+u.id+'\',this.checked)" style="accent-color:var(--primary)"> '+(u.online?"Online":"Offline")+'</label></td></tr>';
+    });
+    html+='</tbody></table></div><div class="hint" style="margin-top:10px">Status online menentukan siapa yang bisa mengambil antrian otorisasi.</div>';
+  }
+  if(SET_TAB==="Blanko Inventory"){
+    html+='<div class="hint" style="margin-bottom:12px">Stok blanko berkurang otomatis saat cabang menandai PRINTED. Ubah manual untuk penyesuaian stok masuk.</div>';
+    BRANCHES.forEach(b=>{
+      html+='<div class="list-row"><b style="width:110px">'+b+'</b><input type="number" value="'+(BLANKO[b]||0)+'" onchange="BLANKO[\''+b+'\']=+this.value;log(\'INVENTORY\',\'Blanko '+b+' adjusted\');toast(\'Stok '+b+' diperbarui\')" style="width:100px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface)" class="mono">'+
+        ((BLANKO[b]||0)<20?'<span class="badge" style="color:var(--red);background:var(--red-bg)">Low stock</span>':'')+'</div>';
+    });
+  }
+  if(SET_TAB==="Templates"){
+    html+='<div class="field"><label>WhatsApp — dokumen siap diambil / dikirim</label><textarea>Halo {customer}, dokumen {invoice} Anda telah selesai dan dikirim via {courier}. Lacak: {tracking_link} — 247 Sworn Translator</textarea></div>'+
+    '<div class="field"><label>Email — softcopy terkirim</label><textarea>Yth. {customer},\n\nTerlampir hasil terjemahan tersumpah untuk invoice {invoice}. Hardcopy sedang diproses sesuai jadwal.\n\nSalam,\n247 Sworn Translator — {branch}</textarea></div>'+
+    '<button class="btn primary" onclick="toast(\'Template tersimpan\')">Save templates</button>';
+  }
+  return html+'</div></div></div>';
+}
+function setAdd(){
+  const v=$("#set_new").value.trim(); if(!v) return;
+  (SET_TAB==="Branches"?BRANCHES:SET_TAB==="Languages"?LANGS:SERVICE_TYPES).push(v);
+  if(SET_TAB==="Branches") BLANKO[v]=0;
+  log("SETTINGS",SET_TAB+" added: "+v); toast(v+" ditambahkan"); render();
+}
+function toggleOnline(id,val){ U(id).online=val; log("SETTINGS",U(id).name+" set "+(val?"online":"offline")); render(); }
+
+/* ---------------- Global search & Command palette ---------------- */
+function searchIndex(q){
+  q=q.toLowerCase();
+  return visibleSubs().filter(x=>
+    (x.p.invoice+" "+x.p.customer.name+" "+x.p.customer.phone+" "+x.sub.lang+" "+x.p.branch+" "+x.sub.status+" "+
+     (x.sub.translatorId?U(x.sub.translatorId).name:"")+" "+(x.sub.proofreaderId?U(x.sub.proofreaderId).name:"")+" "+
+     (x.sub.ship.courier||"")+" "+(x.sub.ship.tracking||"")).toLowerCase().includes(q)).slice(0,8);
+}
+function globalSearch(q){
+  const pop=$("#searchpop");
+  if(!q.trim()){ pop.innerHTML=""; return; }
+  const res=searchIndex(q);
+  let h='<div class="search-pop">';
+  if(!res.length) h+='<div class="cmdk-empty">Tidak ditemukan untuk “'+esc(q)+'”</div>';
+  res.forEach(x=>{
+    h+='<div class="cmdk-item" onclick="go(\'detail\',{pid:\''+x.p.id+'\',subId:\''+x.sub.id+'\'})"><span class="ico">◧</span><div><b style="font-size:13px">'+esc(x.p.customer.name)+' · '+x.sub.lang+'</b><div class="hint">'+x.p.invoice+' · '+x.p.branch+'</div></div><small>'+x.sub.status+'</small></div>';
+  });
+  pop.innerHTML=h+'</div>';
+}
+function openCmdk(){
+  const acts=[["dashboard","▦","Go to Dashboard"],["projects","◧","Go to Projects"],["kanban","▤","Go to Kanban"],["reports","◔","Go to Reports"],["audit","☰","Go to Audit Log"],["settings","⚙","Go to Settings"],["create","＋","Create New Project"],["notifs","◍","Notifications"]];
+  let body='<div class="cmdk" onclick="event.stopPropagation()"><input id="ck_in" placeholder="Ketik perintah atau cari project…" oninput="cmdkFilter(this.value)" autocomplete="off"><div class="cmdk-list" id="ck_list"></div></div>';
+  $("#modals").innerHTML='<div class="overlay" style="padding-top:14vh" onclick="closeModal()">'+body+'</div>';
+  window.__cmdkActs=acts;
+  cmdkFilter("");
+  $("#ck_in").focus();
+}
+function cmdkFilter(q){
+  const list=$("#ck_list"); q=(q||"").toLowerCase();
+  let h="";
+  window.__cmdkActs.filter(a=>a[2].toLowerCase().includes(q)).forEach(a=>{
+    h+='<div class="cmdk-item" onclick="closeModal();go(\''+a[0]+'\')"><span class="ico">'+a[1]+'</span>'+a[2]+'<small>page</small></div>';
+  });
+  if(q.length>1) searchIndex(q).forEach(x=>{
+    h+='<div class="cmdk-item" onclick="closeModal();go(\'detail\',{pid:\''+x.p.id+'\',subId:\''+x.sub.id+'\'})"><span class="ico">◧</span>'+esc(x.p.customer.name)+' · '+x.sub.lang+'<small>'+x.p.invoice+'</small></div>';
+  });
+  list.innerHTML=h||'<div class="cmdk-empty">Tidak ada hasil.</div>';
+}
+
+/* ---------------- Init ---------------- */
+document.addEventListener("keydown",e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){ e.preventDefault(); if(S.user) openCmdk(); }
+  if(e.key==="Escape"){ closeModal(); S.notifOpen=false; const np=$("#notifpop"); if(np) np.innerHTML=""; }
+});
+document.addEventListener("click",()=>{ const sp=$("#searchpop"); if(sp&&!document.activeElement.closest(".searchbox")) sp.innerHTML=""; });
+render();
+</script>
+</body>
+</html>
