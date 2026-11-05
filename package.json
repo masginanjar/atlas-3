@@ -9,10 +9,12 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "build:demo": "vite build --mode single --outDir dist-demo",
-    "build:demo:public": "VITE_MASK_PII=1 vite build --mode single --outDir dist-demo"
+    "build:demo:public": "VITE_MASK_PII=1 vite build --mode single --outDir dist-demo",
+    "build:live": "vite build"
   },
   "dependencies": {
     "@insforge/sdk": "^1.5.2",
+    "@supabase/supabase-js": "^2.119.0",
     "jszip": "^3.10.2",
     "lucide-react": "^1.66.0",
     "pdfjs-dist": "^4.10.38",
