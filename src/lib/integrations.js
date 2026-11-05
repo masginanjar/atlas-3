@@ -29,6 +29,27 @@ const DEMO_INVOICES = {
   'z-2': [{ invoice_no: 'INV-000243', date: '2026-11-03', total: 400000, status: 'sent' }],
 }
 
+// Contoh item invoice (format persis seperti yang diketik staf di Zoho) — untuk mencoba isi otomatis di demo
+const DEMO_INVOICE_ITEMS = {
+  'INV-000240': [
+    { name: 'English ⇄ Indonesia ⇄ Inggris  | Regular | Sworn', description: 'IND-ENG\n1. Ijazah Rahma\n2. Transkrip Nilai Rahma 2 hal', unit: 'page', quantity: 3, rate: 75000, item_total: 225000 },
+    { name: 'English ⇄ Indonesia ⇄ Inggris | NON Regular | Sworn', description: 'IND - ENG\n3. Surat Keterangan Kerja', unit: 'page', quantity: 1, rate: 90000, item_total: 90000 },
+    { name: 'Delivery Fee', description: 'Jenis Ekspedisi : JNT\nNama: Rahma Putri\nAlamat: Jl. Tukad Badung No. 12, Renon\nKec/kab/kota: Denpasar Selatan, Denpasar, Bali\nKode pos: 80226\nNomor hp: 0812-3456-7890', unit: 'doc', quantity: 1, rate: 15000, item_total: 15000 },
+  ],
+  'INV-000241': [
+    { name: 'Apostille', description: 'APOSTILLE NORMAL TUJUAN AUSTRALIA\n1. Akta Kelahiran Rahma\n2. Ijazah Rahma', unit: 'page', quantity: 2, rate: 650000, item_total: 1300000 },
+    { name: 'Delivery Fee', description: 'Self Pickup Kantor Bali', unit: 'doc', quantity: 1, rate: 0, item_total: 0 },
+  ],
+  'INV-000242': [
+    { name: 'Spanyol ⇄ Indonesia  ⇄ Spanyol | Sworn', description: 'Spanish - IND SAME-DAY\n1. Dokumen Spanyol 2 halaman\n\nSoftcopy Only : budi@example.com', unit: 'page', quantity: 2, rate: 300000, item_total: 600000 },
+  ],
+  'INV-000243': [
+    { name: 'Legalisasi Kemenag', description: 'LEGALISASI KEMENAG\n1. Dokumen SKBM Dewi', unit: '', quantity: 1, rate: 600000, item_total: 600000 },
+    { name: 'English ⇄ Indonesia ⇄ Inggris | NON Regular | Sworn', description: 'Terjemahan IND-ENG Speed 100%\n1. Dokumen SKBM Dewi (Hasil Legalisasi)', unit: 'page', quantity: 1, rate: 180000, item_total: 180000 },
+    { name: 'Delivery Fee', description: 'Dewi Lestari\nJl. Raya Kuta No. 88, Kuta, Badung, Bali 80361\n081234567891', unit: 'doc', quantity: 1, rate: 20000, item_total: 20000 },
+  ],
+}
+
 const rowToContact = (r) => r && ({ zoho_id: r.zoho_id, name: r.name, email: r.email || '', phone: r.phone || '', city: r.city || '', company: r.company || '', ship: r.ship || {}, synced_at: r.synced_at })
 const must = ({ data, error }) => { if (error) throw new Error(error.message); return data }
 
@@ -52,6 +73,17 @@ export const zoho = {
       .map((r) => ({ invoice_no: r.invoice_no, date: r.date, total: Number(r.total) || 0, status: r.status, balance: Number(r.balance) || 0 }))
     if (!ZOHO_LIVE) return DEMO_INVOICES[zohoId] ?? [{ invoice_no: `INV-0003${Math.floor(Math.random() * 90 + 10)}`, date: '2026-11-03', total: 500000, status: 'draft' }]
     return (await api(`/api/zoho/invoices?customer_id=${encodeURIComponent(zohoId)}`)).invoices
+  },
+  /** Item & kontak invoice (untuk isi otomatis sub project + pengiriman). null bila tidak ada. */
+  async invoiceDetail(invoiceNo) {
+    const no = String(invoiceNo || '').trim().toUpperCase()
+    if (!no) return null
+    if (MODE === 'supabase') {
+      const r = (must(await sb().from('zoho_invoices').select('invoice_no,line_items,contact,customer_name').eq('invoice_no', no).limit(1)) || [])[0]
+      return r?.line_items?.length ? { invoice_no: r.invoice_no, items: r.line_items, contact: r.contact || {}, customer_name: r.customer_name } : null
+    }
+    if (!ZOHO_LIVE) return DEMO_INVOICE_ITEMS[no] ? { invoice_no: no, items: DEMO_INVOICE_ITEMS[no], contact: {} } : null
+    return (await api(`/api/zoho/invoice?no=${encodeURIComponent(no)}`)).invoice ?? null
   },
   /** Kapan data Zoho terakhir disinkron (mode supabase). */
   async lastSync() {
