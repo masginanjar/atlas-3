@@ -53,7 +53,8 @@ export default function Login() {
   }, [demoUsers, q])
 
   return (
-    <div className="relative grid min-h-screen place-items-center overflow-hidden bg-[var(--page)] px-4 py-8">
+    // tanpa overflow-hidden supaya halaman tetap bisa digulir di layar pendek; hiasan latar dikunci lewat overflow-x-clip
+    <div className="relative grid min-h-screen place-items-center overflow-x-clip bg-[var(--page)] px-4 py-8">
       {/* latar lembut — ceria tapi tetap bersih */}
       <div aria-hidden className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-[var(--brand)] opacity-[0.06] blur-3xl" />
       <div aria-hidden className="pointer-events-none absolute -bottom-40 -right-24 h-[28rem] w-[28rem] rounded-full bg-amber-300 opacity-[0.12] blur-3xl" />
