@@ -6,13 +6,16 @@
 //  jadi ganti backend di masa depan cukup ubah file ini.
 // ============================================================
 import { createClient } from '@insforge/sdk'
+import { SUPABASE_READY, supabaseDb } from './supabase.js'
 import { seed, archiveProjects, billedDemo } from './seed.js'
 import { applyLegacyImport } from './legacyImport.js'
 // payload impor sistem lama; build publik (VITE_MASK_PII=1) memakai versi tersamar — lihat vite.config.js
 import LEGACY_2026_11_04 from '@legacy-payload'
 
 const URL_ = import.meta.env.VITE_INSFORGE_URL
-export const MODE = URL_ ? 'live' : 'demo'
+// 'supabase' (live, Supabase) · 'live' (InsForge, lama) · 'demo' (localStorage)
+export const MODE = SUPABASE_READY ? 'supabase' : URL_ ? 'live' : 'demo'
+export const IS_LIVE = MODE !== 'demo'
 export const TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings']
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()))
@@ -176,4 +179,4 @@ const live = {
   token: async () => { try { const s = await ins().auth.getCurrentSession?.(); return s?.data?.session?.accessToken ?? null } catch { return null } },
 }
 
-export const db = MODE === 'live' ? live : demo
+export const db = MODE === 'supabase' ? supabaseDb : MODE === 'live' ? live : demo

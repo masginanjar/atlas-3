@@ -393,7 +393,7 @@ function Users() {
       renderForm={(e, set) => (
         <div className="space-y-3">
           <Field label="Nama" required><Input value={e.name} onChange={(x) => set({ ...e, name: x.target.value })} /></Field>
-          <Field label="Email" required hint={MODE === 'live' ? 'Buat juga akun login dengan email yang sama di InsForge → Auth.' : undefined}><Input type="email" value={e.email} onChange={(x) => set({ ...e, email: x.target.value })} /></Field>
+          <Field label="Email" required hint={MODE === 'supabase' ? 'Pengguna membuat kata sandinya sendiri lewat "Pertama kali? Buat kata sandi" di halaman masuk dengan email ini.' : MODE === 'live' ? 'Buat juga akun login dengan email yang sama di InsForge → Auth.' : undefined}><Input type="email" value={e.email} onChange={(x) => set({ ...e, email: x.target.value })} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Role"><Select value={e.role} onChange={(x) => { const n = { ...e, role: x.target.value }; set(isFreelance(n) ? { ...n, branch: '', branches: [] } : { ...n, branch: n.branch || BRANCHES[0] }) }}>{Object.entries(ROLES).map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}</Select></Field>
             {isFreelance(e)
@@ -423,11 +423,15 @@ function Users() {
 
 function Integrations() {
   const { refresh, notify, ask, data, save } = useApp()
-  const live = MODE === 'live'
+  const live = MODE !== 'demo'
   const demoRow = (data.app_settings || []).find((r) => r.key === 'demo')
   const perfOn = demoRow?.perf !== false
   const togglePerf = async () => { await save('app_settings', { ...(demoRow || { key: 'demo' }), perf: !perfOn }); await refresh(); notify(!perfOn ? 'Tugas contoh harian dinyalakan' : 'Tugas contoh harian dimatikan & dihapus') }
-  const items = [
+  const items = MODE === 'supabase' ? [
+    { name: 'Supabase', desc: 'Login, role, database (semua tabel), realtime & penyimpanan file (bucket files)', env: 'VITE_SUPABASE_URL, VITE_SUPABASE_KEY' },
+    { name: 'Cloudflare Pages', desc: 'Hosting aplikasi — deploy otomatis dari GitHub', env: 'Environment variables di dashboard Cloudflare' },
+    { name: 'Zoho Books', desc: 'Pencarian pelanggan & invoice — menyusul (Edge Function)', env: 'ZOHO_* (rahasia di server)' },
+  ] : [
     { name: 'InsForge', desc: 'Login, role & database (users, people, projects, petty_cash)', env: 'VITE_INSFORGE_URL, VITE_INSFORGE_ANON_KEY' },
     { name: 'Zoho Books', desc: 'Cari pelanggan & tarik nomor invoice — via /api/zoho', env: 'ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN, ZOHO_ORG_ID' },
     { name: 'Google Drive', desc: 'Penyimpanan file: ATLAS / Cabang / No. Invoice — via /api/drive', env: 'GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, GOOGLE_DRIVE_ROOT_FOLDER_ID' },
@@ -436,7 +440,7 @@ function Integrations() {
   return (
     <div className="space-y-3">
       <Card className={cx('p-4', live ? 'bg-emerald-50 ring-emerald-200' : 'bg-amber-50 ring-amber-200')}>
-        <p className="text-sm font-bold">{live ? 'Mode LIVE — terhubung ke InsForge' : 'Mode DEMO — data tersimpan di browser ini'}</p>
+        <p className="text-sm font-bold">{MODE === 'supabase' ? 'Mode LIVE — terhubung ke Supabase' : live ? 'Mode LIVE — terhubung ke InsForge' : 'Mode DEMO — data tersimpan di browser ini'}</p>
         <p className="mt-0.5 text-xs text-ink-soft">{live ? 'Kunci Zoho & Google disimpan di server (Vercel), tidak pernah dikirim ke browser.' : 'Isi environment variables lalu deploy ke Vercel untuk beralih ke mode live. Lihat README.'}</p>
       </Card>
       {items.map((i) => (

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { db, TABLES } from './db.js'
+import { db, TABLES, MODE } from './db.js'
 import { describe } from './activity.js'
 import { branchesOf, APOSTILLE_FUND, ROLES, roleLabel } from '../config/access.js'
 import { DONE, stagesOf, flowOf, isBilled, regComplete } from '../config/workflows.js'
@@ -39,6 +39,15 @@ export function AppProvider({ children }) {
   }, [refresh])
 
   const signIn = async (email, password) => { const u = await db.signIn(email, password); setActiveRole(u.role); setUser(u); await refresh(); return u }
+  const signUp = async (email, password) => { const u = await db.signUp?.(email, password); if (u && !u.pending) { setActiveRole(u.role); setUser(u); await refresh() } return u }
+  // Realtime (Supabase): perubahan dari pengguna lain → muat ulang tabel terkait (digabung per 400 ms)
+  useEffect(() => {
+    if (!user || !db.subscribe) return
+    let pending = new Set(); let timer = null
+    const flush = async () => { const ts = [...pending]; pending = new Set(); const rows = await Promise.all(ts.map((t) => db.list(t).catch(() => null))); setData((d) => { const n = { ...d }; ts.forEach((t, i) => { if (rows[i]) n[t] = rows[i] }); return n }) }
+    const stop = db.subscribe(TABLES, (t) => { pending.add(t); clearTimeout(timer); timer = setTimeout(flush, 400) })
+    return () => { stop(); clearTimeout(timer) }
+  }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
   const signOut = async () => { await db.signOut(); setUser(null); setActiveRole('') }
 
   // ---------- helper tabel ----------
@@ -188,6 +197,11 @@ export function AppProvider({ children }) {
 
   /** Ambil / lepas dokumen di to-do bersama (penanda "sedang diproses"). */
   const claimSub = async (project, subId, take) => {
+    if (take && db.claim) { // live: klaim atomik di server (aman dari rebutan dua otorisator)
+      const saved = await db.claim(project.id, subId)
+      setData((d) => ({ ...d, projects: d.projects.map((p) => (p.id === saved.id ? saved : p)) }))
+      return saved
+    }
     const subs = project.sub_projects.map((x) => (x.id === subId
       ? { ...x, data: { ...x.data, claim: take ? { by: user.id, name: user.name, at: new Date().toISOString() } : null },
         history: [...(x.history || []), { at: new Date().toISOString(), by: user.name, action: take ? 'Mengambil dokumen untuk diproses' : 'Melepas dokumen' }] }
@@ -247,7 +261,7 @@ export function AppProvider({ children }) {
   const nameOf = useCallback((id) => data.users.find((u) => u.id === id)?.name ?? data.people.find((p) => p.id === id)?.name, [data.users, data.people])
 
   const value = useMemo(() => ({
-    user, setActiveRole, booting, data, refresh, signIn, signOut, save, remove, processStage, pettyBalance, claimSub, myNotifications, markRead, nameOf, patchSubData, saveBiaya, assignTranslator, myPings, sendPing, markPingRead, lastPingTo, setAvatar, PING_COOLDOWN_MS, PING_DAILY_MAX,
+    user, setActiveRole, booting, data, refresh, signIn, signUp, signOut, MODE, save, remove, processStage, pettyBalance, claimSub, myNotifications, markRead, nameOf, patchSubData, saveBiaya, assignTranslator, myPings, sendPing, markPingRead, lastPingTo, setAvatar, PING_COOLDOWN_MS, PING_DAILY_MAX,
     notify, toast, branchFilter, setBranchFilter, ask, confirmState, setConfirmState,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [user, booting, data, toast, branchFilter, pettyBalance, confirmState, myNotifications, nameOf, myPings, lastPingTo])

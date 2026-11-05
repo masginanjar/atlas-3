@@ -4,11 +4,12 @@
 //  DEMO: memakai data contoh supaya alur bisa dicoba tanpa akun.
 // ============================================================
 import { MODE, db } from './db.js'
+import { supabaseDrive } from './supabase.js'
 import { dataUrlToBlob } from './download.js'
 import { DEMO_CONTACTS } from './demoZoho.js'
 
 // Zoho asli aktif bila mode LIVE, atau VITE_ZOHO_LIVE=true (tes Zoho sebelum InsForge siap)
-const ZOHO_LIVE = MODE === 'live' || import.meta.env.VITE_ZOHO_LIVE === 'true'
+const ZOHO_LIVE = MODE === 'live' || import.meta.env.VITE_ZOHO_LIVE === 'true' // Supabase: Zoho menyusul lewat Edge Function
 
 async function api(path, opts = {}) {
   const token = await db.token()
@@ -50,7 +51,7 @@ export const zoho = {
 // ---------------- Google Drive ----------------
 // LIVE: server membuat "resumable upload session" di folder ATLAS/<Cabang>/<No Invoice>,
 // lalu browser mengunggah file LANGSUNG ke Google (tidak kena batas 4.5MB Vercel).
-export const drive = {
+const gdrive = {
   async upload(file, { branch, invoice }) {
     if (MODE === 'demo') {
       const url = file.size < 1.5e6 ? await new Promise((r) => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(file) }) : null
@@ -86,3 +87,6 @@ export const drive = {
     if (f.drive_id) await api(`/api/drive/file?id=${encodeURIComponent(f.drive_id)}`, { method: 'DELETE' })
   },
 }
+
+/** Penyimpanan file aktif: Supabase Storage (live) atau Google Drive via /api (InsForge lama) / data URL (demo). */
+export const drive = MODE === 'supabase' ? { ...gdrive, ...supabaseDrive } : gdrive
