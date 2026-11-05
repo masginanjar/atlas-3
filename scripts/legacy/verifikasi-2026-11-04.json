@@ -1,0 +1,162 @@
+{
+ "before": {
+  "projects": 45,
+  "subs": 51,
+  "people": 13,
+  "couriers": 6,
+  "users": 29,
+  "petty": 17,
+  "requests": 6
+ },
+ "after1": {
+  "projects": 207,
+  "subs": 230,
+  "people": 18,
+  "couriers": 10
+ },
+ "after2": {
+  "projects": 207,
+  "subs": 230,
+  "people": 18,
+  "couriers": 10
+ },
+ "untouched": true,
+ "errs": [],
+ "run1": {
+  "projects_added": 162,
+  "subs_added": 179,
+  "filled": 0,
+  "master_added": [
+   "Vendor: Bapak Deddy (Jerman)",
+   "Vendor: Bapak Stanislaus (Prancis)",
+   "Kurir: TIKI",
+   "Lembaga: Kementerian Agama",
+   "Vendor: Bapak Carlos (Spanyol)",
+   "Kurir: DHL",
+   "Kurir: POS Indonesia",
+   "Vendor: Indotrans",
+   "Kurir: Paxel"
+  ],
+  "conflicts": [
+   {
+    "where": "Vendor Bapak Georgy",
+    "field": "bahasa",
+    "existing": "Jerman",
+    "legacy": "Rusia"
+   }
+  ],
+  "review_subs": []
+ },
+ "run2": {
+  "projects_added": 0,
+  "subs_added": 0,
+  "filled": 0,
+  "master_added": 0,
+  "changed": false
+ },
+ "source_rows": 179,
+ "rows_covered": 179,
+ "unique_sub_keys": 179,
+ "legacy_subs": 179,
+ "moneyFields": 0,
+ "multi": [
+  "1012611037023: legalisasi + legalisasi + terjemahan",
+  "2022611034271: apostille + terjemahan",
+  "1012611037019: terjemahan + terjemahan",
+  "3062611031463: legalisasi + legalisasi + legalisasi + legalisasi",
+  "1012611037015: terjemahan + terjemahan",
+  "3032610271693: apostille + terjemahan",
+  "1012611037011: legalisasi + terjemahan",
+  "3042611031603: apostille + terjemahan",
+  "2022611024259: apostille + legalisasi + terjemahan",
+  "2022611024253: apostille + legalisasi",
+  "3032611021726: apostille + terjemahan",
+  "1012611026979: apostille + terjemahan",
+  "1012611016957: apostille + legalisasi"
+ ],
+ "by_stage": [
+  [
+   "ap_int:antrian",
+   4
+  ],
+  [
+   "ap_int:cs_upload",
+   4
+  ],
+  [
+   "ap_int:diproses",
+   1
+  ],
+  [
+   "jl:selesai",
+   1
+  ],
+  [
+   "lg_int:antrian",
+   6
+  ],
+  [
+   "lg_int:cs_upload",
+   5
+  ],
+  [
+   "tr_ext:pengajuan",
+   28
+  ],
+  [
+   "tr_ext:selesai",
+   1
+  ],
+  [
+   "tr_int:cs_input",
+   3
+  ],
+  [
+   "tr_int:penerjemahan",
+   22
+  ],
+  [
+   "tr_int:pilih_penerjemah",
+   13
+  ],
+  [
+   "tr_int:proofread",
+   49
+  ],
+  [
+   "tr_int:selesai",
+   2
+  ],
+  [
+   "tr_int:siap_kirim",
+   12
+  ],
+  [
+   "tr_int:siap_print",
+   28
+  ]
+ ],
+ "empty": {
+  "no_creator": [
+   "3072611031580 (CS Santi)",
+   "2092611030159 (CS Gin)",
+   "3072611031579 (CS Santi)",
+   "3072611031578 (CS Santi)",
+   "3072611021577 (CS Santi)",
+   "3072611021576 (CS Santi)",
+   "3072611011575 (CS Santi)",
+   "3072611011574 (CS Santi)",
+   "3072611011573 (CS Santi)"
+  ],
+  "no_deadline": 0,
+  "no_print": 24,
+  "no_courier": 14,
+  "no_ship": 89,
+  "tr_int_no_translator": 43,
+  "staff_unassigned": 20,
+  "no_lang": 0,
+  "apostille_no_country": 4,
+  "legal_no_lembaga": 1,
+  "multi_doc_pages_unknown": 77
+ }
+}
