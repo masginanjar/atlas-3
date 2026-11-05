@@ -77,6 +77,27 @@ export const supabaseDb = {
   token: async () => { const { data } = await sb().auth.getSession(); return data?.session?.access_token ?? null },
   /** Realtime: panggil cb(tabel) setiap ada perubahan dari pengguna lain. Mengembalikan fungsi berhenti. */
   /** Langganan perubahan tabel (Realtime). onStatus menerima 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED'. */
+  /**
+   * Saluran siaran chat, DIPISAH PER PENERIMA (atlas-chat:<id>).
+   * Isinya sengaja tidak memuat teks pesan — hanya penanda "ada pesan baru"
+   * dan status "sedang mengetik". Teks pesan tetap diambil dari database
+   * supaya aturan akses (RLS) yang menentukan siapa boleh membacanya.
+   */
+  chatChannel(myId, onEvent) {
+    const inbox = sb().channel(`atlas-chat:${myId}`, { config: { broadcast: { self: false } } })
+    inbox.on('broadcast', { event: 'chat' }, ({ payload }) => onEvent(payload))
+    inbox.subscribe()
+    const out = new Map()
+    const to = (id) => {
+      let ch = out.get(id)
+      if (!ch) { ch = sb().channel(`atlas-chat:${id}`, { config: { broadcast: { self: false } } }); ch.subscribe(); out.set(id, ch) }
+      return ch
+    }
+    return {
+      send: (toId, payload) => { try { to(toId).send({ type: 'broadcast', event: 'chat', payload }) } catch { /* abaikan */ } },
+      stop: () => { try { sb().removeChannel(inbox); out.forEach((c) => sb().removeChannel(c)); out.clear() } catch { /* abaikan */ } },
+    }
+  },
   subscribe(tables, cb, onStatus) {
     const ch = sb().channel('atlas-live')
     for (const t of tables) ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, (payload) => cb(t, payload))

@@ -6,6 +6,9 @@
 // ============================================================
 import { PROOFREADER_TEAM, seeProofreaderIdentity, displayNameFor } from '../config/access.js'
 
+/** "Ninda (CS Surabaya)" → "Ninda" — jabatan sudah tampil di tempat lain. */
+const shortName = (n = '') => n.replace(/\s*\([^)]*\)/g, '').trim() || n
+
 export const TEAM_PROOFREADER = PROOFREADER_TEAM.id
 export const PING_MAX_24H = 3
 export const PING_GAP_MS = 60 * 1000
@@ -34,7 +37,7 @@ export function contactsFor(user, users) {
     if (u.active === false || u.id === user.id) continue
     const role = u.base_role || u.role
     if (role === 'proofreader' && !show) { team += 1; continue }
-    out.push({ id: u.id, name: displayNameFor(user, u), user: u })
+    out.push({ id: u.id, name: shortName(displayNameFor(user, u)), user: u })
   }
   if (team) out.push({ id: TEAM_PROOFREADER, name: `${PROOFREADER_TEAM.lead} · ${PROOFREADER_TEAM.label}`, team })
   return out.sort((a, b) => a.name.localeCompare(b.name))
@@ -83,4 +86,27 @@ export function parseText(text) {
   }
   if (last < text.length) out.push({ t: text.slice(last) })
   return out
+}
+
+// ============================================================
+//  SALURAN CEPAT CHAT
+//  Supabase: siaran realtime antar-perangkat.
+//  Tanpa Supabase (demo): BroadcastChannel — antar tab di browser yang sama.
+//  Dipakai untuk dua hal: pesan baru muncul seketika, dan status "sedang mengetik".
+// ============================================================
+import { db } from './db.js'
+
+export function openChatBus(myId, onEvent) {
+  if (db.chatChannel) {
+    const ch = db.chatChannel(myId, onEvent)
+    return { send: ch.send, stop: ch.stop }
+  }
+  // Demo / tanpa Supabase: antar tab di browser yang sama
+  try {
+    const bc = new BroadcastChannel('atlas-chat')
+    bc.onmessage = (e) => { if (e.data?.to === myId || e.data?.to === TEAM_PROOFREADER) onEvent(e.data) }
+    return { send: (toId, p) => { try { bc.postMessage({ ...p, to: toId }) } catch { /* abaikan */ } }, stop: () => bc.close() }
+  } catch {
+    return { send: () => {}, stop: () => {} }
+  }
 }

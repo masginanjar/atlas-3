@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, PanelLeftClose, PanelLeftOpen, Rows3, Rows2, Stamp, ReceiptText, StickyNote, AlarmClock, FilePlus2, MoreHorizontal, CalendarDays, ChevronDown } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, PanelLeftClose, PanelLeftOpen, Rows3, Rows2, Stamp, ReceiptText, StickyNote, AlarmClock, FilePlus2, MoreHorizontal, CalendarDays, ChevronDown, MessageCircle } from 'lucide-react'
 import { useApp } from './lib/store.jsx'
 import Avatar from './components/Avatar.jsx'
 import { MODE, storageError, db } from './lib/db.js'
@@ -25,8 +25,8 @@ const Notes = lazy(() => import('./pages/Notes.jsx'))
 const MyReminders = lazy(() => import('./pages/MyReminders.jsx'))
 const PengajuanPage = lazy(() => import('./pages/Pengajuan.jsx'))
 const Calendar = lazy(() => import('./pages/Calendar.jsx'))
+const Pesan = lazy(() => import('./pages/Pesan.jsx'))
 import GlobalSearch from './components/GlobalSearch.jsx'
-import Chat from './components/Chat.jsx'
 import NotificationBell from './components/NotificationBell.jsx'
 import ThemePicker, { readTheme, applyTheme } from './components/ThemePicker.jsx'
 import TeamPresence from './components/TeamPresence.jsx'
@@ -52,6 +52,7 @@ const NAV = [
   { key: 'apostille', label: 'My Apostille', icon: Stamp, show: canSeeApostille },
   { key: 'calendar', label: 'Calendar', icon: CalendarDays },
   { group: 'Personal' },
+  { key: 'pesan', label: 'Pesan Masuk', icon: MessageCircle, bar: true, badge: (u, d, bf, x) => x.chatTotals?.msg || 0 },
   { key: 'reminders', label: 'My Reminders', icon: AlarmClock, bar: true },
   { key: 'notes', label: 'Notes', icon: StickyNote, bar: true },
   { key: 'pengajuan', label: 'Pengajuan', icon: FilePlus2, badge: needsAction },
@@ -79,7 +80,7 @@ export const useDensity = () => {
 }
 
 export default function App() {
-  const { user, data, setActiveRole, booting, signOut, toast, dismissToast, notify, branchFilter, setBranchFilter, confirmState, setConfirmState, unlinkedInvoices } = useApp()
+  const { user, data, setActiveRole, booting, signOut, toast, dismissToast, notify, branchFilter, setBranchFilter, confirmState, setConfirmState, unlinkedInvoices, chatTotals } = useApp()
   const [page, param] = useRoute()
   const [mini, toggleMini] = useSidebar()
   useEffect(() => { applyTheme(readTheme()) }, []) // tema tersimpan diterapkan saat aplikasi dibuka
@@ -107,6 +108,7 @@ export default function App() {
     : page === 'reminders' || page === 'todo' ? <MyReminders />
     : page === 'pengajuan' ? <PengajuanPage />
     : page === 'calendar' ? <Calendar />
+    : page === 'pesan' ? <Pesan peerParam={param} />
     : <Dashboard />
 
   return (
@@ -139,7 +141,7 @@ export default function App() {
             }
             if (n.show && !n.show(user)) return null
             if (!mini && shut.includes(groupOf(i))) return null
-            const b = n.badge ? n.badge(user, data, branchFilter, { unlinkedInvoices }) : 0
+            const b = n.badge ? n.badge(user, data, branchFilter, { unlinkedInvoices, chatTotals }) : 0
             return (
               <a key={n.key} href={`#/${n.key}`} title={n.label} aria-label={n.label} aria-current={page === n.key ? 'page' : undefined}
                 className={cx('group flex items-center rounded-xl text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60',
@@ -183,7 +185,6 @@ export default function App() {
             <span className="hidden sm:block"><GlobalSearch /></span>
             <QuickActions />
             <span className="mx-0.5 hidden h-5 w-px bg-slate-200 md:block" />
-            <Chat />
             <span className="hidden sm:block"><TeamPresence /></span>
             <span className="hidden sm:block"><ThemePicker /></span>
             <NotificationBell />
@@ -224,7 +225,7 @@ export default function App() {
       <Sheet open={more} onClose={() => setMore(false)} title="Menu">
         <ul className="grid grid-cols-2 gap-2">
           {navItems(user).map((n) => {
-            const b = n.badge ? n.badge(user, data, branchFilter, { unlinkedInvoices }) : 0
+            const b = n.badge ? n.badge(user, data, branchFilter, { unlinkedInvoices, chatTotals }) : 0
             return (
               <li key={n.key}>
                 <a href={`#/${n.key}`} onClick={() => setMore(false)}

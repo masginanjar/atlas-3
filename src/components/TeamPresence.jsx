@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Users, Search } from 'lucide-react'
+import { Users, Search, MessageCircle } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { ROLES, PROOFREADER_TEAM, roleLabel, placeOf, seeProofreaderIdentity } from '../config/access.js'
 import { STATUS, statusOf, sinceLabel, IDLE_AFTER } from '../lib/presence.js'
 import Avatar from './Avatar.jsx'
 import { Popover, cx } from './ui.jsx'
+import { go } from '../lib/router.js'
 
 const ORDER = { online: 0, idle: 1, offline: 2 }
 /** Akun yang tidak ditampilkan di daftar Tim Aktif (tetap terlihat oleh dirinya sendiri). */
@@ -32,7 +33,7 @@ export function teamFor(viewer, users, now = Date.now()) {
     if (TEAM_ROLES.includes(role) && !show && !self) { tim.push(u); continue }
     // Direktur: tersedia 24 jam (bisa dimatikan sendiri di Setting → Preferensi)
     const dir = role === 'direktur' && u.available_24h !== false
-    rows.push({ id: u.id, name: shortName(u.name), user: u, role: u.role, roleText: roleLabel(u), place: placeOf(u), dir, status: dir ? 'online' : statusOf(u, now), since: u.last_active_at, h24: dir })
+    rows.push({ id: u.id, name: shortName(u.name), user: u, self: u.id === viewer?.id, role: u.role, roleText: roleLabel(u), place: placeOf(u), dir, status: dir ? 'online' : statusOf(u, now), since: u.last_active_at, h24: dir })
   }
   if (tim.length) {
     // satu identitas: hanya jumlah yang online yang dibagikan, tanpa nama perorangan
@@ -44,7 +45,7 @@ export function teamFor(viewer, users, now = Date.now()) {
   return rows.sort((a, b) => (b.dir ? 1 : 0) - (a.dir ? 1 : 0) || ORDER[a.status] - ORDER[b.status] || a.name.localeCompare(b.name))
 }
 
-function Row({ r, now }) {
+function Row({ r, now, onChat }) {
   const s = STATUS[r.status]
   return (
     <li className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-slate-50">
@@ -64,6 +65,10 @@ function Row({ r, now }) {
         <span className={cx('block text-[11px] font-bold', s.text)}>{s.label}{r.team ? ` ${r.online}/${r.team}` : ''}</span>
         <span className="block text-[10px] text-ink-mute">{sinceLabel(r.since, now)}</span>
       </span>
+      {onChat && !r.self && (
+        <button type="button" onClick={() => onChat(r.id)} title={`Chat ${r.name}`} aria-label={`Chat ${r.name}`}
+          className="shrink-0 rounded-lg p-1.5 text-ink-mute transition hover:bg-brand-soft hover:text-brand"><MessageCircle className="h-4 w-4" /></button>
+      )}
     </li>
   )
 }
@@ -91,7 +96,7 @@ export default function TeamPresence() {
           <span className={cx('h-1.5 w-1.5 rounded-full', online ? 'bg-emerald-500' : 'bg-slate-300')} />
         </button>
       )}>
-      {() => (
+      {({ close }) => (
         <div>
           <div className="mb-2 flex items-baseline justify-between gap-2">
             <p className="text-sm font-bold">Tim Aktif</p>
@@ -111,7 +116,7 @@ export default function TeamPresence() {
           </div>
           <ul className="mt-2 max-h-[46vh] space-y-0.5 overflow-auto pr-0.5">
             {shown.length === 0 ? <li className="px-2 py-6 text-center text-xs text-ink-mute">Tidak ada yang cocok.</li>
-              : shown.map((r) => <Row key={r.id} r={r} now={now} />)}
+              : shown.map((r) => <Row key={r.id} r={r} now={now} onChat={(id) => { close(); go(`pesan/${id}`) }} />)}
           </ul>
           <p className="mt-2 border-t border-slate-100 pt-2 text-[10px] leading-relaxed text-ink-mute">
             Online = tab ATLAS terbuka dan ada aktivitas. Idle = terbuka tapi diam lebih dari {IDLE_AFTER / 60000} menit. Offline = tab ditutup atau sudah keluar.
