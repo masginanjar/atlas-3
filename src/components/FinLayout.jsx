@@ -22,10 +22,18 @@ export function FinHead({ cols = COLS }) {
 /** Baris alat: kiri (sub-tab / filter), kanan total + tombol utama. Selalu setinggi sama di semua tab. */
 export function FinBar({ left, total, right, note }) {
   return (
-    <div className="flex min-h-[40px] flex-wrap items-center gap-2 border-b border-slate-100 px-4 py-1.5">
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1">{left}{note && <span className="text-[11px] text-ink-mute">{note}</span>}</div>
-      {total !== undefined && <span className="text-xs font-bold tabular-nums text-ink">Total {rupiah(total)}</span>}
-      {right}
+    // HP: filter satu baris yang bisa digeser, lalu Total & tombol aksi turun ke baris berikutnya.
+    // sm ke atas: semuanya kembali dalam satu baris seperti semula.
+    <div className="min-h-[40px] border-b border-slate-100 px-4 py-1.5 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
+      <div className="-mx-1 flex items-center gap-1 overflow-x-auto px-1 [scrollbar-width:none] sm:mx-0 sm:min-w-0 sm:flex-1 sm:flex-wrap sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden">
+        {left}{note && <span className="whitespace-nowrap text-[11px] text-ink-mute sm:whitespace-normal">{note}</span>}
+      </div>
+      {(total !== undefined || right) && (
+        <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2 sm:mt-0 sm:contents">
+          {total !== undefined && <span className="text-xs font-bold tabular-nums text-ink">Total {rupiah(total)}</span>}
+          {right}
+        </div>
+      )}
     </div>
   )
 }
