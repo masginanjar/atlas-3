@@ -4,7 +4,7 @@
 //  DEMO: memakai data contoh supaya alur bisa dicoba tanpa akun.
 // ============================================================
 import { MODE, db } from './db.js'
-import { supabaseDrive } from './supabase.js'
+import { supabaseDrive, sb } from './supabase.js'
 import { dataUrlToBlob } from './download.js'
 import { DEMO_CONTACTS } from './demoZoho.js'
 
@@ -29,8 +29,12 @@ const DEMO_INVOICES = {
   'z-2': [{ invoice_no: 'INV-000243', date: '2026-11-03', total: 400000, status: 'sent' }],
 }
 
+const rowToContact = (r) => r && ({ zoho_id: r.zoho_id, name: r.name, email: r.email || '', phone: r.phone || '', city: r.city || '', company: r.company || '', ship: r.ship || {}, synced_at: r.synced_at })
+const must = ({ data, error }) => { if (error) throw new Error(error.message); return data }
+
 export const zoho = {
   async searchContacts(q) {
+    if (MODE === 'supabase') return (must(await sb().rpc('search_contacts', { q })) || []).map(rowToContact) // salinan Zoho di database (sinkron terjadwal)
     if (!ZOHO_LIVE) {
       const s = q.toLowerCase()
       return DEMO_CONTACTS.filter((c) => c.name.toLowerCase().includes(s) || c.email.toLowerCase().includes(s))
@@ -39,12 +43,21 @@ export const zoho = {
   },
   /** Detail lengkap: nama, HP, email, penerima & alamat pengiriman. */
   async contact(zohoId) {
+    if (MODE === 'supabase') return rowToContact((must(await sb().from('zoho_contacts').select('*').eq('zoho_id', zohoId).limit(1)) || [])[0])
     if (!ZOHO_LIVE) return DEMO_CONTACTS.find((c) => c.zoho_id === zohoId) ?? null
     return (await api(`/api/zoho/contact?id=${encodeURIComponent(zohoId)}`)).contact
   },
   async invoicesOf(zohoId) {
+    if (MODE === 'supabase') return (must(await sb().from('zoho_invoices').select('*').eq('customer_id', zohoId).order('date', { ascending: false }).limit(30)) || [])
+      .map((r) => ({ invoice_no: r.invoice_no, date: r.date, total: Number(r.total) || 0, status: r.status, balance: Number(r.balance) || 0 }))
     if (!ZOHO_LIVE) return DEMO_INVOICES[zohoId] ?? [{ invoice_no: `INV-0003${Math.floor(Math.random() * 90 + 10)}`, date: '2026-11-03', total: 500000, status: 'draft' }]
     return (await api(`/api/zoho/invoices?customer_id=${encodeURIComponent(zohoId)}`)).invoices
+  },
+  /** Kapan data Zoho terakhir disinkron (mode supabase). */
+  async lastSync() {
+    if (MODE !== 'supabase') return null
+    const rows = must(await sb().from('sync_log').select('*').eq('source', 'zoho').order('started_at', { ascending: false }).limit(1)) || []
+    return rows[0] || null
   },
 }
 

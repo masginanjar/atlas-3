@@ -284,7 +284,12 @@ function CustomerPicker({ value, onChange, invalid }) {
           ))}
         </ul>
       )}
-      {!loading && q.trim().length >= 2 && !res.length && !err && <p className="mt-2 text-xs text-ink-mute">Tidak ditemukan di Zoho. Tambahkan dulu pelanggan di Zoho Books.</p>}
+      {!loading && q.trim().length >= 2 && !res.length && !err && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200">
+          <span className="min-w-0 flex-1">Tidak ditemukan di data Zoho (disinkron berkala). Pelanggan baru di Zoho muncul paling lama 1 jam — atau isi manual dulu.</span>
+          <Button size="sm" variant="outline" onClick={() => onChange({ zoho_id: null, name: q.trim(), email: '', phone: '', city: '', ship: { attention: q.trim() }, manual: true })}>Isi manual: “{q.trim()}”</Button>
+        </div>
+      )}
     </div>
   )
 }
