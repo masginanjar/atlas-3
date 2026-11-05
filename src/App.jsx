@@ -90,6 +90,9 @@ export default function App() {
   // kelompok sidebar yang sedang diciutkan (disimpan per browser)
   const [shut, setShut] = useState(() => { try { return JSON.parse(localStorage.getItem('atlas-nav-shut') || '[]') } catch { return [] } })
   const toggleGroup = (g) => setShut((v) => { const n = v.includes(g) ? v.filter((x) => x !== g) : [...v, g]; try { localStorage.setItem('atlas-nav-shut', JSON.stringify(n)) } catch { /* abaikan */ } return n })
+  // pemilih cabang hanya untuk yang memang punya lebih dari satu cabang
+  const branchPicker = !!user && (can.seeAllBranches(user) || isMultiBranch(user))
+  const branchOptions = user ? ['Semua', ...(can.seeAllBranches(user) ? BRANCHES : branchesOf(user))] : []
   const [storeErr, setStoreErr] = useState(storageError)
   useEffect(() => { const f = (e) => setStoreErr(e.detail); window.addEventListener('atlas-storage', f); return () => window.removeEventListener('atlas-storage', f) }, [])
 
@@ -169,37 +172,57 @@ export default function App() {
 
       <div className="min-w-0 flex-1">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/60 bg-white/70 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_1px_0_rgba(79,70,229,0.06)] backdrop-blur-md md:px-8">
-          <div className="md:hidden"><Brand dark compact /></div>
-          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-            {rolesOf(user).length > 1 && (
-              <select value={user.role} onChange={(e) => { setActiveRole(e.target.value); window.location.hash = '/dashboard' }} aria-label="Ganti peran"
-                className="rounded-lg border-0 bg-violet-50 py-1.5 pl-2.5 pr-7 text-xs font-bold text-violet-800 ring-1 ring-violet-200 focus:ring-2 focus:ring-brand">
-                {rolesOf(user).map((r) => <option key={r} value={r}>Peran: {roleLabel(user, r)}</option>)}
-              </select>
-            )}
-            <button onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')} aria-pressed={density === 'compact'}
-              title={density === 'compact' ? 'Kepadatan: Compact — klik untuk Comfortable' : 'Kepadatan: Comfortable — klik untuk Compact'} aria-label="Ganti kepadatan tampilan"
-              className="hidden rounded-lg p-1.5 text-ink-mute ring-1 ring-slate-200 hover:bg-white hover:text-brand sm:block">
-              {density === 'compact' ? <Rows3 className="h-4 w-4" /> : <Rows2 className="h-4 w-4" />}
-            </button>
-            {/* di layar kecil header hanya: + Buat, lonceng, profil — sisanya lewat menu & Setting */}
-            <span className="hidden sm:block"><GlobalSearch /></span>
-            <QuickActions />
-            <span className="mx-0.5 hidden h-5 w-px bg-slate-200 md:block" />
-            <span className="hidden sm:block"><TeamPresence /></span>
-            <span className="hidden sm:block"><ThemePicker /></span>
-            <NotificationBell />
-            {MODE === 'demo' && <span className="hidden rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 sm:inline">Demo</span>}
-            {can.seeAllBranches(user) || isMultiBranch(user) ? (
-              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)}
-                className="max-w-[118px] truncate rounded-lg border-0 bg-white py-1.5 pl-2 pr-6 text-xs font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-brand sm:max-w-none sm:pl-2.5 sm:pr-7" title="Filter cabang">
-                {['Semua', ...(can.seeAllBranches(user) ? BRANCHES : branchesOf(user))].map((b) => <option key={b} value={b}>{b === 'Semua' ? (can.seeAllBranches(user) ? 'Semua Cabang' : 'Semua cabang saya') : b}</option>)}
-              </select>
-            ) : <span className="hidden rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold ring-1 ring-slate-200 sm:inline">{placeOf(user)}</span>}
-            <span className="mx-0.5 h-5 w-px bg-slate-200" />
-            <HeaderUser />
+        <header className="sticky top-0 z-30 border-b border-white/60 bg-white/70 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_1px_0_rgba(79,70,229,0.06)] backdrop-blur-md md:px-8">
+          {/* Baris atas — di bawah 1024px hanya logo, lonceng & profil. Sisanya mulai lg. */}
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="md:hidden"><Brand dark compact /></div>
+            <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
+              {rolesOf(user).length > 1 && (
+                <select value={user.role} onChange={(e) => { setActiveRole(e.target.value); window.location.hash = '/dashboard' }} aria-label="Ganti peran"
+                  className="hidden rounded-lg border-0 bg-violet-50 py-1.5 pl-2.5 pr-7 text-xs font-bold text-violet-800 ring-1 ring-violet-200 focus:ring-2 focus:ring-brand lg:block">
+                  {rolesOf(user).map((r) => <option key={r} value={r}>Peran: {roleLabel(user, r)}</option>)}
+                </select>
+              )}
+              <button onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')} aria-pressed={density === 'compact'}
+                title={density === 'compact' ? 'Kepadatan: Compact — klik untuk Comfortable' : 'Kepadatan: Comfortable — klik untuk Compact'} aria-label="Ganti kepadatan tampilan"
+                className="hidden rounded-lg p-1.5 text-ink-mute ring-1 ring-slate-200 hover:bg-white hover:text-brand lg:block">
+                {density === 'compact' ? <Rows3 className="h-4 w-4" /> : <Rows2 className="h-4 w-4" />}
+              </button>
+              <span className="hidden lg:block"><GlobalSearch /></span>
+              <span className="hidden lg:block"><QuickActions /></span>
+              <span className="mx-0.5 hidden h-5 w-px bg-slate-200 lg:block" />
+              <span className="hidden lg:block"><TeamPresence /></span>
+              <span className="hidden lg:block"><ThemePicker /></span>
+              <NotificationBell />
+              {MODE === 'demo' && <span className="hidden rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 lg:inline">Demo</span>}
+              {branchPicker && (
+                <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} aria-label="Filter cabang"
+                  className="hidden min-w-0 truncate rounded-lg border-0 bg-white py-1.5 pl-2.5 pr-7 text-xs font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-brand lg:block" title="Filter cabang">
+                  {branchOptions.map((b) => <option key={b} value={b}>{b === 'Semua' ? (can.seeAllBranches(user) ? 'Semua Cabang' : 'Semua cabang saya') : b}</option>)}
+                </select>
+              )}
+              {!branchPicker && <span className="hidden rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold ring-1 ring-slate-200 lg:inline">{placeOf(user)}</span>}
+              <span className="mx-0.5 h-5 w-px bg-slate-200" />
+              <HeaderUser />
+            </div>
           </div>
+          {/* Baris kedua (di bawah lg): filter cabang & peran — satu baris penuh, tidak menyempitkan baris atas */}
+          {(branchPicker || rolesOf(user).length > 1) && (
+            <div className="mt-2 flex min-w-0 items-center gap-2 lg:hidden">
+              {branchPicker && (
+                <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} aria-label="Filter cabang"
+                  className="h-11 min-w-0 flex-1 truncate rounded-lg border-0 bg-white pl-3 pr-8 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-brand">
+                  {branchOptions.map((b) => <option key={b} value={b}>{b === 'Semua' ? (can.seeAllBranches(user) ? 'Semua Cabang' : 'Semua cabang saya') : b}</option>)}
+                </select>
+              )}
+              {rolesOf(user).length > 1 && (
+                <select value={user.role} onChange={(e) => { setActiveRole(e.target.value); window.location.hash = '/dashboard' }} aria-label="Ganti peran"
+                  className="h-11 min-w-0 flex-1 truncate rounded-lg border-0 bg-violet-50 pl-3 pr-8 text-sm font-bold text-violet-800 ring-1 ring-violet-200 focus:ring-2 focus:ring-brand">
+                  {rolesOf(user).map((r) => <option key={r} value={r}>Peran: {roleLabel(user, r)}</option>)}
+                </select>
+              )}
+            </div>
+          )}
         </header>
         {storeErr && <div role="alert" className="flex flex-wrap items-center gap-2 bg-rose-600 px-4 py-2 text-xs font-semibold text-white md:px-8"><AlertTriangle className="h-4 w-4 shrink-0" />
           <span className="min-w-0 flex-1">{storeErr === 'quota' ? 'Penyimpanan browser penuh — perubahan terakhir TIDAK tersimpan.' : 'Penyimpanan browser diblokir — perubahan tidak tersimpan. Periksa pengaturan privasi browser (mode privat / cookie diblokir).'}</span>
