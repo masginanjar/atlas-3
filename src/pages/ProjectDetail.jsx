@@ -61,8 +61,8 @@ export default function ProjectDetail({ id, embedded }) {
 
       <Card className={embedded ? 'p-3' : 'p-4 md:p-5'}>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            {!embedded && <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">{project.invoice_no}</h1>}
+          <div className="min-w-0 flex-1">
+            {!embedded && <h1 className="truncate text-xl font-extrabold tracking-tight sm:text-2xl" title={project.invoice_no}>{project.invoice_no}</h1>}
             <ProjectTypes project={project} className="mt-1" />
           </div>
           <div className="flex flex-wrap gap-2">
