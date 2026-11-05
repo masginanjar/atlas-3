@@ -164,6 +164,8 @@ const demo = {
   },
   async remove(t, id) { load()[t] = load()[t].filter((x) => x.id !== id); save() },
   async reset() { cleanStorage(); mem = seed(); migrate(mem); compactDemo(mem); save() },
+  /** Baca ulang dari localStorage — dipakai saat tab lain menulis (mis. chat). */
+  async reload() { mem = null; load() },
   async cleanup() { const f = cleanStorage(); shrink(load()); save(); return f },
   token: async () => null,
 }

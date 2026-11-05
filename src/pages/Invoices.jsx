@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, Search, Plus, ExternalLink, AlertTriangle, Loader2, FileText } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { zoho, payStateOf } from '../lib/integrations.js'
-import { can, scopeByBranch } from '../config/access.js'
+import { can, scopeByBranch, branchOfInvoice, invoiceCode, branchesOf } from '../config/access.js'
 import { canSeePayment } from '../config/menuAccess.js'
 import { go } from '../lib/router.js'
 import { Button, Card, cx } from '../components/ui.jsx'
@@ -17,7 +17,17 @@ import { PayBadge } from '../components/PayBadge.jsx'
 const tgl = (d) => (d ? new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')
 
 export default function Invoices() {
-  const { user, data, notify, invoices: rows, invoiceErr: err, refreshInvoices } = useApp()
+  const { user, data, notify, invoices: all, invoiceErr: err, refreshInvoices, branchFilter } = useApp()
+  // Faktur dipisah per cabang lewat 3 angka di depan nomor invoice (101 Bali, 202 Jakarta, dst.)
+  const rows = useMemo(() => {
+    if (!all) return all
+    const mine = branchesOf(user)
+    return all.filter((i) => {
+      const b = i.branch || branchOfInvoice(i.invoice_no)
+      if (can.seeAllBranches(user)) return branchFilter === 'Semua' || b === branchFilter
+      return b && mine.includes(b)
+    })
+  }, [all, user, branchFilter])
   const [busy, setBusy] = useState(false)
   const [q, setQ] = useState('')
   const [tab, setTab] = useState('all') // all | unlinked | linked
@@ -108,8 +118,8 @@ export default function Invoices() {
       )}
 
       <Card className="overflow-visible p-0">
-        <div className="sticky top-[var(--appbar)] z-10 hidden grid-cols-[112px_minmax(0,1fr)_minmax(0,1.4fr)_132px_minmax(0,1fr)] gap-3 rounded-t-2xl border-b border-slate-200 bg-slate-50/95 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-ink-mute backdrop-blur lg:grid">
-          <span>Tanggal</span><span>No. Invoice</span><span>Nama Pelanggan</span><span>Status Invoice</span><span className="text-right">Project</span>
+        <div className="sticky top-[var(--appbar)] z-10 hidden grid-cols-[104px_minmax(0,1.1fr)_minmax(0,1.3fr)_96px_124px_minmax(0,1fr)] gap-3 rounded-t-2xl border-b border-slate-200 bg-slate-50/95 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-ink-mute backdrop-blur lg:grid">
+          <span>Tanggal</span><span>No. Invoice</span><span>Nama Pelanggan</span><span>Cabang</span><span>Status Invoice</span><span className="text-right">Project</span>
         </div>
         {rows === null ? <p className="px-4 py-10 text-center text-sm text-ink-mute"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Memuat faktur dari Zoho…</p>
           : list.length === 0 ? <p className="px-4 py-10 text-center text-sm text-ink-mute">Tidak ada faktur yang cocok.</p>
@@ -119,10 +129,11 @@ export default function Invoices() {
                   const p = projectOf(i)
                   const canOpen = p && mine.has(p.id)
                   return (
-                    <li key={i.zoho_invoice_id || i.invoice_no} className={cx('grid gap-1 px-4 py-2.5 lg:grid-cols-[112px_minmax(0,1fr)_minmax(0,1.4fr)_132px_minmax(0,1fr)] lg:items-center lg:gap-3', idx % 2 && 'bg-slate-50/70')}>
+                    <li key={i.zoho_invoice_id || i.invoice_no} className={cx('grid gap-1 px-4 py-2.5 lg:grid-cols-[104px_minmax(0,1.1fr)_minmax(0,1.3fr)_96px_124px_minmax(0,1fr)] lg:items-center lg:gap-3', idx % 2 && 'bg-slate-50/70')}>
                       <p className="text-xs text-ink-soft">{tgl(i.date)}</p>
                       <p className="text-sm font-bold"><CopyText text={i.invoice_no} label="No. Invoice" strong /></p>
                       <p className="truncate text-sm text-ink">{i.customer_name || '—'}</p>
+                      <p className="truncate text-xs text-ink-soft">{i.branch || branchOfInvoice(i.invoice_no) || <span className="text-amber-700" title={`Kode ${invoiceCode(i.invoice_no)} belum terdaftar`}>Kode {invoiceCode(i.invoice_no)}</span>}</p>
                       <p><PayBadge status={i.status} prefix={false} /></p>
                       <div className="flex items-center gap-2 lg:justify-end">
                         {p
@@ -139,7 +150,7 @@ export default function Invoices() {
               </ul>
             )}
       </Card>
-      <p className="text-[11px] text-ink-mute">Nomor dan status invoice mengikuti Zoho Books — tidak diubah dari sini. Status pembayaran hanya informasi, tidak memengaruhi alur kerja project.</p>
+      <p className="text-[11px] text-ink-mute">Daftar ini disaring dari 3 angka di depan nomor invoice (101 Bali, 202 Jakarta, 303 Bandung, 304 Yogyakarta, 305 Surabaya, 306 Medan, 307 Semarang, 308 Makassar, 309 Batam), jadi tiap cabang hanya melihat fakturnya sendiri. Nomor dan status invoice mengikuti Zoho Books — tidak diubah dari sini. Status pembayaran hanya informasi, tidak memengaruhi alur kerja project.</p>
 
       {form && (
         <ProjectForm side preset={form} onClose={() => setForm(null)}

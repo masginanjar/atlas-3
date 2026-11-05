@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { db, TABLES, MODE } from './db.js'
 import { describe } from './activity.js'
-import { branchesOf, APOSTILLE_FUND, ROLES, roleLabel, displayNameFor, WORKER_ROLES } from '../config/access.js'
+import { branchesOf, APOSTILLE_FUND, ROLES, roleLabel, displayNameFor, WORKER_ROLES, branchOfInvoice, can } from '../config/access.js'
 import { zoho } from './integrations.js'
 import { startHeartbeat, statusOf } from './presence.js'
-import { threadOf, myMessages, unreadByThread, pingQuota, PING_MAX_24H, PING_GAP_MS } from './chat.js'
+import { threadOf, myMessages, unreadByThread, pingQuota, openChatBus, PING_MAX_24H, PING_GAP_MS } from './chat.js'
 import { broadcastSignOut, markActivity, setIdleReason } from './session.js'
 import { DONE, stagesOf, flowOf, isBilled, regComplete, stageLabel } from '../config/workflows.js'
 
@@ -103,14 +103,17 @@ export function AppProvider({ children }) {
       pending.add(t); clearTimeout(timer); timer = setTimeout(flush, 400)
     }
     // muat ulang tabel utama (dipakai saat realtime tidak tersambung atau tab kembali aktif)
-    const refreshMain = (minGap = 4000) => { const now = Date.now(); if (now - lastFull < minGap) return; lastFull = now; for (const t of ['projects', 'notifications', 'pings', 'requests', 'petty_cash', 'vendor_bills', 'fund_balances']) pending.add(t); clearTimeout(timer); timer = setTimeout(flush, 50) }
+    const MAIN = ['projects', 'notifications', 'pings', 'requests', 'petty_cash', 'vendor_bills', 'fund_balances', 'messages', 'todos', 'reminders', 'notes']
+    const refreshMain = (minGap = 4000) => { const now = Date.now(); if (now - lastFull < minGap) return; lastFull = now; for (const t of MAIN) pending.add(t); clearTimeout(timer); timer = setTimeout(flush, 50) }
     const stop = db.subscribe(TABLES, touch, (st) => { status = st; setLiveStatus(st === 'SUBSCRIBED' ? 'SUBSCRIBED' : st); if (st === 'SUBSCRIBED') refreshMain(0) })
     // Cadangan: bila realtime belum/tidak tersambung, polling tiap 20 detik agar perubahan rekan tetap muncul tanpa refresh
-    const poll = setInterval(() => { if (status !== 'SUBSCRIBED') { setLiveStatus('POLLING'); refreshMain(15000) } }, 20000)
+    const poll = setInterval(() => { if (status !== 'SUBSCRIBED') { setLiveStatus('POLLING'); refreshMain(6000) } }, 8000)
+    // Chat: selalu disegarkan cepat walau realtime sedang tersambung — pesan tidak boleh telat
+    const chatPoll = setInterval(() => { if (document.visibilityState === 'visible') touch('messages') }, 10000)
     // Kembali ke tab / layar HP menyala → segarkan sekali
     const onVisible = () => { if (document.visibilityState === 'visible') refreshMain() }
     document.addEventListener('visibilitychange', onVisible); window.addEventListener('focus', onVisible); window.addEventListener('online', onVisible)
-    return () => { alive = false; stop(); clearTimeout(timer); clearInterval(poll); document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('focus', onVisible); window.removeEventListener('online', onVisible) }
+    return () => { alive = false; stop(); clearTimeout(timer); clearInterval(poll); clearInterval(chatPoll); document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('focus', onVisible); window.removeEventListener('online', onVisible) }
   }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
   // ---------- faktur Zoho (menu Faktur & badge "belum dibuat project") ----------
   const [invoices, setInvoices] = useState(null) // null = belum dimuat
@@ -130,11 +133,16 @@ export function AppProvider({ children }) {
   }, [baseUser?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   /** Invoice yang belum punya project (dipakai untuk angka di menu Faktur). */
   const unlinkedInvoices = useMemo(() => {
-    if (!invoices) return 0
+    if (!invoices || !user) return 0
     const have = new Set()
     for (const p of data.projects) { if (p.zoho_invoice_id) have.add(`id:${p.zoho_invoice_id}`); if (p.invoice_no) have.add(`no:${String(p.invoice_no).toUpperCase()}`) }
-    return invoices.filter((i) => !have.has(`id:${i.zoho_invoice_id}`) && !have.has(`no:${String(i.invoice_no).toUpperCase()}`)).length
-  }, [invoices, data.projects])
+    const mine = branchesOf(user); const all = can.seeAllBranches(user)
+    return invoices.filter((i) => {
+      const b = i.branch || branchOfInvoice(i.invoice_no)
+      if (!(all ? branchFilter === 'Semua' || b === branchFilter : b && mine.includes(b))) return false
+      return !have.has(`id:${i.zoho_invoice_id}`) && !have.has(`no:${String(i.invoice_no).toUpperCase()}`)
+    }).length
+  }, [invoices, data.projects, user, branchFilter])
 
   // ---------- kehadiran (Tim Aktif) ----------
   // Denyut 1 menit sekali selama tab terbuka → kolom online_until & last_active_at.
@@ -398,11 +406,43 @@ export function AppProvider({ children }) {
   const chatUnread = useMemo(() => (user ? unreadByThread(chatMessages, user) : {}), [chatMessages, user])
   const chatTotals = useMemo(() => Object.values(chatUnread).reduce((a, v) => ({ msg: a.msg + v.msg, ping: a.ping + v.ping }), { msg: 0, ping: 0 }), [chatUnread])
 
+  // Saluran cepat: penanda "ada pesan baru" & status mengetik.
+  // Teks pesannya sendiri selalu diambil dari database (ikut aturan akses), bukan dari siaran.
+  const bus = useRef(null)
+  const [typing, setTyping] = useState({}) // { [thread]: { name, at } }
+  useEffect(() => {
+    if (!baseUser) return
+    const isPr = (baseUser.base_role || baseUser.role) === 'proofreader'
+    const myBox = isPr ? 'tim-proofreader' : baseUser.id
+    const pullMessages = async () => { try { await db.reload?.(); const rows = await db.list('messages'); setData((d) => ({ ...d, messages: rows })) } catch { /* abaikan */ } }
+    const ch = openChatBus(myBox, (e) => {
+      if (!e || e.from === baseUser.id) return
+      if (e.t === 'bump') pullMessages()
+      if (e.t === 'typing' && e.thread) setTyping((v) => ({ ...v, [e.thread]: { name: e.name, at: Date.now() } }))
+    })
+    bus.current = ch
+    return () => { ch.stop(); bus.current = null }
+  }, [baseUser?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // bersihkan status mengetik yang kedaluwarsa (lebih dari 4 detik)
+  useEffect(() => {
+    const t = setInterval(() => setTyping((v) => {
+      const n = Object.fromEntries(Object.entries(v).filter(([, x]) => Date.now() - x.at < 4000))
+      return Object.keys(n).length === Object.keys(v).length ? v : n
+    }), 1500)
+    return () => clearInterval(t)
+  }, [])
+  /** Beri tahu lawan bicara bahwa kita sedang mengetik (tidak disimpan ke database). */
+  const sendTyping = useCallback((thread, to) => {
+    bus.current?.send(to, { t: 'typing', thread, from: user?.id, name: (user?.display_name || user?.name || '').replace(/\s*\([^)]*\)/g, '') })
+  }, [user?.id, user?.display_name, user?.name])
+
   /** Kirim pesan. Mengembalikan baris tersimpan; pemanggil menangani status "gagal / coba lagi". */
   const sendMessage = async ({ to, text, mentions = [] }) => {
     const body = String(text || '').trim()
     if (!body) throw new Error('Pesan kosong')
-    return save('messages', { thread: threadOf(user.id, to), kind: 'msg', from_user: user.id, from_name: user.name, to_user: to, text: body, mentions, read_by: [] })
+    const row = await save('messages', { thread: threadOf(user.id, to), kind: 'msg', from_user: user.id, from_name: user.name, to_user: to, text: body, mentions, read_by: [] })
+    bus.current?.send(to, { t: 'bump', from: user.id })
+    return row
   }
   /**
    * Ping percakapan. Batas 3× per 24 jam ke lawan bicara yang sama + jeda 60 detik
@@ -414,11 +454,16 @@ export function AppProvider({ children }) {
     const q = pingQuota(chatMessages, user, thread)
     if (q.left <= 0) throw new Error(`Batas ping tercapai (${PING_MAX_24H}× per 24 jam). Bisa ping lagi ${q.resetAt ? q.resetAt.toLocaleTimeString('id-ID', { timeZone: 'Asia/Makassar', hour: '2-digit', minute: '2-digit' }) : 'nanti'}.`)
     if (q.gapLeft > 0) throw new Error(`Tunggu ${Math.ceil(q.gapLeft / 1000)} detik lagi sebelum ping berikutnya.`)
-    return save('messages', { thread, kind: 'ping', from_user: user.id, from_name: user.name, to_user: to, text: 'Ping — mohon dicek ya', mentions: [], read_by: [] })
+    const row = await save('messages', { thread, kind: 'ping', from_user: user.id, from_name: user.name, to_user: to, text: 'Ping — mohon dicek ya', mentions: [], read_by: [] })
+    bus.current?.send(to, { t: 'bump', from: user.id })
+    return row
   }
   const markChatRead = async (thread) => {
     const list = chatMessages.filter((m) => m.thread === thread && m.from_user !== user.id && !(m.read_by || []).includes(user.id))
+    if (!list.length) return
     for (const m of list) await save('messages', { ...m, read_by: [...(m.read_by || []), user.id] }).catch(() => {})
+    // beri tahu pengirim supaya tanda "dibaca" muncul tanpa menunggu
+    for (const id of [...new Set(list.map((m) => m.from_user))]) bus.current?.send(id, { t: 'bump', from: user.id })
   }
 
   /** Ganti / hapus foto profil (data URL kecil) — tersimpan permanen di tabel users. */
@@ -452,9 +497,9 @@ export function AppProvider({ children }) {
     user, setActiveRole, booting, data, refresh, signIn, signUp, signOut, MODE, save, remove, processStage, pettyBalance, claimSub, myNotifications, markRead, nameOf, patchSubData, saveBiaya, assignTranslator, returnPengajuan, myPings, sendPing, markPingRead, lastPingTo, setAvatar, updateProfile, PING_COOLDOWN_MS, PING_DAILY_MAX,
     notify, toast, dismissToast, branchFilter, setBranchFilter, ask, confirmState, setConfirmState, liveStatus,
     invoices, invoiceErr, refreshInvoices, unlinkedInvoices,
-    chatMessages, chatUnread, chatTotals, sendMessage, sendChatPing, markChatRead, PING_MAX_24H, PING_GAP_MS,
+    chatMessages, chatUnread, chatTotals, sendMessage, sendChatPing, markChatRead, sendTyping, typing, PING_MAX_24H, PING_GAP_MS,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [user, booting, data, toast, branchFilter, pettyBalance, confirmState, myNotifications, nameOf, myPings, lastPingTo, liveStatus, invoices, invoiceErr, unlinkedInvoices, chatMessages, chatUnread, chatTotals])
+  }), [user, booting, data, toast, branchFilter, pettyBalance, confirmState, myNotifications, nameOf, myPings, lastPingTo, liveStatus, invoices, invoiceErr, unlinkedInvoices, chatMessages, chatUnread, chatTotals, typing, sendTyping])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

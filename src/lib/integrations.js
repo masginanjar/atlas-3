@@ -4,6 +4,7 @@
 //  DEMO: memakai data contoh supaya alur bisa dicoba tanpa akun.
 // ============================================================
 import { MODE, db } from './db.js'
+import { branchOfInvoice, BRANCH_CODES } from '../config/access.js'
 import { supabaseDrive, sb } from './supabase.js'
 import { dataUrlToBlob } from './download.js'
 import { DEMO_CONTACTS } from './demoZoho.js'
@@ -91,6 +92,7 @@ async function demoInvoiceList() {
   const fromProjects = projects.filter((p) => p.invoice_no).map((p) => ({
     zoho_invoice_id: `zi-${p.invoice_no}`,
     invoice_no: p.invoice_no,
+    branch: p.branch,
     date: (p.about?.received_at || p.created_at || new Date().toISOString()).slice(0, 10),
     created_time: p.created_at || iso(Date.now()),
     customer_name: p.customer?.name || '—',
@@ -100,12 +102,13 @@ async function demoInvoiceList() {
   const extra = [
     ...Object.entries(DEMO_INVOICES).flatMap(([cid, list]) => list.map((i) => ({
       zoho_invoice_id: `zi-${i.invoice_no}`, invoice_no: i.invoice_no, date: i.date, created_time: `${i.date}T09:00:00.000Z`,
-      customer_name: DEMO_CONTACTS.find((c) => c.zoho_id === cid)?.name || '—', customer_id: cid, status: i.status,
+      customer_name: DEMO_CONTACTS.find((c) => c.zoho_id === cid)?.name || '—', customer_id: cid, status: i.status, branch: 'Bali',
     }))),
     ...DEMO_EXTRA.map((e, n) => {
       const d = new Date(Date.now() - e.days * 864e5)
       const no = `INV-${String(nextNo + n).padStart(6, '0')}` // selalu di atas nomor project yang sudah ada → benar-benar belum masuk project
-      return { zoho_invoice_id: `zi-${no}`, invoice_no: no, date: iso(d).slice(0, 10), created_time: iso(d), customer_name: e.customer, customer_id: e.customer_id, status: e.status }
+      const branch = Object.values(BRANCH_CODES)[n % Object.keys(BRANCH_CODES).length]
+      return { zoho_invoice_id: `zi-${no}`, invoice_no: no, date: iso(d).slice(0, 10), created_time: iso(d), customer_name: e.customer, customer_id: e.customer_id, status: e.status, branch }
     }),
   ]
   const seen = new Set()
@@ -160,6 +163,7 @@ export const zoho = {
       return rows.map((r) => ({
         zoho_invoice_id: r.zoho_id, invoice_no: r.invoice_no, date: r.date, created_time: '',
         customer_name: r.customer_name || '', customer_id: r.customer_id || '', status: r.status,
+        branch: branchOfInvoice(r.invoice_no), // 3 angka di depan nomor invoice
         total: Number(r.total) || 0, balance: Number(r.balance) || 0,
       }))
     }

@@ -78,6 +78,22 @@ export function pickProofreader(users, projects = []) {
   return pool.slice().sort((a, b) => load[a.id] - load[b.id] || a.name.localeCompare(b.name))[0].id
 }
 
+// ============================================================
+//  KODE CABANG PADA NOMOR INVOICE — 3 angka setelah "INV-".
+//  Dipakai agar daftar Faktur tiap cabang tidak tercampur.
+// ============================================================
+export const BRANCH_CODES = {
+  101: 'Bali', 202: 'Jakarta', 303: 'Bandung', 304: 'Yogyakarta',
+  305: 'Surabaya', 306: 'Medan', 307: 'Semarang', 308: 'Makassar', 309: 'Batam',
+}
+/** Cabang dari nomor invoice ("INV-1012611057086" → "Bali"). null bila kodenya belum dikenal. */
+export function branchOfInvoice(no) {
+  const m = /^\s*INV-(\d{3})/i.exec(String(no || ''))
+  return m ? BRANCH_CODES[Number(m[1])] || null : null
+}
+/** Kode 3 angka pada nomor invoice, untuk ditampilkan apa adanya. */
+export const invoiceCode = (no) => (/^\s*INV-(\d{3})/i.exec(String(no || '')) || [])[1] || ''
+
 export const can = {
   seeAllBranches: (u) => ['superadmin', 'admin_pusat', 'supervisor', 'direktur', 'akunting'].includes(u?.role),
   seeProofreaderIdentity,
