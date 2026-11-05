@@ -70,7 +70,8 @@ export default function Projects() {
   ]
 
   return (
-    <div className="space-y-4">
+    // ruang bawah ±150px di HP supaya kartu terakhir tidak tertutup tombol + dan menu bawah
+    <div className={cx('space-y-4', !worker && 'pb-[150px] md:pb-0')}>
       <div className="flex items-end justify-between gap-3">
         <div><h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">My Project</h1><p className="text-sm text-ink-mute">{worker ? 'Dokumen yang ditugaskan kepada Anda' : 'Nama project = nomor invoice Zoho'}</p></div>
         {!worker && <Button className="hidden md:inline-flex" onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" />Project Baru</Button>}
@@ -89,12 +90,13 @@ export default function Projects() {
 
       {worker && !fullView ? null : tab === 'vendor' ? <VendorPayments rows={vendorRows} /> : (
         <>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
+          {/* di HP: kolom cari satu baris penuh, tombol-tombol turun ke baris berikutnya */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative min-w-0 flex-1 basis-full sm:basis-auto">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input className="pl-9" placeholder="Cari invoice, pelanggan, dokumen…" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className="rounded-xl border-0 bg-white px-3 text-sm font-semibold ring-1 ring-slate-200">
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className="min-w-0 rounded-xl border-0 bg-white px-3 text-sm font-semibold ring-1 ring-slate-200">
               <option value="aktif">Aktif</option><option value="selesai">Selesai</option><option value="semua">Semua</option>
             </select>
             <div className="flex shrink-0 rounded-xl bg-white p-1 ring-1 ring-slate-200" role="group" aria-label="Urutkan">
@@ -172,8 +174,10 @@ export default function Projects() {
         </Sheet>
       )}
       {!worker && (
+        // di atas menu bawah (±64px) + safe area iPhone, supaya tidak menempel di tepi layar
         <button onClick={() => setFormOpen(true)} aria-label="Project baru"
-          className="fixed bottom-20 right-4 z-30 grid h-14 w-14 place-items-center rounded-2xl bg-brand text-white shadow-lg shadow-brand/30 md:hidden">
+          style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+          className="fixed right-4 z-30 grid h-14 w-14 place-items-center rounded-2xl bg-brand text-white shadow-lg shadow-brand/30 md:hidden">
           <Plus className="h-6 w-6" />
         </button>
       )}
