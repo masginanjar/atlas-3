@@ -1,5 +1,4 @@
 import { useMemo, useRef, useState } from 'react'
-import JSZip from 'jszip'
 import { FileText, FileImage, Upload, Download, Trash2, Pencil, Check, X, Archive, Loader2, FolderOpen, Eye, Printer } from 'lucide-react'
 import FilePreview from './FilePreview.jsx'
 import { canPreview, kindOf, printBlob } from '../lib/printing.js'
@@ -113,7 +112,9 @@ export default function FileManager({ project, readOnly }) {
   }
 
   const printFile = async (f) => {
-    try { setBusy(`Menyiapkan print ${f.name}…`); await printBlob(await drive.blob(f), kindOf(f)) } catch (e) { notify(e.message, 'err') } finally { setBusy(null) }
+    const k = kindOf(f)
+    if (k === 'docx' || k === 'sheet') { setPreview(f); notify('File Word/Excel dirender dulu — tekan Print di jendela pratinjau'); return } // perlu dirender di browser dulu
+    try { setBusy(`Menyiapkan print ${f.name}…`); await printBlob(await drive.blob(f), k) } catch (e) { notify(e.message, 'err') } finally { setBusy(null) }
   }
 
   const remove = async (list) => {
@@ -140,7 +141,7 @@ export default function FileManager({ project, readOnly }) {
   const downloadZip = async (files = all, suffix = '') => {
     if (!files.length) return
     try {
-      const zip = new JSZip(); const used = new Set(); let skipped = 0
+      const JSZip = (await import('jszip')).default; const zip = new JSZip(); const used = new Set(); let skipped = 0
       for (let i = 0; i < files.length; i++) {
         const f = files[i]; setBusy(`Mengemas ZIP ${i + 1}/${files.length}…`)
         let blob; try { blob = await drive.blob(f) } catch { skipped++; continue }

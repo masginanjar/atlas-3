@@ -25,6 +25,8 @@ const pesan = (e) => {
   if (/JWT|session/i.test(m)) return 'Sesi login habis — silakan masuk lagi'
   return m || 'Gagal memproses data'
 }
+// Batas baris per tabel: riwayat panjang tidak perlu ditarik semua tiap kali aplikasi dibuka.
+const LIMIT = { activity_log: 400, perf_daily: 400, share_log: 150, notifications: 300, pings: 200, messages: 800, requests: 500, petty_cash: 1000 }
 const flat = (r) => (r ? { id: r.id, created_at: r.created_at, updated_at: r.updated_at, ...(r.doc || {}) } : null)
 const split = (row) => { const { id, created_at, updated_at, ...doc } = row || {}; return { id, doc } }
 
@@ -61,7 +63,7 @@ export const supabaseDb = {
     return data?.session?.user ? profileByAuth(data.session.user).catch(() => null) : null
   },
   async signOut() { await sb().auth.signOut() },
-  async list(t) { return (unwrap(await sb().from(t).select('*').order('created_at', { ascending: false }).limit(t === 'activity_log' ? 1500 : 5000)) ?? []).map(flat) },
+  async list(t) { return (unwrap(await sb().from(t).select('*').order('created_at', { ascending: false }).limit(LIMIT[t] ?? 5000)) ?? []).map(flat) },
   async insert(t, row) { const { id, doc } = split(row); const payload = id ? { id, doc } : { doc }; return flat(unwrap(await sb().from(t).insert([payload]).select())?.[0]) },
   async update(t, id, patch) {
     const { doc } = split({ ...patch, id: undefined })
@@ -74,10 +76,11 @@ export const supabaseDb = {
   async claim(projectId, subId) { return unwrap(await sb().rpc('claim_sub', { p_project: projectId, p_sub: subId })) },
   token: async () => { const { data } = await sb().auth.getSession(); return data?.session?.access_token ?? null },
   /** Realtime: panggil cb(tabel) setiap ada perubahan dari pengguna lain. Mengembalikan fungsi berhenti. */
-  subscribe(tables, cb) {
+  /** Langganan perubahan tabel (Realtime). onStatus menerima 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED'. */
+  subscribe(tables, cb, onStatus) {
     const ch = sb().channel('atlas-live')
     for (const t of tables) ch.on('postgres_changes', { event: '*', schema: 'public', table: t }, (payload) => cb(t, payload))
-    ch.subscribe()
+    ch.subscribe((status, err) => { onStatus?.(status, err); if (status !== 'SUBSCRIBED') console.warn('[ATLAS realtime]', status, err?.message || '') })
     return () => { sb().removeChannel(ch) }
   },
 }

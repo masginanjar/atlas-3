@@ -5,6 +5,10 @@ import { useApp } from '../lib/store.jsx'
 import { db, MODE, storageUsage } from '../lib/db.js'
 import { BRANCHES, PERSON_TYPES, ROLES, can, scopeByBranch, branchesOf, branchLabel, roleLabel, APOSTILLE_FUND, pettyLabel, pettyAccountsOf, isFreelance } from '../config/access.js'
 import { Button, Card, Empty, Field, Input, Pill, Select, Sheet, Tabs, Textarea, cx } from '../components/ui.jsx'
+import { UserRound, ShieldCheck, SlidersHorizontal } from 'lucide-react'
+import { go } from '../lib/router.js'
+import { readTheme, applyTheme } from '../components/ThemePicker.jsx'
+import { soundEnabled, setSoundEnabled, chatSoundEnabled, setChatSoundEnabled, chatVolume, setChatVolume } from '../lib/sounds.js'
 import { jam, rupiah, tgl as tglShort } from '../lib/format.js'
 import { drive } from '../lib/integrations.js'
 import { DownloadBukti } from '../components/Pengajuan.jsx'
@@ -73,16 +77,226 @@ function FileRules() {
 
 function Profile() {
   const { user, signOut } = useApp()
+  const SECTIONS = [['profil', 'Profil', UserRound], ['keamanan', 'Keamanan', ShieldCheck], ['preferensi', 'Preferensi', SlidersHorizontal]]
+  const [sec, setSec] = useState('profil')
   return (
-    <Card className="p-5">
-      <div className="flex items-center gap-4">
-        <Avatar user={user} size={56} />
-        <div><p className="text-lg font-bold">{user.name}</p><p className="text-sm text-ink-mute">{user.email}</p>
-          <div className="mt-1 flex gap-1.5"><Pill className="bg-brand-soft text-brand">{roleLabel(user)}</Pill><Pill>{branchLabel(user)}</Pill></div></div>
+    <div className="space-y-3">
+      <Card className="flex flex-wrap items-center gap-4 p-4">
+        <Avatar user={user} size={52} />
+        <div className="min-w-0">
+          <p className="text-base font-bold">{user.display_name || user.name}</p>
+          <p className="truncate text-sm text-ink-mute">{user.email}</p>
+          <div className="mt-1 flex flex-wrap gap-1.5"><Pill className="bg-brand-soft text-brand">{roleLabel(user)}</Pill><Pill>{branchLabel(user)}</Pill></div>
+        </div>
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => go('projects')}>Kembali ke My Project</Button>
+          <Button variant="outline" size="sm" onClick={signOut}>Keluar</Button>
+        </div>
+      </Card>
+
+      {/* Navigasi bagian — satu halaman, tanpa modal per kolom */}
+      <div className="flex flex-wrap gap-1.5">
+        {SECTIONS.map(([k, label, Icon]) => (
+          <button key={k} type="button" onClick={() => setSec(k)} aria-pressed={sec === k}
+            className={cx('inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition',
+              sec === k ? 'bg-[var(--surface-3)] text-ink ring-[var(--line)]' : 'bg-white text-ink-mute ring-slate-200 hover:text-ink')}>
+            <Icon className="h-3.5 w-3.5" />{label}
+          </button>
+        ))}
       </div>
-      <div className="mt-5 border-t border-slate-100 pt-5"><AvatarEditor /></div>
-      {db.updatePassword && <div className="mt-5 border-t border-slate-100 pt-5"><GantiSandi /></div>}
-      <Button variant="outline" className="mt-5" onClick={signOut}>Keluar</Button>
+
+      {sec === 'profil' && <ProfilData />}
+      {sec === 'keamanan' && <Keamanan />}
+      {sec === 'preferensi' && <Preferensi />}
+    </div>
+  )
+}
+
+const WORK_LANGS = ['Inggris', 'Mandarin', 'Jepang', 'Korea', 'Arab', 'Belanda', 'Jerman', 'Prancis', 'Spanyol', 'Rusia']
+
+/** Data pribadi: yang boleh diubah sendiri vs yang dikunci admin. */
+function ProfilData() {
+  const { user, data, updateProfile, notify } = useApp()
+  const row = data.users.find((u) => u.id === user.id) || user
+  const [f, setF] = useState({ name: row.name || '', display_name: row.display_name || '', phone: row.phone || '', languages: row.languages || [] })
+  const [busy, setBusy] = useState(false)
+  const dirty = JSON.stringify(f) !== JSON.stringify({ name: row.name || '', display_name: row.display_name || '', phone: row.phone || '', languages: row.languages || [] })
+  const isTr = ['penerjemah', 'proofreader'].includes(user.role) || (user.extra_roles || []).some((r) => ['penerjemah', 'proofreader'].includes(r))
+  const save = async () => {
+    if (!f.name.trim()) return notify('Nama lengkap wajib diisi', 'err')
+    setBusy(true)
+    try { await updateProfile({ ...f, name: f.name.trim(), display_name: f.display_name.trim(), phone: f.phone.trim() }); notify('Profil disimpan') }
+    catch (e) { notify(e.message, 'err') } finally { setBusy(false) }
+  }
+  const toggleLang = (l) => setF((x) => ({ ...x, languages: x.languages.includes(l) ? x.languages.filter((y) => y !== l) : [...x.languages, l] }))
+
+  return (
+    <div className="space-y-3">
+      <Card className="p-5"><AvatarEditor /></Card>
+
+      <Card className="space-y-4 p-5">
+        <p className="text-xs font-bold uppercase tracking-wide text-ink-mute">Data pribadi</p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Nama lengkap" required><Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoComplete="name" /></Field>
+          <Field label="Nama tampilan" hint="Dipakai pada sapaan & daftar tugas. Kosongkan untuk memakai nama lengkap.">
+            <Input value={f.display_name} onChange={(e) => setF({ ...f, display_name: e.target.value })} placeholder={f.name} autoComplete="nickname" />
+          </Field>
+          <Field label="No. telepon / WhatsApp"><Input value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} inputMode="tel" autoComplete="tel" placeholder="08xx…" /></Field>
+          <Field label="Email akun" hint="Diubah lewat admin — email dipakai untuk login.">
+            <Input value={user.email || ''} readOnly disabled tabIndex={-1} />
+          </Field>
+        </div>
+        {isTr && (
+          <div>
+            <p className="mb-1.5 text-[13px] font-semibold text-ink-soft">Bahasa kerja</p>
+            <div className="flex flex-wrap gap-1.5">
+              {WORK_LANGS.map((l) => (
+                <button key={l} type="button" onClick={() => toggleLang(l)} aria-pressed={f.languages.includes(l)}
+                  className={cx('rounded-full px-2.5 py-1 text-xs font-semibold ring-1 transition', f.languages.includes(l) ? 'bg-brand-soft text-brand ring-brand/30' : 'bg-white text-ink-mute ring-slate-200 hover:text-ink')}>{l}</button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-ink-mute">Dipakai Supervisor sebagai acuan saat membagi order. Penetapan tugas tetap di tangan Supervisor.</p>
+          </div>
+        )}
+        <div className="flex items-center gap-2 border-t border-slate-100 pt-4">
+          <Button size="sm" loading={busy} disabled={!dirty} onClick={save}>Simpan perubahan</Button>
+          {dirty && <button type="button" onClick={() => setF({ name: row.name || '', display_name: row.display_name || '', phone: row.phone || '', languages: row.languages || [] })} className="text-xs font-semibold text-ink-mute hover:text-ink">Batalkan</button>}
+        </div>
+      </Card>
+
+      <Card className="space-y-3 p-5">
+        <p className="text-xs font-bold uppercase tracking-wide text-ink-mute">Data yang diatur admin</p>
+        <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[['Peran', roleLabel(user)], ['Cabang', branchLabel(user)], ['Status', user.active === false ? 'Nonaktif' : isFreelance(user) ? 'Freelance' : 'Aktif'],
+            ['ID pegawai', user.id], ['Zona waktu', 'WITA (Asia/Makassar)']].map(([k, v]) => (
+            <div key={k} className="rounded-xl bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-mute">{k}</p>
+              <p className="truncate text-sm font-semibold text-ink">{v}</p>
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] text-ink-mute">Peran, hak akses, cabang, status kepegawaian, dan ID pegawai hanya bisa diubah Superadmin lewat Setting → Pengguna. Semua tenggat & notifikasi memakai zona waktu WITA.</p>
+      </Card>
+    </div>
+  )
+}
+
+/** Keamanan: kata sandi + info kemampuan sistem (tanpa kontrol palsu). */
+function Keamanan() {
+  const { user } = useApp()
+  return (
+    <div className="space-y-3">
+      <Card className="p-5">
+        {db.updatePassword
+          ? <GantiSandi />
+          : (
+            <>
+              <p className="text-xs font-bold uppercase tracking-wide text-ink-mute">Kata sandi</p>
+              <p className="mt-2 text-sm text-ink-soft">Di mode demo ini login memakai pilihan pengguna, bukan kata sandi — jadi tidak ada kata sandi untuk diganti. Pada aplikasi live, form ganti kata sandi muncul di sini.</p>
+            </>
+          )}
+      </Card>
+      <Card className="space-y-2 p-5">
+        <p className="text-xs font-bold uppercase tracking-wide text-ink-mute">Email & pemulihan akun</p>
+        <p className="text-sm text-ink-soft">Email akun <b>{user.email || '—'}</b> dipakai untuk login. Penggantian email dilakukan Superadmin lewat Setting → Pengguna agar akses tetap terjaga; lupa kata sandi ditangani lewat halaman login pada aplikasi live.</p>
+      </Card>
+      <Card className="space-y-2 p-5">
+        <p className="text-xs font-bold uppercase tracking-wide text-ink-mute">Sesi & verifikasi dua langkah</p>
+        <p className="text-sm text-ink-soft">Daftar perangkat yang sedang login dan verifikasi dua langkah belum tersedia di versi ini — akan muncul di sini kalau layanan autentikasinya sudah mendukung. Sementara itu, tombol <b>Keluar</b> di atas mengakhiri sesi di perangkat ini.</p>
+      </Card>
+    </div>
+  )
+}
+
+/** Preferensi tampilan & notifikasi — tersambung ke pengaturan yang sudah ada. */
+function Preferensi() {
+  const { notify } = useApp()
+  const [theme, setTheme] = useState(readTheme)
+  const [density, setDensity] = useState(() => { try { return localStorage.getItem('atlas-density') || 'comfortable' } catch { return 'comfortable' } })
+  const [sound, setSound] = useState(soundEnabled)
+  const [chatOn, setChatOn] = useState(chatSoundEnabled)
+  const [vol, setVol] = useState(chatVolume)
+  const setT = (patch) => { const next = { ...theme, ...patch }; setTheme(next); applyTheme(next); try { localStorage.setItem('atlas-theme', JSON.stringify(next)) } catch { /* abaikan */ } }
+  const setD = (v) => { setDensity(v); document.documentElement.dataset.density = v; try { localStorage.setItem('atlas-density', v) } catch { /* abaikan */ } }
+  const chip = (on) => cx('rounded-xl px-3 py-2 text-xs font-semibold ring-1 transition', on ? 'bg-brand text-white ring-brand' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand')
+  return (
+    <div className="space-y-3">
+      <Card className="space-y-4 p-5">
+        <p className="text-xs font-bold uppercase tracking-wide text-ink-mute">Tampilan</p>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <p className="mb-1.5 text-[13px] font-semibold text-ink-soft">Tema</p>
+            <div className="flex gap-1.5">{[['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => <button key={v} type="button" onClick={() => setT({ mode: v })} aria-pressed={theme.mode === v} className={chip(theme.mode === v)}>{l}</button>)}</div>
+          </div>
+          <div>
+            <p className="mb-1.5 text-[13px] font-semibold text-ink-soft">Kepadatan</p>
+            <div className="flex gap-1.5">{[['comfortable', 'Comfortable'], ['compact', 'Compact']].map(([v, l]) => <button key={v} type="button" onClick={() => setD(v)} aria-pressed={density === v} className={chip(density === v)}>{l}</button>)}</div>
+          </div>
+          <div>
+            <p className="mb-1.5 text-[13px] font-semibold text-ink-soft">Panel detail dari</p>
+            <div className="flex gap-1.5">{[['right', 'Kanan'], ['left', 'Kiri']].map(([v, l]) => <button key={v} type="button" onClick={() => setT({ panel: v })} aria-pressed={(theme.panel || 'right') === v} className={chip((theme.panel || 'right') === v)}>{l}</button>)}</div>
+          </div>
+        </div>
+        <div>
+          <p className="mb-1.5 text-[13px] font-semibold text-ink-soft">Warna aksen</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {[['#111827', 'Monokrom'], ['#475569', 'Abu'], ['#4f46e5', 'Ungu'], ['#2563eb', 'Biru'], ['#0d9488', 'Teal'], ['#059669', 'Hijau'], ['#d97706', 'Oranye'], ['#db2777', 'Pink']].map(([c, n]) => (
+              <button key={c} type="button" onClick={() => setT({ accent: c })} title={n} aria-label={`Aksen ${n}`} aria-pressed={theme.accent === c}
+                className="h-7 w-7 rounded-full ring-2 ring-offset-2 ring-offset-[var(--surface)] transition hover:scale-110"
+                style={{ backgroundColor: c, '--tw-ring-color': theme.accent === c ? c : 'transparent' }} />
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] text-ink-mute">Tersimpan di perangkat ini saja — tidak mengubah tampilan pengguna lain. Pengaturan yang sama juga ada di ikon palet pada bar atas.</p>
+        </div>
+      </Card>
+
+      <Card className="space-y-3 p-5">
+        <p className="text-xs font-bold uppercase tracking-wide text-ink-mute">Notifikasi</p>
+        <label className="flex cursor-pointer items-center gap-3 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+          <input type="checkbox" checked={sound} onChange={(e) => { setSound(e.target.checked); setSoundEnabled(e.target.checked); notify(e.target.checked ? 'Suara notifikasi dinyalakan' : 'Suara notifikasi dimatikan') }} className="h-4 w-4 rounded border-slate-300 text-brand" />
+          <span><span className="block text-sm font-semibold text-ink">Suara notifikasi</span><span className="block text-[11px] text-ink-mute">Bunyi saat pembayaran masuk, ping, dan permintaan penerjemah.</span></span>
+        </label>
+        <label className="flex cursor-pointer items-center gap-3 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+          <input type="checkbox" checked={chatOn} onChange={(e) => { setChatOn(e.target.checked); setChatSoundEnabled(e.target.checked) }} className="h-4 w-4 rounded border-slate-300 text-brand" />
+          <span className="min-w-0 flex-1"><span className="block text-sm font-semibold text-ink">Suara chat</span>
+            <span className="block text-[11px] text-ink-mute">Bunyi lembut saat ada pesan baru dari rekan; ping pakai nada berbeda.</span></span>
+        </label>
+        <label className={cx('flex items-center gap-3 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200', !chatOn && 'opacity-50')}>
+          <span className="text-sm font-semibold text-ink">Volume chat</span>
+          <input type="range" min="0" max="1" step="0.1" disabled={!chatOn} value={vol} onChange={(e) => { setVol(Number(e.target.value)); setChatVolume(Number(e.target.value)) }}
+            aria-label="Volume suara chat" className="min-w-0 flex-1 accent-[var(--brand)]" />
+          <span className="w-8 text-right text-xs tabular-nums text-ink-mute">{Math.round(vol * 100)}%</span>
+        </label>
+        <p className="text-[11px] text-ink-mute">Pesan di layar muncul satu per satu (tidak menumpuk), hilang sendiri dalam beberapa detik, dan bisa ditutup. Notifikasi kerja (tugas baru, pengajuan, revisi, perlu penerjemah) tetap tersimpan di ikon lonceng sesuai peran Anda. Email/WhatsApp belum tersambung di versi ini, jadi tidak ditampilkan sebagai pilihan.</p>
+      </Card>
+
+      <Availability />
+    </div>
+  )
+}
+
+/** Ketersediaan — khusus Direktur: tampil "Tersedia 24 jam" di Tim Aktif. */
+function Availability() {
+  const { user, data, updateProfile, notify } = useApp()
+  const row = data.users.find((u) => u.id === user.id) || user
+  const [busy, setBusy] = useState(false)
+  if (user.role !== 'direktur') return null
+  const toggle = async (on) => {
+    setBusy(true)
+    try { await updateProfile({ available_24h: on }); notify(on ? 'Ditandai tersedia 24 jam' : 'Tanda tersedia 24 jam dimatikan') }
+    catch (e) { notify(e.message, 'err') } finally { setBusy(false) }
+  }
+  return (
+    <Card className="space-y-3 p-5">
+      <p className="text-xs font-bold uppercase tracking-wide text-ink-mute">Ketersediaan</p>
+      <label className="flex cursor-pointer items-start gap-3 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+        <input type="checkbox" disabled={busy} checked={row.available_24h !== false} onChange={(e) => toggle(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand" />
+        <span>
+          <span className="block text-sm font-semibold text-ink">Tampilkan "Tersedia 24 jam"</span>
+          <span className="block text-[11px] text-ink-mute">Aktif secara bawaan: di daftar Tim Aktif Anda selalu berada di urutan pertama dan ditandai tersedia, meski tab ATLAS sedang tertutup — supaya tim tahu Anda bisa dihubungi untuk persetujuan mendesak. Matikan bila ingin status Anda mengikuti koneksi apa adanya.</span>
+        </span>
+      </label>
+      <p className="text-[11px] text-ink-mute">Ini hanya penanda ketersediaan, bukan status koneksi: waktu aktif terakhir tetap ditampilkan apa adanya, dan sesi Anda tetap keluar otomatis setelah 3 jam tanpa aktivitas.</p>
     </Card>
   )
 }
@@ -423,15 +637,15 @@ function Users() {
 }
 
 function Integrations() {
-  const { refresh, notify, ask, data, save } = useApp()
+  const { refresh, notify, ask, data, save, liveStatus } = useApp()
   const live = MODE !== 'demo'
   const demoRow = (data.app_settings || []).find((r) => r.key === 'demo')
   const perfOn = demoRow?.perf !== false
   const togglePerf = async () => { await save('app_settings', { ...(demoRow || { key: 'demo' }), perf: !perfOn }); await refresh(); notify(!perfOn ? 'Tugas contoh harian dinyalakan' : 'Tugas contoh harian dimatikan & dihapus') }
   const items = MODE === 'supabase' ? [
-    { name: 'Supabase', desc: 'Login, role, database (semua tabel), realtime & penyimpanan file (bucket files)', env: 'VITE_SUPABASE_URL, VITE_SUPABASE_KEY' },
-    { name: 'Cloudflare Pages', desc: 'Hosting aplikasi — deploy otomatis dari GitHub', env: 'Environment variables di dashboard Cloudflare' },
-    { name: 'Zoho Books', desc: 'Pencarian pelanggan & invoice — menyusul (Edge Function)', env: 'ZOHO_* (rahasia di server)' },
+    { name: 'Supabase', desc: `Login, role, database (semua tabel), realtime & penyimpanan file (bucket files) · Realtime: ${liveStatus === 'SUBSCRIBED' ? 'tersambung ✅' : liveStatus === 'POLLING' ? 'cadangan polling tiap 20 dtk ⏱' : liveStatus ? `tidak tersambung (${liveStatus}) — pakai polling` : 'menyambung…'}`, env: 'VITE_SUPABASE_URL, VITE_SUPABASE_KEY' },
+    { name: 'GitHub Pages', desc: 'Hosting aplikasi — deploy otomatis dari GitHub (branch main)', env: 'Workflow .github/workflows/deploy-pages.yml' },
+    { name: 'Zoho Books', desc: 'Salinan pelanggan, invoice & item disinkron otomatis tiap 10 menit (Edge Function zoho-sync + pg_cron)', env: 'zoho_config (rahasia di database)' },
   ] : [
     { name: 'InsForge', desc: 'Login, role & database (users, people, projects, petty_cash)', env: 'VITE_INSFORGE_URL, VITE_INSFORGE_ANON_KEY' },
     { name: 'Zoho Books', desc: 'Cari pelanggan & tarik nomor invoice — via /api/zoho', env: 'ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN, ZOHO_ORG_ID' },
@@ -442,7 +656,7 @@ function Integrations() {
     <div className="space-y-3">
       <Card className={cx('p-4', live ? 'bg-emerald-50 ring-emerald-200' : 'bg-amber-50 ring-amber-200')}>
         <p className="text-sm font-bold">{MODE === 'supabase' ? 'Mode LIVE — terhubung ke Supabase' : live ? 'Mode LIVE — terhubung ke InsForge' : 'Mode DEMO — data tersimpan di browser ini'}</p>
-        <p className="mt-0.5 text-xs text-ink-soft">{live ? 'Kunci Zoho & Google disimpan di server (Vercel), tidak pernah dikirim ke browser.' : 'Isi environment variables lalu deploy ke Vercel untuk beralih ke mode live. Lihat README.'}</p>
+        <p className="mt-0.5 text-xs text-ink-soft">{MODE === 'supabase' ? 'Kunci Zoho disimpan di database Supabase (hanya server yang bisa membaca), tidak pernah dikirim ke browser. Perubahan rekan kerja tampil otomatis lewat realtime; bila realtime terputus, aplikasi memuat ulang data tiap 20 detik dan setiap tab kembali aktif.' : live ? 'Kunci Zoho & Google disimpan di server (Vercel), tidak pernah dikirim ke browser.' : 'Isi environment variables lalu deploy ke Vercel untuk beralih ke mode live. Lihat README.'}</p>
       </Card>
       {items.map((i) => (
         <Card key={i.name} className="flex items-start gap-3 p-4">

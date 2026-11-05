@@ -3,7 +3,7 @@ import { Share2, ArrowLeft, Pencil, Trash2, Upload, FileText, Download, Check, L
 import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
 import { drive } from '../lib/integrations.js'
-import { can, PERSON_TYPES, ROLES, scopeByBranch, activeClaim, placeOf, branchesOf } from '../config/access.js'
+import { can, PERSON_TYPES, ROLES, scopeByBranch, activeClaim, placeOf, branchesOf, printBranchOf, displayNameFor, seeProofreaderIdentity, proofreaderTeamName, pickProofreader } from '../config/access.js'
 import { saveBlob, dataUrlToBlob } from '../lib/download.js'
 import ResiFields from '../components/ResiFields.jsx'
 import FilePreview from '../components/FilePreview.jsx'
@@ -12,18 +12,21 @@ import OtorisatorView from '../components/OtorisatorView.jsx'
 import WorkerView from '../components/WorkerView.jsx'
 import CopyText from '../components/CopyText.jsx'
 import { printBlob } from '../lib/printing.js'
-import { CATEGORIES, DONE, stageIndex, stagesOf, progressOf, flowOf, sumberLabel, isVendorFlow, recommendFund, docListOf } from '../config/workflows.js'
+import { CATEGORIES, DONE, stageIndex, stagesOf, progressOf, flowOf, sumberLabel, isVendorFlow, recommendFund, docListOf, VENDOR_PAID_STAGES } from '../config/workflows.js'
 import { SumberDanaPicker } from '../components/Pengajuan.jsx'
 import { ProjectTypes, PrintBadge } from '../components/badges.jsx'
 import { SUB_TYPES, points } from '../config/subtypes.js'
 import { Button, Card, SectionCard, Empty, Field, Input, Pill, Progress, Select, Textarea, cx } from '../components/ui.jsx'
 import { jam, kb, rupiah, tgl, daysLeft } from '../lib/format.js'
 import ProjectForm from './ProjectForm.jsx'
+import { ProjectPayBadge } from '../components/PayBadge.jsx'
+import ProjectItems from '../components/ProjectItems.jsx'
 import { useUploadNamer } from '../components/UploadNamer.jsx'
 import ActivityList from '../components/ActivityList.jsx'
 import { projectActivities } from '../lib/activity.js'
 import FileManager, { collect as collectFiles, fileIdentity, fieldFiles, uploadProjectFiles } from '../components/FileManager.jsx'
-import { PengajuanSummary, DownloadBukti, accountLabel, PengajuanTracker } from '../components/Pengajuan.jsx'
+import { PengajuanSummary, DownloadBukti, accountLabel, PengajuanTracker, RevisionNote, RejectPengajuan } from '../components/Pengajuan.jsx'
+import VendorChat from '../components/VendorChat.jsx'
 import CustomerInfo from '../components/CustomerInfo.jsx'
 import ShareSheet from '../components/ShareSheet.jsx'
 import DeliveryChecklist, { DeliveryRule, deliveryOk, deliveryType } from '../components/Delivery.jsx'
@@ -33,7 +36,7 @@ import { CourierSelect } from '../components/Courier.jsx'
 import { PriorityBadge } from '../components/Priority.jsx'
 import { PingButton } from '../components/Ping.jsx'
 
-export default function ProjectDetail({ id }) {
+export default function ProjectDetail({ id, embedded }) {
   const { user, data, remove, save, notify, ask } = useApp()
   const project = data.projects.find((p) => p.id === id)
   const [editing, setEditing] = useState(false)
@@ -52,12 +55,13 @@ export default function ProjectDetail({ id }) {
 
   return (
     <div className="space-y-4">
-      <button onClick={() => go('projects')} className="inline-flex items-center gap-1 text-sm font-semibold text-ink-mute hover:text-ink"><ArrowLeft className="h-4 w-4" />My Project</button>
+      {/* Di panel samping tidak perlu tombol kembali — cukup tutup panelnya */}
+      {!embedded && <button onClick={() => go('projects')} className="inline-flex items-center gap-1 text-sm font-semibold text-ink-mute hover:text-ink"><ArrowLeft className="h-4 w-4" />My Project</button>}
 
-      <Card className="p-4 md:p-5">
+      <Card className={embedded ? 'p-3' : 'p-4 md:p-5'}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">{project.invoice_no}</h1>
+            {!embedded && <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">{project.invoice_no}</h1>}
             <ProjectTypes project={project} className="mt-1" />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -68,8 +72,9 @@ export default function ProjectDetail({ id }) {
         </div>
         <div className="mt-4 flex flex-wrap gap-1.5">
           <Pill>Cabang {project.branch}</Pill>
-          {project.about?.print_location && <Pill>Print {project.about.print_location}</Pill>}
+          {project.about?.print_location && <Pill>Print {project.about.print_location === 'Vendor' ? 'Vendor (eksternal)' : project.about.print_location}</Pill>}
           <PrintBadge project={project} />
+          <ProjectPayBadge project={project} />
           {project.about?.cs_name && <Pill>CS {project.about.cs_name}</Pill>}
           <PriorityBadge p={project.about?.priority} />
           {project.about?.received_at && <Pill>Masuk {tgl(project.about.received_at)}</Pill>}
@@ -100,7 +105,7 @@ export default function ProjectDetail({ id }) {
                 <CourierSelect value={project.about?.courier} printLocation={project.about?.print_location}
                   onChange={async (id) => { await save('projects', { ...project, about: { ...project.about, courier: id } }); notify('Kurir diperbarui') }} />
                 <DeliveryRule type={deliveryType(project, data.couriers)} />
-                <ResiFields about={project.about || {}} branch={project.branch} invoice={project.invoice_no}
+                <ResiFields about={project.about || {}}
                   onChange={async (patch) => { await save('projects', { ...project, about: { ...project.about, ...patch } }); notify('Info resi disimpan') }} />
               </div>
             </SectionCard>
@@ -113,10 +118,12 @@ export default function ProjectDetail({ id }) {
 
       <h2 className="pt-2 font-bold">Sub Project <span className="text-ink-mute">({project.sub_projects.length})</span></h2>
       <div className="space-y-3">
-        {project.sub_projects.map((s, i) => <SubProject key={s.id} n={i + 1} project={project} sub={s} />)}
+        {project.sub_projects.map((s, i) => <SubProject key={s.id} n={i + 1} project={project} sub={s} compact={embedded} />)}
       </div>
 
       <FileManager project={project} />
+
+      <ProjectItems project={project} />
 
       <ProjectActivity project={project} />
 
@@ -126,7 +133,7 @@ export default function ProjectDetail({ id }) {
   )
 }
 
-function SubProject({ n, project, sub }) {
+function SubProject({ n, project, sub, compact }) {
   const flow = flowOf(sub, project)
   const stages = stagesOf(flow)
   const idx = stageIndex(flow, sub.stage)
@@ -144,26 +151,41 @@ function SubProject({ n, project, sub }) {
         {done ? <Pill className="bg-emerald-50 text-emerald-700"><Check className="h-3 w-3" />Selesai</Pill> : <Pill className="bg-brand-soft text-brand">{stages[idx]?.label}</Pill>}
       </div>
 
-      {/* Stepper */}
+      {/* Alur tahap — mendatar di halaman penuh, menurun saat di panel samping agar muat */}
       <p className="px-4 pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink-mute">Alur: {CATEGORIES[flow]?.label}</p>
-      <div className="overflow-x-auto px-4 pb-3">
-        <ol className="flex w-max min-w-full items-center gap-1">
+      {compact ? (
+        <ol className="space-y-1 px-4 pb-3">
           {stages.map((st, i) => (
-            <li key={st.key} className="flex items-center gap-1">
-              <span className={cx('flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold',
-                i < idx ? 'bg-emerald-50 text-emerald-700' : i === idx ? 'bg-ink text-white' : 'bg-slate-100 text-ink-mute')}>
-                {i < idx ? <Check className="h-3 w-3" /> : <span>{i + 1}</span>}{st.short || st.label}
+            <li key={st.key} className="flex items-center gap-2">
+              <span className={cx('grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-bold',
+                i < idx ? 'bg-emerald-100 text-emerald-700' : i === idx ? 'bg-ink text-white' : 'bg-slate-100 text-ink-mute')}>
+                {i < idx ? <Check className="h-3 w-3" /> : i + 1}
               </span>
-              {i < stages.length - 1 && <span className={cx('h-px w-3', i < idx ? 'bg-emerald-300' : 'bg-slate-200')} />}
+              <span className={cx('text-xs', i === idx ? 'font-bold text-ink' : i < idx ? 'font-semibold text-emerald-700' : 'text-ink-mute')}>{st.label}</span>
+              {i === idx && <span className="rounded-full bg-brand-soft px-1.5 py-0.5 text-[10px] font-bold text-brand">tahap saat ini</span>}
             </li>
           ))}
         </ol>
-      </div>
+      ) : (
+        <div className="overflow-x-auto px-4 pb-3">
+          <ol className="flex w-max min-w-full items-center gap-1">
+            {stages.map((st, i) => (
+              <li key={st.key} className="flex items-center gap-1">
+                <span className={cx('flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                  i < idx ? 'bg-emerald-50 text-emerald-700' : i === idx ? 'bg-ink text-white' : 'bg-slate-100 text-ink-mute')}>
+                  {i < idx ? <Check className="h-3 w-3" /> : <span>{i + 1}</span>}{st.short || st.label}
+                </span>
+                {i < stages.length - 1 && <span className={cx('h-px w-3', i < idx ? 'bg-emerald-300' : 'bg-slate-200')} />}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
 
-      {isVendorFlow(flow) && sub.stage !== 'pengajuan' && (
+      {(isVendorFlow(flow) || flow === 'tr_bill') && (sub.stage !== 'pengajuan' || sub.data?.vendor || sub.translator_kind === 'vendor') && (
         <div className="mx-4 mb-3 rounded-xl bg-violet-50/60 p-3 ring-1 ring-violet-100">
-          <p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-violet-800">Progres Pengajuan Vendor</p>
-          <PengajuanTracker sub={sub} compact />
+          {isVendorFlow(flow) && sub.stage !== 'pengajuan' && <><p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-violet-800">Progres Pengajuan Vendor</p><PengajuanTracker sub={sub} compact /></>}
+          <VendorChat project={project} sub={sub} className={isVendorFlow(flow) && sub.stage !== 'pengajuan' ? 'mt-3 border-t border-violet-100 pt-3' : ''} />
         </div>
       )}
       {['ap_int', 'lg_int'].includes(flow) && <BiayaPanel project={project} sub={sub} />}
@@ -221,8 +243,20 @@ function Collected({ project, sub }) {
   if (!items.length) return null
   return (
     <div className="mx-4 mb-3 grid gap-x-4 gap-y-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-2">
-      {items.map((f) => <div key={f.key} className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-wide text-ink-mute">{f.label}</p><Value f={f} v={sub.data[f.key]} d={sub.data} people={[...data.users, ...data.people]} canFund={can.seeFunding(user)} /></div>)}
+      {items.map((f) => <div key={f.key} className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-wide text-ink-mute">{f.label}</p><Value f={f} v={sub.data[f.key]} d={sub.data} people={[...data.users.map((u) => ({ ...u, name: displayNameFor(user, u) })), ...data.people]} canFund={can.seeFunding(user)} /></div>)}
     </div>
+  )
+}
+
+/** Kirim ke Tim Proofreader: identitas perorangan tidak dibagikan ke pengguna biasa. */
+function TeamPick({ label, value, onPick, users, projects, empty }) {
+  useEffect(() => { if (!value && !empty) onPick(pickProofreader(users, projects)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <Field label={label} hint={empty ? 'Belum ada proofreader aktif — hubungi Supervisor' : undefined}>
+      <p className="rounded-xl bg-slate-50 px-3 py-2.5 text-sm ring-1 ring-slate-200">
+        Dikirim ke <b>{proofreaderTeamName()}</b>{empty ? '' : ' — sistem memilihkan pemeriksa yang antreannya paling sedikit.'}
+      </p>
+    </Field>
   )
 }
 
@@ -248,7 +282,7 @@ function FileChip({ file }) {
     : <span className="flex min-w-0 items-center gap-1.5 text-xs font-semibold">{Inner}</span>
 }
 
-function StagePanel({ project, sub, stage }) {
+export function StagePanel({ project, sub, stage }) {
   const { user, data, processStage, notify, pettyBalance, claimSub, nameOf, patchSubData } = useApp()
   const [vals, setVals] = useState({})
   const [busy, setBusy] = useState(null)
@@ -267,7 +301,7 @@ function StagePanel({ project, sub, stage }) {
   // Super Admin, Direktur & Admin Pusat boleh melanjutkan tahap tanpa menunggu role penanggung jawab (dengan alasan, tercatat di riwayat)
   const canOverride = ['superadmin', 'direktur', 'admin_pusat'].includes(user.role)
   const normal = can.processStage(user, stage, sub, project)
-  const isOwnerRole = stage.roles.includes(user.role) && !(stage.assignee && sub.data?.[stage.assignee] && sub.data[stage.assignee] !== user.id) && !(stage.claimable && user.role !== 'otorisator') && !(stage.printBranch && !branchesOf(user).includes(project.about?.print_location || project.branch))
+  const isOwnerRole = stage.roles.includes(user.role) && !(stage.assignee && sub.data?.[stage.assignee] && sub.data[stage.assignee] !== user.id) && !(stage.claimable && user.role !== 'otorisator') && !(stage.printBranch && !branchesOf(user).includes(printBranchOf(project)))
   const [overrideMode, setOverrideMode] = useState(false)
   const [reason, setReason] = useState('')
   const overriding = canOverride && !isOwnerRole && (overrideMode || normal)
@@ -300,7 +334,7 @@ function StagePanel({ project, sub, stage }) {
   )
   // tahap akhir: syarat "selesai" mengikuti metode pengiriman
   const dType = deliveryType(project, data.couriers)
-  const needDelivery = ['siap_kirim', 'cs_final'].includes(stage.key) || (stage.key === 'proses_vendor' && dType === 'vendor')
+  const needDelivery = ['siap_kirim', 'cs_final', 'kirim'].includes(stage.key) || (stage.key === 'proses_vendor' && dType === 'vendor')
   const delivery = needDelivery ? deliveryOk(project, sub, data.couriers) : { ok: true }
   const printDoc = sub.data?.file_final || sub.data?.hasil_proofread || sub.data?.hasil_terjemahan
   const isPdf = printDoc && (/\.pdf$/i.test(printDoc.name) || printDoc.url?.startsWith('data:application/pdf'))
@@ -321,6 +355,7 @@ function StagePanel({ project, sub, stage }) {
   return (
     <div className="mx-4 mb-3 rounded-xl ring-2 ring-brand/20">
       <div className={cx('rounded-t-xl px-3 py-2', overriding ? 'bg-amber-100' : 'bg-brand-soft')}><p className={cx('text-xs font-bold', overriding ? 'text-amber-900' : 'text-brand')}>Tahap saat ini: {stage.label}{overriding && ' · Mode lanjutkan tanpa menunggu role'}</p>{stage.hint && <p className="text-[11px] text-ink-soft">{stage.hint}</p>}</div>
+      <RevisionNote sub={sub} className="mx-3 mt-3 rounded-xl" />
       <div className="space-y-3 p-3">
         {stage.claimable && claim && (
           <div className="flex items-center gap-2 rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-900 ring-1 ring-violet-200">
@@ -356,6 +391,10 @@ function StagePanel({ project, sub, stage }) {
             const role = f.type.split(':')[1]
             const opts = data.users.filter((u) => u.role === role && u.active !== false)
               .sort((a, b) => (b.branch === project.branch) - (a.branch === project.branch) || a.name.localeCompare(b.name))
+            // Proofreader: pengguna biasa mengirim ke TIM, sistem yang memilih orangnya
+            if (role === 'proofreader' && !seeProofreaderIdentity(user)) {
+              return <TeamPick key={f.key} label={f.label} value={v} onPick={set} users={data.users} projects={data.projects} empty={!opts.length} />
+            }
             return <Field key={f.key} label={f.label} required={f.required} hint={!opts.length ? `Belum ada pengguna ${ROLES[role].label} — tambahkan di Setting → Pengguna` : undefined}>
               <Select value={v} onChange={(e) => set(e.target.value)}>
                 <option value="">— Pilih {ROLES[role].label} —</option>
@@ -458,8 +497,8 @@ function StagePanel({ project, sub, stage }) {
           return <Field key={f.key} label={f.label} required={f.required}><Textarea rows={2} value={v} onChange={(e) => set(e.target.value)} /></Field>
         })}
         {/* Rincian pengajuan untuk Direktur / Akunting */}
-        {['persetujuan', 'pembayaran', 'dibayar'].includes(stage.key) && <PengajuanSummary sub={sub} />}
-        {stage.key === 'dibayar' && sub.data?.bukti_transfer && (
+        {['persetujuan', 'pembayaran', ...VENDOR_PAID_STAGES].includes(stage.key) && <PengajuanSummary sub={sub} />}
+        {VENDOR_PAID_STAGES.includes(stage.key) && sub.data?.bukti_transfer && (
           <div className="flex flex-wrap items-center gap-2 rounded-xl bg-emerald-50 p-3">
             <div className="min-w-0 flex-1"><p className="mb-1 text-[11px] font-semibold text-emerald-700">Bukti transfer · dibayar {tgl(sub.data.paid_date)}</p><FileChip file={sub.data.bukti_transfer} /></div>
             <DownloadBukti file={sub.data.bukti_transfer} />
@@ -477,6 +516,7 @@ function StagePanel({ project, sub, stage }) {
             <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Alasan melewati proses (wajib)" aria-label="Alasan melewati proses" aria-invalid={!reason.trim()} />
           </div>
         )}
+        {!overriding && (stage.key === 'persetujuan' || stage.key === 'pembayaran') && <div className="flex justify-end pt-1"><RejectPengajuan project={project} sub={sub} /></div>}
         <div className="flex gap-2 pt-1">
           {overrideMode && <Button variant="outline" onClick={() => { setOverrideMode(false); setReason('') }}>Batal</Button>}
           {stage.fields.length > 0 && !overriding && <Button variant="outline" className="flex-1" loading={busy === 'save'} disabled={!!uploading} onClick={() => run(false)}>Simpan</Button>}

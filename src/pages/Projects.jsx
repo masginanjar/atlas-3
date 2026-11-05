@@ -1,16 +1,16 @@
 import { useMemo, useState } from 'react'
-import { Plus, Search, FolderOpen, Banknote, CalendarClock, Layers, LayoutGrid, List, ChevronRight, ChevronDown, Sparkles, StickyNote, Download, Loader2, Printer, AlertTriangle } from 'lucide-react'
-import JSZip from 'jszip'
-import { drive } from '../lib/integrations.js'
+import { Plus, Search, FolderOpen, Banknote, CalendarClock, Layers, LayoutGrid, List, ChevronRight, ChevronDown, Sparkles, StickyNote, Printer, AlertTriangle, Eye, Columns3, Download, Bookmark, X, Save } from 'lucide-react'
+import FileManager, { fieldFiles, collect as collectFiles } from '../components/FileManager.jsx'
+import ProjectDetail from './ProjectDetail.jsx'
 import { saveBlob } from '../lib/download.js'
-import { fieldFiles } from '../components/FileManager.jsx'
+import WorkerBoard, { WorkerActions, isWorkRole } from '../components/WorkerActions.jsx'
 import { useApp } from '../lib/store.jsx'
 import { scopeByBranch, can, branchesOf } from '../config/access.js'
-import { DONE, isDone, progressOf, stageLabel, flowOf, totalPengajuan, stageIndex, stagesOf } from '../config/workflows.js'
+import { DONE, isDone, progressOf, stageLabel, flowOf, totalPengajuan, stageIndex, stagesOf, VENDOR_PAID_STAGES } from '../config/workflows.js'
 import { PengajuanStatus, DownloadBukti } from '../components/Pengajuan.jsx'
 import { SUB_TYPES } from '../config/subtypes.js'
 import { ProjectTypes, TypeBadge, PrintBadge, DemoBadge, InvoiceNo, DeadlineCell, NoteIcon } from '../components/badges.jsx'
-import { Button, Card, Empty, Input, Pill, Progress, Tabs, Sheet, cx } from '../components/ui.jsx'
+import { Button, Card, Empty, Input, Pill, Progress, Tabs, Sheet, Popover, cx } from '../components/ui.jsx'
 import { dayKey, addDays } from '../lib/performance.js'
 import { daysLeft, rupiah, tgl } from '../lib/format.js'
 import ProjectForm from './ProjectForm.jsx'
@@ -19,6 +19,7 @@ import TimeAgo from '../components/TimeAgo.jsx'
 
 export default function Projects() {
   const { user, data, branchFilter } = useApp()
+  const projectOf = (id) => data.projects.find((x) => x.id === id) // versi terbaru dari store
   const [tab, setTab] = useState('all')
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('aktif')
@@ -36,9 +37,16 @@ export default function Projects() {
   const scoped = useMemo(() => scopeByBranch(user, data.projects, branchFilter), [user, data.projects, branchFilter])
   const finScoped = useMemo(() => (can.seeAllFinance(user) ? scoped : scoped.filter((p) => branchesOf(user).includes(p.branch))), [scoped, user])
   const vendorRows = useMemo(() => finScoped.flatMap((p) => (p.sub_projects || [])
-    .filter((s) => ['persetujuan', 'pembayaran', 'dibayar'].includes(s.stage) || (s.data?.bukti_transfer))
+    .filter((s) => ['persetujuan', 'pembayaran', ...VENDOR_PAID_STAGES].includes(s.stage) || (s.data?.bukti_transfer))
     .map((s) => ({ ...s, project: p }))), [finScoped])
 
+  const [prFilter, setPrFilter] = useState('') // filter prioritas (judul kolom)
+  const [detailFor, setDetailFor] = useState(null) // panel kanan: detail project
+  const [filesFor, setFilesFor] = useState(null) // panel kanan: file project
+  const [cols, setCols] = useState(() => { try { const v = JSON.parse(localStorage.getItem('atlas-cols') || 'null'); return Array.isArray(v) && v.length ? v.filter((k) => ALL_COLS.includes(k)) : ALL_COLS } catch { return ALL_COLS } })
+  const saveCols = (next) => { setCols(next); try { localStorage.setItem('atlas-cols', JSON.stringify(next)) } catch { /* abaikan */ } }
+  const worker = isWorkRole(user) // penerjemah / proofreader / otorisator → tampilan fokus tugas
+  const [fullView, setFullView] = useState(false)
   const [shownN, setShownN] = useState(36)
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
@@ -48,8 +56,9 @@ export default function Projects() {
       .filter((p) => !s || [p.invoice_no, p.customer?.name, p.about?.description, ...(p.sub_projects || []).map((x) => x.title)].join(' ').toLowerCase().includes(s))
       .filter((p) => !dlFilter || (p.about?.deadline && String(p.about.deadline).slice(0, 10) >= dlFilter.from && String(p.about.deadline).slice(0, 10) <= dlFilter.to))
       .filter((p) => (!bpFilter.branch || p.branch === bpFilter.branch) && (!bpFilter.print || (p.about?.print_location || p.branch) === bpFilter.print))
+      .filter((p) => !prFilter || (p.about?.priority || 'Normal') === prFilter)
       .sort((a, b) => sort === 'baru' ? new Date(b.created_at || 0) - new Date(a.created_at || 0) : new Date(a.about?.deadline || 0) - new Date(b.about?.deadline || 0))
-  }, [scoped, tab, q, status, sort, dlFilter, bpFilter])
+  }, [scoped, tab, q, status, sort, dlFilter, bpFilter, prFilter])
   // project lewat deadline & belum selesai — selalu dipajang di atas tabel (hilang otomatis saat selesai)
   const late = useMemo(() => list.filter((p) => !isDone(p) && daysLeft(p.about?.deadline) < 0), [list])
   const rest = useMemo(() => late.length ? list.filter((p) => !late.includes(p)) : list, [list, late])
@@ -63,13 +72,22 @@ export default function Projects() {
   return (
     <div className="space-y-4">
       <div className="flex items-end justify-between gap-3">
-        <div><h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">My Project</h1><p className="text-sm text-ink-mute">Nama project = nomor invoice Zoho</p></div>
-        <Button className="hidden md:inline-flex" onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" />Project Baru</Button>
+        <div><h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">My Project</h1><p className="text-sm text-ink-mute">{worker ? 'Dokumen yang ditugaskan kepada Anda' : 'Nama project = nomor invoice Zoho'}</p></div>
+        {!worker && <Button className="hidden md:inline-flex" onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" />Project Baru</Button>}
       </div>
 
-      <Tabs tabs={tabs} value={tab} onChange={setTab} />
+      {!worker && <Tabs tabs={tabs} value={tab} onChange={setTab} />}
 
-      {tab === 'vendor' ? <VendorPayments rows={vendorRows} /> : (
+      {worker && (
+        <>
+          <WorkerBoard projects={scoped} />
+          <button type="button" onClick={() => setFullView((v) => !v)} className="text-xs font-semibold text-brand hover:underline">
+            {fullView ? 'Sembunyikan tampilan lengkap' : 'Lihat semua project saya (tampilan lengkap)'}
+          </button>
+        </>
+      )}
+
+      {worker && !fullView ? null : tab === 'vendor' ? <VendorPayments rows={vendorRows} /> : (
         <>
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -91,36 +109,87 @@ export default function Projects() {
                   className={cx('grid h-8 w-8 place-items-center rounded-lg', view === k ? 'bg-ink text-white' : 'text-ink-mute hover:bg-slate-50')}><Icon className="h-4 w-4" /></button>
               ))}
             </div>
+            <SavedViews current={{ tab, q, status, sort, dlFilter, prFilter, bpFilter, cols, view }} apply={(v) => { setTab(v.tab ?? 'all'); setQ(v.q ?? ''); setStatus(v.status ?? 'aktif'); setSort(v.sort ?? 'deadline'); setDlFilter(v.dlFilter ?? null); setPrFilter(v.prFilter ?? ''); setBpFilter(v.bpFilter ?? { branch: '', print: '' }); if (v.cols) saveCols(v.cols); if (v.view) setView(v.view) }} />
+            {view === 'list' && (
+              <Popover label="Pengaturan kolom" button={({ open: o, toggle }) => (
+                <button onClick={toggle} aria-expanded={o} aria-label="Pengaturan kolom tabel" title="Pilih kolom yang ditampilkan"
+                  className={cx('grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white ring-1 ring-slate-200 hover:text-brand', o ? 'text-brand ring-brand' : 'text-ink-mute')}><Columns3 className="h-4 w-4" /></button>
+              )}>
+                {() => (
+                  <div className="space-y-1.5">
+                    <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Kolom tabel</p>
+                    {COLUMNS.map((c) => (
+                      <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-sm hover:bg-slate-50">
+                        <input type="checkbox" checked={cols.includes(c.key)} disabled={c.key === 'invoice'}
+                          onChange={(e) => saveCols(e.target.checked ? ALL_COLS.filter((k) => k === c.key || cols.includes(k)) : cols.filter((k) => k !== c.key))}
+                          className="h-4 w-4 rounded border-slate-300 text-brand disabled:opacity-40" />
+                        {c.label}{c.key === 'invoice' && <span className="text-[11px] text-ink-mute">(wajib)</span>}
+                      </label>
+                    ))}
+                    <button type="button" onClick={() => saveCols(ALL_COLS)} className="mt-1 w-full rounded-lg px-1 py-1 text-left text-xs font-semibold text-brand hover:underline">Tampilkan semua kolom</button>
+                  </div>
+                )}
+              </Popover>
+            )}
+            <button onClick={() => exportCsv(list, cols)} aria-label="Ekspor CSV" title="Ekspor daftar (sesuai filter) ke CSV"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand"><Download className="h-4 w-4" /></button>
           </div>
+
+          <FilterChips chips={[
+            tab !== 'all' && { label: `Jenis: ${tabs.find((t) => t.value === tab)?.label || tab}`, clear: () => setTab('all') },
+            q.trim() && { label: `Cari: "${q.trim()}"`, clear: () => setQ('') },
+            status !== 'aktif' && { label: `Status: ${status === 'selesai' ? 'Selesai' : 'Semua'}`, clear: () => setStatus('aktif') },
+            dlFilter && { label: `Deadline: ${dlFilterLabel(dlFilter)}`, clear: () => setDlFilter(null) },
+            prFilter && { label: `Prioritas: ${prFilter}`, clear: () => setPrFilter('') },
+            bpFilter.branch && { label: `Cabang: ${bpFilter.branch}`, clear: () => setBpFilter((f) => ({ ...f, branch: '' })) },
+            bpFilter.print && { label: `Print: ${bpFilter.print}`, clear: () => setBpFilter((f) => ({ ...f, print: '' })) },
+          ].filter(Boolean)} reset={() => { setTab('all'); setQ(''); setStatus('aktif'); setDlFilter(null); setPrFilter(''); setBpFilter({ branch: '', print: '' }) }} />
 
           {list.length > shownN && <p className="text-xs text-ink-mute">Menampilkan {shownN} dari {list.length} project</p>}
           {list.length === 0 && !(view === 'list' && (dlFilter || bpFilter.branch || bpFilter.print || q || tab !== 'all')) ? (
             <Card><Empty icon={FolderOpen} title="Belum ada project" text="Buat project baru dari invoice Zoho." action={<Button onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" />Project Baru</Button>} /></Card>
-          ) : view === 'list' ? <ProjectList list={rest.slice(0, shownN)} late={late} dlFilter={dlFilter} setDlFilter={setDlFilter} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
+          ) : view === 'list' ? <ProjectList list={rest.slice(0, shownN)} late={late} dlFilter={dlFilter} setDlFilter={setDlFilter} prFilter={prFilter} setPrFilter={setPrFilter} cols={cols} detailFor={detailFor} setDetailFor={setDetailFor} filesFor={filesFor} setFilesFor={setFilesFor} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {list.slice(0, shownN).map((p) => <ProjectCard key={p.id} p={p} />)}
+              {list.slice(0, shownN).map((p) => <ProjectCard key={p.id} p={p} onOpen={() => { setDetailFor(p); setFilesFor(null) }} active={detailFor?.id === p.id} />)}
             </div>
           )}
           {list.length > shownN && <Button variant="outline" className="w-full" onClick={() => setShownN((n) => n + 36)}>Tampilkan 36 lagi ({list.length - shownN} tersisa)</Button>}
         </>
       )}
 
-      <button onClick={() => setFormOpen(true)} aria-label="Project baru"
-        className="fixed bottom-20 right-4 z-30 grid h-14 w-14 place-items-center rounded-2xl bg-brand text-white shadow-lg shadow-brand/30 md:hidden">
-        <Plus className="h-6 w-6" />
-      </button>
+      {filesFor && (
+        <Sheet open side onClose={() => setFilesFor(null)} title="File Project" subtitle={`${filesFor.invoice_no} · ${filesFor.customer?.name || ''}`}
+          footer={<><Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={() => setFilesFor(null)}>Tutup</Button><span className="flex-1" />
+            <Button variant="outline" size="sm" onClick={() => { setDetailFor(filesFor); setFilesFor(null) }}><Eye className="h-3.5 w-3.5" />Detail project</Button></>}>
+          <FileManager project={projectOf(filesFor.id) || filesFor} />
+        </Sheet>
+      )}
+      {detailFor && (
+        <Sheet open side wide onClose={() => setDetailFor(null)} title={detailFor.invoice_no} subtitle={`${detailFor.customer?.name || ''} · ${detailFor.branch}`}
+          footer={<><Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={() => setDetailFor(null)}>Tutup</Button><span className="flex-1" />
+            <a href={`#/projects/${detailFor.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline" title="Buka sebagai halaman penuh">Halaman penuh →</a></>}>
+          <ProjectDetail id={detailFor.id} embedded />
+        </Sheet>
+      )}
+      {!worker && (
+        <button onClick={() => setFormOpen(true)} aria-label="Project baru"
+          className="fixed bottom-20 right-4 z-30 grid h-14 w-14 place-items-center rounded-2xl bg-brand text-white shadow-lg shadow-brand/30 md:hidden">
+          <Plus className="h-6 w-6" />
+        </button>
+      )}
       {formOpen && <ProjectForm onClose={() => setFormOpen(false)} />}
     </div>
   )
 }
 
-function ProjectCard({ p }) {
+function ProjectCard({ p, onOpen, active }) {
   const prog = progressOf(p)
   const d = daysLeft(p.about?.deadline)
   const done = isDone(p)
   return (
-    <a href={`#/projects/${p.id}`} className="block">
-      <Card className="h-full p-4 transition hover:-translate-y-0.5 hover:shadow-md">
+    <div className="relative">
+    <button type="button" onClick={onOpen} aria-label={`Detail ${p.invoice_no}`} className="block w-full text-left">
+      <Card className={cx('h-full p-4 pb-0 transition hover:-translate-y-0.5 hover:shadow-md', active && 'ring-2 ring-brand')}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-1.5"><InvoiceNo project={p} size="base" /><NoteIcon note={p.about?.notes} /><DemoBadge project={p} className="align-middle" /></p>
@@ -137,9 +206,11 @@ function ProjectCard({ p }) {
           <PriorityBadge p={p.about?.priority} />
         </div>
         {!done && d !== null && <div className="mt-2 flex items-center gap-1.5 text-ink-mute"><CalendarClock className="h-3.5 w-3.5" /><DeadlineCell project={p} align="left" /></div>}
-        <div className="mt-3 flex items-center gap-2"><Progress value={prog} /><span className="text-[11px] font-semibold text-ink-mute">{prog}%</span></div>
+        <div className="mt-3 flex items-center gap-2 pb-4"><Progress value={prog} /><span className="text-[11px] font-semibold text-ink-mute">{prog}%</span></div>
+        <div onClick={(e) => { e.preventDefault(); e.stopPropagation() }} className="-mx-4 overflow-hidden rounded-b-2xl"><WorkerActions project={p} /></div>
       </Card>
-    </a>
+    </button>
+    </div>
   )
 }
 
@@ -151,9 +222,98 @@ function currentStage(p) {
   return labels.length > 1 ? `${labels[0]} +${labels.length - 1}` : labels[0]
 }
 
+
+
+/** Chip filter aktif — satu baris ringkas dengan tombol hapus & reset. */
+function FilterChips({ chips, reset }) {
+  if (!chips.length) return null
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {chips.map((c, i) => (
+        <span key={i} className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-semibold text-brand ring-1 ring-brand/20">
+          {c.label}
+          <button type="button" onClick={c.clear} aria-label={`Hapus filter ${c.label}`} className="rounded-full p-0.5 hover:bg-brand/15"><X className="h-3 w-3" /></button>
+        </span>
+      ))}
+      <button type="button" onClick={reset} className="text-[11px] font-semibold text-ink-mute hover:text-rose-600 hover:underline">Reset semua</button>
+    </div>
+  )
+}
+
+/** Tampilan tersimpan: kombinasi filter, urutan, dan kolom yang sering dipakai. */
+function SavedViews({ current, apply }) {
+  const { notify } = useApp()
+  const [views, setViews] = useState(() => { try { return JSON.parse(localStorage.getItem('atlas-views') || '[]') } catch { return [] } })
+  const [name, setName] = useState('')
+  const persist = (next) => { setViews(next); try { localStorage.setItem('atlas-views', JSON.stringify(next)) } catch { /* abaikan */ } }
+  const save = () => {
+    const n = name.trim(); if (!n) return notify('Beri nama tampilan dulu', 'err')
+    persist([...views.filter((v) => v.name !== n), { name: n, ...current }]); setName(''); notify(`Tampilan "${n}" disimpan`)
+  }
+  return (
+    <Popover label="Tampilan tersimpan" width="min-w-[260px]" button={({ open, toggle }) => (
+      <button onClick={toggle} aria-expanded={open} aria-label="Tampilan tersimpan" title="Simpan & buka kombinasi filter yang sering dipakai"
+        className={cx('grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white ring-1 ring-slate-200 hover:text-brand', open ? 'text-brand ring-brand' : 'text-ink-mute')}><Bookmark className="h-4 w-4" /></button>
+    )}>
+      {({ close }) => (
+        <div className="space-y-2">
+          <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Tampilan tersimpan</p>
+          {views.length === 0 && <p className="px-1 text-xs text-ink-mute">Belum ada. Atur filter & kolom, lalu simpan di bawah.</p>}
+          {views.map((v) => (
+            <div key={v.name} className="flex items-center gap-1">
+              <button type="button" onClick={() => { apply(v); close() }} className="min-w-0 flex-1 truncate rounded-lg px-2 py-1.5 text-left text-sm font-semibold hover:bg-brand-soft hover:text-brand">{v.name}</button>
+              <button type="button" onClick={() => persist(views.filter((x) => x.name !== v.name))} aria-label={`Hapus tampilan ${v.name}`} className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"><X className="h-3.5 w-3.5" /></button>
+            </div>
+          ))}
+          <div className="flex gap-1.5 border-t border-slate-100 pt-2">
+            <Input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()} placeholder="Nama tampilan baru" className="!h-9 !text-xs" aria-label="Nama tampilan" />
+            <Button size="sm" onClick={save} title="Simpan filter & kolom saat ini"><Save className="h-3.5 w-3.5" />Simpan</Button>
+          </div>
+        </div>
+      )}
+    </Popover>
+  )
+}
+
+/** Ekspor daftar (sesuai filter & kolom) ke CSV — dibuka di Excel. */
+function exportCsv(list, cols) {
+  const head = ['No. Invoice', 'Pelanggan', 'Cabang', 'Lokasi Print', 'Prioritas', 'Deadline', 'Sub project', 'Tahap', 'Progres %']
+  const rows = list.map((p) => [p.invoice_no, p.customer?.name || '', p.branch, p.about?.print_location || p.branch, p.about?.priority || 'Normal',
+    p.about?.deadline ? String(p.about.deadline).slice(0, 10) : '', (p.sub_projects || []).length, currentStage(p), progressOf(p)])
+  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const csv = '\uFEFF' + [head, ...rows].map((r) => r.map(esc).join(';')).join('\r\n')
+  saveBlob(`my-project-${new Date().toISOString().slice(0, 10)}.csv`, new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+}
+
+/** Kolom tabel My Project (tampilan daftar) — bisa dipilih lewat "Kolom" di toolbar. */
+export const COLUMNS = [
+  { key: 'invoice', label: 'Invoice', w: 'minmax(0,1.4fr)',
+    cell: (p) => <><span className="flex items-center gap-1.5"><InvoiceNo project={p} /><DemoBadge project={p} /></span><TimeAgo at={p.created_at} prefix="Diposting" /></> },
+  { key: 'pelanggan', label: 'Pelanggan', w: 'minmax(0,1.2fr)', cls: 'min-w-0',
+    cell: (p) => <><span className="block truncate text-sm font-semibold text-ink">{p.customer?.name}</span><CsName p={p} /></> },
+  { key: 'prioritas', label: 'Prioritas', w: '118px', cls: 'flex min-w-0 flex-wrap items-center gap-1.5 overflow-hidden pt-0.5',
+    cell: (p) => <><SubCount p={p} />{p.about?.priority && p.about.priority !== 'Normal' && <PriorityBadge p={p.about.priority} className="max-w-full" />}</> },
+  { key: 'deadline', label: 'Deadline', w: 'minmax(0,1fr)',
+    cell: (p) => <DeadlineCell project={p} done={isDone(p)} align="left" /> },
+  { key: 'layanan', label: 'Layanan', w: 'minmax(0,0.9fr)', cell: (p) => <ProjectTypes project={p} /> },
+  { key: 'catatan', label: 'Catatan', w: '56px', cls: 'flex justify-start pt-0.5', cell: (p) => <NoteIcon note={p.about?.notes} /> },
+  { key: 'cabang', label: 'Cabang / Print', w: 'minmax(0,1fr)', cls: 'min-w-0 pt-0.5',
+    cell: (p) => (
+      <>
+        <span className="block text-sm font-semibold text-ink">{p.branch}</span>
+        <span className={cx('mt-0.5 flex items-center gap-1 text-xs', p.about?.print_location && p.about.print_location !== p.branch ? 'font-semibold text-fuchsia-700' : 'text-ink-mute')}><Printer className="h-3.5 w-3.5 shrink-0" />{p.about?.print_location || p.branch}</span>
+      </>
+    ) },
+  { key: 'tahap', label: 'Tahap & Progres', w: 'minmax(0,1.5fr)', cls: 'min-w-0',
+    cell: (p, { prog }) => <><span className="block truncate text-xs font-semibold text-brand">{currentStage(p)}</span><span className="mt-1 flex items-center gap-2"><Progress value={prog} /><span className="w-8 text-[11px] font-semibold text-ink-mute">{prog}%</span></span></> },
+]
+export const ALL_COLS = COLUMNS.map((c) => c.key)
+
 const dlFilterLabel = (f) => !f ? '' : f.kind === 'today' ? 'Hari ini' : f.kind === 'tomorrow' ? 'Besok' : `${tgl(f.from)} – ${tgl(f.to)}`
 
-function ProjectList({ list, late = [], dlFilter, setDlFilter, bpFilter = { branch: '', print: '' }, setBpFilter = () => {}, options = { branches: [], prints: [] } }) {
+function ProjectList({ list: listAll, late: lateAll = [], dlFilter, setDlFilter, prFilter = '', setPrFilter = () => {}, cols, bpFilter = { branch: '', print: '' }, setBpFilter = () => {}, options = { branches: [], prints: [] }, detailFor, setDetailFor, filesFor, setFilesFor }) {
+  const { data } = useApp()
+  const projectOf = (id) => data.projects.find((x) => x.id === id) // versi terbaru (setelah upload/hapus di pop-up)
   const [open, setOpen] = useState(() => new Set())
   const toggle = (id) => setOpen((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   const bp = 'both'
@@ -161,63 +321,87 @@ function ProjectList({ list, late = [], dlFilter, setDlFilter, bpFilter = { bran
   const bpActive = !!(bpFilter.branch || bpFilter.print)
   const bpLabel = [bpFilter.branch && `Cabang ${bpFilter.branch}`, bpFilter.print && `Print ${bpFilter.print}`].filter(Boolean).join(' · ')
   const [dlOpen, setDlOpen] = useState(false)
+
+  const [prOpen, setPrOpen] = useState(false)
+  const PRIOS = ['Sameday', 'Super Ekspres', 'Ekspres', 'Normal']
+  const prCount = (k) => [...lateAll, ...listAll].filter((p) => (p.about?.priority || 'Normal') === k).length
+  const list = listAll; const late = lateAll
+  const show = (k) => !cols || cols.includes(k) // kolom yang ditampilkan (Pengaturan kolom)
+  const gridCols = [...COLUMNS.filter((c) => show(c.key)).map((c) => c.w), '96px'].join(' ')
+  const fileCount = (p) => collectFiles(p).length
   const today = dayKey()
   const [range, setRange] = useState({ from: today, to: addDays(today, 7) })
   const pick = (f) => { setDlFilter(f); setDlOpen(false) }
-  const renderRow = (p) => {
+  const renderRow = (p, i) => {
     const prog = progressOf(p)
     return (
-            <li key={p.id} className={cx(open.has(p.id) && 'bg-brand-soft/30')}>
+            <li key={p.id} className={cx('scroll-mt-28 transition', detailFor?.id === p.id || filesFor?.id === p.id ? 'bg-brand-soft/60 shadow-[inset_3px_0_0_0_var(--brand)]' : open.has(p.id) ? 'border-l-4 border-brand bg-brand-soft/70' : i % 2 === 1 && 'bg-slate-50/80')}>
               <div className="relative">
-              <a href={`#/projects/${p.id}`} className="block px-4 py-3 pr-12 hover:bg-slate-50 lg:pr-4">
+              {/* Klik baris = buka/tutup rincian sub project; ikon mata = halaman detail */}
+              <div role="button" tabIndex={0} aria-expanded={open.has(p.id)} onClick={() => toggle(p.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(p.id) } }}
+                className={cx('u-row block cursor-pointer px-4 pr-[120px] lg:pr-4', open.has(p.id) ? 'pl-3' : 'hover:bg-brand-soft/40')}>
                 {/* Desktop: baris tabel */}
-                <div className="hidden grid-cols-[1.5fr_1.3fr_1fr_0.9fr_56px_1fr_1.6fr_16px] items-start gap-3 text-left lg:grid">
-                  <span><span className="flex items-center gap-1.5"><InvoiceNo project={p} /><PriorityBadge p={p.about?.priority} iconOnly /><DemoBadge project={p} /></span><TimeAgo at={p.created_at} prefix="Diposting" /></span>
-                  <span className="min-w-0"><span className="block truncate text-sm">{p.customer?.name}</span><span className="text-[11px] text-ink-mute">{p.sub_projects?.length || 0} sub project</span></span>
-                  <DeadlineCell project={p} done={isDone(p)} align="left" />
-                  <span><ProjectTypes project={p} /></span>
-                  <span className="flex justify-start pt-0.5"><NoteIcon note={p.about?.notes} /></span>
-                  <span className="min-w-0 pt-0.5">
-                    {bp !== 'print' && <span className="block text-sm font-semibold text-ink">{p.branch}</span>}
-                    {bp !== 'branch' && <span className={cx('flex items-center gap-1', bp === 'print' ? 'text-sm' : 'mt-0.5 text-xs', p.about?.print_location && p.about.print_location !== p.branch ? 'font-semibold text-fuchsia-700' : bp === 'print' ? 'text-ink' : 'text-ink-mute')}><Printer className="h-3.5 w-3.5 shrink-0" />{p.about?.print_location || p.branch}</span>}
+                <div style={{ gridTemplateColumns: gridCols }} className="hidden items-start gap-3 text-left lg:grid">
+                  {COLUMNS.filter((c) => show(c.key)).map((c) => <span key={c.key} className={c.cls}>{c.cell(p, { prog })}</span>)}
+                  <span className="flex items-center justify-end gap-1">
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setDetailFor(p); setFilesFor(null) }} aria-label={`Detail ${p.invoice_no}`} title="Detail project (panel kanan)"
+                      className={cx('grid h-7 w-7 place-items-center rounded-lg ring-1 transition', detailFor?.id === p.id ? 'bg-brand text-white ring-brand' : 'bg-white text-brand ring-brand/30 hover:bg-brand hover:text-white')}><Eye className="h-4 w-4" /></button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setFilesFor(p) }} aria-label={`File project ${p.invoice_no}`} title="Folder file project (preview, print, download)"
+                      className="relative grid h-7 w-7 place-items-center rounded-lg bg-white text-ink-soft ring-1 ring-slate-300 hover:bg-ink hover:text-white"><FolderOpen className="h-4 w-4" />{fileCount(p) > 0 && <span className="absolute -right-1 -top-1 grid h-3.5 min-w-[14px] place-items-center rounded-full bg-ink px-0.5 text-[9px] font-bold text-white">{fileCount(p)}</span>}</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); toggle(p.id) }} aria-expanded={open.has(p.id)} aria-label={`${open.has(p.id) ? 'Tutup' : 'Buka'} rincian ${p.invoice_no}`} title="Rincian sub project, data terjemahan & catatan"
+                      className={cx('grid h-7 w-7 place-items-center rounded-lg ring-1 transition', open.has(p.id) ? 'bg-brand text-white ring-brand' : 'text-ink-mute ring-slate-200 hover:bg-white hover:text-brand')}><ChevronDown className={cx('h-4 w-4 transition', open.has(p.id) && 'rotate-180')} /></button>
                   </span>
-                  <span className="min-w-0"><span className="block truncate text-xs font-semibold text-brand">{currentStage(p)}</span><span className="mt-1 flex items-center gap-2"><Progress value={prog} /><span className="w-8 text-[11px] font-semibold text-ink-mute">{prog}%</span></span></span>
-                  <button type="button" onClick={(e) => { e.preventDefault(); toggle(p.id) }} aria-expanded={open.has(p.id)} aria-label={`${open.has(p.id) ? 'Tutup' : 'Buka'} rincian ${p.invoice_no}`} title="Rincian sub project, data terjemahan & catatan"
-                    className="grid h-7 w-7 place-items-center rounded-lg text-ink-mute ring-1 ring-slate-200 hover:bg-white hover:text-brand"><ChevronDown className={cx('h-4 w-4 transition', open.has(p.id) && 'rotate-180')} /></button>
                 </div>
                 {/* Mobile: baris ringkas */}
                 <div className="flex items-center gap-3 lg:hidden">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <InvoiceNo project={p} /><NoteIcon note={p.about?.notes} /><ProjectTypes project={p} />
-                      <PriorityBadge p={p.about?.priority} iconOnly /><PrintBadge project={p} iconOnly />
+                      <PrintBadge project={p} iconOnly />
                     </div>
                     <TimeAgo at={p.created_at} prefix="Diposting" />
-                    <p className="truncate text-xs text-ink-mute">{p.customer?.name} · {p.branch}{p.about?.print_location && p.about.print_location !== p.branch ? ` · Print ${p.about.print_location}` : ''} · {p.sub_projects?.length || 0} sub</p>
+                    <p className="truncate text-xs font-semibold text-ink">{p.customer?.name} <span className="font-normal text-ink-mute">· {p.branch}{p.about?.print_location && p.about.print_location !== p.branch ? ` · Print ${p.about.print_location}` : ''}</span></p>
+                    <SubCountPrio p={p} />
                     <div className="mt-1.5 flex items-center gap-2"><Progress value={prog} /><span className="shrink-0 text-[11px] font-semibold text-brand">{currentStage(p)}</span></div>
                   </div>
                   <div className="w-[76px] shrink-0"><DeadlineCell project={p} done={isDone(p)} /></div>
                 </div>
-              </a>
-              <button type="button" onClick={() => toggle(p.id)} aria-expanded={open.has(p.id)} aria-label={`${open.has(p.id) ? 'Tutup' : 'Buka'} rincian ${p.invoice_no} (HP)`}
-                className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-lg text-ink-mute ring-1 ring-slate-200 lg:hidden"><ChevronDown className={cx('h-4 w-4 transition', open.has(p.id) && 'rotate-180')} /></button>
+              </div>
+              <WorkerActions project={p} />
+              <span className="absolute right-3 top-3 flex items-center gap-1 lg:hidden">
+                <button type="button" onClick={() => { setDetailFor(p); setFilesFor(null) }} aria-label={`Detail ${p.invoice_no} (HP)`} className="grid h-7 w-7 place-items-center rounded-lg bg-white text-brand ring-1 ring-brand/30"><Eye className="h-4 w-4" /></button>
+                <button type="button" onClick={() => setFilesFor(p)} aria-label={`File project ${p.invoice_no} (HP)`} className="grid h-7 w-7 place-items-center rounded-lg bg-white text-ink-soft ring-1 ring-slate-300"><FolderOpen className="h-4 w-4" /></button>
+                <button type="button" onClick={() => toggle(p.id)} aria-expanded={open.has(p.id)} aria-label={`${open.has(p.id) ? 'Tutup' : 'Buka'} rincian ${p.invoice_no} (HP)`}
+                  className={cx('grid h-7 w-7 place-items-center rounded-lg ring-1', open.has(p.id) ? 'bg-brand text-white ring-brand' : 'text-ink-mute ring-slate-200')}><ChevronDown className={cx('h-4 w-4 transition', open.has(p.id) && 'rotate-180')} /></button>
+              </span>
               </div>
               {open.has(p.id) && <ProjectExpand p={p} />}
             </li>
           )
   }
   return (
-    <Card className="overflow-hidden">
-      <div className="hidden grid-cols-[1.5fr_1.3fr_1fr_0.9fr_56px_1fr_1.6fr_16px] gap-3 border-b border-slate-100 bg-slate-50 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-ink-mute lg:grid">
-        <span>Invoice</span><span>Pelanggan</span>
-        <button type="button" onClick={() => setDlOpen(true)} className={cx('flex items-center gap-1 text-left uppercase hover:text-brand', dlFilter && 'text-brand')} title="Filter deadline">
-          Deadline <ChevronDown className="h-3 w-3" />{dlFilter && <span className="rounded-full bg-brand px-1.5 py-px text-[10px] normal-case tracking-normal text-white">{dlFilterLabel(dlFilter)}</span>}
-        </button>
-        <span>Layanan</span><span>Catatan</span>
-        <button type="button" onClick={() => setBpOpen(true)} className={cx('flex flex-wrap items-center gap-1 text-left uppercase hover:text-brand', bpActive && 'text-brand')} title="Filter cabang / lokasi print">
-          Cabang / Print <ChevronDown className="h-3 w-3" />{bpActive && <span className="rounded-full bg-brand px-1.5 py-px text-[10px] normal-case tracking-normal text-white">{bpLabel}</span>}
-        </button>
-        <span>Tahap & Progres</span><span />
+    <Card className="overflow-visible">
+      <div style={{ gridTemplateColumns: gridCols }}
+        className="pointer-events-none sticky top-[var(--appbar)] z-10 hidden gap-3 rounded-t-2xl border-b border-slate-200 bg-slate-50/95 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-mute backdrop-blur lg:grid">
+        {COLUMNS.filter((c) => show(c.key)).map((c) => {
+          if (c.key === 'prioritas') return (
+            <button key={c.key} type="button" onClick={() => setPrOpen(true)} className={cx('pointer-events-auto flex items-center gap-1 text-left uppercase hover:text-brand', prFilter && 'text-brand')} title="Filter prioritas">
+              Prioritas <ChevronDown className="h-3 w-3" />{prFilter && <span className="rounded-full bg-brand px-1.5 py-px text-[10px] normal-case tracking-normal text-white">{prFilter}</span>}
+            </button>
+          )
+          if (c.key === 'deadline') return (
+            <button key={c.key} type="button" onClick={() => setDlOpen(true)} className={cx('pointer-events-auto flex items-center gap-1 text-left uppercase hover:text-brand', dlFilter && 'text-brand')} title="Filter deadline">
+              Deadline <ChevronDown className="h-3 w-3" />{dlFilter && <span className="rounded-full bg-brand px-1.5 py-px text-[10px] normal-case tracking-normal text-white">{dlFilterLabel(dlFilter)}</span>}
+            </button>
+          )
+          if (c.key === 'cabang') return (
+            <button key={c.key} type="button" onClick={() => setBpOpen(true)} className={cx('pointer-events-auto flex flex-wrap items-center gap-1 text-left uppercase hover:text-brand', bpActive && 'text-brand')} title="Filter cabang / lokasi print">
+              Cabang / Print <ChevronDown className="h-3 w-3" />{bpActive && <span className="rounded-full bg-brand px-1.5 py-px text-[10px] normal-case tracking-normal text-white">{bpLabel}</span>}
+            </button>
+          )
+          return <span key={c.key}>{c.label}</span>
+        })}
+        <span />
       </div>
       {dlFilter && <div className="flex items-center gap-2 border-b border-slate-100 bg-brand-soft/40 px-4 py-1.5 text-xs lg:hidden"><span className="font-semibold text-brand">Deadline: {dlFilterLabel(dlFilter)}</span><button type="button" onClick={() => setDlFilter(null)} className="ml-auto font-semibold text-ink-mute hover:text-rose-600">Hapus</button></div>}
       <Sheet open={dlOpen} onClose={() => setDlOpen(false)} title="Filter deadline"
@@ -257,12 +441,22 @@ function ProjectList({ list, late = [], dlFilter, setDlFilter, bpFilter = { bran
         </div>
       </Sheet>
       {late.length > 0 && (
-        <div className="sticky top-0 z-10 border-b border-rose-200 bg-rose-50/95 backdrop-blur-sm">
+        <div className="border-b border-rose-200 bg-rose-50/95">
           <p className="flex items-center gap-2 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wide text-rose-700"><AlertTriangle className="h-3.5 w-3.5" />Lewat deadline & belum selesai <span className="rounded-full bg-rose-600 px-1.5 text-[10px] text-white">{late.length}</span><span className="hidden font-medium normal-case tracking-normal text-rose-500 sm:inline">hilang otomatis saat project selesai</span></p>
         </div>
       )}
+      <Sheet open={prOpen} onClose={() => setPrOpen(false)} title="Filter prioritas"
+        footer={<><Button variant="outline" className="flex-1" onClick={() => { setPrFilter(''); setPrOpen(false) }}>Tampilkan semua</Button><Button className="flex-[2]" onClick={() => setPrOpen(false)}>Selesai</Button></>}>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            {PRIOS.map((k) => <Button key={k} variant={prFilter === k ? 'primary' : 'outline'} onClick={() => { setPrFilter(k); setPrOpen(false) }}><span className="flex items-center gap-2">{k !== 'Normal' && <PriorityBadge p={k} iconOnly />}{k} <span className="opacity-60">({prCount(k)})</span></span></Button>)}
+          </div>
+          <p className="text-[11px] text-ink-mute">Urutan kecepatan: Sameday → Super Ekspres → Ekspres → Normal. Filter bisa digabung dengan filter Deadline & Cabang.</p>
+        </div>
+      </Sheet>
+      {prFilter && <div className="flex items-center gap-2 border-b border-slate-100 bg-brand-soft/40 px-4 py-1.5 text-xs lg:hidden"><span className="font-semibold text-brand">Prioritas: {prFilter}</span><button type="button" onClick={() => setPrFilter('')} className="ml-auto font-semibold text-ink-mute hover:text-rose-600">Hapus</button></div>}
       {late.length > 0 && <ul className="divide-y divide-rose-100 border-b-2 border-rose-200 bg-rose-50/60">{late.map(renderRow)}</ul>}
-      <ul className="divide-y divide-slate-100">
+      <ul className="divide-y divide-slate-200/70 [&>li:last-child]:rounded-b-2xl [&>li:last-child]:overflow-hidden">
         {list.map(renderRow)}
       </ul>
       {list.length === 0 && late.length === 0 && (
@@ -286,7 +480,7 @@ function VendorPayments({ rows }) {
   const people = useApp().data.people
   const vendorName = (id) => people.find((x) => x.id === id)?.name ?? '—'
   const tabs = [['persetujuan', 'Menunggu Persetujuan'], ['pembayaran', 'Menunggu Pembayaran'], ['dibayar', 'Sudah Dibayar'], ['selesai', 'Selesai']]
-  const inView = (r) => (view === 'selesai' ? r.stage === DONE && !!r.data?.bukti_transfer : r.stage === view)
+  const inView = (r) => (view === 'selesai' ? r.stage === DONE && !!r.data?.bukti_transfer : view === 'dibayar' ? VENDOR_PAID_STAGES.includes(r.stage) : r.stage === view)
   const list = rows.filter(inView)
   const total = list.reduce((a, r) => a + totalPengajuan(r.data), 0)
 
@@ -296,7 +490,7 @@ function VendorPayments({ rows }) {
         <div className="-mx-1 flex overflow-x-auto rounded-xl bg-white p-1 ring-1 ring-slate-200">
           {tabs.map(([k, l]) => (
             <button key={k} onClick={() => setView(k)} className={cx('whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold', view === k ? 'bg-ink text-white' : 'text-ink-soft hover:bg-slate-50')}>
-              {l} <span className={view === k ? 'text-white/60' : 'text-ink-mute'}>{rows.filter((r) => (k === 'selesai' ? r.stage === DONE && !!r.data?.bukti_transfer : r.stage === k)).length}</span>
+              {l} <span className={view === k ? 'text-white/60' : 'text-ink-mute'}>{rows.filter((r) => (k === 'selesai' ? r.stage === DONE && !!r.data?.bukti_transfer : k === 'dibayar' ? VENDOR_PAID_STAGES.includes(r.stage) : r.stage === k)).length}</span>
             </button>
           ))}
         </div>
@@ -307,7 +501,7 @@ function VendorPayments({ rows }) {
           {list.map((r) => (
             <div key={r.id} className="flex flex-wrap items-center gap-3 p-4">
               <a href={`#/projects/${r.project.id}`} className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-bold">{r.project.invoice_no}</span><TypeBadge type={r.type} /><PengajuanStatus stage={r.stage} /></div>
+                <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-bold">{r.project.invoice_no}</span><TypeBadge type={r.type} /><PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} /></div>
                 <p className="truncate text-xs text-ink-mute">{r.title} · {vendorName(r.data?.vendor)} · {r.data?.vendor_service || '—'} · {r.project.branch}{r.data?.sumber_dana && canFund ? ` · Dana ${r.data.sumber_dana}` : ''}</p>
                 {r.data?.paid_date && <p className="text-[11px] text-emerald-600">Dibayar {tgl(r.data.paid_date)}</p>}
               </a>
@@ -325,80 +519,24 @@ function VendorPayments({ rows }) {
 
 /** Rincian di bawah baris: daftar sub project, data terjemahan, progres per sub, dan catatan. */
 /** Kelompok file yang bisa diunduh langsung dari daftar, per sub project. */
-function quickGroupsOf(s) {
-  const d = s.data || {}
-  const g = []
-  const push = (label, files, note) => files.length && g.push({ label, files, note })
-  if (s.type === 'terjemahan' || s.type === 'terjemahan_nt') {
-    const draft = fieldFiles(d, 'file_final')
-    const fallback = fieldFiles(d, 'hasil_proofread').length ? fieldFiles(d, 'hasil_proofread') : fieldFiles(d, 'hasil_terjemahan')
-    push('Draft terjemahan', draft.length ? draft : fallback, draft.length ? 'Dokumen final dari otorisator' : 'Versi terakhir yang tersedia (otorisator belum unggah)')
-    push('Hasil terjemahan (PDF scan)', fieldFiles(d, 'scan_pdf'), 'Hasil cetak bertanda tangan yang sudah discan')
-    push('Hasil vendor', fieldFiles(d, 'hasil_vendor'), 'Hasil terjemahan dari vendor')
-  } else if (s.type === 'apostille' || s.type === 'legalisasi') {
-    push('Dokumen yang diproses', fieldFiles(d, 'dokumen_sumber'), 'Dokumen sumber dari CS')
-    push('ID / dokumen pemohon', fieldFiles(d, 'dokumen_id'), 'Scan ID pemohon dari CS')
-    push(`Hasil ${s.type === 'legalisasi' ? 'legalisasi' : 'apostille'} (scan)`, [...fieldFiles(d, 'hasil_akhir'), ...fieldFiles(d, 'hasil_vendor')], 'Hasil akhir yang sudah discan')
-  } else {
-    push('Dokumen', fieldFiles(d, 'dokumen_sumber'), '')
-    push('File hasil', fieldFiles(d, 'hasil_jasa'), '')
-  }
-  return g
+/** Lingkaran abu berisi jumlah sub project — tampil di kolom Prioritas (desktop) & baris HP. */
+function SubCount({ p }) {
+  const n = p.sub_projects?.length || 0
+  return <span title={`${n} sub project`} aria-label={`${n} sub project`} className="grid h-5 min-w-[20px] shrink-0 place-items-center rounded-full bg-slate-100 px-1 text-[11px] font-bold tabular-nums text-ink-soft ring-1 ring-slate-200">{n}</span>
 }
-
-function QuickDownload({ sub, invoice }) {
-  const { notify } = useApp()
-  const [busy, setBusy] = useState(false)
-  const [open, setOpen] = useState(false)
-  const [sel, setSel] = useState(() => new Set())
-  const groups = quickGroupsOf(sub)
-  const all = groups.flatMap((g) => g.files.map((f, i) => ({ ...f, _k: `${g.label}:${i}`, _g: g.label })))
-  if (!all.length) return <span className="inline-flex items-center gap-1 text-[11px] text-ink-mute"><Download className="h-3 w-3" />Belum ada file</span>
-  const saveMany = async (files) => {
-    try {
-      setBusy(true)
-      if (files.length === 1) await saveBlob(files[0].name, await drive.blob(files[0]))
-      else {
-        const zip = new JSZip(); const used = new Set()
-        for (const f of files) { let path = `${f._g || 'File'}/${f.name}`, k = 1; while (used.has(path)) path = path.replace(/(\.[^.]+)?$/, ` (${k++})$1`); used.add(path); zip.file(path, await drive.blob(f)) }
-        await saveBlob(`${invoice}-${sub.title}.zip`.replace(/[\\/:*?"<>|]/g, '-'), await zip.generateAsync({ type: 'blob' }))
-      }
-      setOpen(false)
-    } catch (err) { notify(err.message, 'err') } finally { setBusy(false) }
-  }
-  const start = (e) => { e.preventDefault(); e.stopPropagation(); if (all.length === 1) return saveMany(all); setSel(new Set(all.map((f) => f._k))); setOpen(true) }
-  const toggle = (k) => setSel((x) => { const n = new Set(x); n.has(k) ? n.delete(k) : n.add(k); return n })
-  const chosen = all.filter((f) => sel.has(f._k))
-  const label = all.length === 1 ? `Download ${groups[0].label.split(' (')[0]}` : `Download (${all.length} file)`
+/** Nama CS pembuat project (tanpa keterangan cabang dalam kurung). */
+function CsName({ p }) {
+  const cs = (p.about?.cs_name || '').replace(/\s*\(.*\)\s*$/, '')
+  if (!cs) return null
+  return <span className="mt-0.5 block truncate text-[11px] text-ink-mute">CS {cs}</span>
+}
+/** Baris HP: lingkaran jumlah sub + prioritas (hanya bila bukan Normal), lalu nama CS. */
+function SubCountPrio({ p }) {
+  const prio = p.about?.priority
   return (
     <>
-      <button type="button" onClick={start} disabled={busy} title={groups.map((g) => `${g.label}: ${g.files.length}`).join(' · ')}
-        className="inline-flex items-center gap-1 rounded-lg bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand ring-1 ring-brand/20 hover:bg-brand/15 disabled:opacity-60">
-        {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}{label}
-      </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title={`Pilih dokumen — ${invoice}`}
-        footer={<><Button variant="outline" className="flex-1" onClick={() => setOpen(false)}>Batal</Button>
-          <Button className="flex-[2]" disabled={!chosen.length || busy} onClick={() => saveMany(chosen)}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}Download {chosen.length > 1 ? `${chosen.length} file (ZIP)` : chosen.length === 1 ? '1 file' : ''}</Button></>}>
-        <div className="space-y-3">
-          <p className="text-xs text-ink-mute">{sub.title} · centang dokumen yang ingin diunduh. Lebih dari satu file akan dikemas ZIP per kelompok.</p>
-          {groups.map((g) => (
-            <div key={g.label}>
-              <p className="mb-1 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-ink-soft">{g.label}<span className="font-semibold normal-case tracking-normal text-ink-mute">({g.files.length})</span>
-                <button type="button" onClick={() => { const ks = g.files.map((_, i) => `${g.label}:${i}`); const allOn = ks.every((k) => sel.has(k)); setSel((x) => { const n = new Set(x); ks.forEach((k) => (allOn ? n.delete(k) : n.add(k))); return n }) }} className="ml-auto text-[11px] font-semibold normal-case tracking-normal text-brand hover:underline">{g.files.every((_, i) => sel.has(`${g.label}:${i}`)) ? 'Hapus semua' : 'Pilih semua'}</button></p>
-              {g.note && <p className="mb-1 text-[11px] text-ink-mute">{g.note}</p>}
-              <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200">
-                {g.files.map((f, i) => { const k = `${g.label}:${i}`; return (
-                  <li key={k}><label className="flex cursor-pointer items-center gap-2.5 px-3 py-2 hover:bg-slate-50">
-                    <input type="checkbox" checked={sel.has(k)} onChange={() => toggle(k)} className="h-4 w-4 rounded border-slate-300 text-brand" />
-                    <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-ink">{f.name}</span>{f.size ? <span className="text-[11px] text-ink-mute">{Math.max(1, Math.round(f.size / 1024))} KB</span> : null}</span>
-                    <button type="button" onClick={(e) => { e.preventDefault(); saveMany([{ ...f, _g: g.label }]) }} className="rounded-lg p-1.5 text-ink-mute hover:bg-brand/10 hover:text-brand" aria-label={`Download ${f.name}`}><Download className="h-4 w-4" /></button>
-                  </label></li>
-                ) })}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </Sheet>
+      <span className="mt-0.5 flex items-center gap-1.5"><SubCount p={p} />{prio && prio !== 'Normal' && <PriorityBadge p={prio} />}</span>
+      <CsName p={p} />
     </>
   )
 }
@@ -409,20 +547,16 @@ function ProjectExpand({ p }) {
   const th = 'px-2.5 py-1.5 text-left text-[10px] font-bold uppercase tracking-wide text-ink-mute whitespace-nowrap'
   const td = 'px-2.5 py-2 align-top text-xs text-ink'
   return (
-    <div className="border-t border-slate-100 bg-white/70 px-4 pb-3 pt-2">
+    <div className="border-t border-brand/15 bg-slate-100/80 px-3 pb-3 pt-2.5 sm:px-4">
       <div className="space-y-2">
         <div className="min-w-0">
-          <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-ink-mute">Sub project ({subs.length})</p>
-            <a href={`#/projects/${p.id}`} className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">Buka project<ChevronRight className="h-3.5 w-3.5" /></a>
-          </div>
           {/* Tabel menyamping: satu baris per sub project — mudah dibaca & dibandingkan */}
-          <div className="overflow-x-auto rounded-xl ring-1 ring-slate-200">
+          <div className="overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-slate-300">
             <table className="w-full min-w-[640px] border-collapse">
-              <thead className="bg-slate-50">
+              <thead className="bg-ink text-white [&_th]:text-white/80">
                 <tr>
                   <th className={cx(th, 'w-8 text-center')}>#</th><th className={th}>Jenis</th><th className={th}>Dokumen</th><th className={th}>Bahasa / Negara</th>
-                  <th className={cx(th, 'text-center')}>Hlm</th><th className={th}>Pelaksana</th><th className={th}>Tahap</th><th className={cx(th, 'w-28')}>Progres</th><th className={cx(th, 'text-right')}>File</th>
+                  <th className={cx(th, 'text-center')}>Hlm</th><th className={th}>Pelaksana</th><th className={th}>Tahap</th><th className={cx(th, 'w-28')}>Progres</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -448,7 +582,6 @@ function ProjectExpand({ p }) {
                       <td className={cx(td, 'whitespace-nowrap text-ink-soft')}>{who ? <>{who}<span className="block text-[10px] text-ink-mute">{s.translator_kind === 'vendor' ? 'Vendor' : 'Penerjemah'}</span></> : <span className="text-amber-700">Belum dibagi</span>}</td>
                       <td className={cx(td, 'whitespace-nowrap font-semibold text-brand')}>{s.stage === DONE ? 'Selesai' : stageLabel(flow, s.stage)}</td>
                       <td className={td}><span className="flex items-center gap-2"><Progress value={pct} /><span className="w-8 text-[11px] font-semibold text-ink-mute">{pct}%</span></span></td>
-                      <td className={cx(td, 'text-right')}><span className="flex justify-end"><QuickDownload sub={s} invoice={p.invoice_no} /></span></td>
                     </tr>
                   )
                 })}

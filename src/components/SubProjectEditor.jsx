@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, useEffect } from 'react'
-import { Trash2, Plus, RotateCcw, Files, BookOpen, Languages, ArrowRight, UserPen, Globe2, Landmark, UserCog, Stamp, ScrollText, Shapes, Lock, Upload, Paperclip, X, IdCard } from 'lucide-react'
+import { Trash2, Plus, RotateCcw, Files, BookOpen, Languages, ArrowLeftRight, UserPen, Globe2, Landmark, UserCog, Stamp, ScrollText, Shapes, Lock, Upload, Paperclip, X, IdCard } from 'lucide-react'
 
 const TYPE_ICON = { terjemahan: Languages, terjemahan_nt: Languages, apostille: Stamp, legalisasi: ScrollText, jasa_lain: Shapes }
 import { useApp } from '../lib/store.jsx'
@@ -202,7 +202,10 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
               <Field label="Bahasa" icon={Languages}>
                 <div className="flex items-center gap-2">
                   <Select value={sub.lang_from} onChange={(e) => set({ lang_from: e.target.value })} aria-label="Bahasa asal" className="min-w-0 flex-1">{LANGS.map((x) => <option key={x}>{x}</option>)}</Select>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-ink-mute" />
+                  <button type="button" onClick={() => set({ lang_from: sub.lang_to, lang_to: sub.lang_from })} aria-label="Tukar bahasa asal dan tujuan" title="Tukar arah bahasa (asal ⇄ tujuan)"
+                    className="group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-ink-mute ring-1 ring-slate-300 transition hover:bg-emerald-50 hover:text-emerald-700 hover:ring-emerald-400 active:scale-90">
+                    <ArrowLeftRight className="h-4 w-4 transition-transform duration-300 group-hover:rotate-180" />
+                  </button>
                   <Select value={sub.lang_to} onChange={(e) => set({ lang_to: e.target.value })} aria-label="Bahasa tujuan" className="min-w-0 flex-1">{LANGS.map((x) => <option key={x}>{x}</option>)}</Select>
                 </div>
               </Field>

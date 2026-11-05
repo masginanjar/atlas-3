@@ -7,7 +7,8 @@ import { dayKey, addDays } from '../lib/performance.js'
 import ActivityList from '../components/ActivityList.jsx'
 import { Card, Empty, Input, Select, cx } from '../components/ui.jsx'
 
-export const canSeeAllActivity = (u) => ['superadmin', 'direktur'].includes(u?.role)
+import { canSeeAllActivity } from '../config/menuAccess.js'
+export { canSeeAllActivity }
 
 /** Riwayat aktivitas semua orang — hanya Superadmin & Direktur. */
 export default function Activity() {

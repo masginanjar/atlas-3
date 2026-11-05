@@ -50,6 +50,69 @@ const DEMO_INVOICE_ITEMS = {
   ],
 }
 
+// ---- Status invoice Zoho → status pembayaran ringkas ----
+// draft & void TIDAK disamakan dengan "belum dibayar".
+export const PAY_STATES = {
+  paid: { key: 'paid', label: 'Lunas', tone: 'ok' },
+  partial: { key: 'partial', label: 'Bayar Sebagian', tone: 'warn' },
+  unpaid: { key: 'unpaid', label: 'Belum Dibayar', tone: 'due' },
+  draft: { key: 'draft', label: 'Draft', tone: 'mute' },
+  void: { key: 'void', label: 'Dibatalkan', tone: 'mute' },
+  unknown: { key: 'unknown', label: 'Belum Tersedia', tone: 'mute' },
+}
+/** Status pembayaran dari status invoice Zoho. Tidak dikenal/kosong → "Belum Tersedia". */
+export function payStateOf(status) {
+  const s = String(status || '').toLowerCase().replace(/[\s-]+/g, '_')
+  if (!s) return PAY_STATES.unknown
+  if (s === 'paid') return PAY_STATES.paid
+  if (s === 'partially_paid' || s === 'partial' || s === 'partially') return PAY_STATES.partial
+  if (['sent', 'unpaid', 'overdue', 'viewed'].includes(s)) return PAY_STATES.unpaid
+  if (s === 'draft') return PAY_STATES.draft
+  if (['void', 'voided', 'cancelled', 'canceled'].includes(s)) return PAY_STATES.void
+  return PAY_STATES.unknown
+}
+
+// DEMO: daftar faktur dibentuk dari project demo (yang sudah masuk project) + beberapa
+// invoice contoh yang belum dibuatkan project, supaya alur "Buat Project" bisa dicoba.
+const DEMO_EXTRA = [
+  { customer: 'Siti Rahmawati', customer_id: 'z-10', days: 0, status: 'sent' },
+  { customer: 'Hans Müller', customer_id: 'z-11', days: 0, status: 'draft' },
+  { customer: 'PT Garuda Logistik Nusantara', customer_id: 'z-8', days: 1, status: 'paid' },
+  { customer: 'Yuki Tanaka', customer_id: 'z-3', days: 2, status: 'partially_paid' },
+  { customer: 'CV Sinar Textile', customer_id: 'z-5', days: 3, status: 'void' },
+]
+const DEMO_STATUSES = ['paid', 'sent', 'partially_paid', 'paid', 'overdue', 'sent', 'paid']
+const hash = (s) => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 9973, 7)
+async function demoInvoiceList() {
+  const projects = await db.list('projects').catch(() => [])
+  const iso = (d) => new Date(d).toISOString()
+  const used = projects.map((p) => Number(String(p.invoice_no || '').replace(/\D/g, '')) || 0)
+  const nextNo = Math.max(0, ...used, 243) + 1
+  const fromProjects = projects.filter((p) => p.invoice_no).map((p) => ({
+    zoho_invoice_id: `zi-${p.invoice_no}`,
+    invoice_no: p.invoice_no,
+    date: (p.about?.received_at || p.created_at || new Date().toISOString()).slice(0, 10),
+    created_time: p.created_at || iso(Date.now()),
+    customer_name: p.customer?.name || '—',
+    customer_id: p.customer?.zoho_id || '',
+    status: DEMO_STATUSES[hash(p.invoice_no) % DEMO_STATUSES.length],
+  }))
+  const extra = [
+    ...Object.entries(DEMO_INVOICES).flatMap(([cid, list]) => list.map((i) => ({
+      zoho_invoice_id: `zi-${i.invoice_no}`, invoice_no: i.invoice_no, date: i.date, created_time: `${i.date}T09:00:00.000Z`,
+      customer_name: DEMO_CONTACTS.find((c) => c.zoho_id === cid)?.name || '—', customer_id: cid, status: i.status,
+    }))),
+    ...DEMO_EXTRA.map((e, n) => {
+      const d = new Date(Date.now() - e.days * 864e5)
+      const no = `INV-${String(nextNo + n).padStart(6, '0')}` // selalu di atas nomor project yang sudah ada → benar-benar belum masuk project
+      return { zoho_invoice_id: `zi-${no}`, invoice_no: no, date: iso(d).slice(0, 10), created_time: iso(d), customer_name: e.customer, customer_id: e.customer_id, status: e.status }
+    }),
+  ]
+  const seen = new Set()
+  return [...extra, ...fromProjects].filter((i) => !seen.has(i.invoice_no) && seen.add(i.invoice_no))
+}
+
+const statusCache = new Map()
 const rowToContact = (r) => r && ({ zoho_id: r.zoho_id, name: r.name, email: r.email || '', phone: r.phone || '', city: r.city || '', company: r.company || '', ship: r.ship || {}, synced_at: r.synced_at })
 const must = ({ data, error }) => { if (error) throw new Error(error.message); return data }
 
@@ -84,6 +147,41 @@ export const zoho = {
     }
     if (!ZOHO_LIVE) return DEMO_INVOICE_ITEMS[no] ? { invoice_no: no, items: DEMO_INVOICE_ITEMS[no], contact: {} } : null
     return (await api(`/api/zoho/invoice?no=${encodeURIComponent(no)}`)).invoice ?? null
+  },
+  /**
+   * Daftar invoice terbaru lintas pelanggan — untuk menu Faktur.
+   * Urut tanggal terbaru dulu; waktu pembuatan jadi pembeda bila tanggalnya sama.
+   */
+  async recentInvoices({ limit = 200 } = {}) {
+    if (MODE === 'supabase') {
+      // salinan Zoho di Supabase: kolomnya zoho_id (bukan zoho_invoice_id) dan tanpa created_time
+      const rows = must(await sb().from('zoho_invoices').select('zoho_id,invoice_no,date,customer_name,customer_id,status,total,balance')
+        .order('date', { ascending: false }).order('invoice_no', { ascending: false }).limit(limit)) || []
+      return rows.map((r) => ({
+        zoho_invoice_id: r.zoho_id, invoice_no: r.invoice_no, date: r.date, created_time: '',
+        customer_name: r.customer_name || '', customer_id: r.customer_id || '', status: r.status,
+        total: Number(r.total) || 0, balance: Number(r.balance) || 0,
+      }))
+    }
+    if (!ZOHO_LIVE) return demoInvoiceList()
+    return (await api(`/api/zoho/invoices?recent=1&limit=${limit}`)).invoices || []
+  },
+  /**
+   * Status satu invoice (untuk badge Pembayaran). null = tidak ditemukan / belum tersedia.
+   * Disimpan sebentar di memori agar tidak memanggil Zoho berulang kali.
+   */
+  async invoiceStatus(invoiceNo) {
+    const no = String(invoiceNo || '').trim().toUpperCase()
+    if (!no) return null
+    const hit = statusCache.get(no)
+    if (hit && Date.now() - hit.at < 120000) return hit.v
+    const put = (v) => { statusCache.set(no, { v, at: Date.now() }); return v }
+    if (MODE === 'supabase') {
+      const r = (must(await sb().from('zoho_invoices').select('invoice_no,status').eq('invoice_no', no).limit(1)) || [])[0]
+      return put(r?.status ?? null)
+    }
+    if (!ZOHO_LIVE) return put((await demoInvoiceList()).find((i) => i.invoice_no === no)?.status ?? null)
+    return put((await api(`/api/zoho/invoices?no=${encodeURIComponent(no)}`)).invoices?.[0]?.status ?? null)
   },
   /** Kapan data Zoho terakhir disinkron (mode supabase). */
   async lastSync() {

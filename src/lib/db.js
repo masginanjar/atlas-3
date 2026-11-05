@@ -10,13 +10,12 @@ import { SUPABASE_READY, supabaseDb } from './supabase.js'
 import { seed, archiveProjects, billedDemo } from './seed.js'
 import { applyLegacyImport } from './legacyImport.js'
 // payload impor sistem lama; build publik (VITE_MASK_PII=1) memakai versi tersamar — lihat vite.config.js
-import LEGACY_2026_11_04 from '@legacy-payload'
 
 const URL_ = import.meta.env.VITE_INSFORGE_URL
 // 'supabase' (live, Supabase) · 'live' (InsForge, lama) · 'demo' (localStorage)
 export const MODE = SUPABASE_READY ? 'supabase' : URL_ ? 'live' : 'demo'
 export const IS_LIVE = MODE !== 'demo'
-export const TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings']
+export const TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings', 'notes', 'todos', 'reminders', 'messages']
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()))
 
@@ -68,7 +67,9 @@ function migrate(m) {
 }
 
 /** Impor data sistem lama (idempoten). Cadangan disimpan sebelum perubahan pertama; log tiap impor disimpan di mem.import_runs. */
-export function importLegacy() {
+export async function importLegacy() {
+  // payload impor (±400 KB) hanya diunduh saat fitur ini dipakai — tidak ikut bundel awal
+  const LEGACY_2026_11_04 = (await import('@legacy-payload')).default
   const before = JSON.stringify(mem)
   const log = applyLegacyImport(mem, LEGACY_2026_11_04)
   if (!log.changed) return log
@@ -118,6 +119,29 @@ function save() {
 /** Ukuran pemakaian localStorage (byte) untuk info di Setting. */
 export const storageUsage = () => { try { let t = 0; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); t += k.length + (localStorage.getItem(k) || '').length } return t } catch { return 0 } }
 
+/**
+ * DEMO SAJA — kehadiran rekan kerja.
+ * Di demo hanya ada satu orang yang benar-benar membuka ATLAS (Anda), sehingga
+ * semua orang lain akan selalu "Offline". Agar status Online / Idle / Offline
+ * bisa dilihat, baris pengguna LAIN diberi contoh kehadiran yang bergulir.
+ * Mekanismenya tetap yang asli (kolom online_until & last_active_at); baris
+ * pengguna yang sedang login tidak pernah diubah — itu data nyata dari denyut.
+ * Di mode Supabase/live fungsi ini tidak dipakai sama sekali.
+ */
+function demoPresence(rows) {
+  let me = null
+  try { me = sessionStorage.getItem(KEY + ':me') } catch { /* abaikan */ }
+  const now = Date.now()
+  const iso = (ms) => new Date(ms).toISOString()
+  return rows.map((u, i) => {
+    if (u.id === me || u.active === false) return u
+    const n = i % 4
+    if (n === 0) return { ...u, online_until: iso(now + 120000), last_active_at: iso(now - (1 + (i % 7)) * 60000) } // online
+    if (n === 1) return { ...u, online_until: iso(now + 120000), last_active_at: iso(now - (18 + (i % 30)) * 60000) } // idle
+    return { ...u, online_until: null, last_active_at: iso(now - (2 + (i % 20)) * 3600000) } // offline
+  })
+}
+
 const demo = {
   async signIn(email) {
     const u = load().users.find((x) => x.email.toLowerCase() === email.toLowerCase() && x.active !== false)
@@ -131,7 +155,7 @@ const demo = {
     return load().users.find((x) => x.id === id) ?? null
   },
   async signOut() { try { sessionStorage.removeItem(KEY + ':me') } catch { /* abaikan */ } },
-  async list(t) { return structuredClone(load()[t] ?? []) },
+  async list(t) { const rows = structuredClone(load()[t] ?? []); return t === 'users' ? demoPresence(rows) : rows },
   async insert(t, row) { const r = { id: uid(), created_at: new Date().toISOString(), ...row }; const arr = (load()[t] ||= []); arr.push(r); if (t === 'activity_log' && arr.length > 3000) arr.splice(0, arr.length - 3000); save(); if (t === 'app_settings') perfDemo(mem) && save(); return structuredClone(r) },
   async update(t, id, patch) {
     const arr = (load()[t] ||= []); const i = arr.findIndex((x) => x.id === id)

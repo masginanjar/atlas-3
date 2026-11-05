@@ -9,7 +9,8 @@ import TimeAgo from '../components/TimeAgo.jsx'
 import { Card, Empty, Input, cx } from '../components/ui.jsx'
 import { addDays } from '../lib/performance.js'
 
-export const canMonitor = (u) => u?.role === 'superadmin'
+import { canMonitor } from '../config/menuAccess.js'
+export { canMonitor }
 
 const dlText = (t, now) => {
   const late = t.dl.at < now
@@ -115,7 +116,7 @@ export default function Monitoring() {
     const by = (st) => mine.filter((s) => st.includes(s.stage))
     const unbilled = isBilled(v) ? subs.filter((s) => s.data?.vendor === v.id && s.flow === 'tr_bill' && !s.data?.bill_id) : []
     const bills = (data.vendor_bills || []).filter((b) => b.vendor_id === v.id && ['menunggu', 'disetujui'].includes(b.status))
-    return { v, mine, acc: by(['pengajuan', 'persetujuan']), pay: by(['pembayaran']), work: by(['dibayar', 'order', 'proses_vendor']), unbilled, bills, done: vendorDone(v.id),
+    return { v, mine, acc: by(['pengajuan', 'persetujuan']), pay: by(['pembayaran']), work: by(['dibayar', 'kirim', 'dikirim', 'order', 'proses_vendor']), unbilled, bills, done: vendorDone(v.id),
       value: mine.reduce((a, s) => a + (totalPengajuan(s.data) || Number(s.data?.vendor_cost) || 0), 0) }
   }).filter((r) => r.mine.length || r.unbilled.length || r.bills.length || r.done.n).sort((a, b) => b.mine.length - a.mine.length), [vendors, subs, data.vendor_bills, range]) // eslint-disable-line react-hooks/exhaustive-deps
   const [vOpen, setVOpen] = useState(null)

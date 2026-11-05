@@ -4,7 +4,7 @@ import { Loader2, Download, Printer, FileX } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { drive } from '../lib/integrations.js'
 import { saveBlob } from '../lib/download.js'
-import { kindOf, printBlob } from '../lib/printing.js'
+import { kindOf, printBlob, printHtml } from '../lib/printing.js'
 import { Button, Sheet } from './ui.jsx'
 
 /** Pratinjau file (PDF / gambar / teks) dalam aplikasi + tombol Print & Download. */
@@ -13,7 +13,10 @@ export default function FilePreview({ file, onClose, loader }) {
   const [state, setState] = useState({ loading: true, url: null, text: null, blob: null, error: null })
   const kind = kindOf(file)
   const pdfBox = useRef(null)
+  const docBox = useRef(null)
   const [pages, setPages] = useState(null)
+  const [sheets, setSheets] = useState(null) // [{name, html}] untuk Excel/CSV
+  const [sheetIdx, setSheetIdx] = useState(0)
 
   useEffect(() => {
     let url
@@ -30,7 +33,33 @@ export default function FilePreview({ file, onClose, loader }) {
     Promise.race([renderPdf(state.blob, pdfBox.current), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))]).then(setPages).catch(() => setState((s) => ({ ...s, error: 'PDF tidak bisa ditampilkan — gunakan Download' })))
   }, [kind, state.blob])
 
-  const doPrint = async () => { try { await printBlob(state.blob, kind) } catch (e) { notify(e.message, 'err') } }
+  // Word (.docx) dirender di browser dengan docx-preview (dimuat saat dibutuhkan saja)
+  useEffect(() => {
+    if (kind !== 'docx' || !state.blob || !docBox.current) return
+    const box = docBox.current; box.innerHTML = ''
+    import('docx-preview').then(({ renderAsync }) => renderAsync(state.blob, box, undefined, { inWrapper: true, ignoreWidth: false, ignoreHeight: false, breakPages: true, useBase64URL: true }))
+      .catch(() => setState((s) => ({ ...s, error: 'File Word tidak bisa ditampilkan — gunakan Download' })))
+  }, [kind, state.blob])
+  // Excel / CSV → tabel per sheet dengan SheetJS (dimuat saat dibutuhkan saja)
+  useEffect(() => {
+    if (kind !== 'sheet' || !state.blob) return
+    ;(async () => {
+      try {
+        const XLSX = await import('xlsx')
+        const wb = XLSX.read(new Uint8Array(await state.blob.arrayBuffer()), { type: 'array', cellDates: true })
+        const list = wb.SheetNames.map((name) => ({ name, html: XLSX.utils.sheet_to_html(wb.Sheets[name], { header: '', footer: '' }) }))
+        setSheets(list); setSheetIdx(0)
+      } catch { setState((s) => ({ ...s, error: 'File Excel tidak bisa ditampilkan — gunakan Download' })) }
+    })()
+  }, [kind, state.blob])
+
+  const doPrint = async () => {
+    try {
+      if (kind === 'docx' && docBox.current) return await printHtml(docBox.current.innerHTML, file.name)
+      if (kind === 'sheet' && sheets) return await printHtml(sheets.map((s) => `<div class="sheet">${sheets.length > 1 ? `<h2>${s.name}</h2>` : ''}${s.html}</div>`).join(''), file.name)
+      await printBlob(state.blob, kind)
+    } catch (e) { notify(e.message, 'err') }
+  }
   const doDownload = async () => { try { await saveBlob(file.name, state.blob) } catch (e) { notify(e.message, 'err') } }
 
   return (
@@ -52,7 +81,20 @@ export default function FilePreview({ file, onClose, loader }) {
         )}
         {state.url && kind === 'image' && <img src={state.url} alt={file.name} className="max-h-[65vh] max-w-full rounded-lg object-contain" />}
         {state.text !== null && kind === 'text' && <pre className="max-h-[65vh] w-full overflow-auto whitespace-pre-wrap p-4 text-xs">{state.text}</pre>}
-        {!state.loading && !state.error && kind === 'other' && <p className="p-6 text-center text-sm text-ink-mute">Pratinjau tidak tersedia untuk jenis file ini. Silakan Download.</p>}
+        {kind === 'docx' && state.blob && !state.error && (
+          <div className="w-full"><div ref={docBox} className="docx-view mx-auto max-h-[68vh] w-full overflow-auto p-2" aria-label={`Pratinjau ${file.name}`} /><p className="pb-2 text-center text-[11px] text-ink-mute">Tampilan Word mendekati aslinya — untuk hasil persis, buka dengan Microsoft Word.</p></div>
+        )}
+        {kind === 'sheet' && state.blob && !state.error && (
+          <div className="w-full">
+            {!sheets ? <div className="grid min-h-[40vh] place-items-center"><Loader2 className="h-6 w-6 animate-spin text-brand" /></div> : (
+              <>
+                {sheets.length > 1 && <div className="flex flex-wrap gap-1 px-2 pt-2">{sheets.map((s, i) => <button key={s.name} type="button" onClick={() => setSheetIdx(i)} className={`rounded-lg px-2.5 py-1 text-xs font-semibold ring-1 ${i === sheetIdx ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand'}`}>{s.name}</button>)}</div>}
+                <div className="sheet-view max-h-[65vh] w-full overflow-auto p-2 text-xs" aria-label={`Pratinjau ${file.name}`} dangerouslySetInnerHTML={{ __html: sheets[sheetIdx]?.html || '' }} />
+              </>
+            )}
+          </div>
+        )}
+        {!state.loading && !state.error && kind === 'other' && <p className="p-6 text-center text-sm text-ink-mute">Pratinjau tidak tersedia untuk jenis file ini (mis. .doc lama, .pptx, .zip). Silakan Download.</p>}
       </div>
     </Sheet>
   )

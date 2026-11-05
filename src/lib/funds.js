@@ -1,5 +1,5 @@
 // Ringkasan per sumber dana (ATS / PTI / PAL / ATI): menunggu transfer & sudah ditransfer.
-import { SUMBER_DANA, totalPengajuan, DONE } from '../config/workflows.js'
+import { SUMBER_DANA, totalPengajuan, DONE, VENDOR_PAID_STAGES } from '../config/workflows.js'
 
 /** Semua transaksi yang memakai sumber dana: pengajuan vendor, pengajuan umum, tagihan vendor. */
 export function fundItems(data) {
@@ -8,7 +8,7 @@ export function fundItems(data) {
   for (const p of data.projects || []) for (const s of p.sub_projects || []) {
     const d = s.data || {}
     if (!d.sumber_dana || d.bill_id) continue
-    const paid = s.stage === 'dibayar' || (s.stage === DONE && d.paid_at)
+    const paid = VENDOR_PAID_STAGES.includes(s.stage) || (s.stage === DONE && d.paid_at)
     if (s.stage === 'pembayaran' || paid) out.push({ code: d.sumber_dana, amount: totalPengajuan(d), status: paid ? 'transfer' : 'menunggu', date: d.paid_date || d.paid_at?.slice(0, 10) || null, kind: 'Vendor', ref: p.invoice_no })
   }
   for (const r of data.requests || []) {
