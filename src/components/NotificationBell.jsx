@@ -64,23 +64,26 @@ export default function NotificationBell() {
 
   const panel = open && createPortal(
     <div ref={panelRef} role="dialog" aria-label="Notifikasi" className="fixed inset-x-2 top-[3.5rem] z-[85] flex max-h-[min(80vh,640px)] flex-col overflow-hidden rounded-3xl bg-white shadow-[0_24px_60px_-20px_rgba(14,21,64,0.35)] ring-1 ring-slate-200/80 sm:inset-x-auto sm:right-4 sm:w-[440px]">
+      {/* Baris judul: tombol suara & tutup ikut di sini supaya baris tab tidak sesak di HP */}
       <div className="flex items-center gap-2 px-4 pt-3">
         <h3 className="text-base font-bold text-ink">Notifikasi</h3>
         {total > 0 && <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[11px] font-bold text-white">{total} baru</span>}
-        <button type="button" onClick={() => setOpen(false)} className="ml-auto rounded-lg p-1.5 text-ink-mute hover:bg-slate-100" aria-label="Tutup"><X className="h-4 w-4" /></button>
+        <button type="button" onClick={toggleSound} aria-pressed={sound} aria-label={sound ? 'Matikan suara notifikasi' : 'Aktifkan suara notifikasi'}
+          title={sound ? 'Suara notifikasi: aktif (klik untuk mematikan)' : 'Suara notifikasi: mati (klik untuk mengaktifkan & uji)'}
+          className={cx('ml-auto grid h-11 w-11 place-items-center rounded-xl ring-1', sound ? 'bg-white text-brand ring-slate-200' : 'bg-slate-100 text-ink-mute ring-slate-200')}>{sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}</button>
+        <button type="button" onClick={() => setOpen(false)} className="grid h-11 w-11 place-items-center rounded-xl text-ink-mute hover:bg-slate-100" aria-label="Tutup"><X className="h-4 w-4" /></button>
       </div>
-      <div className="flex items-center gap-1 px-4 pt-2" role="tablist">
+      {/* Tab: di HP hanya ikon & bisa digeser; label muncul mulai sm */}
+      <div className="flex items-center gap-1.5 overflow-x-auto px-4 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist">
         {[['notif', 'Notifikasi', unreadN.length, Bell], ...(LEAD ? [['tr', 'Perlu Penerjemah', unreadTr.length, Languages]] : []), ['pay', 'Pembayaran', unreadPay.length, Banknote], ['ping', 'Ping', unreadP.length, BellRing]].map(([k, label, n, Icon]) => (
-          <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
-            className={cx('relative inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-semibold transition', tab === k ? 'bg-gradient-to-r from-brand to-[#6d5cf6] text-white shadow-glow' : 'bg-slate-100 text-ink-soft hover:bg-slate-200')}>
-            <Icon className="h-3.5 w-3.5" /><span className={k === 'tr' ? 'hidden min-[480px]:inline' : ''}>{label}</span>
+          <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} aria-label={label} title={label}
+            className={cx('relative inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold transition', tab === k ? 'bg-gradient-to-r from-brand to-[#6d5cf6] text-white shadow-glow' : 'bg-slate-100 text-ink-soft hover:bg-slate-200')}>
+            <Icon className="h-4 w-4" /><span className="hidden sm:inline">{label}</span>
             {n > 0 && <span className={cx('grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-bold', tab === k ? 'bg-white text-brand' : 'bg-rose-600 text-white')}>{n}</span>}
           </button>
         ))}
-        <span className="ml-auto flex items-center gap-2">
-          {unreadActive > 0 && <button type="button" onClick={markAll} title="Tandai Semua Dibaca" className="inline-flex items-center gap-1 whitespace-nowrap text-[11px] font-semibold text-brand hover:underline"><CheckCheck className="h-3.5 w-3.5" /><span className="hidden min-[420px]:inline">Semua dibaca</span></button>}
-          <button type="button" onClick={toggleSound} aria-pressed={sound} title={sound ? 'Suara notifikasi: aktif (klik untuk mematikan)' : 'Suara notifikasi: mati (klik untuk mengaktifkan & uji)'} className={cx('grid h-7 w-7 place-items-center rounded-lg ring-1', sound ? 'bg-white text-brand ring-slate-200' : 'bg-slate-100 text-ink-mute ring-slate-200')}>{sound ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}</button>
-        </span>
+        {unreadActive > 0 && <button type="button" onClick={markAll} title="Tandai Semua Dibaca"
+          className="ml-auto inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1 whitespace-nowrap px-2 text-xs font-semibold text-brand hover:underline"><CheckCheck className="h-4 w-4" /><span className="hidden min-[420px]:inline">Semua dibaca</span></button>}
       </div>
       <div className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-slate-100">
         {tab !== 'ping' ? (
