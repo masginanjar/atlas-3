@@ -81,6 +81,7 @@ function Profile() {
           <div className="mt-1 flex gap-1.5"><Pill className="bg-brand-soft text-brand">{roleLabel(user)}</Pill><Pill>{branchLabel(user)}</Pill></div></div>
       </div>
       <div className="mt-5 border-t border-slate-100 pt-5"><AvatarEditor /></div>
+      {db.updatePassword && <div className="mt-5 border-t border-slate-100 pt-5"><GantiSandi /></div>}
       <Button variant="outline" className="mt-5" onClick={signOut}>Keluar</Button>
     </Card>
   )
@@ -459,5 +460,26 @@ function Integrations() {
       </Card>}
       {!live && <Button variant="outline" onClick={async () => { if (await ask('Kembalikan data demo ke awal?')) { await db.reset(); await refresh(); notify('Data demo direset') } }}><RotateCcw className="h-4 w-4" />Reset data demo</Button>}
     </div>
+  )
+}
+
+
+/** Ganti kata sandi (mode live). */
+function GantiSandi() {
+  const { notify } = useApp()
+  const [p1, setP1] = useState(''); const [p2, setP2] = useState(''); const [busy, setBusy] = useState(false)
+  const simpan = async (e) => {
+    e.preventDefault()
+    if (p1.length < 8) return notify('Kata sandi minimal 8 karakter', 'err')
+    if (p1 !== p2) return notify('Ulangi kata sandi tidak sama', 'err')
+    try { setBusy(true); await db.updatePassword(p1); notify('Kata sandi diperbarui'); setP1(''); setP2('') } catch (err) { notify(err.message, 'err') } finally { setBusy(false) }
+  }
+  return (
+    <form onSubmit={simpan} className="max-w-sm space-y-3">
+      <p className="text-xs font-bold uppercase tracking-wide text-ink-mute">Kata Sandi</p>
+      <Field label="Kata sandi baru (min. 8 karakter)"><Input type="password" value={p1} onChange={(e) => setP1(e.target.value)} autoComplete="new-password" /></Field>
+      <Field label="Ulangi kata sandi baru"><Input type="password" value={p2} onChange={(e) => setP2(e.target.value)} autoComplete="new-password" /></Field>
+      <Button size="sm" loading={busy} disabled={!p1 || !p2}>Simpan kata sandi</Button>
+    </form>
   )
 }
