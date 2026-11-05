@@ -39,5 +39,8 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Bila sumber Pages masih "Deploy from a branch", GitHub juga menerbitkan kode mentah (layar putih).
+      # Tunda agar deploy hasil build ini selalu yang terakhir menang.
+      - run: sleep 150
       - id: deployment
         uses: actions/deploy-pages@v4
