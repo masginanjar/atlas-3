@@ -63,14 +63,15 @@ export function SectionCard({ tone = 'sky', icon: Icon, title, aside, children, 
   const [open, setOpen] = useState(() => { if (!k) return true; try { const v = localStorage.getItem(k); return v === null ? defaultOpen : v !== '0' } catch { return defaultOpen } })
   const toggle = () => setOpen((o) => { try { localStorage.setItem(k, o ? '0' : '1') } catch { /* abaikan */ } return !o })
   return (
-    <section className={cx('rounded-2xl p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_-10px_rgba(15,23,42,0.12)] ring-1 sm:p-6', t.card, className)}>
+    <section className={cx('min-w-0 rounded-2xl p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_-10px_rgba(15,23,42,0.12)] ring-1 sm:p-6', t.card, className)}>
       <div className={cx('flex items-center gap-2.5', open && 'mb-4 sm:mb-5')}>
         {Icon && <span className={cx('grid h-8 w-8 shrink-0 place-items-center rounded-xl text-white shadow-sm', t.chip)}><Icon className="h-4 w-4" /></span>}
-        <div className="min-w-0">
-          <h4 className={cx('text-[15px] font-bold', t.title)}>{title}</h4>
+        <div className="min-w-0 flex-1">
+          <h4 className={cx('truncate text-[15px] font-bold', t.title)} title={typeof title === 'string' ? title : undefined}>{title}</h4>
           {!open && summary && <p className="truncate text-xs text-ink-soft">{summary}</p>}
         </div>
-        {aside && <span className="ml-auto text-xs font-medium text-ink-mute">{aside}</span>}
+        {/* keterangan sumber (mis. "Zoho Books") disembunyikan di HP agar judul tidak terdesak */}
+        {aside && <span className="ml-auto hidden shrink-0 text-xs font-medium text-ink-mute sm:inline">{aside}</span>}
         {k && <button type="button" onClick={toggle} aria-expanded={open} aria-label={`${open ? 'Tutup' : 'Buka'} ${title}`} title={open ? 'Minimize' : 'Buka'}
           className={cx('grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/80 text-ink-soft ring-1 ring-slate-200 hover:text-brand hover:ring-brand', !aside && 'ml-auto')}>
           <ChevronUp className={cx('h-4 w-4 transition-transform', !open && 'rotate-180')} />
