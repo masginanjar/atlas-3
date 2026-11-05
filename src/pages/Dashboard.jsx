@@ -604,7 +604,7 @@ function CoordBoard({ lang }) {
       </div>
       {open && (list.length === 0 ? <p className="px-4 py-6 text-center text-sm text-ink-mute">Tidak ada order di sini.</p> : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-sm">
+          <table className="card-table w-full min-w-[980px] text-sm">
             <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-ink-mute">
               <tr><th className="px-4 py-2 font-semibold">Invoice & Pelanggan</th><th className="px-2 py-2 font-semibold">Pemesan</th><th className="px-2 py-2 font-semibold">Dokumen</th>
                 <th className="px-2 py-2 font-semibold">Deadline</th><th className="px-2 py-2 font-semibold">{tab === 'ajukan' ? 'Vendor · Layanan · Ongkir · Tagihan' : 'Vendor & Status'}</th><th className="px-4 py-2" /></tr>
@@ -615,16 +615,16 @@ function CoordBoard({ lang }) {
                 const docs = r.docs?.length ? r.docs : [{ desc: r.title, pages: r.pages }]
                 return (
                   <tr key={r.id} className="align-top hover:bg-slate-50/60">
-                    <td className="px-4 py-2.5">
+                    <td data-label="Invoice" className="px-4 py-2.5">
                       <CopyText text={r.project.invoice_no} label="No. Invoice" strong />
                       <div className="max-w-[190px] text-xs text-ink-soft"><CopyText text={r.project.customer?.name} label="Nama Pelanggan" /></div>
                       <a href={`#/projects/${r.project.id}`} className="text-[11px] font-semibold text-brand hover:underline">buka</a>
                     </td>
-                    <td className="px-2 py-2.5 text-xs"><p className="font-semibold">{r.project.branch}</p><p className="text-ink-mute">{r.project.about?.cs_name}</p></td>
-                    <td className="px-2 py-2.5 text-xs"><ul className="max-w-[170px]">{docs.map((x, i) => <li key={i} className="truncate"><b>{x.desc || r.title}</b> · {x.pages || 1} hal</li>)}</ul><p className="font-semibold text-rose-700">{r.lang_from} → {r.lang_to}</p></td>
-                    <td className="px-2 py-2.5"><p className={cx('whitespace-nowrap text-xs font-semibold', dl !== null && dl <= 1 && 'text-rose-600')}>{tgl(r.project.about?.deadline)}</p><PriorityBadge p={r.project.about?.priority} className="mt-0.5 whitespace-nowrap" /></td>
+                    <td data-label="Pemesan" className="px-2 py-2.5 text-xs"><p className="font-semibold">{r.project.branch}</p><p className="text-ink-mute">{r.project.about?.cs_name}</p></td>
+                    <td data-label="Dokumen" className="px-2 py-2.5 text-xs"><ul className="max-w-[170px]">{docs.map((x, i) => <li key={i} className="truncate"><b>{x.desc || r.title}</b> · {x.pages || 1} hal</li>)}</ul><p className="font-semibold text-rose-700">{r.lang_from} → {r.lang_to}</p></td>
+                    <td data-label="Deadline" className="px-2 py-2.5"><p className={cx('whitespace-nowrap text-xs font-semibold', dl !== null && dl <= 1 && 'text-rose-600')}>{tgl(r.project.about?.deadline)}</p><PriorityBadge p={r.project.about?.priority} className="mt-0.5 whitespace-nowrap" /></td>
                     {tab === 'ajukan' ? (
-                      <td className="px-2 py-2.5">
+                      <td data-label="Vendor & Status" className="px-2 py-2.5">
                         <div className="grid w-[330px] grid-cols-2 gap-1.5">
                           <select className={sel} value={f.vendor} onChange={(e) => pickVendor(r, e.target.value)} aria-label={`Vendor ${r.project.invoice_no}`}>
                             <option value="">— Vendor —</option>{vendors.map((x) => <option key={x.id} value={x.id}>{x.name}{(x.languages || []).length ? ` · ${x.languages.join(', ')}` : ''} · {PAYMENT_TERMS[termOf(x)].short}</option>)}
@@ -643,7 +643,7 @@ function CoordBoard({ lang }) {
                         {v && f.svc !== '' && <p className="mt-1 text-[11px] text-ink-mute">Total: <b className="text-ink">{rupiah((Number(v.services?.[Number(f.svc)]?.price) || 0) + (Number(f.ongkir) || 0))}</b>{isBilled(v) && <span className="ml-1 rounded bg-violet-50 px-1.5 font-semibold text-violet-700">tidak langsung dibayar · masuk tagihan {PAYMENT_TERMS[termOf(v)].short.toLowerCase()}</span>}</p>}
                       </td>
                     ) : (
-                      <td className="px-2 py-2.5 text-xs">
+                      <td data-label="Rincian" className="px-2 py-2.5 text-xs">
                         <p className="font-semibold">{v?.name || (r.flow === 'tr_int' ? 'Belum diserahkan Supervisor' : '—')}</p>
                         {r.data?.vendor_service && <p className="text-ink-mute">{r.data.vendor_service} · {rupiah(totalPengajuan(r.data))}</p>}
                         {r.flow === 'tr_ext' && <PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} />}
@@ -947,7 +947,7 @@ function AssignTable({ rows: allRows, range = { from: '', to: '' }, setRange = (
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[880px] text-sm">
+          <table className="card-table w-full min-w-[880px] text-sm">
             <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-ink-mute">
               <tr><th className="px-4 py-2 font-semibold">No. Invoice & Pelanggan</th><th className="px-2 py-2 font-semibold">Dokumen</th><th className="px-2 py-2 font-semibold">Bahasa</th>
                 <th className="px-2 py-2 font-semibold">
@@ -965,22 +965,22 @@ function AssignTable({ rows: allRows, range = { from: '', to: '' }, setRange = (
                 const docs = r.docs?.length ? r.docs : [{ desc: r.title, pages: r.pages }]
                 return (
                   <tr key={r.id} className="align-middle hover:bg-slate-50/60">
-                    <td className="px-4 py-2.5">
+                    <td data-label="Invoice" className="px-4 py-2.5">
                       <CopyText text={r.project.invoice_no} label="No. Invoice" strong />
                       <div className="max-w-[200px] text-xs text-ink-soft"><CopyText text={r.project.customer?.name} label="Nama Pelanggan" /></div>
                       <p className="text-[11px] text-ink-mute"><span className="font-semibold text-ink-soft">{r.project.branch}</span> · <a href={`#/projects/${r.project.id}`} className="font-semibold text-brand hover:underline">buka</a></p>
                     </td>
-                    <td className="px-2 py-2.5">
+                    <td data-label="Dokumen" className="px-2 py-2.5">
                       <ul className="max-w-[170px] text-xs">{docs.map((x, i) => <li key={i} className="truncate"><b>{x.desc || r.title}</b> <span className="text-ink-mute">· {x.pages || 1} hal</span></li>)}</ul>
                       {r.flow === 'tr_ext' && <span className="mt-0.5 inline-block rounded bg-violet-50 px-1.5 text-[10px] font-semibold text-violet-700">Pengajuan vendor — vendor kosong</span>}
                     </td>
-                    <td className="whitespace-nowrap px-2 py-2.5 text-xs font-semibold">{r.lang_from} → {r.lang_to}</td>
-                    <td className="px-2 py-2.5">
+                    <td data-label="Bahasa" className="whitespace-nowrap px-2 py-2.5 text-xs font-semibold">{r.lang_from} → {r.lang_to}</td>
+                    <td data-label="Deadline" className="px-2 py-2.5">
                       <p className={cx('whitespace-nowrap text-xs font-semibold', dl !== null && dl <= 1 ? 'text-rose-600' : '')}>{tgl(r.project.about?.deadline)}</p>
                       <p className="text-[11px] text-ink-mute">{dl === null ? '' : dl < 0 ? `Terlambat ${-dl} hr` : dl === 0 ? 'Hari ini' : `${dl} hari lagi`}</p>
                       <PriorityBadge p={r.project.about?.priority} className="mt-0.5 whitespace-nowrap" />
                     </td>
-                    <td className="px-2 py-2.5">
+                    <td data-label="Penerjemah / Vendor" className="px-2 py-2.5">
                       <select value={f.pick} onChange={(e) => choose(r, e.target.value)} aria-label={`Penerjemah ${r.project.invoice_no} ${r.title}`}
                         className="w-56 rounded-lg border-0 bg-white px-2.5 py-1.5 text-xs ring-1 ring-slate-300 focus:ring-2 focus:ring-brand">
                         <option value="">— Pilih —</option>
@@ -1071,7 +1071,7 @@ function StafBoard({ rows }) {
       </div>
       {!open ? null : list.length === 0 ? <p className="px-4 py-6 text-center text-sm text-ink-mute">Tidak ada pekerjaan.</p> : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-sm">
+          <table className="card-table w-full min-w-[760px] text-sm">
             <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-ink-mute">
               <tr><th className="px-4 py-2 font-semibold">Project & Pelanggan</th><th className="px-2 py-2 font-semibold">Layanan</th><th className="px-2 py-2 font-semibold">Negara / Lembaga</th>
                 <th className="px-2 py-2 font-semibold">Deadline</th><th className="px-2 py-2 font-semibold">Status</th><th className="px-4 py-2" /></tr>
@@ -1081,11 +1081,11 @@ function StafBoard({ rows }) {
                 const st = stafStatus(r.stage); const S = STATUS_STYLE[st]; const d = daysLeft(r.project.about?.deadline)
                 return (
                   <tr key={r.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-2.5"><a href={`#/projects/${r.project.id}`} className="font-bold hover:text-brand">{r.project.invoice_no}</a><TimeAgo at={stageArrivedAt(r, r.project)} prefix="Masuk" /><p className="max-w-[200px] truncate text-xs text-ink-mute">{r.project.customer?.name} · {r.title}</p></td>
-                    <td className="px-2 py-2.5"><TB type={r.type} /></td>
-                    <td className="px-2 py-2.5 text-ink-soft">{r.type === 'legalisasi' ? (nameOf(r.institution) || '—') : (r.country || '—')}</td>
-                    <td className="px-2 py-2.5"><div className="flex items-center gap-1.5"><span className={cx('text-xs', d !== null && d <= 1 && r.stage !== DONE ? 'font-semibold text-rose-600' : 'text-ink-soft')}>{tgl(r.project.about?.deadline)}</span><PriorityBadge p={r.project.about?.priority} iconOnly /></div></td>
-                    <td className="px-2 py-2.5"><span className={cx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1', S.cls)}><S.icon className="h-3 w-3" />{st}</span></td>
+                    <td data-label="Project" className="px-4 py-2.5"><a href={`#/projects/${r.project.id}`} className="font-bold hover:text-brand">{r.project.invoice_no}</a><TimeAgo at={stageArrivedAt(r, r.project)} prefix="Masuk" /><p className="max-w-[200px] truncate text-xs text-ink-mute">{r.project.customer?.name} · {r.title}</p></td>
+                    <td data-label="Layanan" className="px-2 py-2.5"><TB type={r.type} /></td>
+                    <td data-label="Negara / Lembaga" className="px-2 py-2.5 text-ink-soft">{r.type === 'legalisasi' ? (nameOf(r.institution) || '—') : (r.country || '—')}</td>
+                    <td data-label="Deadline" className="px-2 py-2.5"><div className="flex items-center gap-1.5"><span className={cx('text-xs', d !== null && d <= 1 && r.stage !== DONE ? 'font-semibold text-rose-600' : 'text-ink-soft')}>{tgl(r.project.about?.deadline)}</span><PriorityBadge p={r.project.about?.priority} iconOnly /></div></td>
+                    <td data-label="Status" className="px-2 py-2.5"><span className={cx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1', S.cls)}><S.icon className="h-3 w-3" />{st}</span></td>
                     <td className="px-4 py-2.5 text-right">
                       <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
                         {(r.data?.hasil_akhir || r.data?.hasil_vendor) && <DownloadBukti file={r.data?.hasil_akhir || r.data?.hasil_vendor} label={`Hasil ${r.type === 'legalisasi' ? 'Legalisasi' : 'Apostille'}`} />}

@@ -201,3 +201,44 @@ body { background-image: none; }
 .ring-blue-200, .ring-indigo-200, .ring-violet-200, .ring-sky-200, .ring-cyan-200, .ring-fuchsia-200, .ring-purple-200 { --tw-ring-color: var(--line); }
 [data-theme="dark"] .bg-blue-50, [data-theme="dark"] .bg-indigo-50, [data-theme="dark"] .bg-violet-50, [data-theme="dark"] .bg-sky-50, [data-theme="dark"] .bg-cyan-50, [data-theme="dark"] .bg-fuchsia-50 { background-color: var(--surface-3); }
 [data-theme="dark"] .text-blue-700, [data-theme="dark"] .text-indigo-700, [data-theme="dark"] .text-violet-700, [data-theme="dark"] .text-sky-700, [data-theme="dark"] .text-cyan-700, [data-theme="dark"] .text-fuchsia-700 { color: var(--txt-soft); }
+
+/* ============================================================
+   TABEL → KARTU DI HP
+   Tabel hanya untuk layar md (768px) ke atas. Di bawah itu setiap baris
+   ditampilkan sebagai kartu: judul kolom pindah ke kiri tiap nilai
+   (lewat atribut data-label), tanpa mengubah isi atau logika tabelnya.
+   Pakai: <table className="card-table …"> dan beri data-label pada <td>.
+   ============================================================ */
+@media (max-width: 767px) {
+  .card-table { min-width: 0 !important; width: 100%; display: block; }
+  .card-table thead { display: none; }
+  .card-table tbody { display: block; }
+  .card-table tbody > tr {
+    display: block; width: 100%; margin-bottom: .5rem; padding: .25rem 0;
+    border-radius: 1rem; background: var(--surface-1, #fff);
+    box-shadow: 0 1px 2px rgba(15,23,42,.04), 0 6px 20px -14px rgba(15,23,42,.18);
+    border: 1px solid var(--line, #e2e8f0);
+  }
+  .card-table tbody > tr:last-child { margin-bottom: 0; }
+  .card-table tbody > tr > td {
+    display: grid; grid-template-columns: 38% minmax(0, 1fr); column-gap: .75rem;
+    align-items: start; width: 100%;
+    padding: .375rem .875rem; text-align: left !important; max-width: none !important;
+  }
+  .card-table tbody > tr > td:empty { display: none; }
+  .card-table tbody > tr > td::before {
+    content: attr(data-label); grid-area: 1 / 1; min-width: 0;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em;
+    color: var(--txt-mute, #64748b); padding-top: .15rem;
+  }
+  .card-table tbody > tr > td:not([data-label])::before { content: none; }
+  .card-table tbody > tr > td > * { grid-column: 2; min-width: 0; max-width: 100%; }
+  .card-table tbody > tr > td > ul,
+  .card-table tbody > tr > td > div,
+  .card-table tbody > tr > td > p { max-width: none !important; }
+  .card-table select, .card-table input[type="text"] { width: 100% !important; }
+  .card-table .w-56 { width: 100% !important; }
+  /* baris rincian yang dibentangkan (colSpan) tampil penuh tanpa label */
+  .card-table td[colspan] { display: block; }
+  .card-table td[colspan]::before { content: none; }
+}

@@ -47,8 +47,44 @@ function PeopleTable({ people, projects, now, extraCols = [] }) {
       pages: active.reduce((a, t) => a + (Number(t.sub.pages) || 0), 0) }
   }).sort((a, b) => b.late - a.late || b.active.length - a.active.length || a.u.name.localeCompare(b.u.name)), [people, projects, today, now])
   if (!rows.length) return <Empty title="Belum ada orang dengan role ini" />
+  const TaskList = ({ r }) => (r.active.length === 0 ? <p className="py-2 text-xs text-ink-mute">Tidak ada tugas aktif.</p> : (
+    <ul className="space-y-1.5">{r.active.map((t) => (
+      <li key={t.sub.id} className="rounded-lg bg-white p-2 text-xs ring-1 ring-slate-200">
+        <a href={`#/projects/${t.project.id}`} className="font-bold text-brand hover:underline">{t.project.invoice_no}</a>
+        <p className="truncate">{t.sub.title}{t.sub.pages ? ` · ${t.sub.pages} hlm` : ''}</p>
+        <p className="text-ink-mute">{stageLabel(t.flow, t.sub.stage)} · <span className={cx(dlText(t, now).late && 'font-semibold text-rose-600')}>{dlText(t, now).txt}</span></p>
+      </li>
+    ))}</ul>
+  ))
   return (
-    <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm">
+    <>
+    {/* HP: tiap orang jadi kartu — nama, tugas aktif, terlambat, deadline terdekat */}
+    <ul className="space-y-2 md:hidden">{rows.map((r) => {
+      const isOpen = openId === r.u.id; const next = r.active[0]
+      return (
+        <li key={r.u.id} className={cx('rounded-2xl bg-white p-4 ring-1', isOpen ? 'ring-brand' : 'ring-slate-200')}>
+          <button type="button" onClick={() => setOpenId(isOpen ? null : r.u.id)} aria-expanded={isOpen} className="flex w-full items-start gap-2 text-left">
+            <span className="min-w-0 flex-1">
+              <b className="block truncate text-sm">{r.u.name}</b>
+              <span className="block truncate text-xs text-ink-mute">{placeOf(r.u)}{r.u.active === false ? ' · nonaktif' : ''}</span>
+            </span>
+            <ChevronDown className={cx('mt-0.5 h-5 w-5 shrink-0 text-ink-mute transition', isOpen && 'rotate-180')} />
+          </button>
+          <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold">Tugas aktif <b>{r.active.length}</b></span>
+            <span className={cx('rounded-full px-2 py-0.5 font-semibold', r.late ? 'bg-rose-50 text-rose-700 ring-1 ring-rose-200' : 'bg-slate-100')}>Terlambat <b>{r.late}</b></span>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold">Deadline hari ini <b>{r.todayN}</b></span>
+            {extraCols.map((c) => <span key={c.label} className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold">{c.label} <b>{c.get(r)}</b></span>)}
+          </div>
+          {r.s.pct !== null && (
+            <p className="mt-2 flex items-center gap-2 text-xs"><span className="h-2 w-20 overflow-hidden rounded-full bg-slate-100"><span className={cx('block h-full rounded-full', r.s.pct >= 80 ? 'bg-emerald-500' : r.s.pct >= 50 ? 'bg-amber-400' : 'bg-orange-400')} style={{ width: `${r.s.pct}%` }} /></span><b className="tabular-nums">{r.s.pct}%</b><span className="text-ink-mute">{r.s.done.length}/{r.s.total} hari ini</span></p>
+          )}
+          {next && <p className="mt-2 text-xs"><span className="text-ink-mute">Tugas terdekat: </span><b>{next.project.invoice_no}</b> · {next.sub.title}<span className={cx('block', dlText(next, now).late ? 'font-semibold text-rose-600' : 'text-ink-mute')}>{dlText(next, now).txt}</span></p>}
+          {isOpen && <div className="mt-2 border-t border-slate-100 pt-2"><TaskList r={r} /></div>}
+        </li>
+      )
+    })}</ul>
+    <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[760px] text-sm">
       <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-ink-mute"><tr>
         <th className="px-4 py-2">Nama</th><th className="px-2 py-2 text-right">Tugas aktif</th><th className="px-2 py-2 text-right">Terlambat</th><th className="px-2 py-2 text-right">Deadline hari ini</th>
         {extraCols.map((c) => <th key={c.label} className="px-2 py-2 text-right">{c.label}</th>)}
@@ -84,6 +120,7 @@ function PeopleTable({ people, projects, now, extraCols = [] }) {
         )
       })}</tbody>
     </table></div>
+    </>
   )
 }
 
@@ -161,8 +198,35 @@ export default function Monitoring() {
 
       <Section id="vendor" icon={Store} title={`Vendor (${vRows.length} aktif)`} tone="bg-violet-50"
         chips={[['Menunggu ACC', vRows.reduce((a, r) => a + r.acc.length, 0)], ['Menunggu bayar', vRows.reduce((a, r) => a + r.pay.length, 0)], ['Dikerjakan', vRows.reduce((a, r) => a + r.work.length, 0)], ['Nilai berjalan', rupiah(vRows.reduce((a, r) => a + r.value, 0))]]}>
-        {vRows.length === 0 ? <Empty title="Tidak ada pekerjaan vendor berjalan" /> : (
-          <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm">
+        {vRows.length === 0 ? <Empty title="Tidak ada pekerjaan vendor berjalan" /> : (<>
+          {/* HP: tiap vendor jadi kartu */}
+          <ul className="space-y-2 md:hidden">{vRows.map((r) => {
+            const isOpen = vOpen === r.v.id
+            return (
+              <li key={r.v.id} className={cx('rounded-2xl bg-white p-4 ring-1', isOpen ? 'ring-brand' : 'ring-slate-200')}>
+                <button type="button" onClick={() => setVOpen(isOpen ? null : r.v.id)} aria-expanded={isOpen} className="flex w-full items-start gap-2 text-left">
+                  <span className="min-w-0 flex-1"><b className="block truncate text-sm">{r.v.name}</b><span className="block text-xs text-ink-mute">{PAYMENT_TERMS[termOf(r.v)].short}</span></span>
+                  <ChevronDown className={cx('mt-0.5 h-5 w-5 shrink-0 text-ink-mute transition', isOpen && 'rotate-180')} />
+                </button>
+                <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold">Menunggu ACC <b>{r.acc.length}</b></span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold">Menunggu bayar <b>{r.pay.length}</b></span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold">Dikerjakan <b>{r.work.length}</b></span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold">Belum ditagih <b>{r.unbilled.length}</b></span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 font-semibold">Halaman <b>{r.done.pages}</b> · {r.done.n} order</span>
+                </div>
+                <p className="mt-2 text-xs"><span className="text-ink-mute">Nilai berjalan: </span>{r.value ? <b className="tabular-nums">{rupiah(r.value)}</b> : <span className="text-ink-mute">biaya belum diisi</span>}</p>
+                {isOpen && <ul className="mt-2 space-y-1.5 border-t border-slate-100 pt-2">{r.mine.map((s) => (
+                  <li key={s.id} className="rounded-lg bg-slate-50 p-2 text-xs ring-1 ring-slate-200">
+                    <a href={`#/projects/${s.project.id}`} className="font-bold text-brand hover:underline">{s.project.invoice_no}</a>
+                    <p className="truncate">{s.title}{s.data?.vendor_service ? ` · ${s.data.vendor_service}` : ''}</p>
+                    <p className="text-ink-mute">{stageLabel(s.flow, s.stage)} · <span className="tabular-nums">{rupiah(totalPengajuan(s.data) || Number(s.data?.vendor_cost) || 0)}</span></p>
+                  </li>
+                ))}</ul>}
+              </li>
+            )
+          })}</ul>
+          <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[760px] text-sm">
             <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-ink-mute"><tr><th className="px-4 py-2">Vendor</th><th className="px-2 py-2 text-right">Menunggu ACC</th><th className="px-2 py-2 text-right">Menunggu bayar</th><th className="px-2 py-2 text-right">Dikerjakan</th><th className="px-2 py-2 text-right">Belum ditagih</th><th className="px-2 py-2 text-right">Halaman dikerjakan</th><th className="px-2 py-2 text-right">Tagihan proses</th><th className="px-4 py-2 text-right">Nilai berjalan</th><th className="w-8" /></tr></thead>
             <tbody className="divide-y divide-slate-100">{vRows.map((r) => {
               const isOpen = vOpen === r.v.id
@@ -187,7 +251,7 @@ export default function Monitoring() {
               )
             })}</tbody>
           </table></div>
-        )}
+        </>)}
       </Section>
 
       <Section id="ap" icon={Stamp} title={`Staf Apostille & Legalisasi (${ap.length})`} tone="bg-emerald-50"
