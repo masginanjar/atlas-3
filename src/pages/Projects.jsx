@@ -337,6 +337,7 @@ function quickGroupsOf(s) {
     push('Hasil vendor', fieldFiles(d, 'hasil_vendor'), 'Hasil terjemahan dari vendor')
   } else if (s.type === 'apostille' || s.type === 'legalisasi') {
     push('Dokumen yang diproses', fieldFiles(d, 'dokumen_sumber'), 'Dokumen sumber dari CS')
+    push('ID / dokumen pemohon', fieldFiles(d, 'dokumen_id'), 'Scan ID pemohon dari CS')
     push(`Hasil ${s.type === 'legalisasi' ? 'legalisasi' : 'apostille'} (scan)`, [...fieldFiles(d, 'hasil_akhir'), ...fieldFiles(d, 'hasil_vendor')], 'Hasil akhir yang sudah discan')
   } else {
     push('Dokumen', fieldFiles(d, 'dokumen_sumber'), '')
@@ -405,43 +406,57 @@ function QuickDownload({ sub, invoice }) {
 function ProjectExpand({ p }) {
   const { nameOf } = useApp()
   const subs = p.sub_projects || []
+  const th = 'px-2.5 py-1.5 text-left text-[10px] font-bold uppercase tracking-wide text-ink-mute whitespace-nowrap'
+  const td = 'px-2.5 py-2 align-top text-xs text-ink'
   return (
     <div className="border-t border-slate-100 bg-white/70 px-4 pb-3 pt-2">
-      <div className="grid gap-x-6 gap-y-2 lg:grid-cols-[1fr_280px]">
-        <div>
-          <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-ink-mute">Sub project ({subs.length})</p>
-          <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200">
-            {subs.map((s, i) => {
-              const flow = flowOf(s, p); const n = stagesOf(flow).length; const pct = s.stage === DONE ? 100 : Math.round((stageIndex(flow, s.stage) / n) * 100)
-              const who = s.translator_kind === 'vendor' ? nameOf(s.translator || s.data?.vendor) : nameOf(s.data?.translator || s.translator)
-              const label = (SUB_TYPES[s.type] || SUB_TYPES.jasa_lain).label
-                const docs = (s.docs || []).filter((d) => d?.desc?.trim()).map((d) => d.desc.trim())
-                const docList = docs.length ? docs : [s.title]
-                return (
-                <li key={s.id} className="grid gap-x-3 gap-y-1 px-3 py-2 text-xs sm:grid-cols-[1fr_150px]">
-                  <span className="min-w-0">
-                    <span className="block font-semibold text-ink">{label} <span className="font-normal text-ink-mute">(Sub Project {i + 1})</span></span>
-                    <ul className="mt-0.5 list-disc space-y-0.5 pl-5 text-ink">
-                      {docList.map((d, j) => <li key={j}>{d}{docs.length > 0 && s.docs[j]?.pages ? <span className="text-ink-mute"> · {s.docs[j].pages} hlm</span> : null}</li>)}
-                    </ul>
-                    <span className="mt-0.5 block text-[11px] text-ink-mute">{[s.lang_from && `${s.lang_from} → ${s.lang_to}`, s.country && `Negara: ${s.country}`, s.applicant_id && `ID/NIB: ${s.applicant_id}`, s.pages && `${s.pages} hlm`, who && `${s.translator_kind === 'vendor' ? 'Vendor' : 'Penerjemah'}: ${who}`].filter(Boolean).join(' · ')}</span>
-                    {s.data?.reg_numbers?.filter(Boolean).length > 0 && <span className="block font-mono text-[11px] text-amber-800">No. Reg {s.data.reg_numbers.filter(Boolean).join(', ')}</span>}
-                  </span>
-                  <span className="sm:text-right">
-                    <span className="block font-semibold text-brand">{s.stage === DONE ? 'Selesai' : stageLabel(flow, s.stage)}</span>
-                    <span className="mt-1 flex items-center gap-2"><Progress value={pct} /><span className="w-8 text-[11px] font-semibold text-ink-mute">{pct}%</span></span>
-                    <span className="mt-1.5 flex sm:justify-end"><QuickDownload sub={s} invoice={p.invoice_no} /></span>
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
+      <div className="space-y-2">
+        <div className="min-w-0">
+          <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-ink-mute">Sub project ({subs.length})</p>
+            <a href={`#/projects/${p.id}`} className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">Buka project<ChevronRight className="h-3.5 w-3.5" /></a>
+          </div>
+          {/* Tabel menyamping: satu baris per sub project — mudah dibaca & dibandingkan */}
+          <div className="overflow-x-auto rounded-xl ring-1 ring-slate-200">
+            <table className="w-full min-w-[640px] border-collapse">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className={cx(th, 'w-8 text-center')}>#</th><th className={th}>Jenis</th><th className={th}>Dokumen</th><th className={th}>Bahasa / Negara</th>
+                  <th className={cx(th, 'text-center')}>Hlm</th><th className={th}>Pelaksana</th><th className={th}>Tahap</th><th className={cx(th, 'w-28')}>Progres</th><th className={cx(th, 'text-right')}>File</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {subs.map((s, i) => {
+                  const flow = flowOf(s, p); const n = stagesOf(flow).length; const pct = s.stage === DONE ? 100 : Math.round((stageIndex(flow, s.stage) / n) * 100)
+                  const who = s.translator_kind === 'vendor' ? nameOf(s.translator || s.data?.vendor) : nameOf(s.data?.translator || s.translator)
+                  const label = (SUB_TYPES[s.type] || SUB_TYPES.jasa_lain).label
+                  const docs = (s.docs || []).filter((d) => d?.desc?.trim())
+                  const docList = docs.length ? docs.map((d) => ({ desc: d.desc.trim(), pages: d.pages, kind: d.kind })) : [{ desc: s.title }]
+                  const regs = (s.data?.reg_numbers || []).filter(Boolean)
+                  return (
+                    <tr key={s.id} className="hover:bg-slate-50/60">
+                      <td className={cx(td, 'text-center font-semibold text-ink-mute')}>{i + 1}</td>
+                      <td className={cx(td, 'whitespace-nowrap font-semibold')}>{label}{s.applicant_id && <span className="block text-[10px] font-normal text-ink-mute">ID/NIB {s.applicant_id}</span>}</td>
+                      <td className={cx(td, 'min-w-[200px]')}>
+                        <ol className="list-decimal space-y-0.5 pl-4">
+                          {docList.map((d, j) => <li key={j}>{d.desc}{d.pages ? <span className="text-ink-mute"> · {d.pages} hlm</span> : null}{d.kind === 'non_reguler' && <span className="ml-1 rounded bg-violet-50 px-1 text-[10px] font-semibold text-violet-700">non reg</span>}</li>)}
+                        </ol>
+                        {regs.length > 0 && <span className="mt-0.5 block font-mono text-[11px] text-amber-800">No. Reg {regs.join(', ')}</span>}
+                      </td>
+                      <td className={cx(td, 'whitespace-nowrap text-ink-soft')}>{s.lang_from ? `${s.lang_from} → ${s.lang_to}` : s.country ? `Negara: ${s.country}` : s.institution || '—'}</td>
+                      <td className={cx(td, 'text-center font-semibold')}>{s.pages || '—'}</td>
+                      <td className={cx(td, 'whitespace-nowrap text-ink-soft')}>{who ? <>{who}<span className="block text-[10px] text-ink-mute">{s.translator_kind === 'vendor' ? 'Vendor' : 'Penerjemah'}</span></> : <span className="text-amber-700">Belum dibagi</span>}</td>
+                      <td className={cx(td, 'whitespace-nowrap font-semibold text-brand')}>{s.stage === DONE ? 'Selesai' : stageLabel(flow, s.stage)}</td>
+                      <td className={td}><span className="flex items-center gap-2"><Progress value={pct} /><span className="w-8 text-[11px] font-semibold text-ink-mute">{pct}%</span></span></td>
+                      <td className={cx(td, 'text-right')}><span className="flex justify-end"><QuickDownload sub={s} invoice={p.invoice_no} /></span></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div>
-          <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-ink-mute"><StickyNote className="h-3 w-3 text-amber-500" />Catatan</p>
-          {p.about?.notes ? <p className="whitespace-pre-line rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200">{p.about.notes}</p> : <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-ink-mute ring-1 ring-slate-200">Tidak ada catatan.</p>}
-          <a href={`#/projects/${p.id}`} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">Buka project<ChevronRight className="h-3.5 w-3.5" /></a>
-        </div>
+        {p.about?.notes && <p className="flex items-start gap-1.5 whitespace-pre-line rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200"><StickyNote className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" /><span><b className="font-semibold">Catatan:</b> {p.about.notes}</span></p>}
       </div>
     </div>
   )
