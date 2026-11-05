@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MessageCircle, Search, Send, Bell, ArrowLeft, RefreshCw, Volume2, Hash } from 'lucide-react'
+import { MessageCircle, Search, Send, Bell, ArrowLeft, RefreshCw, Volume2, Hash, AlarmClock } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { scopeByBranch } from '../config/access.js'
 import { contactsFor, threadOf, peerOf, pingQuota, parseText, snippet, PING_MAX_24H } from '../lib/chat.js'
 import { playChat, playChatPing, chatSoundEnabled, audioBlocked, unlockAudio } from '../lib/sounds.js'
 import { statusOf, STATUS } from '../lib/presence.js'
 import { go } from '../lib/router.js'
+import { usePanel } from '../components/WorkspacePanel.jsx'
 import Avatar from '../components/Avatar.jsx'
 import { Card, cx } from '../components/ui.jsx'
 
@@ -33,6 +34,7 @@ export default function Pesan({ peerParam }) {
   const [text, setText] = useState('')
   const [pending, setPending] = useState([])
   const [blocked, setBlocked] = useState(false)
+  const { open } = usePanel()
   const lastTyping = useRef(0)
   const endRef = useRef(null)
   const seen = useRef(null)
@@ -110,6 +112,15 @@ export default function Pesan({ peerParam }) {
     try { await sendMessage({ to: peer, text: t, mentions }); setPending((p) => p.filter((x) => x.key !== key)) }
     catch { setPending((p) => p.map((x) => (x.key === key ? { ...x, state: 'gagal' } : x))) }
   }
+  /** Isian awal pengingat dari percakapan: judul dari yang sedang diketik atau pesan terakhir,
+   *  dan otomatis tertaut ke project bila percakapan menyebut #INV. */
+  const reminderPrefill = () => {
+    const last = msgs[msgs.length - 1]
+    const base = text.trim() || (last ? `${last.from_user === user.id ? 'Tindak lanjut' : `Balas ${peerInfo?.name || ''}`}: ${snippet(last.text, 50)}` : `Hubungi ${peerInfo?.name || ''}`)
+    const inv = [...msgs].reverse().flatMap((m) => m.mentions || [])[0]
+    const p = inv ? projects.find((x) => String(x.invoice_no).toUpperCase() === String(inv).toUpperCase()) : null
+    return { title: base.slice(0, 80), project_id: p?.id || '', note: `Dari percakapan dengan ${peerInfo?.name || ''}` }
+  }
   const doPing = async () => { try { await sendChatPing(peer); notify('Ping terkirim') } catch (e) { notify(e.message, 'err') } }
 
   const hint = useMemo(() => {
@@ -132,15 +143,15 @@ export default function Pesan({ peerParam }) {
         <p className="text-sm text-ink-soft">Koordinasi cepat antar anggota tim — teks, emoji, dan tautan project.</p>
       </div>
 
-      <Card className="grid gap-0 overflow-hidden p-0 md:grid-cols-[280px_minmax(0,1fr)]">
+      <Card className="grid h-[calc(100vh-var(--appbar)-172px)] min-h-[420px] grid-rows-1 gap-0 overflow-hidden p-0 md:grid-cols-[clamp(240px,24vw,320px)_minmax(0,1fr)]">
         {/* kiri: daftar nama */}
-        <div className={cx('border-slate-200 md:border-r', thread && 'hidden md:block')}>
+        <div className={cx('flex min-h-0 flex-col border-slate-200 md:border-r', thread && 'hidden md:flex')}>
           <label className="relative block border-b border-slate-100 p-2">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari rekan…" aria-label="Cari rekan"
               className="w-full rounded-xl border-0 bg-slate-50 py-2 pl-8 pr-2 text-sm ring-1 ring-slate-200 focus:ring-2 focus:ring-brand" />
           </label>
-          <ul className="max-h-[62vh] overflow-auto p-1.5">
+          <ul className="min-h-0 flex-1 overflow-y-auto p-1.5">
             {list.map((c) => {
               const st = c.user ? STATUS[statusOf(c.user)] : null
               const on = thread === c.th
@@ -158,8 +169,11 @@ export default function Pesan({ peerParam }) {
                         <span className={cx('min-w-0 truncate text-[13px]', c.un.msg ? 'font-bold text-ink' : 'font-semibold text-ink')}>{c.name}</span>
                         {c.last && <span className="shrink-0 text-[10px] text-ink-mute">{singkat(c.last.created_at)}</span>}
                       </span>
-                      <span className={cx('block truncate text-[11px]', typing[c.th] ? 'font-semibold text-brand' : c.un.msg ? 'font-semibold text-ink-soft' : 'text-ink-mute')}>
-                        {typing[c.th] ? 'sedang mengetik…' : c.last ? `${c.last.from_user === user.id ? 'Anda: ' : ''}${snippet(c.last.text, 34)}` : 'Belum ada pesan'}
+                      <span className="flex items-center gap-1.5">
+                        {st && <span className={cx('shrink-0 text-[10px] font-bold', st.text)}>{st.label}</span>}
+                        <span className={cx('min-w-0 flex-1 truncate text-[11px]', typing[c.th] ? 'font-semibold text-brand' : c.un.msg ? 'font-semibold text-ink-soft' : 'text-ink-mute')}>
+                          {typing[c.th] ? 'sedang mengetik…' : c.last ? `${c.last.from_user === user.id ? 'Anda: ' : ''}${snippet(c.last.text, 28)}` : 'Belum ada pesan'}
+                        </span>
                       </span>
                     </span>
                     {c.un.msg > 0 && <span className="shrink-0 rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">{c.un.msg}</span>}
@@ -173,7 +187,7 @@ export default function Pesan({ peerParam }) {
         </div>
 
         {/* kanan: isi percakapan */}
-        <div className={cx('flex min-h-[62vh] flex-col', !thread && 'hidden md:flex')}>
+        <div className={cx('flex min-h-0 flex-col', !thread && 'hidden md:flex')}>
           {!thread ? (
             <p className="grid flex-1 place-items-center p-10 text-center text-sm text-ink-mute">Pilih nama di kiri untuk mulai mengobrol.<br />Bisa juga klik seseorang di daftar Tim Aktif.</p>
           ) : (
@@ -192,7 +206,7 @@ export default function Pesan({ peerParam }) {
                 </button>
               </div>
 
-              <ul className="flex-1 space-y-1.5 overflow-auto p-3">
+              <ul className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain p-3">
                 {msgs.length === 0 && <li className="py-8 text-center text-xs text-ink-mute">Belum ada pesan. Sapa dulu 🙂</li>}
                 {msgs.map((m, i) => {
                   const mine = m.from_user === user.id
@@ -252,15 +266,20 @@ export default function Pesan({ peerParam }) {
                     ))}
                   </ul>
                 )}
-                <div className="flex items-end gap-1.5">
-                  <div className="flex gap-0.5 overflow-x-auto pb-1">
-                    {EMOJI.slice(0, 6).map((e) => <button key={e} type="button" onClick={() => setText((t) => t + e)} className="rounded-lg px-1 text-base hover:bg-slate-100" aria-label={`Emoji ${e}`}>{e}</button>)}
-                  </div>
-                  <textarea value={text} onChange={(e) => onType(e.target.value)} rows={1} placeholder="Tulis pesan… ketik # untuk project"
+                <div className="flex flex-wrap items-center gap-0.5">
+                  {EMOJI.map((e) => <button key={e} type="button" onClick={() => setText((t) => t + e)} className="rounded-lg px-1 text-base leading-none hover:bg-slate-100" aria-label={`Emoji ${e}`}>{e}</button>)}
+                  <button type="button" onClick={() => open('reminder', { prefill: reminderPrefill() })} title="Buat pengingat dari percakapan ini"
+                    className="ml-auto inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-[11px] font-semibold text-ink-soft ring-1 ring-slate-200 hover:text-brand hover:ring-brand">
+                    <AlarmClock className="h-3.5 w-3.5" />Ingatkan
+                  </button>
+                </div>
+                <div className="flex w-full items-end gap-1.5">
+                  <textarea value={text} onChange={(e) => onType(e.target.value)} rows={Math.min(5, Math.max(1, text.split('\n').length))}
+                    placeholder="Tulis pesan… ketik # untuk menautkan project"
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend() } }}
-                    aria-label="Tulis pesan" className="min-h-[40px] flex-1 resize-none rounded-xl border-0 bg-white px-3 py-2 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-brand" />
+                    aria-label="Tulis pesan" className="min-h-[42px] w-full flex-1 resize-none rounded-xl border-0 bg-white px-3 py-2.5 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-brand" />
                   <button type="button" onClick={() => doSend()} disabled={!text.trim()} aria-label="Kirim"
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-ink text-white disabled:opacity-40"><Send className="h-4 w-4" /></button>
+                    className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-xl bg-ink text-white disabled:opacity-40"><Send className="h-4 w-4" /></button>
                 </div>
               </div>
             </>
