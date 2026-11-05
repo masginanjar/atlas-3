@@ -29,6 +29,7 @@ import { PengajuanSummary, DownloadBukti, accountLabel, PengajuanTracker, Revisi
 import VendorChat from '../components/VendorChat.jsx'
 import CustomerInfo from '../components/CustomerInfo.jsx'
 import ShareSheet from '../components/ShareSheet.jsx'
+import CustomerAccess from '../components/CustomerAccess.jsx'
 import DeliveryChecklist, { DeliveryRule, deliveryOk, deliveryType } from '../components/Delivery.jsx'
 // Fitur Bagikan/Portal masih dalam pengerjaan — aktifkan setelah selesai diuji
 const SHARE_PORTAL_READY = import.meta.env.VITE_SHARE_PORTAL === '1'
@@ -120,6 +121,8 @@ export default function ProjectDetail({ id, embedded }) {
       <div className="space-y-3">
         {project.sub_projects.map((s, i) => <SubProject key={s.id} n={i + 1} project={project} sub={s} compact={embedded} />)}
       </div>
+
+      {can.seeCustomerDetail(user) && <CustomerAccess project={project} />}
 
       <FileManager project={project} />
 

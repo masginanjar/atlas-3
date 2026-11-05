@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "build:demo": "vite build --mode single --outDir dist-demo",
     "build:demo:public": "VITE_MASK_PII=1 vite build --mode single --outDir dist-demo",
-    "build:live": "vite build"
+    "build:live": "vite build",
+    "sync:portal": "sh sync-portal-fn.sh"
   },
   "dependencies": {
     "@insforge/sdk": "^1.5.2",
@@ -28,6 +29,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "autoprefixer": "^10.6.2",
+    "esbuild": "^0.28.2",
     "oxlint": "^1.89.0",
     "postcss": "^8.5.32",
     "tailwindcss": "^3.4.19",

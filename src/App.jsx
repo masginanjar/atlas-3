@@ -16,6 +16,7 @@ import { ReminderWatcher } from './pages/Reminders.jsx'
 // Halaman yang tidak dibuka tiap hari dimuat saat diklik → halaman pertama jauh lebih ringan
 const Settings = lazy(() => import('./pages/Settings.jsx'))
 const Portal = lazy(() => import('./pages/Portal.jsx'))
+const PortalCek = lazy(() => import('./pages/PortalCek.jsx'))
 const Activity = lazy(() => import('./pages/Activity.jsx'))
 const Monitoring = lazy(() => import('./pages/Monitoring.jsx'))
 const Keuangan = lazy(() => import('./pages/Keuangan.jsx'))
@@ -92,7 +93,8 @@ export default function App() {
   const [storeErr, setStoreErr] = useState(storageError)
   useEffect(() => { const f = (e) => setStoreErr(e.detail); window.addEventListener('atlas-storage', f); return () => window.removeEventListener('atlas-storage', f) }, [])
 
-  if (page === 'p' && param) return <><Suspense fallback={null}><Portal token={param} /></Suspense><Toast toast={toast} onClose={dismissToast} /></> // portal pelanggan/vendor — tanpa login
+  if (page === 'p' && param) return <><Suspense fallback={null}><Portal token={param} /></Suspense><Toast toast={toast} onClose={dismissToast} /></> // tautan khusus (vendor / pelanggan lama) — tanpa login
+  if (page === 'cek') return <Suspense fallback={null}><PortalCek /></Suspense> // portal pelanggan — satu link umum, tanpa login
   if (booting) return <div className="grid min-h-screen place-items-center"><Loader2 className="h-6 w-6 animate-spin text-brand" /></div>
   if (!user) return <><Login /><Toast toast={toast} onClose={dismissToast} /></>
 

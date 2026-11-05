@@ -13,6 +13,8 @@ import { jam, rupiah, tgl as tglShort } from '../lib/format.js'
 import { drive } from '../lib/integrations.js'
 import { DownloadBukti } from '../components/Pengajuan.jsx'
 import { fileRulesOf } from '../components/UploadNamer.jsx'
+import { cekUrl } from '../lib/custClient.js'
+import { ACCESS_DAYS } from '../lib/portalCust.js'
 import { COURIER_ICONS, COURIER_TYPES, CourierLogo } from '../components/Courier.jsx'
 import AvatarEditor from '../components/AvatarEditor.jsx'
 import Avatar from '../components/Avatar.jsx'
@@ -44,7 +46,7 @@ export default function Settings() {
       {tab === 'kurir' && <Couriers />}
       {tab === 'vendor' && <Vendors />}
       {tab === 'users' && <Users />}
-      {tab === 'file' && <FileRules />}
+      {tab === 'file' && <><FileRules />{can.manageUsers(user) && <PortalSettings />}</>}
       {tab === 'integrasi' && <Integrations />}
     </div>
   )
@@ -71,6 +73,29 @@ function FileRules() {
         <span><b className="text-sm">Awali nama dengan no. invoice</b><span className="block text-xs text-ink-mute">Contoh: INV-000250_Ijazah.pdf — memudahkan pencarian di Google Drive.</span></span>
       </label>
       <p className="text-xs text-ink-mute">Ganti nama file yang sudah ada juga dicek: nama yang sudah dipakai dalam project yang sama ditolak.</p>
+    </Card>
+  )
+}
+
+/** Pengaturan portal pelanggan (#/cek) — berlaku untuk semua proyek. */
+function PortalSettings() {
+  const { data, save, notify } = useApp()
+  const row = (data.app_settings || []).find((x) => x.key === 'portal')
+  const [wa, setWa] = useState(row?.wa ?? '')
+  useEffect(() => { setWa(row?.wa ?? '') }, [row?.wa])
+  const simpan = async () => { await save('app_settings', { ...(row || { key: 'portal' }), wa: wa.trim() }); notify('Pengaturan portal disimpan') }
+  return (
+    <Card className="space-y-4 p-5">
+      <div><h2 className="font-bold">Portal Pelanggan</h2><p className="text-sm text-ink-mute">Satu link umum yang dibagikan ke pelanggan: <code className="rounded bg-slate-100 px-1">{cekUrl()}</code> — pelanggan masuk dengan nomor HP, memilih invoice, lalu melihat progres & dokumennya. Akses tiap invoice diaktifkan per proyek (seksi “Akses Portal Pelanggan” di detail proyek) dan berlaku {ACCESS_DAYS} hari.</p></div>
+      <Field label="Nomor WhatsApp admin" hint="Dipakai tombol “Hubungi Admin” di portal. Kosongkan bila belum ada — tombolnya tidak akan ditampilkan.">
+        <Input value={wa} onChange={(e) => setWa(e.target.value)} placeholder="mis. 6281234567890" inputMode="tel" />
+      </Field>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={simpan}>Simpan</Button>
+        <Button size="sm" variant="outline" onClick={() => window.open(cekUrl(), '_blank', 'noopener')}>Buka Portal Pelanggan</Button>
+        <Button size="sm" variant="outline" onClick={async () => { try { await navigator.clipboard.writeText(cekUrl()); notify('Link portal disalin') } catch { notify('Gagal menyalin', 'err') } }}>Salin Link</Button>
+      </div>
+      <p className="text-xs text-ink-mute">Belum terhubung: pengiriman dokumen ke email pelanggan (butuh layanan email) dan status pelacakan otomatis dari kurir. Tombol “Lacak Kiriman” hanya muncul untuk kurir yang sudah diisi alamat lacaknya di menu Kurir.</p>
     </Card>
   )
 }
