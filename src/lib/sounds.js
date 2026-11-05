@@ -54,6 +54,19 @@ export function ping() {
   } catch { /* abaikan */ }
 }
 
+/** "Perlu penerjemah": tiga nada naik (lonceng pimpinan) — berbeda dari kasir & ping. */
+export function needTranslator() {
+  if (!soundEnabled()) return
+  try {
+    const c = ac(); if (!c) return
+    tone(c, { f: 784, t0: 0, dur: 0.16, type: 'triangle', gain: 0.18 })      // G5
+    tone(c, { f: 988, t0: 0.15, dur: 0.16, type: 'triangle', gain: 0.18 })   // B5
+    tone(c, { f: 1319, t0: 0.30, dur: 0.38, type: 'triangle', gain: 0.2 })   // E6
+    tone(c, { f: 2637, t0: 0.30, dur: 0.38, type: 'sine', gain: 0.05 })
+  } catch { /* abaikan */ }
+}
+
 // alias nama (dipakai komponen lonceng)
 export const playCashRegister = cashRegister
 export const playPing = ping
+export const playNeedTranslator = needTranslator

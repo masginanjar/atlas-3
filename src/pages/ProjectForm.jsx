@@ -4,11 +4,11 @@ import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
 import { zoho } from '../lib/integrations.js'
 import { parseInvoiceItems } from '../lib/zohoParse.js'
-import { fromDocs } from '../components/SubProjectEditor.jsx'
+import { fromDocs, usesDocs } from '../components/SubProjectEditor.jsx'
 import { BRANCHES, can, branchesOf, isMultiBranch } from '../config/access.js'
 import { stagesOf, deriveFlow } from '../config/workflows.js'
 import { Button, Field, FieldError, Input, Select, Sheet, SectionCard, cx, Textarea } from '../components/ui.jsx'
-import SubProjectEditor, { newSub, validateSub, docFileName } from '../components/SubProjectEditor.jsx'
+import SubProjectEditor, { newSub, validateSub, docFileName, safeName } from '../components/SubProjectEditor.jsx'
 import { SUB_TYPES, points } from '../config/subtypes.js'
 import { uploadProjectFiles } from '../components/FileManager.jsx'
 import { kb } from '../lib/format.js'
@@ -41,7 +41,7 @@ export default function ProjectForm({ onClose, project }) {
   // sub project lama: tandai dokumen yang sudah punya file sumber agar tidak diminta upload ulang
   const [subs, setSubs] = useState(() => project?.sub_projects
     ? project.sub_projects.map((sp) => {
-      if (sp.type !== 'terjemahan' || !Array.isArray(sp.docs)) return sp
+      if (!usesDocs(sp.type) || !Array.isArray(sp.docs)) return sp
       const list = sp.data?.dokumen_sumber_list || (sp.data?.dokumen_sumber ? [sp.data.dokumen_sumber] : [])
       return { ...sp, docs: sp.docs.map((d, i) => ({ ...d, existing: list[i]?.name || list[0]?.name || (sp.stage !== 'cs_input' ? 'sudah berjalan' : '') })) }
     })
@@ -66,7 +66,8 @@ export default function ProjectForm({ onClose, project }) {
           const docs = ps.docs.map((d) => ({ desc: d.desc, pages: d.pages, kind: d.kind || 'reguler' }))
           return { ...base, ...fromDocs(docs), docs, lang_from: ps.lang_from || base.lang_from, lang_to: ps.lang_to || base.lang_to, zoho_item: ps.zoho_item }
         }
-        return { ...base, description: ps.description, file_count: ps.docs.length, pages: ps.pages, pages_manual: true, country: ps.country || '', institution: ps.institution || '', zoho_item: ps.zoho_item }
+        const docs = ps.docs.map((d) => ({ desc: d.desc, pages: 1 }))
+        return { ...base, ...fromDocs(docs.length ? docs : [{ desc: '', pages: 1 }]), country: ps.country || '', institution: ps.institution || '', zoho_item: ps.zoho_item }
       })
       nSubs = made.length
       setSubs((cur) => (force || cur.every(isBlankSub) ? made : [...cur, ...made]))
@@ -155,8 +156,9 @@ export default function ProjectForm({ onClose, project }) {
         // Alur ditentukan dari jenis + pelaksana; dihitung ulang selama belum berjalan
         const flow = isStarted(s) ? (s.flow || project?.category || deriveFlow(s, vendorOf(s))) : deriveFlow(s, vendorOf(s))
         const first = stagesOf(flow)[0].key
-        const docs = s.type === 'terjemahan' && s.docs ? s.docs.filter((d) => d.desc.trim()).map(({ file, file_name, name_edited, existing, ...d }) => d) : undefined
-        const base = { ...s, title, file_count: pts.length, data, flow, docs }
+        const docs = usesDocs(s.type) && s.docs ? s.docs.filter((d) => d.desc.trim()).map(({ file, file_name, name_edited, existing, ...d }) => d) : undefined
+        const { applicant_file, ...rest } = s // file ID pemohon diunggah terpisah (lihat idUploads)
+        const base = { ...rest, title, file_count: pts.length, data, flow, docs }
         return s.id ? { ...base, ...(isStarted(s) ? {} : { stage: first }) }
           : { ...base, id: crypto.randomUUID?.() ?? String(Math.random()), stage: first, history: [{ at: now, by: user.name, action: 'Dibuat' }] }
       })
@@ -166,7 +168,7 @@ export default function ProjectForm({ onClose, project }) {
         ...(editing ? {} : { created_by: user.id }),
       }
       // File per dokumen terjemahan → diunggah, masuk File Project & menjadi Dokumen Sumber tahap CS Input
-      const docUploads = subs.flatMap((s, si) => (s.type === 'terjemahan' && s.docs ? s.docs : []).filter((d) => d.desc.trim() && d.file)
+      const docUploads = subs.flatMap((s, si) => (usesDocs(s.type) && s.docs ? s.docs : []).filter((d) => d.desc.trim() && d.file)
         .map((d) => ({ file: d.file, name: docFileName(d), sub_id: sub_projects[si].id, si })))
       if (docUploads.length) {
         const added = await uploadProjectFiles(docUploads, { branch, invoice: inv, by: user.name }, (i, n) => setProgress(`Mengunggah dokumen ${i}/${n}…`))
@@ -176,13 +178,41 @@ export default function ProjectForm({ onClose, project }) {
         })
         row.files = [...(project?.files || []), ...added]
       }
+      // Scan ID / dokumen pemohon (apostille & legalisasi) → File Project + data.dokumen_id
+      const idUploads = subs.flatMap((s, si) => (s.applicant_file ? [{ file: s.applicant_file, name: `ID Pemohon - ${safeName(s.applicant_file.name)}`, sub_id: sub_projects[si].id, si }] : []))
+      if (idUploads.length) {
+        const added = await uploadProjectFiles(idUploads, { branch, invoice: inv, by: user.name }, (i, n) => setProgress(`Mengunggah ID pemohon ${i}/${n}…`))
+        added.forEach((f, k) => { const sp = sub_projects[idUploads[k].si]; sp.data = { ...sp.data, dokumen_id: f } })
+        row.files = [...(row.files || project?.files || []), ...added]
+      }
       if (queue.length) {
         const refToId = (ref) => { const i = subs.findIndex((x) => String(x.id ?? x._k) === String(ref)); return i < 0 ? null : sub_projects[i].id }
         const added = await uploadProjectFiles(queue.map((q) => ({ file: q.file, name: q.name.trim() || q.file.name, sub_id: refToId(q.sub_ref) })),
           { branch, invoice: inv, by: user.name }, (i, n) => setProgress(`Mengunggah file ${i}/${n}…`))
         row.files = [...(row.files || project?.files || []), ...added]
       }
+      // Dokumen sudah diunggah saat project dibuat → tahap "CS Input/Upload" dianggap selesai: langsung ke Supervisor (terjemahan) / antrean staf (apostille)
+      const autoNotes = []
+      if (!editing) for (const sp of sub_projects) {
+        const st = stagesOf(sp.flow); const first = st[0]; const second = st[1]
+        if (!second || !sp.data?.dokumen_sumber) continue
+        const toSpv = sp.flow === 'tr_int' && first.key === 'cs_input' && !sp.data.translator
+        const toStaf = first.key === 'cs_upload'
+        if (!toSpv && !toStaf) continue
+        sp.stage = second.key; sp.stage_at = now
+        sp.history = [...(sp.history || []), { at: now, by: user.name, action: `${first.label} → ${second.label} · otomatis (dokumen sudah diunggah saat project dibuat)` }]
+        if (toStaf && first.notify) autoNotes.push(...first.notify(row, sp, user).map((n) => ({ ...n, text: `${inv} · ${sp.title}: ${n.text}` })))
+      }
       const saved = await save('projects', row)
+      for (const n of autoNotes) await save('notifications', { ...n, project_id: saved.id, by: user.name, read_by: [] }).catch(() => {})
+      // Terjemahan yang belum punya penerjemah/vendor → otomatis minta Supervisor (tembusan Direktur & Superadmin) membagi penerjemah
+      if (!editing) {
+        const need = sub_projects.filter((s) => s.type === 'terjemahan' && !s.data?.translator && !s.data?.vendor && !s.translator)
+        for (const s of need) {
+          const text = `${inv} · ${s.title}: Perlu penerjemah — ${s.lang_from || '?'} → ${s.lang_to || '?'}, ${s.pages || s.file_count || 0} hlm, ${(about.priority || 'Normal')}${about.deadline ? `, deadline ${new Date(about.deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}` : ''}`
+          for (const role of ['supervisor', 'direktur', 'superadmin']) await save('notifications', { to_role: role, kind: 'need_translator', text, project_id: saved.id, sub_id: s.id, by: user.name, read_by: [] }).catch(() => {})
+        }
+      }
       notify(editing ? 'Project diperbarui' : `Project ${inv} dibuat`)
       onClose(); if (!editing) go(`projects/${saved.id}`)
     } catch (e) { notify(e.message, 'err') } finally { setBusy(false); setProgress('') }

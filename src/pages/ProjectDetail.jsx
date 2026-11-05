@@ -206,6 +206,7 @@ function SubMeta({ sub }) {
         ? <ol className="mt-1.5 list-decimal space-y-0.5 pl-4 text-xs text-ink-soft">{sub.docs.filter((d) => d.desc.trim()).map((d, i) => <li key={i}>{d.desc} <span className="text-ink-mute">· {d.pages} hlm</span>{d.kind === 'non_reguler' && <span className="ml-1 rounded bg-violet-50 px-1 text-[10px] font-semibold text-violet-700">Non Reguler</span>}<RegNo n={sub.data?.reg_numbers?.[i]} /></li>)}</ol>
         : pts.length > 1 ? <ol className="mt-1.5 list-decimal space-y-0.5 pl-4 text-xs text-ink-soft">{pts.map((p, i) => <li key={i}>{p}<RegNo n={sub.data?.reg_numbers?.[i]} /></li>)}</ol>
         : <RegNo n={sub.data?.reg_numbers?.[0]} block />}
+      {sub.data?.dokumen_id && <p className="mt-1.5 flex items-center gap-1.5 text-xs text-ink-soft"><span className="font-semibold text-ink-mute">ID / dokumen pemohon:</span><FileChip file={sub.data.dokumen_id} /></p>}
     </div>
   )
 }
@@ -330,7 +331,7 @@ function StagePanel({ project, sub, stage }) {
         {stage.showSource && (
           sub.data?.dokumen_sumber ? (
             <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
-              <div className="min-w-0 basis-full"><p className="text-[11px] font-semibold text-ink-mute">Dokumen sumber dari CS</p><FileChip file={sub.data.dokumen_sumber} /></div>
+              <div className="min-w-0 basis-full"><p className="text-[11px] font-semibold text-ink-mute">Dokumen sumber dari CS</p><FileChip file={sub.data.dokumen_sumber} />{sub.data.dokumen_id && <><p className="mt-1.5 text-[11px] font-semibold text-ink-mute">ID / dokumen pemohon</p><FileChip file={sub.data.dokumen_id} /></>}</div>
               <Button size="sm" variant="outline" onClick={async () => { try { const f = sub.data.dokumen_sumber; await saveBlob(f.name, f.url?.startsWith('data:') ? dataUrlToBlob(f.url) : await drive.blob(f)) } catch (e) { notify(e.message, 'err') } }}><Download className="h-3.5 w-3.5" />Download Dokumen Sumber</Button>
               <Button size="sm" variant="outline" onClick={() => setPreviewFile(sub.data.dokumen_sumber)}><Eye className="h-3.5 w-3.5" />Preview</Button>
               {previewFile && !stage.print && <FilePreview file={previewFile} onClose={() => setPreviewFile(null)} />}
