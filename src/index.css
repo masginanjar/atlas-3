@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html { -webkit-tap-highlight-color: transparent; }
+body {
+  @apply font-sans text-ink antialiased;
+  font-size: 14px;
+  background-color: #f4f6fc;
+  background-image:
+    radial-gradient(900px 480px at -10% -10%, rgba(99,102,241,0.14), transparent 60%),
+    radial-gradient(700px 420px at 110% 0%, rgba(6,182,212,0.12), transparent 60%),
+    radial-gradient(800px 500px at 50% 120%, rgba(217,70,239,0.08), transparent 60%);
+  background-attachment: fixed;
+}
+h1, h2, h3 { font-family: Sora, "Plus Jakarta Sans", system-ui, sans-serif; letter-spacing: -0.01em; }
+h1 { letter-spacing: -0.02em; }
+input[type="date"] { min-height: 42px; }
+* { scrollbar-width: thin; scrollbar-color: rgba(79,70,229,0.25) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: rgba(79,70,229,0.22); border-radius: 999px; }
+
+@layer components {
+  /* Judul segmen dashboard: titik gradien + label kecil */
+  .seg-title { @apply flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-ink-mute; }
+  .seg-title::before { content: ''; @apply h-2 w-2 rounded-full bg-gradient-to-br from-brand via-accent to-pop shadow-[0_0_0_3px_rgba(79,70,229,0.12)]; }
+  .seg-title::after { content: ''; @apply h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent; }
+  /* Teks gradien untuk judul utama */
+  .text-gradient { @apply bg-gradient-to-r from-brand via-accent to-pop bg-clip-text text-transparent; }
+  /* Garis aksen gradien tipis di atas kartu */
+  .accent-top { position: relative; }
+  .accent-top::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 3px; border-radius: 1rem 1rem 0 0; background: linear-gradient(90deg, #4f46e5, #06b6d4 55%, #d946ef); opacity: .9; }
+}
+
+/* Header kartu di HP: tombol minimize menempel di kanan atas (tidak turun baris) */
+.card-head { position: relative; padding-right: 3.25rem !important; }
+.card-head > .fold, .card-head > .fold-wrap { position: absolute; right: .75rem; top: .6rem; margin-left: 0 !important; }
+@media (min-width: 640px) {
+  .card-head { padding-right: 1rem !important; }
+  .card-head > .fold, .card-head > .fold-wrap { position: static; margin-left: auto !important; }
+}
+
+/* Prioritas Sameday: kedip merah–hitam (urgent). Dihormati pengaturan "kurangi gerakan". */
+@keyframes atlas-urgent { 0%, 45% { background: #dc2626; color: #fff; box-shadow: 0 0 0 1px #dc2626, 0 0 10px rgba(220,38,38,.55); } 55%, 100% { background: #0e1540; color: #fff; box-shadow: 0 0 0 1px #0e1540; } }
+.atlas-urgent { animation: atlas-urgent 1s steps(1, end) infinite; background: #dc2626; color: #fff; }
+@media (prefers-reduced-motion: reduce) { .atlas-urgent { animation: none; background: #dc2626; color: #fff; box-shadow: 0 0 0 1px #0e1540; } }
+
+/* Deadline hari ini: kedip merah (teks tetap terbaca). */
+@keyframes atlas-blink { 0%, 50% { background: #dc2626; box-shadow: 0 0 0 1px #dc2626, 0 0 10px rgba(220,38,38,.5); } 51%, 100% { background: #f87171; box-shadow: 0 0 0 1px #f87171; } }
+.atlas-blink { animation: atlas-blink 1s steps(1, end) infinite; background: #dc2626; }
+@media (prefers-reduced-motion: reduce) { .atlas-blink { animation: none; background: #dc2626; } }
