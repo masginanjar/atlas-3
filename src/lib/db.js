@@ -30,7 +30,7 @@ function load() {
   try { mem = JSON.parse(localStorage.getItem(KEY)) } catch { mem = null }
   // Demo ringkas: 30 project yang mewakili semua role (data lama diganti sekali)
   cleanStorage()
-  if (!mem || !mem.compact_v7) { mem = seed(); migrate(mem); compactDemo(mem); save() }
+  if (!mem || !mem.compact_v8) { mem = seed(); migrate(mem); compactDemo(mem); save() }
   if (migrate(mem)) save()
   if (perfDemo(mem)) save() // tugas contoh harian (mati secara bawaan di demo ringkas)
   return mem

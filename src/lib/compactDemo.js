@@ -93,7 +93,45 @@ export function compactDemo(m) {
     { id: 'ntf-pay-2', created_at: new Date(Date.now() - 3 * 3600000).toISOString(), to_user: 'u-sa', kind: 'payment', project_id: payHit?.p.id || null, text: `${payHit?.p.invoice_no || 'INV-000268'} · Tagihan vendor ${'Rp 900.000'} sudah dibayar`, by: 'Wiwin (Akunting)', read_by: [] },
   ]
   m.app_settings = [...(m.app_settings || []).filter((r) => r.key !== 'demo'), { id: 'set-demo', key: 'demo', perf: false, created_at: now() }]
-  m.compact_v1 = true; m.compact_v2 = true; m.compact_v3 = true; m.compact_v4 = true; m.compact_v5 = true; m.compact_v6 = true; m.compact_v7 = true
+  portalDemo(m)
+  m.compact_v1 = true; m.compact_v2 = true; m.compact_v3 = true; m.compact_v4 = true; m.compact_v5 = true; m.compact_v6 = true; m.compact_v7 = true; m.compact_v8 = true
+  return m
+}
+
+/**
+ * Contoh untuk portal pelanggan (#/cek): 2 pesanan dengan akses pelanggan sudah aktif —
+ *  • satu sudah diserahkan ke kurir + nomor register siap → pelanggan bisa konfirmasi terima
+ *  • satu masih tahap pemeriksaan + draft dibagikan → pelanggan bisa lihat draft
+ * Nomor HP pelanggan diseragamkan agar mudah dicoba: 0812-3456-7890.
+ */
+function portalDemo(m) {
+  const at = (n) => new Date(Date.now() + n * 864e5).toISOString()
+  const PHONE = '+62 812-3456-7890'
+  const courier = (m.couriers || []).find((c) => c.type === 'courier')
+  m.share_links = (m.share_links || []).filter((l) => l.kind !== 'customer')
+  const mk = (p, extra) => {
+    p.customer = { ...p.customer, phone: PHONE, email: p.customer?.email || 'pelanggan.demo@gmail.com', ship: { ...(p.customer?.ship || {}), phone: PHONE } }
+    m.share_links.push({ id: `sl-cek-${p.id}`, token: `demo-cek-${p.id}`, kind: 'customer', project_id: p.id,
+      activated_at: at(-2), expires_at: at(12), revoked_at: null, shared: extra.shared, shared_regs: extra.regs || [],
+      receipts: [], cust_note: extra.note ? { text: extra.note, at: at(-1), by: 'Nikita (CS Bali)' } : null,
+      fails: [], opens: 0, created_by: 'u-cs-bali', created_at: at(-2),
+      history: [{ at: at(-2), by: 'Nikita (CS Bali)', action: 'Akses pelanggan diaktifkan · 14 hari' }] })
+  }
+  // 1) sudah dikirim — siap dikonfirmasi penerimaannya
+  const sent = m.projects.find((p) => (p.sub_projects || []).some((s) => s.flow === 'tr_int' && ['siap_kirim', 'selesai'].includes(s.stage) && s.data?.scan_pdf))
+  if (sent) {
+    const s = sent.sub_projects.find((x) => x.flow === 'tr_int' && ['siap_kirim', 'selesai'].includes(x.stage) && x.data?.scan_pdf)
+    s.data = { ...s.data, reg_numbers: ['REG-2026-0412'], registered_name: 'Nihaya (Admin Pusat)', registered_at: at(-2),
+      delivery: { type: 'courier', diserahkan_kurir: at(-1) }, shipped_at: at(-1) }
+    sent.about = { ...sent.about, courier: courier?.id || sent.about?.courier, resi_no: 'JP1234567890', ship_status: 'Dalam pengantaran' }
+    mk(sent, { shared: [`sub:${s.id}:scan_pdf`, `sub:${s.id}:file_final`], regs: [s.id], note: 'Dokumen sudah dikirim. Mohon konfirmasi bila dokumen sudah Bapak/Ibu terima agar nomor register kami aktifkan.' })
+  }
+  // 2) masih diperiksa — draft dibagikan untuk dicek pelanggan
+  const draft = m.projects.find((p) => p.id !== sent?.id && (p.sub_projects || []).some((s) => s.flow === 'tr_int' && s.stage === 'proofread' && s.data?.hasil_terjemahan))
+  if (draft) {
+    const s = draft.sub_projects.find((x) => x.flow === 'tr_int' && x.stage === 'proofread' && x.data?.hasil_terjemahan)
+    mk(draft, { shared: [`sub:${s.id}:hasil_terjemahan`], note: 'Mohon diperiksa draft terjemahannya. Bila nama/tanggal sudah sesuai, kami lanjutkan ke otorisasi.' })
+  }
   return m
 }
 
