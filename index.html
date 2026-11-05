@@ -10,6 +10,19 @@
   </head>
   <body class="bg-paper">
     <div id="root"></div>
+    <!-- Setelah update, cache lama bisa menunjuk ke file JS yang sudah diganti → muat ulang otomatis, bukan layar putih -->
+    <script>
+      (function () {
+        var tried = sessionStorage.getItem('atlas-asset-retry');
+        function fail() {
+          if (!tried) { sessionStorage.setItem('atlas-asset-retry', '1'); location.reload(); return }
+          var r = document.getElementById('root');
+          if (r && !r.children.length) r.innerHTML = '<div style="font-family:system-ui,sans-serif;max-width:420px;margin:15vh auto;padding:24px;text-align:center;color:#1e293b"><h2 style="margin:0 0 8px">Memuat versi terbaru…</h2><p style="color:#64748b">ATLAS baru saja diperbarui. Tunggu sebentar lalu tekan tombol di bawah.</p><button onclick="sessionStorage.removeItem(\'atlas-asset-retry\');location.reload()" style="margin-top:12px;padding:10px 18px;border:0;border-radius:10px;background:#4f46e5;color:#fff;font-weight:600;cursor:pointer">Muat ulang</button></div>';
+        }
+        window.addEventListener('error', function (e) { var t = e.target; if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK') && /\/assets\//.test(t.src || t.href || '')) fail() }, true);
+        setTimeout(function () { var r = document.getElementById('root'); if (r && !r.children.length) fail(); else sessionStorage.removeItem('atlas-asset-retry') }, 8000);
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
