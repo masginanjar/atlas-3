@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Search, Plus, Check, Loader2, UserRound, Receipt, Upload, X, FileText, RefreshCw, Headset, Building2, Printer, CalendarPlus, CalendarClock, Flag, ClipboardList, Truck, Layers, CloudUpload, StickyNote } from 'lucide-react'
+import { Search, Plus, Check, Loader2, UserRound, Receipt, Upload, X, FileText, RefreshCw, Headset, Building2, Printer, CalendarPlus, CalendarClock, Flag, ClipboardList, Truck, Layers, CloudUpload, StickyNote, Sparkles, Pencil } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
 import { zoho } from '../lib/integrations.js'
+import { parseInvoiceItems } from '../lib/zohoParse.js'
+import { fromDocs } from '../components/SubProjectEditor.jsx'
 import { BRANCHES, can, branchesOf, isMultiBranch } from '../config/access.js'
 import { stagesOf, deriveFlow } from '../config/workflows.js'
 import { Button, Field, FieldError, Input, Select, Sheet, SectionCard, cx, Textarea } from '../components/ui.jsx'
@@ -47,6 +49,64 @@ export default function ProjectForm({ onClose, project }) {
   const [busy, setBusy] = useState(false)
   const [queue, setQueue] = useState([]) // file yang akan diunggah: {_k, file, name, sub_ref}
   const [progress, setProgress] = useState('')
+  const [autoFill, setAutoFill] = useState(null) // ringkasan isian otomatis dari item invoice Zoho
+  const [editShip, setEditShip] = useState(false)
+
+  // Sub project yang belum diisi apa pun (boleh diganti isian otomatis)
+  const isBlankSub = (x) => !x.id && !points(x.description).length && !(x.docs || []).some((d) => d.desc?.trim() || d.file)
+  /** Isi otomatis dari item invoice Zoho: sub project, alamat kirim, kurir, prioritas. Semua tetap bisa diedit. */
+  const applyInvoice = (detail, { force = false } = {}) => {
+    const p = parseInvoiceItems(detail.items)
+    const inv = detail.invoice_no
+    let nSubs = 0
+    if (p.subs.length) {
+      const made = p.subs.map((ps) => {
+        const base = newSub(ps.type)
+        if (ps.type.startsWith('terjemahan')) {
+          const docs = ps.docs.map((d) => ({ desc: d.desc, pages: d.pages, kind: d.kind || 'reguler' }))
+          return { ...base, ...fromDocs(docs), docs, lang_from: ps.lang_from || base.lang_from, lang_to: ps.lang_to || base.lang_to, zoho_item: ps.zoho_item }
+        }
+        return { ...base, description: ps.description, file_count: ps.docs.length, pages: ps.pages, pages_manual: true, country: ps.country || '', institution: ps.institution || '', zoho_item: ps.zoho_item }
+      })
+      nSubs = made.length
+      setSubs((cur) => (force || cur.every(isBlankSub) ? made : [...cur, ...made]))
+    }
+    // alamat pengiriman dari item "Delivery Fee" → hanya mengisi kolom yang masih kosong di data Zoho
+    let shipFilled = false
+    setCustomer((c) => {
+      if (!c) return c
+      const cur = c.ship || {}
+      const next = { ...cur }
+      // alamat di item invoice = alamat untuk order ini → menggantikan alamat umum di data Zoho (kolom yang tak ada di invoice dipertahankan)
+      if (p.ship && p.hasAddress) {
+        for (const k of ['attention', 'street1', 'street2', 'city', 'state', 'zip', 'phone']) if (p.ship[k]) { next[k] = p.ship[k]; shipFilled = true }
+        if (shipFilled && p.ship.street1 && !p.ship.city) { next.city = ''; next.state = next.state && cur.street1 !== next.street1 ? '' : next.state }
+      }
+      const phone = c.phone || detail.contact?.mobile || p.ship?.phone || ''
+      const email = c.email || p.email || detail.contact?.email || ''
+      return { ...c, ship: next, phone, email, ...(shipFilled ? { ship_source: 'invoice' } : {}) }
+    })
+    // kurir & prioritas
+    const courierRow = p.courier ? (data.couriers || []).find((k) => k.name.toLowerCase() === p.courier.toLowerCase()) || (data.couriers || []).find((k) => k.name.toLowerCase().includes(p.courier.toLowerCase().split(' ')[0])) : null
+    setAbout((a) => {
+      const next = { ...a }
+      if (courierRow && (force || !a.courier)) next.courier = courierRow.id
+      if (p.priority && (force || a.priority === 'Normal')) { next.priority = p.priority; const auto = autoDeadline(a.received_at, p.priority); if (auto && (!a.deadline || a.deadline === autoDeadline(a.received_at, a.priority))) next.deadline = auto }
+      const extra = [...p.others.map((o) => [o.name, o.description.replace(/\s+/g, ' ').trim()].filter(Boolean).join(': ')), ...(p.office ? [`Ambil/kirim via kantor ${p.office}`] : [])].filter(Boolean)
+      if (extra.length && !String(a.notes || '').includes('Dari invoice')) next.notes = [a.notes, `Dari invoice: ${extra.join(' · ')}`].filter(Boolean).join('\n')
+      return next
+    })
+    setAutoFill({ invoice_no: inv, subs: nSubs, ship: !!(p.ship && p.hasAddress), courier: courierRow?.name || '', priority: p.priority, others: p.others.length })
+  }
+  // Begitu invoice dipilih/diketik → baca item invoice dari salinan Zoho (debounce)
+  useEffect(() => {
+    if (editing) return
+    const no = invoice.trim().toUpperCase()
+    if (!/^INV-\d{4,}$/i.test(no) || autoFill?.invoice_no === no) return
+    let dead = false
+    const t = setTimeout(() => zoho.invoiceDetail(no).then((d) => { if (!dead && d) applyInvoice(d) }).catch(() => {}), 350)
+    return () => { dead = true; clearTimeout(t) }
+  }, [invoice]) // eslint-disable-line react-hooks/exhaustive-deps
   // Sub project yang alurnya sudah berjalan: jenis & pelaksana dikunci
   const vendorOf = (s) => (s.translator_kind === 'vendor' ? data.people.find((p) => p.id === s.translator) : null)
   const isStarted = (s) => !!s.id && s.stage !== stagesOf(s.flow || project?.category || deriveFlow(s, vendorOf(s)))[0].key
@@ -146,7 +206,17 @@ export default function ProjectForm({ onClose, project }) {
           <SectionCard tone="peach" icon={Truck} title="Alamat Pengiriman & Kurir">
             <div className="space-y-5">
               {customer
-                ? <CustomerInfo c={customer} part="shipping" />
+                ? (
+                  <div className="space-y-2">
+                    {editShip
+                      ? <ShipEditor ship={customer.ship || {}} onChange={(ship) => setCustomer((c) => ({ ...c, ship }))} onDone={() => setEditShip(false)} />
+                      : <CustomerInfo c={customer} part="shipping" />}
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      {customer.ship_source === 'invoice' && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800"><Sparkles className="h-3 w-3" />Alamat dibaca dari item invoice — periksa</span>}
+                      {!editShip && <button type="button" onClick={() => setEditShip(true)} className="inline-flex items-center gap-1 font-semibold text-orange-700 hover:underline"><Pencil className="h-3 w-3" />Edit alamat</button>}
+                    </div>
+                  </div>
+                )
                 : <p className="rounded-xl border border-dashed border-orange-300 bg-white/60 px-4 py-6 text-center text-sm text-ink-mute">Alamat pengiriman tampil otomatis setelah pelanggan dipilih.</p>}
               <div>
                 <CourierSelect value={about.courier} onChange={(id) => setAbout((a) => ({ ...a, courier: id }))} printLocation={about.print_location} />
@@ -185,6 +255,13 @@ export default function ProjectForm({ onClose, project }) {
 
         <SectionCard tone="mint" icon={Layers} title="Sub Project & Detail Dokumen" aside={`${subs.length} sub project`}>
           <div className="space-y-4">
+            {autoFill && (
+              <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl bg-amber-50 px-3.5 py-2.5 text-xs text-amber-900 ring-1 ring-amber-200">
+                <Sparkles className="h-4 w-4 shrink-0 text-amber-600" />
+                <span><b className="font-semibold">Diisi otomatis dari {autoFill.invoice_no}</b>: {[autoFill.subs && `${autoFill.subs} sub project`, autoFill.ship && 'alamat kirim', autoFill.courier && `kurir ${autoFill.courier}`, autoFill.priority && `prioritas ${autoFill.priority}`].filter(Boolean).join(' · ') || 'tidak ada item yang dikenali'}. Periksa & edit bila perlu.</span>
+                <button type="button" className="ml-auto inline-flex items-center gap-1 font-semibold text-amber-800 hover:underline" onClick={() => zoho.invoiceDetail(autoFill.invoice_no).then((d) => d && applyInvoice(d, { force: true }))}><RefreshCw className="h-3 w-3" />Isi ulang dari invoice</button>
+              </div>
+            )}
             {subs.map((s, i) => (
               <SubProjectEditor key={s.id ?? s._k} n={i + 1} sub={s} branch={branch} error={tried ? errs.subs[i] : null}
                 locked={isStarted(s)}
@@ -230,6 +307,24 @@ function FileQueue({ queue, setQueue, subs }) {
           <button type="button" onClick={() => setQueue((x) => x.filter((y) => y._k !== q._k))} className="rounded-lg p-1.5 text-rose-500 hover:bg-rose-50" aria-label="Batalkan file"><X className="h-4 w-4" /></button>
         </div>
       ))}
+    </div>
+  )
+}
+
+/** Form kecil untuk mengoreksi alamat pengiriman (tersimpan di project, bukan ke Zoho). */
+function ShipEditor({ ship, onChange, onDone }) {
+  const set = (k) => (e) => onChange({ ...ship, [k]: e.target.value })
+  return (
+    <div className="grid gap-x-3 gap-y-2.5 rounded-xl bg-white p-3 ring-1 ring-orange-200 sm:grid-cols-2">
+      <Field label="Nama penerima"><Input value={ship.attention || ''} onChange={set('attention')} /></Field>
+      <Field label="No. HP penerima"><Input value={ship.phone || ''} onChange={set('phone')} inputMode="tel" /></Field>
+      <div className="sm:col-span-2"><Field label="Alamat"><Textarea rows={2} value={ship.street1 || ''} onChange={set('street1')} /></Field></div>
+      <Field label="Kec/Kab/Kota"><Input value={ship.city || ''} onChange={set('city')} /></Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Provinsi"><Input value={ship.state || ''} onChange={set('state')} /></Field>
+        <Field label="Kode pos"><Input value={ship.zip || ''} onChange={set('zip')} inputMode="numeric" /></Field>
+      </div>
+      <div className="sm:col-span-2 flex justify-end"><Button size="sm" onClick={onDone}><Check className="h-4 w-4" />Selesai</Button></div>
     </div>
   )
 }
