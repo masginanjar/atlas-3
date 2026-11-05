@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { BellRing, Send, CheckCircle2, Clock3 } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { activeClaim, branchesOf, ROLES, roleLabel } from '../config/access.js'
+import { activeClaim, branchesOf, ROLES, roleLabel, printBranchOf } from '../config/access.js'
 import { DONE } from '../config/workflows.js'
 import { Button, Sheet, Textarea, Select, cx } from './ui.jsx'
 import Avatar from './Avatar.jsx'
@@ -26,7 +26,7 @@ export function pingTargets(stage, sub, project, users, me) {
   const roles = LEAD[stage.key] ? [LEAD[stage.key]] : stage.roles.filter((r) => r !== 'superadmin')
   let cands = active.filter((u) => roles.includes(u.role) || (u.extra_roles || []).some((r) => roles.includes(r)))
   // tahap cabang (CS / print): utamakan staf cabang terkait
-  const place = stage.printBranch ? (project.about?.print_location || project.branch) : project.branch
+  const place = stage.printBranch ? printBranchOf(project) : project.branch
   const local = cands.filter((u) => ['cs', 'supervisor', 'admin_pusat'].includes(u.role) ? branchesOf(u).includes(place) : true)
   if (local.length) cands = local
   // CS: pembuat project paling relevan

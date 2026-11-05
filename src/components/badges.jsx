@@ -11,6 +11,7 @@ export function PrintBadge({ project, iconOnly, className }) {
   const { user } = useApp()
   const loc = project?.about?.print_location
   if (!loc || loc === project.branch) return null
+  if (loc === 'Vendor') return <span title="Dicetak oleh vendor (eksternal)" className={cx('inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-violet-50 font-semibold text-violet-700 ring-1 ring-violet-200', iconOnly ? 'px-1.5 py-0.5' : 'px-2 py-0.5 text-[11px]', className)}><Printer className="h-3 w-3" />{!iconOnly && 'Print Vendor'}</span>
   const incoming = branchesOf(user).includes(loc) && !branchesOf(user).includes(project.branch)
   const label = incoming ? `Titipan print dari ${project.branch}` : `Titip print di ${loc}`
   return (
@@ -20,12 +21,13 @@ export function PrintBadge({ project, iconOnly, className }) {
   )
 }
 
+// Badge jenis layanan: netral (abu) — warna disisakan untuk status & prioritas yang bermakna
 const TONE = {
-  terjemahan: 'bg-blue-50 text-blue-700 ring-blue-200',
-  terjemahan_nt: 'bg-cyan-50 text-cyan-700 ring-cyan-200',
-  apostille: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  legalisasi: 'bg-violet-50 text-violet-700 ring-violet-200',
-  jasa_lain: 'bg-slate-100 text-slate-700 ring-slate-200',
+  terjemahan: 'bg-slate-100 text-ink-soft ring-slate-200',
+  terjemahan_nt: 'bg-slate-100 text-ink-soft ring-slate-200',
+  apostille: 'bg-slate-100 text-ink-soft ring-slate-200',
+  legalisasi: 'bg-slate-100 text-ink-soft ring-slate-200',
+  jasa_lain: 'bg-slate-100 text-ink-soft ring-slate-200',
 }
 
 export function TypeBadge({ type, count, className }) {
@@ -78,7 +80,7 @@ export function DeadlineCell({ project, done, className, align = 'right' }) {
   // Hari ini: seluruh teks dibungkus indikator berkedip merah agar langsung terlihat
   if (d === 0) return (
     <span className={cx('inline-block leading-tight', align === 'right' ? 'text-right' : 'text-left', className)}>
-      <span className="inline-block rounded-lg bg-rose-600 px-2 py-0.5 text-white shadow-sm" title="Deadline hari ini">
+      <span className="inline-block rounded-lg bg-rose-50 px-2 py-0.5 text-rose-700 ring-1 ring-rose-200" title="Deadline hari ini">
         <span className="block text-xs font-bold">{date}</span>
         <span className="block whitespace-nowrap text-[11px] font-semibold">Hari ini</span>
       </span>

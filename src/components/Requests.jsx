@@ -179,7 +179,7 @@ export function RequestBoard({ bare }) {
 }
 
 /** Formulir pengajuan umum. */
-function RequestForm({ open, onClose }) {
+export function RequestForm({ open, onClose, side, onSaved }) {
   const { user, data, save, notify, branchFilter } = useApp()
   const myBranches = can.seeAllBranches(user) ? BRANCHES : branchesOf(user)
   const blank = () => ({ kind: 'topup', branch: myBranches[0], fund: pettyAccountsOf(user).includes(APOSTILLE_FUND) && user.role === 'supervisor' ? APOSTILLE_FUND : myBranches[0], amount: '', purpose: '', project_id: '', recipient: { bank: '', number: '', holder: '' }, attachment: null })
@@ -207,12 +207,12 @@ function RequestForm({ open, onClose }) {
         requested_by: user.id, requested_name: user.name, history: [{ at: new Date().toISOString(), by: user.name, action: 'Diajukan' }] }
       await save('requests', row)
       await save('notifications', { to_role: 'direktur', text: `Pengajuan ${REQ_KINDS[f.kind].label} ${rupiah(row.amount)} dari ${user.name} menunggu ACC`, by: user.name, read_by: [] }).catch(() => {})
-      notify('Pengajuan terkirim ke Direktur'); setF(blank()); onClose()
+      notify('Pengajuan terkirim ke Direktur'); setF(blank()); onSaved?.(); onClose()
     } catch (e) { notify(e.message, 'err') } finally { setBusy(false) }
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Buat Pengajuan" wide
+    <Sheet open={open} side={side ? "right" : undefined} onClose={onClose} title="Buat Pengajuan" wide
       footer={<><Button variant="outline" className="flex-1" onClick={onClose}>Batal</Button><Button className="flex-1" loading={busy} onClick={submit}>Ajukan ke Direktur</Button></>}>
       <div className="space-y-4">
         <div role="radiogroup" aria-label="Jenis pengajuan" className="grid grid-cols-3 gap-2">

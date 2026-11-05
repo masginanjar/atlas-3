@@ -13,7 +13,7 @@ import { cx } from './ui.jsx'
 import { tgl, daysLeft } from '../lib/format.js'
 import TimeAgo from './TimeAgo.jsx'
 import { stageArrivedAt } from '../lib/format.js'
-import { placeOf } from '../config/access.js'
+import { placeOf, seeProofreaderIdentity, proofreaderTeamName, pickProofreader } from '../config/access.js'
 
 /**
  * Tampilan SEDERHANA untuk Penerjemah & Proofreader:
@@ -107,7 +107,10 @@ function OrderCard({ project, sub, cfg }) {
   const [read, setRead] = useState(false)
   const [preview, setPreview] = useState(null)
   const proofreaders = data.users.filter((u) => u.role === 'proofreader' && u.active !== false)
-  const [pr, setPr] = useState(sub.data?.proofreader || proofreaders.find((u) => u.branch === project.branch)?.id || proofreaders[0]?.id || '')
+  // Pengguna biasa (mis. penerjemah) mengirim ke TIM Proofreader, bukan ke orang tertentu:
+  // sistem memilih proofreader dengan antrean paling sedikit, namanya tidak dibagikan.
+  const teamOnly = !seeProofreaderIdentity(user)
+  const [pr, setPr] = useState(sub.data?.proofreader || (teamOnly ? '' : proofreaders.find((u) => u.branch === project.branch)?.id || proofreaders[0]?.id || ''))
   const [note, setNote] = useState(sub.data?.catatan_proofread || '')
   const isTr = user.role === 'penerjemah'
   const isNT = flowOf(sub, project) === 'tr_nt' // non tersumpah: selesai langsung kembali ke CS
@@ -126,8 +129,12 @@ function OrderCard({ project, sub, cfg }) {
     const list = [...(replace ? [] : upList), ...added]
     await processStage(project, sub.id, { [cfg.fileKey]: list[0], [`${cfg.fileKey}_list`]: list }, false)
   }, `${files.length} file terunggah`) }
-  const next = () => run('next', () => processStage(project, sub.id, isNT ? {} : isTr ? { proofreader: pr } : { catatan_proofread: note }, true), isNT ? 'Selesai — dokumen kembali ke CS' : isTr ? 'Terkirim ke Proofreader' : 'Lanjut ke Otorisator')
-  const canNext = isTr ? !!uploaded && (isNT || !!pr) : true
+  const next = () => run('next', () => {
+    const target = isTr && !isNT ? (teamOnly ? pickProofreader(data.users, data.projects) : pr) : null
+    if (isTr && !isNT && !target) throw new Error('Tidak ada proofreader aktif — hubungi Supervisor')
+    return processStage(project, sub.id, isNT ? {} : isTr ? { proofreader: target } : { catatan_proofread: note }, true)
+  }, isNT ? 'Selesai — dokumen kembali ke CS' : isTr ? 'Terkirim ke Tim Proofreader' : 'Lanjut ke Otorisator')
+  const canNext = isTr ? !!uploaded && (isNT || teamOnly ? proofreaders.length > 0 : !!pr) : true
 
   return (
     <div className="space-y-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
@@ -166,13 +173,17 @@ function OrderCard({ project, sub, cfg }) {
       </Step>
 
       <Step n={3} title={isNT ? 'Selesai → Kembali ke CS' : cfg.next} done={false} active={canNext}>
-        {isTr && !isNT && (
+        {isTr && !isNT && (teamOnly ? (
+          <p className="mb-3 rounded-xl bg-slate-50 px-3 py-2.5 text-sm ring-1 ring-slate-200">
+            Dikirim ke <b>{proofreaderTeamName()}</b> — sistem memilihkan pemeriksa yang antreannya paling sedikit.
+          </p>
+        ) : (
           <select value={pr} onChange={(e) => setPr(e.target.value)} aria-label="Proofreader"
             className="mb-3 h-11 w-full rounded-xl border-0 px-3 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-brand">
             <option value="">— Pilih proofreader —</option>
             {proofreaders.map((u) => <option key={u.id} value={u.id}>{u.name} · {placeOf(u)}</option>)}
           </select>
-        )}
+        ))}
         <Big onClick={next} disabled={!canNext || !!busy} className="bg-emerald-600 text-white hover:bg-emerald-700">
           {busy === 'next' ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}{isNT ? 'Selesai → Kembali ke CS' : cfg.next}
         </Big>

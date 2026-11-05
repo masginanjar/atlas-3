@@ -51,8 +51,36 @@ export const PERSON_TYPES = {
   lembaga: 'Lembaga Legalisasi',
 }
 
+// ============================================================
+//  TIM PROOFREADER — satu identitas untuk pengguna biasa
+//  Nama masing-masing proofreader hanya terlihat oleh manajemen
+//  (dan oleh proofreader itu sendiri). Pembatasan dilakukan di
+//  lapisan data (nameOf, daftar pilihan, Tim Aktif), bukan sekadar
+//  disembunyikan di tampilan.
+// ============================================================
+export const PROOFREADER_TEAM = { id: 'tim-proofreader', lead: 'Muhammad Arifin', label: 'Tim Proofreader' }
+export const proofreaderTeamName = () => `${PROOFREADER_TEAM.lead} · ${PROOFREADER_TEAM.label}`
+/** Boleh melihat nama masing-masing proofreader? */
+export const seeProofreaderIdentity = (u) => ['superadmin', 'admin_pusat', 'supervisor', 'direktur', 'akunting'].includes(u?.base_role || u?.role)
+/** Nama yang boleh ditampilkan ke `viewer` untuk user `target`. */
+export function displayNameFor(viewer, target) {
+  if (!target) return undefined
+  const isPr = (target.base_role || target.role) === 'proofreader'
+  if (!isPr || viewer?.id === target.id || seeProofreaderIdentity(viewer)) return target.name
+  return proofreaderTeamName()
+}
+/** Proofreader aktif dengan antrean paling sedikit — dipakai saat penerjemah mengirim ke Tim Proofreader. */
+export function pickProofreader(users, projects = []) {
+  const pool = users.filter((u) => u.role === 'proofreader' && u.active !== false)
+  if (pool.length < 2) return pool[0]?.id || ''
+  const load = Object.fromEntries(pool.map((u) => [u.id, 0]))
+  for (const p of projects) for (const s of p.sub_projects || []) if (s.stage === 'proofread' && load[s.data?.proofreader] != null) load[s.data.proofreader] += 1
+  return pool.slice().sort((a, b) => load[a.id] - load[b.id] || a.name.localeCompare(b.name))[0].id
+}
+
 export const can = {
   seeAllBranches: (u) => ['superadmin', 'admin_pusat', 'supervisor', 'direktur', 'akunting'].includes(u?.role),
+  seeProofreaderIdentity,
   openSettings: (u) => ['superadmin', 'admin_pusat', 'supervisor'].includes(u?.role),
   manageVendors: (u) => ['superadmin', 'admin_pusat', 'supervisor', 'akunting'].includes(u?.role),
   approveVendor: (u) => ['superadmin', 'direktur'].includes(u?.role),
@@ -88,11 +116,16 @@ export function activeClaim(sub) {
  *  • stage.printBranch  : hanya staf cabang lokasi Print
  *  • stage.claimable    : pool bersama; user lain tidak boleh bila sedang diklaim
  */
+/** Lokasi print = 'Vendor' bila dicetak pihak eksternal (vendor) — tidak terikat cabang. */
+export const PRINT_VENDOR = 'Vendor'
+export const printAtVendor = (project) => project?.about?.print_location === PRINT_VENDOR
+/** Cabang yang bertanggung jawab atas tahap print/scan: lokasi print, atau cabang asal bila dicetak vendor. */
+export const printBranchOf = (project) => (project?.about?.print_location && project.about.print_location !== PRINT_VENDOR ? project.about.print_location : project?.branch)
 export function canProcess(u, stage, sub, project) {
   if (!u || !stage || !stage.roles.includes(u.role)) return false
   if (u.role === 'superadmin') return true
   if (stage.assignee && sub && !OVERRIDE.includes(u.role) && sub.data?.[stage.assignee] && sub.data[stage.assignee] !== u.id) return false
-  if (stage.printBranch && project && !branchesOf(u).includes(project.about?.print_location || project.branch)) return false
+  if (stage.printBranch && project && !branchesOf(u).includes(printBranchOf(project))) return false
   if (stage.claimable && sub) { const c = activeClaim(sub); if (c && c.by !== u.id) return false }
   return true
 }

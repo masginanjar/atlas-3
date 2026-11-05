@@ -1,15 +1,14 @@
 import { useMemo } from 'react'
-import { FolderKanban, CheckCircle2, AlarmClock, Wallet, Banknote, ArrowRight, Inbox, Stamp, ChevronDown, Hand, Upload, Loader2, FileCheck2, Send, Languages, ChevronUp, Users } from 'lucide-react'
+import { FolderKanban, CheckCircle2, AlarmClock, Wallet, Banknote, ArrowRight, Inbox, Stamp, ChevronDown, Hand, Upload, Loader2, FileCheck2, Send, Languages, ChevronUp, Users, Undo2, CalendarDays, X } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
 import { BRANCHES, ROLES, can, scopeByBranch, activeClaim, WORKER_ROLES, roleLabel, branchesOf, isMultiBranch, APOSTILLE_FUND, pettyLabel, pettyAccountsOf, foreignLang, coordinatorFor, placeOf } from '../config/access.js'
-import { CATEGORIES, DONE, isDone, stagesOf, stageLabel, flowOf, totalPengajuan, stafStatus, PAYMENT_TERMS, termOf, isBilled, recommendFund } from '../config/workflows.js'
+import { CATEGORIES, DONE, isDone, stagesOf, stageLabel, flowOf, totalPengajuan, stafStatus, PAYMENT_TERMS, termOf, isBilled, recommendFund, VENDOR_PAID_STAGES, stageShort } from '../config/workflows.js'
 import { PriorityBadge } from '../components/Priority.jsx'
 import { TypeBadge as TB } from '../components/badges.jsx'
-import { PengajuanSummary, PengajuanStatus, SumberDanaPicker, QuickAcc, PengajuanTracker, DownloadBukti } from '../components/Pengajuan.jsx'
+import { PengajuanSummary, PengajuanStatus, SumberDanaPicker, QuickAcc, PengajuanTracker, DownloadBukti, RejectPengajuan, RevisionNote } from '../components/Pengajuan.jsx'
 import { drive } from '../lib/integrations.js'
 import CopyText from '../components/CopyText.jsx'
-import { kindPages } from '../config/subtypes.js'
 import { RequestBoard, scopeRequests } from '../components/Requests.jsx'
 import { PerformanceCard, TeamPerformance } from '../components/Performance.jsx'
 import AuthStats, { TranslatorStats, ProofreaderStats } from '../components/AuthStats.jsx'
@@ -19,7 +18,7 @@ import { hasPersonalTasks, canSeeTeam } from '../lib/performance.js'
 import { Button } from '../components/ui.jsx'
 import { useState } from 'react'
 import { TypeBadge, PrintBadge, DemoBadge } from '../components/badges.jsx'
-import { Card, Empty, Input, cx } from '../components/ui.jsx'
+import { Card, Empty, Input, Sheet, cx } from '../components/ui.jsx'
 import { daysLeft, rupiah, tgl, stageArrivedAt } from '../lib/format.js'
 import TimeAgo from '../components/TimeAgo.jsx'
 import { FinHead, FinBar, FinRow, FinAmount, FinActions, Rek, DanaChip } from '../components/FinLayout.jsx'
@@ -36,7 +35,7 @@ export function useDashStats() {
     const vendorQueue = subs.filter((x) => ['persetujuan', 'pembayaran'].includes(x.stage) && (can.seeAllFinance(user) || branchesOf(user).includes(x.project.branch)))
     const approvals = subs.filter((x) => x.stage === 'persetujuan')
     const payments = subs.filter((x) => x.stage === 'pembayaran')
-    const paidRows = subs.filter((x) => x.stage === 'dibayar')
+    const paidRows = subs.filter((x) => VENDOR_PAID_STAGES.includes(x.stage))
     const needTr = subs.filter((x) => x.type === 'terjemahan' && ((x.flow === 'tr_int' && x.stage === 'pilih_penerjemah') || (x.flow === 'tr_ext' && x.stage === 'pengajuan' && !x.data?.vendor && !x.data?.coordinator)))
       .sort((a, b) => new Date(a.project.about?.deadline || 0) - new Date(b.project.about?.deadline || 0))
     const staf = subs.filter((x) => ['ap_int', 'lg_int'].includes(x.flow) && x.stage !== 'cs_upload'
@@ -60,6 +59,8 @@ export default function Dashboard() {
   // kas yang boleh dilihat (Supervisor: cabangnya + kas apostille), ikut filter cabang di atas
   const accounts = pettyAccountsOf(user).filter((k) => k === APOSTILLE_FUND || branchFilter === 'Semua' || k === branchFilter)
   const [todoOpen, toggleTodo] = useFold('todo')
+  // Rentang deadline bersama: dipilih dari judul kolom Deadline di "Perlu Penerjemah" → Kapasitas Penerjemah ikut tanggal yang sama
+  const [trRange, setTrRange] = useState({ from: '', to: '' })
 
   const exec = ['superadmin', 'direktur', 'akunting'].includes(user.role)
   // Admin Pusat bisa memproses banyak tahap, tetapi tugasnya hanya Nomor Registrasi; role pimpinan tidak memuat tugas tahap.
@@ -68,8 +69,8 @@ export default function Dashboard() {
 
   const ops = [
     user.coordinator_lang && <CoordBoard key="coord" lang={user.coordinator_lang} />,
-    ['superadmin', 'supervisor'].includes(user.role) && <TranslatorLoad key="load" />,
-    ['superadmin', 'supervisor'].includes(user.role) && <AssignTable key="assign" rows={s.needTr} />,
+    ['superadmin', 'supervisor'].includes(user.role) && <TranslatorLoad key="load" range={trRange} setRange={setTrRange} />,
+    ['superadmin', 'supervisor'].includes(user.role) && <AssignTable key="assign" rows={s.needTr} range={trRange} setRange={setTrRange} />,
     ['superadmin', 'supervisor', 'staf_apostille'].includes(user.role) && s.staf.length > 0 && <StafBoard key="staf" rows={s.staf} />,
     ['superadmin', 'admin_pusat', 'supervisor'].includes(user.role) && <FlowPositions key="flow" subs={s.subs} />,
   ].filter(Boolean)
@@ -77,20 +78,14 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-7">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[13px] font-medium text-ink-mute">{hello},</p>
-          <h1 className="text-xl font-extrabold leading-tight sm:text-[26px]">{user.name}</h1>
-        </div>
-        <p className="hidden rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-ink-soft ring-1 ring-slate-200/70 sm:block">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-      </div>
+      <Hero user={user} hello={hello} s={s} todoCount={TODO_GROUP_ROLES.includes(user.role) ? roleGroupCount(s, user, data.people) : todoTasks.length} />
 
       {/* Kerja saya: Performa (prioritas) + To-Do List berdampingan di layar lebar */}
       <Segment title="Kerja Saya">
         <div className={cx('grid gap-4', hasPersonalTasks(user) && user.role !== 'staf_apostille' && 'lg:grid-cols-2 lg:items-stretch')}>
         {user.role !== 'staf_apostille' && <Card className={cx('flex min-h-0 flex-col overflow-hidden', !todoOpen && 'lg:self-start')}>
-          <div className="card-head flex items-center gap-2 border-b border-slate-100 bg-gradient-to-r from-brand-soft to-white px-4 py-2.5">
-            <Inbox className="h-4 w-4 text-brand" />
+          <div className="card-head flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2.5">
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-white ring-1 ring-slate-200"><Inbox className="h-4 w-4 text-ink-soft" /></span>
             <h2 className="mr-auto font-bold">To-Do List{WORKER_ROLES.includes(user.role) ? ` ${roleLabel(user)}` : ''} <span className="text-ink-mute">({TODO_GROUP_ROLES.includes(user.role) ? roleGroupCount(s, user, data.people) : todoTasks.length})</span><span className="ml-2 hidden text-[11px] font-medium text-ink-mute sm:inline">{TODO_GROUP_ROLES.includes(user.role) ? 'tugas sesuai peran' : 'tugas tahap yang harus saya kerjakan'}</span></h2>
             <FoldBtn open={todoOpen} onClick={toggleTodo} label="To-Do List" className="h-7 w-7" />
           </div>
@@ -126,37 +121,89 @@ export default function Dashboard() {
   )
 }
 
-const VENDOR_ORDER_STAGES = ['pengajuan', 'persetujuan', 'pembayaran', 'dibayar', 'order']
+const VENDOR_ORDER_STAGES = ['pengajuan', 'persetujuan', 'pembayaran', ...VENDOR_PAID_STAGES, 'order']
 const dlText = (d) => (d === null ? '' : d < 0 ? `Terlambat ${-d} hr` : d === 0 ? 'Hari ini' : d === 1 ? 'Besok' : `${d} hari lagi`)
 
 /** Perlu Perhatian: 1) pelanggan prioritas hari ini, 2) deadline hari ini, 3) order ke vendor, 4) deadline 1–2 hari. */
+/** Sapaan + ringkasan angka hari ini (klik untuk lompat). */
+function Hero({ user, hello, s, todoCount }) {
+  const act = s.active.filter((p) => !p.demo_perf)
+  const late = act.filter((p) => { const d = daysLeft(p.about?.deadline); return d !== null && d < 0 }).length
+  const today = act.filter((p) => daysLeft(p.about?.deadline) === 0).length
+  const vendor = s.subs.filter((x) => VENDOR_ORDER_STAGES.includes(x.stage) && !x.project.demo_perf).length
+  const urgent = today + late > 0
+  const tiles = [
+    { k: 'todo', label: 'To-Do saya', value: todoCount, sub: 'tugas menunggu', icon: Inbox, href: '#/dashboard' },
+    { k: 'active', label: 'Project aktif', value: act.length, sub: `${s.done} selesai`, icon: FolderKanban, href: '#/projects' },
+    { k: 'dl', label: 'Deadline hari ini', value: today + late, sub: late ? `${late} terlambat` : 'tidak ada yang terlambat', icon: AlarmClock, href: '#/projects', tone: urgent ? 'danger' : 'ok' },
+    { k: 'vendor', label: 'Order vendor berjalan', value: vendor, sub: `${s.approvals.length} menunggu ACC`, icon: Banknote, href: '#/keuangan' },
+  ]
+  return (
+    <section aria-label="Ringkasan hari ini" className="overflow-hidden rounded-3xl bg-white shadow-card ring-1 ring-slate-200">
+      <div className="relative px-5 pb-4 pt-5 sm:px-6">
+
+        <div className="relative flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-[13px] font-medium text-ink-mute">{hello},</p>
+            <h1 className="text-2xl font-extrabold leading-tight sm:text-[30px]">{user.display_name || user.name}</h1>
+            <p className="mt-1 text-xs text-ink-mute">{roleLabel(user)} · {user.branch}</p>
+          </div>
+          <p className="rounded-full bg-slate-50 px-3 py-1 text-xs font-semibold text-ink-soft ring-1 ring-slate-200">{new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2.5 px-4 pb-4 sm:px-5 lg:grid-cols-4">
+        {tiles.map(({ k, label, value, sub, icon: Icon, href, tone }) => (
+          <a key={k} href={href} className="group relative overflow-hidden rounded-2xl bg-slate-50 p-3.5 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:ring-brand/40">
+            <span className="absolute right-3 top-3 text-ink-mute/60 transition group-hover:text-brand"><Icon className="h-5 w-5" /></span>
+            <p className={cx('text-3xl font-extrabold leading-none tabular-nums', tone === 'danger' ? 'text-rose-600' : tone === 'ok' ? 'text-emerald-600' : 'text-ink')}>{value}</p>
+            <p className="mt-1.5 text-xs font-semibold text-ink-soft">{label}</p>
+            <p className="text-[11px] text-ink-mute">{sub}</p>
+          </a>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/** Perlu Perhatian: 1) pelanggan prioritas, 2) deadline hari ini, 3) order ke vendor — tiga kartu berdampingan. */
 function Attention({ s }) {
   const [open, toggle] = useFold('attention')
   const byDl = (a, b) => new Date(a.about?.deadline || 0) - new Date(b.about?.deadline || 0)
   const act = s.active.filter((p) => !p.demo_perf)
   const prio = act.filter((p) => p.about?.priority && p.about.priority !== 'Normal').sort(byDl)
   const todayDl = act.filter((p) => { const d = daysLeft(p.about?.deadline); return d !== null && d <= 0 }).sort(byDl)
-    const vendor = s.subs.filter((x) => VENDOR_ORDER_STAGES.includes(x.stage) && !x.project.demo_perf)
+  const vendor = s.subs.filter((x) => VENDOR_ORDER_STAGES.includes(x.stage) && !x.project.demo_perf)
     .sort((a, b) => VENDOR_ORDER_STAGES.indexOf(b.stage) - VENDOR_ORDER_STAGES.indexOf(a.stage) || byDl(a.project, b.project))
   const total = prio.length + todayDl.length + vendor.length
   if (!total) return null
   const Row = ({ p, right, sub }) => (
-    <a href={`#/projects/${p.id}`} className="flex items-center justify-between gap-3 border-t border-slate-100 py-1.5 text-sm first:border-0 hover:bg-slate-50">
-      <span className="min-w-0 truncate"><span className="font-semibold">{p.invoice_no}</span> <span className="text-ink-mute">· {p.customer?.name}{sub ? ` · ${sub}` : ''}</span></span>
-      <span className="shrink-0 text-right text-xs">{right}</span>
+    <a href={`#/projects/${p.id}`} className="flex items-center justify-between gap-2 px-3 py-2 text-sm transition hover:bg-white">
+      <span className="min-w-0"><span className="block truncate font-semibold">{p.invoice_no}</span><span className="block truncate text-[11px] text-ink-mute">{p.customer?.name}{sub ? ` · ${sub}` : ''}</span></span>
+      <span className="shrink-0 text-right text-[11px]">{right}</span>
     </a>
   )
-  const Group = ({ n, title, items, tone, render }) => items.length > 0 && (
-    <div>
-      <p className={cx('mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-wide', tone)}><span className="grid h-5 w-5 place-items-center rounded-full bg-current/10 text-[11px]">{n}</span>{title}<span className="font-semibold normal-case tracking-normal text-ink-mute">({items.length})</span></p>
-      <div className="rounded-xl bg-white/70 px-3 ring-1 ring-slate-200">{items.slice(0, 6).map(render)}</div>
-      {items.length > 6 && <a href="#/projects" className="mt-1 block text-[11px] font-semibold text-brand">+{items.length - 6} lainnya — lihat di My Project →</a>}
+  const Group = ({ n, title, items, tone, render, href }) => items.length > 0 && (
+    <div className={cx('flex min-w-0 flex-col overflow-hidden rounded-2xl ring-1', tone.ring)}>
+      <div className={cx('flex items-center gap-2 px-3 py-2', tone.head)}>
+        <span className={cx('grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold', tone.num)}>{n}</span>
+        <p className={cx('min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-wide', tone.text)}>{title}</p>
+        <span className={cx('rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums', tone.num)}>{items.length}</span>
+      </div>
+      <div className={cx('flex-1 divide-y', tone.body)}>{items.slice(0, 5).map(render)}</div>
+      {items.length > 5 && <a href={href || '#/projects'} className={cx('block px-3 py-1.5 text-[11px] font-semibold hover:underline', tone.text)}>+{items.length - 5} lainnya →</a>}
     </div>
   )
+  const T = {
+    prio: { ring: 'ring-slate-200', head: 'bg-slate-50', num: 'bg-white text-ink-soft ring-1 ring-slate-300', text: 'text-ink', body: 'divide-slate-100 bg-white' },
+    dl: { ring: 'ring-rose-200', head: 'bg-rose-50', num: 'bg-white text-rose-700 ring-1 ring-rose-200', text: 'text-rose-700', body: 'divide-slate-100 bg-white' },
+    vendor: { ring: 'ring-amber-200', head: 'bg-amber-50', num: 'bg-white text-amber-700 ring-1 ring-amber-200', text: 'text-amber-700', body: 'divide-slate-100 bg-white' },
+  }
+  const cols = [prio.length, todayDl.length, vendor.length].filter(Boolean).length
   return (
-    <Card className={cx('p-4', open && 'space-y-3')}>
-      <div className="flex items-center gap-2">
-        <h2 className="min-w-0 font-bold text-rose-600">Perlu perhatian <span className="font-normal text-ink-mute">({total})</span><span className="ml-2 hidden text-[11px] font-medium text-ink-mute sm:inline">follow-up & pantauan — bukan tugas tahap</span></h2>
+    <Card className="overflow-hidden">
+      <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
+        <span className="grid h-7 w-7 place-items-center rounded-lg bg-rose-50"><AlarmClock className="h-4 w-4 text-rose-600" /></span>
+        <h2 className="min-w-0 font-bold">Perlu Perhatian <span className="font-normal text-ink-mute">({total})</span><span className="ml-2 hidden text-[11px] font-medium text-ink-mute sm:inline">follow-up & pantauan — bukan tugas tahap</span></h2>
         {!open && <span className="ml-1 hidden flex-wrap gap-1 text-[11px] font-semibold sm:flex">
           {prio.length > 0 && <span className="rounded-full bg-fuchsia-50 px-2 py-0.5 text-fuchsia-700 ring-1 ring-fuchsia-200">{prio.length} prioritas</span>}
           {todayDl.length > 0 && <span className="rounded-full bg-rose-50 px-2 py-0.5 text-rose-700 ring-1 ring-rose-200">{todayDl.length} deadline hari ini</span>}
@@ -164,14 +211,16 @@ function Attention({ s }) {
         </span>}
         <FoldBtn open={open} onClick={toggle} label="Perlu perhatian" className="ml-auto h-7 w-7" />
       </div>
-      {open && <>
-      <Group n={1} title="Pelanggan Ekspres / Super Ekspres / Sameday" items={prio} tone="text-fuchsia-700"
-        render={(p) => <Row key={p.id} p={p} right={<span className="inline-flex items-center gap-2"><PriorityBadge p={p.about.priority} /><span className={cx(daysLeft(p.about?.deadline) <= 0 ? 'font-semibold text-rose-600' : 'text-ink-mute')}>{dlText(daysLeft(p.about?.deadline))}</span></span>} />} />
-      <Group n={2} title="Deadline hari ini" items={todayDl} tone="text-rose-600"
-        render={(p) => <Row key={p.id} p={p} right={<span className="font-semibold text-rose-600">{dlText(daysLeft(p.about?.deadline))} · {p.about?.deadline_time || tgl(p.about?.deadline)}</span>} />} />
-      <Group n={3} title="Order ke Vendor" items={vendor} tone="text-amber-700"
-        render={(x) => <Row key={x.id} p={x.project} sub={x.title} right={<span className="font-semibold text-amber-700">{stageLabel(x.flow, x.stage)}</span>} />} />
-      </>}
+      {open && (
+        <div className={cx('grid gap-3 p-3', cols >= 3 ? 'lg:grid-cols-3' : cols === 2 ? 'md:grid-cols-2' : '')}>
+          <Group n={1} title="Ekspres / Super Ekspres / Sameday" items={prio} tone={T.prio}
+            render={(p) => <Row key={p.id} p={p} right={<span className="flex flex-col items-end gap-0.5"><PriorityBadge p={p.about.priority} /><span className={cx(daysLeft(p.about?.deadline) <= 0 ? 'font-semibold text-rose-600' : 'text-ink-mute')}>{dlText(daysLeft(p.about?.deadline))}</span></span>} />} />
+          <Group n={2} title="Deadline hari ini" items={todayDl} tone={T.dl}
+            render={(p) => <Row key={p.id} p={p} right={<span className="font-semibold text-rose-600">{dlText(daysLeft(p.about?.deadline))}<span className="block font-normal text-ink-mute">{p.about?.deadline_time || tgl(p.about?.deadline)}</span></span>} />} />
+          <Group n={3} title="Order ke Vendor" items={vendor} tone={T.vendor} href="#/keuangan"
+            render={(x) => <Row key={x.id} p={x.project} sub={x.title} right={<span className="inline-block max-w-[150px] whitespace-normal font-semibold leading-tight text-amber-700">{stageShort(x.flow, x.stage)}</span>} />} />
+        </div>
+      )}
     </Card>
   )
 }
@@ -264,16 +313,16 @@ function RoleTodo({ s, user, offset = 0 }) {
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5"><span className={cx('whitespace-nowrap text-sm font-bold', done && 'line-through text-ink-mute')}>{it.inv}</span>{it.right?.prio && <PriorityBadge p={it.right.prio} />}{it.p && <DemoBadge project={it.p} />}</div>
                       <p className="truncate text-xs text-ink-mute">{it.text}</p>
                     </div>
-                    {it.right?.txt && <span className={cx('shrink-0 text-right text-[11px]', it.right.hot ? 'font-semibold text-rose-600' : 'font-semibold text-brand')}>{it.right.txt}</span>}
+                    {it.right?.txt && <span className={cx('shrink-0 text-right text-[11px] font-semibold tabular-nums md:min-w-[110px]', it.right.hot ? 'text-ink' : 'text-ink-soft')}>{it.right.txt}</span>}
                   </>
                 )
                 return (
                   <li key={it.id}>
                     {it.reminder ? (
-                      <label className="flex cursor-pointer items-center gap-2 px-3 py-2 hover:bg-slate-50 sm:gap-3">
+                      <label className="flex w-full max-w-4xl cursor-pointer items-center gap-2 px-3 py-2 hover:bg-slate-50 sm:gap-3">
                         <input type="checkbox" checked={done} onChange={() => toggleDone(it.id)} className="h-4 w-4 rounded border-slate-300 text-brand" aria-label={`Tandai selesai: ${it.inv}`} />{body}
                       </label>
-                    ) : <a href={it.href} className="flex items-center gap-2 px-3 py-2 hover:bg-slate-50 sm:gap-3">{body}<ArrowRight className="h-4 w-4 text-slate-300" /></a>}
+                    ) : <a href={it.href} className="flex w-full max-w-4xl items-center gap-2 px-3 py-2 hover:bg-slate-50 sm:gap-3">{body}<ArrowRight className="h-4 w-4 text-slate-300" /></a>}
                   </li>
                 )
               })}
@@ -314,6 +363,7 @@ function PengajuanBoard({ title, rows, mode, empty, bare }) {
   const [busy, setBusy] = useState(null)
   const [accFor, setAccFor] = useState(null) // id pengajuan yang sedang memilih sumber dana
   const [sumber, setSumber] = useState('')
+  const [rejectFor, setRejectFor] = useState(null) // id pengajuan yang sedang ditolak / diminta perbaikan
   const total = rows.filter((r) => !r.project.demo_perf).reduce((a, r) => a + totalPengajuan(r.data), 0)
   const vendorOf = (r) => data.people.find((p) => p.id === r.data?.vendor)
   const acc = async (r, dana = sumber) => {
@@ -347,14 +397,16 @@ function PengajuanBoard({ title, rows, mode, empty, bare }) {
                   </span>
                   <FinAmount value={totalPengajuan(r.data)} sub={r.data?.sumber_dana && mode !== 'acc' ? `Dana ${r.data.sumber_dana}` : null} />
                   <span className="min-w-0"><span className="block truncate text-xs font-semibold text-ink">{v?.name || 'Vendor'}</span><Rek acc={v?.accounts?.[0]} empty="Belum ada rekening vendor" emptyHref="#/settings/vendor" /></span>
-                  <span><PengajuanStatus stage={r.stage} /></span>
+                  <span><PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} /></span>
                   <FinActions>
                     {mode === 'acc'
                       ? (accFor === r.id ? <Button size="sm" variant="outline" onClick={() => setAccFor(null)}>Batal</Button>
                         : <QuickAcc branch={r.project.branch} busy={busy === r.id} onAcc={(d) => acc(r, d)} onPick={(d) => { setAccFor(r.id); setSumber(r.data?.sumber_dana || d) }} />)
                       : <Button size="sm" variant="outline" onClick={() => go(`projects/${r.project.id}`)}>Proses Bayar</Button>}
+                    <Button size="sm" variant="outline" className="!text-rose-700 !ring-rose-300 hover:!bg-rose-50" title="Kembalikan ke pengaju untuk diperbaiki" onClick={() => setRejectFor(rejectFor === r.id ? null : r.id)}><Undo2 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Tolak / Perbaiki</span></Button>
                   </FinActions>
                 </FinRow>
+                {rejectFor === r.id && <div className="px-4 pb-3"><RejectPengajuan project={r.project} sub={r} defaultOpen onDone={() => setRejectFor(null)} /></div>}
                 {expanded && <div className="px-4 pb-3"><PengajuanSummary sub={r} />
                   {accFor === r.id && (
                     <div className="mt-2 rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200">
@@ -400,10 +452,6 @@ function PayTable({ rows, paid, bare }) {
     try { await processStage(r.project, r.id, { rekening, paid_date: f.date, bukti_transfer: f.file }, true); notify(`${r.project.invoice_no}: Sudah Dibayar`) }
     catch (e) { notify(e.message, 'err') } finally { set(r.id, { busy: false }) }
   }
-  const close = async (r) => {
-    set(r.id, { busy: true })
-    try { await processStage(r.project, r.id, {}, true); notify(`${r.project.invoice_no}: pengajuan ditutup`) } catch (e) { notify(e.message, 'err') } finally { set(r.id, { busy: false }) }
-  }
 
   const Wrap = bare ? 'div' : Card
   const total = rows.reduce((a, r) => a + totalPengajuan(r.data), 0)
@@ -429,7 +477,7 @@ function PayTable({ rows, paid, bare }) {
                 </span>
                 <FinAmount value={totalPengajuan(r.data)} sub={r.data?.sumber_dana ? `Dana ${r.data.sumber_dana}` : null} />
                 <Rek acc={acc} empty="Belum ada rekening — isi di Setting → Vendor" emptyHref="#/settings/vendor" />
-                <span><PengajuanStatus stage={r.stage} /></span>
+                <span><PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} /></span>
                 <FinActions>
                   <Input type="date" value={f.date} onChange={(e) => set(r.id, { date: e.target.value })} className="!h-8 !w-[130px] !px-2 text-xs" aria-label="Tanggal bayar" />
                   {f.file ? <span className="inline-flex max-w-[110px] items-center gap-1 truncate text-xs font-semibold text-emerald-700"><FileCheck2 className="h-4 w-4 shrink-0" />{f.file.name}</span> : (
@@ -447,15 +495,15 @@ function PayTable({ rows, paid, bare }) {
       )}
       {paid.length > 0 && (
         <div className="border-t border-slate-200">
-          <p className="bg-emerald-50 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wide text-emerald-800">Sudah Dibayar — siap ditutup ({paid.length})</p>
+          <p className="bg-emerald-50 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wide text-emerald-800">Sudah Dibayar — order dilanjutkan CS: hasil vendor → no. resi → dikirim → selesai ({paid.length})</p>
           <ul className="divide-y divide-slate-100">
             {paid.map((r) => (
               <FinRow key={r.id}>
                 <span className="min-w-0"><a href={`#/projects/${r.project.id}`} className="block"><b className="text-sm">{r.project.invoice_no}</b><span className="block truncate text-xs text-ink-soft">{vendorOf(r)?.name} · {r.data?.vendor_service}</span></a><TimeAgo at={r.data?.paid_at || stageArrivedAt(r, r.project)} prefix="Dibayar" className="!mt-0" /></span>
                 <FinAmount value={totalPengajuan(r.data)} sub={r.data?.sumber_dana ? `Dana ${r.data.sumber_dana}` : null} />
                 <Rek acc={r.data?.rekening || vendorOf(r)?.accounts?.[0]} />
-                <span><PengajuanStatus stage={r.stage} /></span>
-                <FinActions><DownloadBukti file={r.data?.bukti_transfer} /><Button size="sm" variant="dark" loading={get(r.id).busy} onClick={() => close(r)}>Selesai</Button></FinActions>
+                <span><PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} /></span>
+                <FinActions><DownloadBukti file={r.data?.bukti_transfer} /><span className="text-[11px] text-ink-mute">{stageLabel(flowOf(r, r.project), r.stage)}</span></FinActions>
               </FinRow>
             ))}
           </ul>
@@ -517,7 +565,7 @@ function CoordBoard({ lang }) {
     .sort((a, b) => new Date(a.project.about?.deadline || 0) - new Date(b.project.about?.deadline || 0)), [data.projects, lang])
   const groups = {
     ajukan: all.filter((x) => (x.flow === 'tr_ext' && x.stage === 'pengajuan') || (x.flow === 'tr_bill' && x.stage === 'order')),
-    proses: all.filter((x) => (x.flow === 'tr_ext' && ['persetujuan', 'pembayaran', 'dibayar'].includes(x.stage)) || (x.flow === 'tr_bill' && x.stage === 'proses_vendor')),
+    proses: all.filter((x) => (x.flow === 'tr_ext' && ['persetujuan', 'pembayaran', ...VENDOR_PAID_STAGES].includes(x.stage)) || (x.flow === 'tr_bill' && x.stage === 'proses_vendor')),
     spv: all.filter((x) => x.flow === 'tr_int'),
     selesai: all.filter((x) => x.stage === DONE),
   }
@@ -550,7 +598,7 @@ function CoordBoard({ lang }) {
         <Languages className="h-4 w-4 text-rose-600" />
         <h2 className="font-bold">Koordinator Bahasa {lang} <span className="text-ink-mute">({all.filter((x) => x.stage !== DONE).length} order aktif)</span></h2>
         <div className="ml-auto flex flex-wrap rounded-lg bg-white p-0.5 ring-1 ring-rose-200">
-          {TABS.map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={cx('rounded-md px-2.5 py-1 text-xs font-semibold', tab === k ? 'bg-rose-600 text-white' : 'text-ink-soft hover:bg-rose-50')}>{l} {groups[k].length}</button>)}
+          {TABS.map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={cx('rounded-md px-2.5 py-1 text-xs font-semibold', tab === k ? 'bg-ink text-white' : 'text-ink-soft hover:bg-slate-100')}>{l} {groups[k].length}</button>)}
         </div>
         <FoldBtn open={open} onClick={toggle} label={`Koordinator Bahasa ${lang}`} />
       </div>
@@ -598,7 +646,7 @@ function CoordBoard({ lang }) {
                       <td className="px-2 py-2.5 text-xs">
                         <p className="font-semibold">{v?.name || (r.flow === 'tr_int' ? 'Belum diserahkan Supervisor' : '—')}</p>
                         {r.data?.vendor_service && <p className="text-ink-mute">{r.data.vendor_service} · {rupiah(totalPengajuan(r.data))}</p>}
-                        {r.flow === 'tr_ext' && <PengajuanStatus stage={r.stage} />}
+                        {r.flow === 'tr_ext' && <PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} />}
                         {r.flow === 'tr_bill' && <span className="inline-block rounded-full bg-violet-50 px-2 py-0.5 font-semibold text-violet-700 ring-1 ring-violet-200">{r.stage === 'proses_vendor' ? 'Dikerjakan vendor' : r.stage === DONE ? 'Hasil diterima' : 'Order'} · {r.data?.bill_id ? 'sudah masuk tagihan' : 'belum ditagih'}</span>}
                         <div className="mt-1 flex flex-wrap gap-1.5">{r.data?.tagihan_vendor && <DownloadBukti file={r.data.tagihan_vendor} label="Tagihan" />}{r.data?.bukti_transfer && <DownloadBukti file={r.data.bukti_transfer} />}</div>
                       </td>
@@ -688,10 +736,18 @@ export function PettyStrip({ accounts, balance }) {
 /** Grafik kapasitas penerjemah internal. Tanpa rentang = beban saat ini; dengan rentang tanggal = order ber-deadline di rentang itu. */
 const CAP = 4 // ≥ 4 dokumen aktif dianggap penuh
 const isoDay = (dt) => new Date(dt.getTime() - dt.getTimezoneOffset() * 6e4).toISOString().slice(0, 10)
-function TranslatorLoad() {
+/** Label rentang deadline: Hari ini / Besok / tanggal / tanggal – tanggal. */
+const rangeLabel = (r) => {
+  if (!r?.from && !r?.to) return ''
+  const today = isoDay(new Date()); const tmr = isoDay(new Date(Date.now() + 864e5))
+  if (r.from === r.to) return r.from === today ? 'Hari ini' : r.from === tmr ? 'Besok' : tgl(r.from)
+  return `${r.from ? tgl(r.from) : '…'} – ${r.to ? tgl(r.to) : '…'}`
+}
+function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
   const { data } = useApp()
   const [open, toggle] = useFold('load')
-  const [range, setRange] = useState({ from: '', to: '' })
+  const [rangeLocal, setRangeLocal] = useState({ from: '', to: '' })
+  const range = rangeProp ?? rangeLocal; const setRange = setRangeProp ?? setRangeLocal
   const ranged = !!(range.from || range.to)
   const preset = (days) => { const a = new Date(); const b = new Date(Date.now() + days * 864e5); setRange({ from: isoDay(a), to: isoDay(b) }) }
   const rows = useMemo(() => {
@@ -717,7 +773,7 @@ function TranslatorLoad() {
       <div className="card-head flex flex-wrap items-center gap-2 bg-indigo-50/60 px-4 py-3">
         <Users className="h-4 w-4 text-indigo-600" />
         <h2 className="font-bold">Kapasitas Penerjemah</h2>
-        <span className="text-xs text-ink-mute">{ranged ? `deadline ${range.from ? tgl(range.from) : '…'} – ${range.to ? tgl(range.to) : '…'} · ${total} dokumen` : `dokumen sedang diterjemahkan · kapasitas ${CAP}/orang`}</span>
+        <span className="text-xs text-ink-mute">{ranged ? `deadline ${rangeLabel(range)} · ${total} dokumen` : `dokumen sedang diterjemahkan · kapasitas ${CAP}/orang`}</span>
         <FoldBtn open={open} onClick={toggle} label="Kapasitas Penerjemah" className="ml-auto" />
       </div>
       {open && (
@@ -765,12 +821,12 @@ function TranslatorLoad() {
 /** Dashboard Penerjemah, Proofreader & Otorisator — di layar web pas satu layar (tanpa scroll halaman):
  *  kiri = Daftar Pekerjaan (scroll di dalam kartu, bisa di-minimize), kanan = performa & statistik. */
 function WorkerDesk({ user, tasks }) {
-  const [open, toggle] = useFold('jobs')
   const late = tasks.filter((t) => { const d = daysLeft(t.project.about?.deadline); return d !== null && d < 0 }).length
   const soon = tasks.filter((t) => { const d = daysLeft(t.project.about?.deadline); return d !== null && d >= 0 && d <= 1 }).length
   const noun = user.role === 'penerjemah' ? 'terjemahan' : user.role === 'proofreader' ? 'untuk diperiksa' : 'untuk diotorisasi'
+  // Daftar pekerjaan dihapus dari Dashboard — semua tugas dikerjakan di My Project agar tidak dua tempat.
   return (
-    <div className="flex flex-col gap-3 lg:h-[calc(100dvh-8.25rem)] lg:min-h-[480px]">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-x-4 gap-y-1">
         <div>
           <p className="text-sm text-ink-mute">Halo,</p>
@@ -782,67 +838,37 @@ function WorkerDesk({ user, tasks }) {
           {soon > 0 && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-amber-800 ring-1 ring-amber-200">{soon} deadline ≤ 1 hari</span>}
         </div>
       </div>
-      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-        <Card className={cx('flex min-h-0 flex-col overflow-hidden', !open && 'lg:self-start')}>
-          <div className="card-head flex items-center gap-2 border-b border-slate-100 bg-gradient-to-r from-brand-soft to-white px-4 py-2.5">
-            <Inbox className="h-4 w-4 text-brand" />
-            <h2 className="font-bold">Daftar Pekerjaan</h2>
-            <span className="rounded-full bg-white px-2 py-0.5 text-xs font-bold text-brand ring-1 ring-slate-200">{tasks.length}</span>
-            <FoldBtn open={open} onClick={toggle} label="Daftar Pekerjaan" className="ml-auto h-7 w-7" />
-          </div>
-          {open && (tasks.length === 0 ? <p className="p-8 text-center text-base text-ink-soft">Belum ada order baru. 🎉</p> : (
-            <ul className="min-h-0 flex-1 divide-y divide-slate-100 overflow-y-auto overscroll-contain" aria-label="Daftar pekerjaan">
-              {tasks.map((t) => <JobRow key={t.id} t={t} user={user} />)}
-            </ul>
-          ))}
-        </Card>
-        <div className="min-h-0 space-y-3 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
-          <PerformanceCard narrow />
-          {user.role === 'penerjemah' && <TranslatorStats narrow />}
-          {user.role === 'proofreader' && <ProofreaderStats narrow />}
-          {user.role === 'otorisator' && <AuthStats narrow />}
-        </div>
+
+      <a href="#/projects" className="flex items-center gap-3 rounded-2xl bg-white px-5 py-4 shadow-card ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:ring-brand/40">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand"><Inbox className="h-5 w-5" /></span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-base font-bold text-ink">Buka My Project — {tasks.length} tugas menunggu</span>
+          <span className="block text-xs text-ink-mute">Semua pekerjaan dikerjakan di sana: Mulai → Upload hasil → Kirim</span>
+        </span>
+        <ArrowRight className="h-5 w-5 shrink-0" />
+      </a>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <PerformanceCard narrow />
+        {user.role === 'penerjemah' && <TranslatorStats narrow />}
+        {user.role === 'proofreader' && <ProofreaderStats narrow />}
+        {user.role === 'otorisator' && <AuthStats narrow />}
       </div>
     </div>
   )
 }
 
-function JobRow({ t, user }) {
-  const d = daysLeft(t.project.about?.deadline)
-  const k = user.role === 'penerjemah' && t.flow !== 'tr_nt' ? kindPages(t) : null
-  const claim = activeClaim(t)
-  return (
-    <li>
-      <a href={`#/projects/${t.project.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50">
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <p className="truncate text-[15px] font-extrabold">{t.title}</p>
-            <PriorityBadge p={t.project.about?.priority} className="shrink-0" />
-            <span className="shrink-0 whitespace-nowrap"><PrintBadge project={t.project} /><DemoBadge project={t.project} className="ml-1" /></span>
-          </div>
-          <TimeAgo at={stageArrivedAt(t, t.project)} prefix="Masuk" />
-          <p className="truncate text-xs text-ink-soft">{t.project.invoice_no} · {t.project.customer?.name}{user.role === 'otorisator' ? ` · ${stageLabel(t.flow, t.stage)}` : ''}</p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-            {t.lang_from && <span className="inline-flex items-center gap-1 font-semibold text-indigo-700"><Languages className="h-3.5 w-3.5" />{t.lang_from} → {t.lang_to} · {t.pages || 1} hal</span>}
-            {k?.reguler > 0 && <span className="rounded-full bg-slate-100 px-2 font-semibold">Reguler {k.reguler}</span>}
-            {k?.non_reguler > 0 && <span className="rounded-full bg-violet-100 px-2 font-semibold text-violet-800">Non Reguler {k.non_reguler}</span>}
-            {claim && <span className={cx('inline-flex items-center gap-1 font-semibold', claim.by === user.id ? 'text-violet-700' : 'text-amber-700')}><Hand className="h-3 w-3" />{claim.by === user.id ? 'Sedang Anda proses' : `Diproses ${claim.name}`}</span>}
-          </p>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className={cx('text-xs', d !== null && d <= 1 ? 'font-bold text-rose-600' : 'text-ink-soft')}>{tgl(t.project.about?.deadline)}</p>
-          <p className={cx('text-[11px]', d !== null && d <= 1 ? 'font-semibold text-rose-600' : 'text-ink-mute')}>{d === null ? '' : d < 0 ? `terlambat ${-d} hr` : d === 0 ? 'hari ini' : `${d} hari lagi`}</p>
-        </div>
-        <span className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl bg-brand px-3.5 text-sm font-bold text-white">Kerjakan<ArrowRight className="h-4 w-4" /></span>
-      </a>
-    </li>
-  )
-}
-
 /** Supervisor/Superadmin: tetapkan penerjemah internal / vendor langsung dari dashboard. */
-function AssignTable({ rows }) {
+function AssignTable({ rows: allRows, range = { from: '', to: '' }, setRange = () => {} }) {
   const { data, assignTranslator, notify } = useApp()
   const [open, toggle] = useFold('assign')
+  // filter deadline dari judul kolom (rentang / tanggal tertentu) — Kapasitas Penerjemah di atas ikut tanggal yang sama
+  const ranged = !!(range.from || range.to)
+  const rows = useMemo(() => (ranged ? allRows.filter((r) => { const d = r.project.about?.deadline; if (!d) return false; const day = String(d).slice(0, 10); return (!range.from || day >= range.from) && (!range.to || day <= range.to) }) : allRows), [allRows, range, ranged])
+  const [dlOpen, setDlOpen] = useState(false)
+  const today = isoDay(new Date())
+  const [draft, setDraft] = useState({ date: today, from: today, to: isoDay(new Date(Date.now() + 6 * 864e5)) })
+  const pick = (r) => { setRange(r); setDlOpen(false) }
   const [form, setForm] = useState({}) // per sub id: { pick: 'internal:u-x' | 'vendor:p-x', svc: index, busy }
   const get = (id) => ({ pick: '', svc: '', ...form[id] })
   const set = (id, patch) => setForm((f) => ({ ...f, [id]: { ...get(id), ...f[id], ...patch } }))
@@ -883,16 +909,52 @@ function AssignTable({ rows }) {
     <Card className="overflow-hidden">
       <div className="card-head flex flex-wrap items-center gap-2 bg-indigo-50 px-4 py-3">
         <Languages className="h-4 w-4 text-indigo-600" />
-        <h2 className="font-bold">Perlu Penerjemah <span className="text-ink-mute">({rows.length})</span></h2>
-        <span className="ml-auto hidden text-xs text-ink-mute sm:inline">Pilih penerjemah internal atau vendor, lalu tekan Tetapkan</span>
+        <h2 className="font-bold">Perlu Penerjemah <span className="text-ink-mute">({rows.length}{ranged && allRows.length !== rows.length ? ` dari ${allRows.length}` : ''})</span></h2>
+        {ranged && <button type="button" onClick={() => setRange({ from: '', to: '' })} className="inline-flex items-center gap-1 rounded-full bg-indigo-600 px-2.5 py-0.5 text-[11px] font-semibold text-white hover:bg-indigo-700" title="Hapus filter deadline"><CalendarDays className="h-3 w-3" />Deadline {rangeLabel(range)}<X className="h-3 w-3" /></button>}
+        <span className="ml-auto hidden text-xs text-ink-mute sm:inline">Klik judul <b>Deadline</b> untuk memilih tanggal · Pilih penerjemah/vendor lalu Tetapkan</span>
         <FoldBtn open={open} onClick={toggle} label="Perlu Penerjemah" className="ml-auto sm:ml-0" />
       </div>
-      {!open ? null : rows.length === 0 ? <p className="px-4 py-6 text-center text-sm text-ink-mute">Semua dokumen sudah punya penerjemah. 🎉</p> : (
+      <Sheet open={dlOpen} onClose={() => setDlOpen(false)} title="Deadline perlu penerjemah"
+        footer={<><Button variant="outline" className="flex-1" onClick={() => pick({ from: '', to: '' })}>Tampilkan semua</Button><Button className="flex-[2]" onClick={() => pick({ from: draft.from <= draft.to ? draft.from : draft.to, to: draft.from <= draft.to ? draft.to : draft.from })}>Terapkan rentang</Button></>}>
+        <div className="space-y-4">
+          <p className="rounded-xl bg-indigo-50 px-3 py-2 text-xs text-indigo-900 ring-1 ring-indigo-200">Daftar <b>Perlu Penerjemah</b> dan grafik <b>Kapasitas Penerjemah</b> di atasnya mengikuti tanggal yang dipilih — jadi terlihat siapa yang masih longgar di tanggal deadline tersebut.</p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Button variant={range.from === today && range.to === today ? 'primary' : 'outline'} onClick={() => pick({ from: today, to: today })}>Hari ini</Button>
+            <Button variant={range.from === isoDay(new Date(Date.now() + 864e5)) && range.from === range.to ? 'primary' : 'outline'} onClick={() => { const d = isoDay(new Date(Date.now() + 864e5)); pick({ from: d, to: d }) }}>Besok</Button>
+            <Button variant="outline" onClick={() => pick({ from: today, to: isoDay(new Date(Date.now() + 6 * 864e5)) })}>7 hari</Button>
+            <Button variant="outline" onClick={() => pick({ from: today, to: isoDay(new Date(Date.now() + 29 * 864e5)) })}>30 hari</Button>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-semibold text-ink-soft">Deadline di tanggal tertentu</p>
+            <div className="flex gap-2">
+              <Input type="date" value={draft.date} onChange={(e) => setDraft((d) => ({ ...d, date: e.target.value }))} aria-label="Tanggal deadline" />
+              <Button variant="outline" disabled={!draft.date} onClick={() => pick({ from: draft.date, to: draft.date })}>Pilih tanggal</Button>
+            </div>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-semibold text-ink-soft">Rentang tanggal</p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-xs text-ink-mute">Dari<Input type="date" value={draft.from} onChange={(e) => setDraft((d) => ({ ...d, from: e.target.value }))} aria-label="Dari tanggal deadline" /></label>
+              <label className="text-xs text-ink-mute">Sampai<Input type="date" value={draft.to} min={draft.from || undefined} onChange={(e) => setDraft((d) => ({ ...d, to: e.target.value }))} aria-label="Sampai tanggal deadline" /></label>
+            </div>
+          </div>
+          {ranged && <p className="text-xs text-ink-mute">Filter aktif: <b className="text-indigo-700">{rangeLabel(range)}</b></p>}
+        </div>
+      </Sheet>
+      {!open ? null : rows.length === 0 ? (
+        <div className="px-4 py-6 text-center text-sm text-ink-mute">
+          {ranged && allRows.length ? <>Tidak ada yang perlu penerjemah dengan deadline <b>{rangeLabel(range)}</b>. <button type="button" onClick={() => setRange({ from: '', to: '' })} className="font-semibold text-brand hover:underline">Tampilkan semua ({allRows.length})</button></> : 'Semua dokumen sudah punya penerjemah. 🎉'}
+        </div>
+      ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[880px] text-sm">
             <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-ink-mute">
               <tr><th className="px-4 py-2 font-semibold">No. Invoice & Pelanggan</th><th className="px-2 py-2 font-semibold">Dokumen</th><th className="px-2 py-2 font-semibold">Bahasa</th>
-                <th className="px-2 py-2 font-semibold">Deadline</th><th className="px-2 py-2 font-semibold">Penerjemah / Vendor</th><th className="px-4 py-2" /></tr>
+                <th className="px-2 py-2 font-semibold">
+                  <button type="button" onClick={() => setDlOpen(true)} className={cx('flex items-center gap-1 uppercase hover:text-brand', ranged && 'text-brand')} title="Atur rentang / tanggal deadline" aria-label="Filter deadline perlu penerjemah">
+                    Deadline <ChevronDown className="h-3 w-3" />{ranged && <span className="rounded-full bg-brand px-1.5 py-px text-[10px] normal-case tracking-normal text-white">{rangeLabel(range)}</span>}
+                  </button>
+                </th><th className="px-2 py-2 font-semibold">Penerjemah / Vendor</th><th className="px-4 py-2" /></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {rows.map((r) => {
@@ -967,9 +1029,9 @@ function MySubmissions({ rows, bare }) {
             <span className="min-w-0"><b className="text-sm">{r.project.invoice_no}</b><span className="block truncate text-xs text-ink-soft">{r.title}</span><TimeAgo at={(r.data?.submitted_at || stageArrivedAt(r, r.project))} prefix="Diajukan" className="!mt-0" /></span>
             <FinAmount value={totalPengajuan(r.data)} sub={r.data?.sumber_dana ? `Dana ${r.data.sumber_dana}` : null} />
             <span className="min-w-0 text-xs"><span className="block truncate font-semibold text-ink">{vendorOf(r)?.name || '—'}</span><span className="block truncate text-ink-mute">{r.data?.vendor_service || '—'}</span></span>
-            <span><PengajuanStatus stage={r.stage} /></span>
+            <span><PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} /></span>
             <span />
-            <span className="lg:col-span-5"><PengajuanTracker sub={r} compact /></span>
+            <span className="lg:col-span-5"><PengajuanTracker sub={r} compact /><RevisionNote sub={r} className="mt-1.5" /></span>
           </FinRow>
         ))}
       </ul>)}

@@ -5,10 +5,10 @@ import { cx } from './ui.jsx'
 
 // 1 ikon per prioritas — Normal: pohon · Ekspres: tetes air · Super Ekspres: api · Sameday: petir hitam
 export const PRIORITY_META = {
-  Normal: { icons: [TreeDeciduous], cls: 'bg-yellow-100 text-yellow-800 ring-yellow-300', icon: 'text-yellow-500', on: 'bg-yellow-50 ring-yellow-400' },
-  Ekspres: { icons: [Droplet], cls: 'bg-orange-100 text-orange-700 ring-orange-300', icon: 'text-orange-500', on: 'bg-orange-50 ring-orange-400' },
-  'Super Ekspres': { icons: [Flame], cls: 'bg-red-100 text-red-700 ring-red-300', icon: 'text-red-600', on: 'bg-red-50 ring-red-400' },
-  Sameday: { icons: [Zap], cls: 'bg-slate-100 text-black ring-black', icon: 'text-black', on: 'bg-slate-100 ring-black' },
+  Normal: { icons: [TreeDeciduous], cls: 'bg-slate-100 text-ink-soft ring-slate-200', icon: 'text-ink-mute', on: 'bg-slate-50 ring-slate-300' },
+  Ekspres: { icons: [Droplet], cls: 'bg-amber-50 text-amber-700 ring-amber-200', icon: 'text-amber-600', on: 'bg-amber-50 ring-amber-300' },
+  'Super Ekspres': { icons: [Flame], cls: 'bg-orange-50 text-orange-700 ring-orange-200', icon: 'text-orange-600', on: 'bg-orange-50 ring-orange-300' },
+  Sameday: { icons: [Zap], cls: 'bg-rose-50 text-rose-700 ring-rose-300', icon: 'text-rose-600', on: 'bg-rose-50 ring-rose-400' },
 }
 const meta = (p) => PRIORITY_META[({ Tinggi: 'Super Ekspres', Speed: 'Ekspres', 'Super Speed': 'Super Ekspres' })[p] || p] ?? PRIORITY_META.Normal
 
@@ -21,9 +21,8 @@ function Icons({ p, size = 'h-3.5 w-3.5' }) {
 export function PriorityBadge({ p = 'Normal', iconOnly, className }) {
   const label = ({ Tinggi: 'Super Ekspres', Speed: 'Ekspres', 'Super Speed': 'Super Ekspres' })[p] || p || 'Normal'
   if (label === 'Normal') return <span title="Prioritas Normal" className={cx('inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-ink-mute', className)}>Normal</span>
-  const urgent = label === 'Sameday'
   return (
-    <span title={label} className={cx('inline-flex items-center gap-1 whitespace-nowrap rounded-full font-bold ring-1', iconOnly ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]', urgent ? 'atlas-urgent' : meta(p).cls, className)}>
+    <span title={label} className={cx('inline-flex items-center gap-1 whitespace-nowrap rounded-full font-bold ring-1', iconOnly ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]', meta(p).cls, className)}>
       <Icons p={p} size={iconOnly ? 'h-3 w-3' : 'h-3.5 w-3.5'} />{label}
     </span>
   )

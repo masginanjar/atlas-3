@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Loader2, AlertCircle, ChevronUp } from 'lucide-react'
 import { CATEGORIES, TONES } from '../config/workflows.js'
@@ -85,22 +85,37 @@ export const Input = (p) => <input {...p} className={cx(inputCls, p.className)} 
 export const Textarea = (p) => <textarea rows={3} {...p} className={cx(inputCls, p.className)} />
 export const Select = ({ children, ...p }) => <select {...p} className={cx(inputCls, 'pr-8', p.className)}>{children}</select>
 
-export function Sheet({ open, onClose, title, children, footer, wide, xwide, tinted }) {
+/**
+ * Panel. `side` = panel geser dari kanan (panel kerja, tabel tetap terlihat di belakang);
+ * tanpa `side` = modal di tengah (untuk keputusan/form yang butuh fokus).
+ */
+export function Sheet({ open, onClose, title, subtitle, children, footer, wide, xwide, tinted, side }) {
+  // Sisi panel mengikuti preferensi pengguna (Tema → Panel detail muncul dari)
+  const fromLeft = side && typeof document !== 'undefined' && document.documentElement.dataset.panel === 'left'
   useEffect(() => {
     if (!open) return
     const k = (e) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', k); document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', k)
+    if (!side) document.body.style.overflow = 'hidden' // panel samping: tabel di belakang tetap bisa digulir & dibaca
     return () => { window.removeEventListener('keydown', k); document.body.style.overflow = '' }
-  }, [open, onClose])
+  }, [open, onClose, side])
   if (!open) return null
   // Dirender ke <body> (portal) agar tidak terkurung kartu/segmen ber-backdrop-blur atau overflow-hidden.
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-ink/40 backdrop-blur-[2px] sm:items-center sm:p-4" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()}
-        className={cx('flex max-h-[94vh] w-full flex-col rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl', xwide ? 'sm:max-w-4xl' : wide ? 'sm:max-w-2xl' : 'sm:max-w-md')}>
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <h3 className="text-base font-bold text-ink">{title}</h3>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-mute hover:bg-slate-100" aria-label="Tutup"><X className="h-5 w-5" /></button>
+    <div className={cx('fixed inset-0 z-[80] flex',
+      // panel samping: mulai di bawah bar atas & tidak menghalangi klik, jadi header dan tabel di belakang tetap bisa dipakai
+      side ? cx('pointer-events-none pt-[var(--appbar)]', fromLeft ? 'justify-start' : 'justify-end') : 'items-end justify-center bg-ink/40 backdrop-blur-[2px] sm:items-center sm:p-4')}
+      onClick={side ? undefined : onClose}>
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal={side ? undefined : 'true'} aria-label={title}
+        className={cx('pointer-events-auto flex w-full flex-col bg-white shadow-2xl',
+          side ? cx('h-full max-w-full', fromLeft ? 'animate-[atlas-slide-in-left_.18s_ease-out]' : 'animate-[atlas-slide-in_.18s_ease-out]', wide || xwide ? 'sm:max-w-[min(780px,94vw)]' : 'sm:max-w-[min(560px,92vw)]')
+            : cx('max-h-[94vh] rounded-t-3xl sm:rounded-3xl', xwide ? 'sm:max-w-4xl' : wide ? 'sm:max-w-2xl' : 'sm:max-w-md'))}>
+        <div className="flex items-start justify-between gap-2 border-b border-slate-100 px-5 py-3.5">
+          <div className="min-w-0">
+            <h3 className="truncate text-[15px] font-bold text-ink">{title}</h3>
+            {subtitle && <p className="truncate text-xs text-ink-mute">{subtitle}</p>}
+          </div>
+          <button onClick={onClose} className="shrink-0 rounded-lg p-1.5 text-ink-mute hover:bg-slate-100" aria-label="Tutup"><X className="h-5 w-5" /></button>
         </div>
         <div className={cx('flex-1 overflow-y-auto', tinted ? 'bg-slate-50 px-4 py-6 sm:px-6' : 'px-5 py-4')}>{children}</div>
         {footer && <div className="flex gap-2 border-t border-slate-100 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">{footer}</div>}
@@ -129,11 +144,15 @@ export function Progress({ value }) {
   )
 }
 
-export function Toast({ toast }) {
+/** Satu toast saja dalam satu waktu, tidak menumpuk, bisa ditutup, tanpa suara. */
+export function Toast({ toast, onClose }) {
   if (!toast) return null
   return (
-    <div key={toast.k} className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex justify-center px-4 md:bottom-6">
-      <div className={cx('rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-lg ring-1 ring-white/10', toast.tone === 'err' ? 'bg-rose-600' : 'bg-gradient-to-r from-ink to-[#1e2a6b]')}>{toast.msg}</div>
+    <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex justify-center px-4 md:bottom-6" role="status" aria-live="polite">
+      <div key={toast.k} className={cx('pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-xl py-2.5 pl-4 pr-2 text-sm font-semibold text-white shadow-lg ring-1 ring-white/10 animate-[toast-in_.18s_ease-out]', toast.tone === 'err' ? 'bg-rose-600' : 'bg-ink')}>
+        <span className="min-w-0 truncate">{toast.msg}</span>
+        <button type="button" onClick={onClose} aria-label="Tutup notifikasi" className="grid h-6 w-6 shrink-0 place-items-center rounded-lg text-white/70 transition hover:bg-white/15 hover:text-white"><X className="h-3.5 w-3.5" /></button>
+      </div>
     </div>
   )
 }
@@ -145,8 +164,8 @@ export function Tabs({ tabs, value, onChange }) {
         {tabs.map((t) => (
           <button key={t.value} onClick={() => onChange(t.value)}
             className={cx('whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold transition',
-              value === t.value ? 'bg-gradient-to-r from-brand to-[#6d5cf6] text-white shadow-glow' : 'bg-white text-ink-soft ring-1 ring-slate-200 hover:ring-brand/50')}>
-            {t.label}{t.count !== undefined && <span className={cx('ml-1.5', value === t.value ? 'text-white/60' : 'text-ink-mute')}>{t.count}</span>}
+              value === t.value ? 'bg-[var(--surface-3)] text-ink ring-1 ring-[var(--line)]' : 'bg-white text-ink-mute ring-1 ring-slate-200 hover:text-ink')}>
+            {t.label}{t.count !== undefined && <span className="ml-1.5 text-ink-mute">{t.count}</span>}
           </button>
         ))}
       </div>
@@ -162,5 +181,31 @@ export function IconField({ icon: Icon, title, required, className, children }) 
       <Icon className={cx('pointer-events-none absolute left-2.5 top-1/2 z-[1] h-4 w-4 -translate-y-1/2', required ? 'text-brand' : 'text-ink-mute')} />
       <div className="[&_input]:pl-8 [&_select]:pl-8">{children}</div>
     </label>
+  )
+}
+
+/**
+ * Popover kecil untuk pilihan sederhana (pengaturan kolom, tampilan tersimpan, tema).
+ * Bukan untuk formulir panjang — gunakan Sheet untuk itu.
+ */
+export function Popover({ button, children, align = 'right', label, width = 'min-w-[240px]', panelClass = '' }) {
+  const [open, setOpen] = useState(false)
+  const box = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const away = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false) }
+    const esc = (e) => e.key === 'Escape' && setOpen(false)
+    document.addEventListener('mousedown', away); window.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', away); window.removeEventListener('keydown', esc) }
+  }, [open])
+  return (
+    <div className="relative" ref={box}>
+      {button({ open, toggle: () => setOpen((v) => !v) })}
+      {open && (
+        <div role="dialog" aria-label={label} className={cx('absolute top-[calc(100%+6px)] z-50 rounded-2xl bg-white p-3 shadow-card ring-1 ring-slate-200', width, align === 'right' ? 'right-0' : 'left-0', panelClass)}>
+          {children({ close: () => setOpen(false) })}
+        </div>
+      )}
+    </div>
   )
 }

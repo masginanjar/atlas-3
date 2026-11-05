@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Search, Plus, Check, Loader2, UserRound, Receipt, Upload, X, FileText, RefreshCw, Headset, Building2, Printer, CalendarPlus, CalendarClock, Flag, ClipboardList, Truck, Layers, CloudUpload, StickyNote, Sparkles, Pencil } from 'lucide-react'
+import { Search, Plus, Check, Loader2, UserRound, Receipt, Upload, X, FileText, RefreshCw, Headset, Building2, Printer, CalendarPlus, CalendarClock, Flag, ClipboardList, Truck, Layers, CloudUpload, StickyNote, Sparkles, Pencil, Copy, ChevronDown, ChevronUp } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
 import { zoho } from '../lib/integrations.js'
 import { parseInvoiceItems } from '../lib/zohoParse.js'
-import { fromDocs, usesDocs } from '../components/SubProjectEditor.jsx'
-import { BRANCHES, can, branchesOf, isMultiBranch } from '../config/access.js'
+import { usesDocs } from '../components/SubProjectEditor.jsx'
+import { copyText } from '../components/CopyText.jsx'
+import { BRANCHES, PRINT_VENDOR, can, branchesOf, isMultiBranch } from '../config/access.js'
 import { stagesOf, deriveFlow } from '../config/workflows.js'
 import { Button, Field, FieldError, Input, Select, Sheet, SectionCard, cx, Textarea } from '../components/ui.jsx'
 import SubProjectEditor, { newSub, validateSub, docFileName, safeName } from '../components/SubProjectEditor.jsx'
@@ -28,11 +29,17 @@ export function autoDeadline(received, priority) {
   return d.toISOString().slice(0, 10)
 }
 
-export default function ProjectForm({ onClose, project }) {
+/**
+ * Form project.
+ *  • preset  : isian awal dari luar (mis. dibuka dari menu Faktur) — { customer, invoice_no, zoho_invoice_id }
+ *  • side    : tampilkan sebagai panel geser dari samping, bukan dialog tengah
+ *  • onSaved : dipanggil setelah tersimpan; bila ada, halaman tidak otomatis pindah ke detail project
+ */
+export default function ProjectForm({ onClose, project, preset, side, onSaved }) {
   const { user, data, save, notify } = useApp()
   const editing = !!project
-  const [customer, setCustomer] = useState(project?.customer ?? null)
-  const [invoice, setInvoice] = useState(project?.invoice_no ?? '')
+  const [customer, setCustomer] = useState(project?.customer ?? preset?.customer ?? null)
+  const [invoice, setInvoice] = useState(project?.invoice_no ?? preset?.invoice_no ?? '')
   const [branch, setBranch] = useState(project?.branch ?? user.branch)
   const [about, setAbout] = useState(() => {
     const today = new Date().toISOString().slice(0, 10)
@@ -49,29 +56,19 @@ export default function ProjectForm({ onClose, project }) {
   const [busy, setBusy] = useState(false)
   const [queue, setQueue] = useState([]) // file yang akan diunggah: {_k, file, name, sub_ref}
   const [progress, setProgress] = useState('')
-  const [autoFill, setAutoFill] = useState(null) // ringkasan isian otomatis dari item invoice Zoho
+  const [autoFill, setAutoFill] = useState(null) // ringkasan isian otomatis dari item invoice Zoho (alamat/kurir/prioritas)
+  const [invoiceItems, setInvoiceItems] = useState(null) // item invoice Zoho — hanya ditampilkan (view) untuk dibaca/disalin saat mengisi sub project
   const [editShip, setEditShip] = useState(false)
 
-  // Sub project yang belum diisi apa pun (boleh diganti isian otomatis)
-  const isBlankSub = (x) => !x.id && !points(x.description).length && !(x.docs || []).some((d) => d.desc?.trim() || d.file)
-  /** Isi otomatis dari item invoice Zoho: sub project, alamat kirim, kurir, prioritas. Semua tetap bisa diedit. */
+  /**
+   * Dari item invoice Zoho: alamat kirim, kurir & prioritas diisi otomatis (tetap bisa diedit).
+   * Sub project TIDAK lagi dibuat otomatis (sering salah/tidak tertarik) — item invoice ditampilkan apa adanya
+   * di seksi Sub Project supaya mudah dibaca & disalin, lalu diinput manual.
+   */
   const applyInvoice = (detail, { force = false } = {}) => {
     const p = parseInvoiceItems(detail.items)
     const inv = detail.invoice_no
-    let nSubs = 0
-    if (p.subs.length) {
-      const made = p.subs.map((ps) => {
-        const base = newSub(ps.type)
-        if (ps.type.startsWith('terjemahan')) {
-          const docs = ps.docs.map((d) => ({ desc: d.desc, pages: d.pages, kind: d.kind || 'reguler' }))
-          return { ...base, ...fromDocs(docs), docs, lang_from: ps.lang_from || base.lang_from, lang_to: ps.lang_to || base.lang_to, zoho_item: ps.zoho_item }
-        }
-        const docs = ps.docs.map((d) => ({ desc: d.desc, pages: 1 }))
-        return { ...base, ...fromDocs(docs.length ? docs : [{ desc: '', pages: 1 }]), country: ps.country || '', institution: ps.institution || '', zoho_item: ps.zoho_item }
-      })
-      nSubs = made.length
-      setSubs((cur) => (force || cur.every(isBlankSub) ? made : [...cur, ...made]))
-    }
+    setInvoiceItems({ invoice_no: inv, items: detail.items || [] })
     // alamat pengiriman dari item "Delivery Fee" → hanya mengisi kolom yang masih kosong di data Zoho
     let shipFilled = false
     setCustomer((c) => {
@@ -97,7 +94,7 @@ export default function ProjectForm({ onClose, project }) {
       if (extra.length && !String(a.notes || '').includes('Dari invoice')) next.notes = [a.notes, `Dari invoice: ${extra.join(' · ')}`].filter(Boolean).join('\n')
       return next
     })
-    setAutoFill({ invoice_no: inv, subs: nSubs, ship: !!(p.ship && p.hasAddress), courier: courierRow?.name || '', priority: p.priority, others: p.others.length })
+    setAutoFill({ invoice_no: inv, ship: !!(p.ship && p.hasAddress), courier: courierRow?.name || '', priority: p.priority, others: p.others.length })
   }
   // Begitu invoice dipilih/diketik → baca item invoice dari salinan Zoho (debounce)
   useEffect(() => {
@@ -105,7 +102,7 @@ export default function ProjectForm({ onClose, project }) {
     const no = invoice.trim().toUpperCase()
     if (!/^INV-\d{4,}$/i.test(no) || autoFill?.invoice_no === no) return
     let dead = false
-    const t = setTimeout(() => zoho.invoiceDetail(no).then((d) => { if (!dead && d) applyInvoice(d) }).catch(() => {}), 350)
+    const t = setTimeout(() => zoho.invoiceDetail(no).then((d) => { if (dead) return; if (d) applyInvoice(d); else setInvoiceItems({ invoice_no: no, items: [] }) }).catch(() => {}), 350)
     return () => { dead = true; clearTimeout(t) }
   }, [invoice]) // eslint-disable-line react-hooks/exhaustive-deps
   // Sub project yang alurnya sudah berjalan: jenis & pelaksana dikunci
@@ -166,6 +163,8 @@ export default function ProjectForm({ onClose, project }) {
         ...(project ?? {}), invoice_no: inv, branch, customer, sub_projects,
         about: { ...about, deadline: about.deadline ? new Date(about.deadline).toISOString() : null, received_at: about.received_at?.slice(0, 10) || null },
         ...(editing ? {} : { created_by: user.id }),
+        // penghubung ke invoice Zoho (dipakai menu Faktur & badge pembayaran)
+        ...(project?.zoho_invoice_id || preset?.zoho_invoice_id ? { zoho_invoice_id: project?.zoho_invoice_id || preset.zoho_invoice_id } : {}),
       }
       // File per dokumen terjemahan → diunggah, masuk File Project & menjadi Dokumen Sumber tahap CS Input
       const docUploads = subs.flatMap((s, si) => (usesDocs(s.type) && s.docs ? s.docs : []).filter((d) => d.desc.trim() && d.file)
@@ -214,12 +213,12 @@ export default function ProjectForm({ onClose, project }) {
         }
       }
       notify(editing ? 'Project diperbarui' : `Project ${inv} dibuat`)
-      onClose(); if (!editing) go(`projects/${saved.id}`)
+      if (onSaved) onSaved(saved); onClose(); if (!onSaved && !editing) go(`projects/${saved.id}`)
     } catch (e) { notify(e.message, 'err') } finally { setBusy(false); setProgress('') }
   }
 
   return (
-    <Sheet open xwide tinted onClose={onClose} title={editing ? `Edit ${project.invoice_no}` : 'Project Baru'}
+    <Sheet open xwide tinted side={side ? 'right' : undefined} onClose={onClose} title={editing ? `Edit ${project.invoice_no}` : 'Project Baru'}
       footer={<><Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={onClose}>Batal</Button><Button className="flex-1" loading={busy} onClick={submit}>{progress || (editing ? 'Simpan Perubahan' : 'Buat Project')}</Button></>}>
       <div className="space-y-6">
         <div className="grid gap-6 lg:grid-cols-2">
@@ -229,7 +228,16 @@ export default function ProjectForm({ onClose, project }) {
                 <CustomerPicker value={customer} invalid={!!E('customer')} onChange={(c) => { setCustomer(c); if (!editing) setInvoice('') }} />
                 {E('customer') && <FieldError>{E('customer')}</FieldError>}
               </div>
-              <InvoicePicker customer={customer} value={invoice} onChange={setInvoice} error={E('invoice')} />
+              {preset?.invoice_no && !editing
+                ? (
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-ink-mute">No. Invoice</p>
+                    <p className="mt-1 flex flex-wrap items-center gap-2 text-sm font-bold">{invoice}
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-ink-soft ring-1 ring-slate-200">dari menu Faktur</span></p>
+                    {E('invoice') && <FieldError>{E('invoice')}</FieldError>}
+                  </div>
+                )
+                : <InvoicePicker customer={customer} value={invoice} onChange={setInvoice} error={E('invoice')} />}
             </div>
           </SectionCard>
 
@@ -251,7 +259,7 @@ export default function ProjectForm({ onClose, project }) {
               <div>
                 <CourierSelect value={about.courier} onChange={(id) => setAbout((a) => ({ ...a, courier: id }))} printLocation={about.print_location} />
               </div>
-              <ResiFields about={about} branch={branch} invoice={invoice.trim().toUpperCase()} onChange={(patch) => setAbout((a) => ({ ...a, ...patch }))} />
+              <ResiFields about={about} onChange={(patch) => setAbout((a) => ({ ...a, ...patch }))} />
             </div>
           </SectionCard>
         </div>
@@ -264,8 +272,11 @@ export default function ProjectForm({ onClose, project }) {
                 ? <Select value={branch} onChange={(e) => setBranch(e.target.value)}>{(can.seeAllBranches(user) ? BRANCHES : branchesOf(user)).map((b) => <option key={b}>{b}</option>)}</Select>
                 : <Input value={branch} readOnly tabIndex={-1} disabled />}
             </Field>
-            <Field label="Print" icon={Printer}>
-              <Select value={about.print_location} onChange={setA('print_location')}>{BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}</Select>
+            <Field label="Print" icon={Printer} hint={about.print_location === PRINT_VENDOR ? 'Dicetak oleh vendor / pihak eksternal — tidak masuk antrean print cabang.' : undefined}>
+              <Select value={about.print_location} onChange={setA('print_location')}>
+                <optgroup label="Cabang">{BRANCHES.map((b) => <option key={b} value={b}>{b}</option>)}</optgroup>
+                <optgroup label="Eksternal"><option value={PRINT_VENDOR}>Vendor (dikerjakan eksternal)</option></optgroup>
+              </Select>
             </Field>
             <Field label="Prioritas" icon={Flag}>
               <PrioritySelect value={about.priority} onChange={(v) => setA('priority')({ target: { value: v } })} />
@@ -285,10 +296,11 @@ export default function ProjectForm({ onClose, project }) {
 
         <SectionCard tone="mint" icon={Layers} title="Sub Project & Detail Dokumen" aside={`${subs.length} sub project`}>
           <div className="space-y-4">
-            {autoFill && (
+            {!editing && invoiceItems && <InvoiceItemsView inv={invoiceItems} />}
+            {autoFill && (autoFill.ship || autoFill.courier || autoFill.priority) && (
               <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl bg-amber-50 px-3.5 py-2.5 text-xs text-amber-900 ring-1 ring-amber-200">
                 <Sparkles className="h-4 w-4 shrink-0 text-amber-600" />
-                <span><b className="font-semibold">Diisi otomatis dari {autoFill.invoice_no}</b>: {[autoFill.subs && `${autoFill.subs} sub project`, autoFill.ship && 'alamat kirim', autoFill.courier && `kurir ${autoFill.courier}`, autoFill.priority && `prioritas ${autoFill.priority}`].filter(Boolean).join(' · ') || 'tidak ada item yang dikenali'}. Periksa & edit bila perlu.</span>
+                <span><b className="font-semibold">Diisi otomatis dari {autoFill.invoice_no}</b>: {[autoFill.ship && 'alamat kirim', autoFill.courier && `kurir ${autoFill.courier}`, autoFill.priority && `prioritas ${autoFill.priority}`].filter(Boolean).join(' · ')}. Periksa & edit bila perlu — sub project diisi manual (lihat item invoice di atas).</span>
                 <button type="button" className="ml-auto inline-flex items-center gap-1 font-semibold text-amber-800 hover:underline" onClick={() => zoho.invoiceDetail(autoFill.invoice_no).then((d) => d && applyInvoice(d, { force: true }))}><RefreshCw className="h-3 w-3" />Isi ulang dari invoice</button>
               </div>
             )}
@@ -308,6 +320,44 @@ export default function ProjectForm({ onClose, project }) {
         </SectionCard>
       </div>
     </Sheet>
+  )
+}
+
+/** Item & deskripsi invoice Zoho — hanya tampilan (tidak mengisi apa pun), untuk dibaca / disalin saat mengisi sub project secara manual. */
+function InvoiceItemsView({ inv }) {
+  const { notify } = useApp()
+  const [open, setOpen] = useState(true)
+  const items = inv.items || []
+  const textOf = (it) => [it.name, it.description].filter((x) => String(x || '').trim()).join('\n')
+  const copy = async (text, label) => { const ok = await copyText(text); notify(ok ? `${label} disalin` : 'Gagal menyalin — salin manual', ok ? 'ok' : 'err') }
+  return (
+    <div className="overflow-hidden rounded-xl bg-white ring-1 ring-emerald-200" data-testid="invoice-items">
+      <div className="flex flex-wrap items-center gap-2 bg-emerald-50 px-3.5 py-2">
+        <Receipt className="h-4 w-4 shrink-0 text-emerald-700" />
+        <p className="min-w-0 flex-1 text-xs text-emerald-900"><b className="font-semibold">Item invoice {inv.invoice_no}</b> <span className="text-emerald-800/80">· hanya tampilan — baca/salin lalu isi sub project di bawah secara manual</span></p>
+        {items.length > 0 && <button type="button" onClick={() => copy(items.map((it, i) => `${i + 1}. ${textOf(it)}`).join('\n\n'), 'Semua item')} className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-[11px] font-semibold text-emerald-800 ring-1 ring-emerald-300 hover:bg-emerald-100"><Copy className="h-3 w-3" />Salin semua</button>}
+        <button type="button" onClick={() => setOpen((o) => !o)} className="rounded-lg p-1 text-emerald-800 hover:bg-emerald-100" aria-label={open ? 'Sembunyikan item invoice' : 'Tampilkan item invoice'} aria-expanded={open}>{open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</button>
+      </div>
+      {open && (items.length === 0
+        ? <p className="px-3.5 py-3 text-xs text-ink-mute">Item invoice belum ada di salinan Zoho (disinkron tiap 10 menit) — isi sub project manual dari invoice.</p>
+        : (
+          <ol className="divide-y divide-slate-100">
+            {items.map((it, i) => (
+              <li key={i} className="flex gap-3 px-3.5 py-2.5">
+                <span className="mt-0.5 w-5 shrink-0 text-right text-xs font-bold text-ink-mute">{i + 1}.</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <p className="text-sm font-semibold text-ink">{it.name || 'Item'}</p>
+                    {(it.quantity || it.rate) && <span className="text-[11px] text-ink-mute">{it.quantity ? `${it.quantity} ${it.unit || ''}`.trim() : ''}{it.rate ? ` × ${rupiah(it.rate)}` : ''}</span>}
+                  </div>
+                  {String(it.description || '').trim() && <pre className="mt-1 select-all whitespace-pre-wrap break-words rounded-lg bg-slate-50 px-2.5 py-2 font-sans text-[13px] leading-relaxed text-ink-soft ring-1 ring-slate-100">{it.description.trim()}</pre>}
+                </div>
+                <button type="button" onClick={() => copy(textOf(it), `Item ${i + 1}`)} title="Salin item ini" aria-label={`Salin item ${i + 1}`} className="h-fit shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-brand-soft hover:text-brand"><Copy className="h-4 w-4" /></button>
+              </li>
+            ))}
+          </ol>
+        ))}
+    </div>
   )
 }
 

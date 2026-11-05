@@ -5,7 +5,8 @@ import { useDashStats, FinanceGroup, PettyStrip, Segment } from './Dashboard.jsx
 import FundSummary from '../components/FundSummary.jsx'
 import { Card, Empty } from '../components/ui.jsx'
 
-export const canSeeKeuangan = (u) => !!u && !WORKER_ROLES.includes(u.role)
+import { canSeeKeuangan } from '../config/menuAccess.js'
+export { canSeeKeuangan }
 
 /** Halaman Keuangan: sumber dana, pengajuan & tagihan, petty cash — satu tempat untuk semua urusan uang. */
 export default function Keuangan() {

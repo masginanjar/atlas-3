@@ -49,3 +49,155 @@ input[type="date"] { min-height: 42px; }
 @keyframes atlas-blink { 0%, 50% { background: #dc2626; box-shadow: 0 0 0 1px #dc2626, 0 0 10px rgba(220,38,38,.5); } 51%, 100% { background: #f87171; box-shadow: 0 0 0 1px #f87171; } }
 .atlas-blink { animation: atlas-blink 1s steps(1, end) infinite; background: #dc2626; }
 @media (prefers-reduced-motion: reduce) { .atlas-blink { animation: none; background: #dc2626; } }
+
+/* Pratinjau Excel/CSV (SheetJS → tabel) & Word (docx-preview) */
+.sheet-view table { border-collapse: collapse; background: #fff; }
+.sheet-view td, .sheet-view th { border: 1px solid #cbd5e1; padding: 2px 8px; white-space: nowrap; vertical-align: top; }
+.sheet-view tr:first-child td { font-weight: 600; background: #f1f5f9; position: sticky; top: 0; }
+.docx-view .docx-wrapper { background: transparent; padding: 8px 0; }
+.docx-view .docx-wrapper > section.docx { margin-bottom: 12px; box-shadow: 0 1px 6px rgba(15,23,42,.15); max-width: 100%; }
+@media (max-width: 640px) { .docx-view .docx-wrapper > section.docx { width: 100% !important; min-height: 0 !important; padding: 16px !important; } }
+
+/* Panel geser dari kanan (panel kerja) */
+@keyframes atlas-slide-in { from { transform: translateX(16px); opacity: .6 } to { transform: none; opacity: 1 } }
+@keyframes atlas-slide-in-left { from { transform: translateX(-16px); opacity: .6 } to { transform: none; opacity: 1 } }
+@keyframes toast-in { from { transform: translateY(8px); opacity: 0 } to { transform: none; opacity: 1 } }
+@media (prefers-reduced-motion: reduce) { .animate-\[atlas-slide-in_\.18s_ease-out\], .animate-\[toast-in_\.18s_ease-out\] { animation: none } }
+
+/* Kepadatan tampilan: Compact / Comfortable (disimpan di Setting tampilan) */
+:root { --row-py: 0.75rem; --row-gap: 0.5rem; --appbar: 57px; }
+:root { --nav: #ffffff; --nav-ink: #0e1540; --nav-mute: #7a85a8; --nav-line: #e9edf5; --nav-hover: #f1f4f9; }
+[data-theme="dark"] { --nav: #141a2b; --nav-ink: #e9edf9; --nav-mute: #939db9; --nav-line: #273049; --nav-hover: #1e2539; }
+[data-density="compact"] { --row-py: 0.4rem; --row-gap: 0.3rem; }
+.u-row { padding-top: var(--row-py); padding-bottom: var(--row-py); }
+.u-rowgap { gap: var(--row-gap); }
+[data-density="compact"] .u-hide-compact { display: none; }
+
+/* ============================================================
+   TEMA: Light / Dark / Custom (warna aksen)
+   Variabel di bawah dipakai ulang oleh kelas utilitas → satu sumber warna.
+   ============================================================ */
+:root {
+  --page: #f4f6fc; --surface: #ffffff; --surface-2: #f8fafc; --surface-3: #f1f5f9;
+  --line: #e2e8f0; --txt: #0e1540; --txt-soft: #3f4a73; --txt-mute: #7a85a8;
+  --brand: #4f46e5; --brand-soft: #eef1ff;
+}
+[data-theme="dark"] {
+  --page: #0f1322; --surface: #171d31; --surface-2: #1c2338; --surface-3: #232b43;
+  --line: #2e3652; --txt: #e9edf9; --txt-soft: #bcc5de; --txt-mute: #8c96b5;
+  --brand-soft: #242c55;
+  color-scheme: dark;
+}
+body { background-color: var(--page); color: var(--txt); }
+[data-theme="dark"] body { background-image: radial-gradient(900px 480px at -10% -10%, rgba(99,102,241,.16), transparent 60%), radial-gradient(700px 420px at 110% 0%, rgba(6,182,212,.10), transparent 60%); }
+
+/* Permukaan & teks mengikuti tema */
+.bg-white, .bg-white\/95, .bg-white\/90, .bg-white\/85, .bg-white\/80, .bg-white\/70, .bg-white\/60 { background-color: var(--surface); }
+.bg-slate-50, .bg-slate-50\/80, .bg-slate-50\/95, .bg-slate-50\/70, .bg-slate-50\/60, .bg-slate-50\/40, .bg-slate-100\/80 { background-color: var(--surface-2); }
+.bg-slate-100, .bg-slate-200, .bg-slate-200\/70, .bg-paper { background-color: var(--surface-3); }
+.text-ink { color: var(--txt); } .text-ink-soft { color: var(--txt-soft); } .text-ink-mute, .text-slate-400 { color: var(--txt-mute); }
+.ring-slate-100, .ring-slate-200, .ring-slate-300, .ring-slate-200\/60, .ring-slate-200\/70 { --tw-ring-color: var(--line); }
+.border-slate-100, .border-slate-200, .border-slate-300 { border-color: var(--line); }
+.divide-slate-100 > :not([hidden]) ~ :not([hidden]), .divide-slate-200\/70 > :not([hidden]) ~ :not([hidden]), .divide-slate-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--line); }
+
+/* Warna aksen (brand) — bisa diganti pengguna */
+.bg-brand { background-color: var(--brand); } .text-brand { color: var(--brand); }
+.ring-brand { --tw-ring-color: var(--brand); } .border-brand { border-color: var(--brand); }
+.bg-brand-soft, .bg-brand-soft\/90, .bg-brand-soft\/70, .bg-brand-soft\/60, .bg-brand-soft\/40, .bg-brand-soft\/30 { background-color: var(--brand-soft); }
+.hover\:bg-brand-soft:hover { background-color: var(--brand-soft); }
+.hover\:bg-brand:hover { background-color: var(--brand); }
+.hover\:text-brand:hover { color: var(--brand); }
+.hover\:ring-brand:hover { --tw-ring-color: var(--brand); }
+.focus\:ring-brand:focus { --tw-ring-color: var(--brand); }
+.from-brand { --tw-gradient-from: var(--brand) var(--tw-gradient-from-position); --tw-gradient-to: rgb(255 255 255 / 0) var(--tw-gradient-to-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.to-\[\#6d5cf6\] { --tw-gradient-to: color-mix(in srgb, var(--brand) 72%, white) var(--tw-gradient-to-position); }
+.hover\:from-brand-dark:hover { --tw-gradient-from: color-mix(in srgb, var(--brand) 82%, black) var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.hover\:to-brand:hover { --tw-gradient-to: var(--brand) var(--tw-gradient-to-position); }
+.shadow-glow { box-shadow: 0 8px 22px -10px color-mix(in srgb, var(--brand) 70%, transparent); }
+
+/* Mode gelap: chip warna jadi redup, teksnya dicerahkan */
+[data-theme="dark"] .bg-emerald-50, [data-theme="dark"] .bg-emerald-50\/60, [data-theme="dark"] .bg-emerald-50\/40, [data-theme="dark"] .bg-emerald-100 { background-color: rgba(16,185,129, .14); }
+[data-theme="dark"] .text-emerald-500, [data-theme="dark"] .text-emerald-600, [data-theme="dark"] .text-emerald-700, [data-theme="dark"] .text-emerald-800, [data-theme="dark"] .text-emerald-900 { color: #6ee7b7; }
+[data-theme="dark"] .ring-emerald-200, [data-theme="dark"] .ring-emerald-300 { --tw-ring-color: rgba(16,185,129, .4); }
+[data-theme="dark"] .border-emerald-200, [data-theme="dark"] .border-emerald-300 { border-color: rgba(16,185,129, .4); }
+[data-theme="dark"] .bg-amber-50, [data-theme="dark"] .bg-amber-50\/60, [data-theme="dark"] .bg-amber-50\/40, [data-theme="dark"] .bg-amber-100 { background-color: rgba(245,158,11, .14); }
+[data-theme="dark"] .text-amber-500, [data-theme="dark"] .text-amber-600, [data-theme="dark"] .text-amber-700, [data-theme="dark"] .text-amber-800, [data-theme="dark"] .text-amber-900 { color: #fcd34d; }
+[data-theme="dark"] .ring-amber-200, [data-theme="dark"] .ring-amber-300 { --tw-ring-color: rgba(245,158,11, .4); }
+[data-theme="dark"] .border-amber-200, [data-theme="dark"] .border-amber-300 { border-color: rgba(245,158,11, .4); }
+[data-theme="dark"] .bg-rose-50, [data-theme="dark"] .bg-rose-50\/60, [data-theme="dark"] .bg-rose-50\/40, [data-theme="dark"] .bg-rose-50\/95, [data-theme="dark"] .bg-rose-100 { background-color: rgba(244,63,94, .16); }
+[data-theme="dark"] .text-rose-500, [data-theme="dark"] .text-rose-600, [data-theme="dark"] .text-rose-700, [data-theme="dark"] .text-rose-800, [data-theme="dark"] .text-rose-900 { color: #fda4af; }
+[data-theme="dark"] .ring-rose-200, [data-theme="dark"] .ring-rose-300 { --tw-ring-color: rgba(244,63,94, .4); }
+[data-theme="dark"] .border-rose-200, [data-theme="dark"] .border-rose-300 { border-color: rgba(244,63,94, .4); }
+[data-theme="dark"] .bg-violet-50, [data-theme="dark"] .bg-violet-50\/60, [data-theme="dark"] .bg-violet-50\/40, [data-theme="dark"] .bg-violet-100 { background-color: rgba(139,92,246, .14); }
+[data-theme="dark"] .text-violet-600, [data-theme="dark"] .text-violet-700, [data-theme="dark"] .text-violet-800, [data-theme="dark"] .text-violet-900 { color: #c4b5fd; }
+[data-theme="dark"] .ring-violet-200, [data-theme="dark"] .ring-violet-300 { --tw-ring-color: rgba(139,92,246, .4); }
+[data-theme="dark"] .border-violet-200, [data-theme="dark"] .border-violet-300 { border-color: rgba(139,92,246, .4); }
+[data-theme="dark"] .bg-sky-50, [data-theme="dark"] .bg-sky-50\/60, [data-theme="dark"] .bg-sky-50\/40, [data-theme="dark"] .bg-sky-100 { background-color: rgba(14,165,233, .14); }
+[data-theme="dark"] .text-sky-600, [data-theme="dark"] .text-sky-700, [data-theme="dark"] .text-sky-800, [data-theme="dark"] .text-sky-900 { color: #7dd3fc; }
+[data-theme="dark"] .ring-sky-200, [data-theme="dark"] .ring-sky-300 { --tw-ring-color: rgba(14,165,233, .4); }
+[data-theme="dark"] .border-sky-200, [data-theme="dark"] .border-sky-300 { border-color: rgba(14,165,233, .4); }
+[data-theme="dark"] .bg-cyan-50, [data-theme="dark"] .bg-cyan-50\/60, [data-theme="dark"] .bg-cyan-50\/40, [data-theme="dark"] .bg-cyan-100 { background-color: rgba(6,182,212, .14); }
+[data-theme="dark"] .text-cyan-600, [data-theme="dark"] .text-cyan-700, [data-theme="dark"] .text-cyan-800, [data-theme="dark"] .text-cyan-900 { color: #67e8f9; }
+[data-theme="dark"] .ring-cyan-200, [data-theme="dark"] .ring-cyan-300 { --tw-ring-color: rgba(6,182,212, .4); }
+[data-theme="dark"] .border-cyan-200, [data-theme="dark"] .border-cyan-300 { border-color: rgba(6,182,212, .4); }
+[data-theme="dark"] .bg-fuchsia-50, [data-theme="dark"] .bg-fuchsia-50\/60, [data-theme="dark"] .bg-fuchsia-50\/40, [data-theme="dark"] .bg-fuchsia-100 { background-color: rgba(217,70,239, .14); }
+[data-theme="dark"] .text-fuchsia-600, [data-theme="dark"] .text-fuchsia-700, [data-theme="dark"] .text-fuchsia-800, [data-theme="dark"] .text-fuchsia-900 { color: #f0abfc; }
+[data-theme="dark"] .ring-fuchsia-200, [data-theme="dark"] .ring-fuchsia-300 { --tw-ring-color: rgba(217,70,239, .4); }
+[data-theme="dark"] .border-fuchsia-200, [data-theme="dark"] .border-fuchsia-300 { border-color: rgba(217,70,239, .4); }
+[data-theme="dark"] .bg-indigo-50, [data-theme="dark"] .bg-indigo-50\/60, [data-theme="dark"] .bg-indigo-50\/40, [data-theme="dark"] .bg-indigo-100 { background-color: rgba(99,102,241, .14); }
+[data-theme="dark"] .text-indigo-600, [data-theme="dark"] .text-indigo-700, [data-theme="dark"] .text-indigo-800, [data-theme="dark"] .text-indigo-900 { color: #a5b4fc; }
+[data-theme="dark"] .ring-indigo-200, [data-theme="dark"] .ring-indigo-300 { --tw-ring-color: rgba(99,102,241, .4); }
+[data-theme="dark"] .border-indigo-200, [data-theme="dark"] .border-indigo-300 { border-color: rgba(99,102,241, .4); }
+[data-theme="dark"] .bg-orange-50, [data-theme="dark"] .bg-orange-50\/60, [data-theme="dark"] .bg-orange-50\/40, [data-theme="dark"] .bg-orange-100 { background-color: rgba(249,115,22, .14); }
+[data-theme="dark"] .text-orange-600, [data-theme="dark"] .text-orange-700, [data-theme="dark"] .text-orange-800, [data-theme="dark"] .text-orange-900 { color: #fdba74; }
+[data-theme="dark"] .ring-orange-200, [data-theme="dark"] .ring-orange-300 { --tw-ring-color: rgba(249,115,22, .4); }
+[data-theme="dark"] .border-orange-200, [data-theme="dark"] .border-orange-300 { border-color: rgba(249,115,22, .4); }
+[data-theme="dark"] .bg-teal-50, [data-theme="dark"] .bg-teal-50\/60, [data-theme="dark"] .bg-teal-50\/40, [data-theme="dark"] .bg-teal-100 { background-color: rgba(20,184,166, .14); }
+[data-theme="dark"] .text-teal-600, [data-theme="dark"] .text-teal-700, [data-theme="dark"] .text-teal-800, [data-theme="dark"] .text-teal-900 { color: #5eead4; }
+[data-theme="dark"] .ring-teal-200, [data-theme="dark"] .ring-teal-300 { --tw-ring-color: rgba(20,184,166, .4); }
+[data-theme="dark"] .border-teal-200, [data-theme="dark"] .border-teal-300 { border-color: rgba(20,184,166, .4); }
+[data-theme="dark"] .bg-blue-50, [data-theme="dark"] .bg-blue-50\/60, [data-theme="dark"] .bg-blue-50\/40, [data-theme="dark"] .bg-blue-100 { background-color: rgba(59,130,246, .14); }
+[data-theme="dark"] .text-blue-600, [data-theme="dark"] .text-blue-700, [data-theme="dark"] .text-blue-800, [data-theme="dark"] .text-blue-900 { color: #93c5fd; }
+[data-theme="dark"] .ring-blue-200, [data-theme="dark"] .ring-blue-300 { --tw-ring-color: rgba(59,130,246, .4); }
+[data-theme="dark"] .border-blue-200, [data-theme="dark"] .border-blue-300 { border-color: rgba(59,130,246, .4); }
+[data-theme="dark"] .bg-lime-50, [data-theme="dark"] .bg-lime-50\/60, [data-theme="dark"] .bg-lime-50\/40, [data-theme="dark"] .bg-lime-100 { background-color: rgba(132,204,22, .14); }
+[data-theme="dark"] .text-lime-600, [data-theme="dark"] .text-lime-700, [data-theme="dark"] .text-lime-800, [data-theme="dark"] .text-lime-900 { color: #bef264; }
+[data-theme="dark"] .ring-lime-200, [data-theme="dark"] .ring-lime-300 { --tw-ring-color: rgba(132,204,22, .4); }
+[data-theme="dark"] .border-lime-200, [data-theme="dark"] .border-lime-300 { border-color: rgba(132,204,22, .4); }
+/* Permukaan gelap (tombol "dark", hero) tetap terlihat di mode gelap */
+[data-theme="dark"] .bg-ink { background-color: #39416a; }
+[data-theme="dark"] .text-brand, [data-theme="dark"] .hover\:text-brand:hover { color: var(--brand-text, var(--brand)); }
+[data-theme="dark"] .hover\:bg-ink:hover { background-color: #454e7c; }
+[data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea { background-color: var(--surface-2); color: var(--txt); }
+[data-theme="dark"] .shadow-card { box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 26px -14px rgba(0,0,0,.6); }
+[data-theme="dark"] .seg-title::after { background-image: linear-gradient(to right, var(--line), transparent); }
+[data-theme="dark"] img.invert-on-dark { filter: invert(1); }
+
+/* ============================================================
+   GAYA MONOKROM (bawaan): bersih, warna kuat hanya untuk makna
+   (deadline/urgent/sukses/error). Tema & warna aksen tetap bisa diganti.
+   ============================================================ */
+body { background-image: none; }
+[data-theme="dark"] body { background-image: none; }
+
+/* Gradien dekoratif → warna netral/aksen tunggal */
+.from-\[\#0e1540\] { --tw-gradient-from: #101218 var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.via-\[\#1b1f66\] { --tw-gradient-stops: var(--tw-gradient-from), #161920 var(--tw-gradient-via-position), var(--tw-gradient-to); }
+.to-\[\#2a1a6e\] { --tw-gradient-to: #1c2029 var(--tw-gradient-to-position); }
+.via-\[\#7c6cf7\] { --tw-gradient-stops: var(--tw-gradient-from), color-mix(in srgb, var(--brand) 85%, white) var(--tw-gradient-via-position), var(--tw-gradient-to); }
+.via-accent { --tw-gradient-stops: var(--tw-gradient-from), color-mix(in srgb, var(--brand) 80%, white) var(--tw-gradient-via-position), var(--tw-gradient-to); }
+.to-accent, .to-pop { --tw-gradient-to: color-mix(in srgb, var(--brand) 70%, white) var(--tw-gradient-to-position); }
+.to-\[\#2b2a5e\] { --tw-gradient-to: color-mix(in srgb, var(--brand) 30%, #1a1f2e) var(--tw-gradient-to-position); }
+.from-ink { --tw-gradient-from: #151924 var(--tw-gradient-from-position); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+.bg-ink { background-color: #141824; }
+.text-gradient { background-image: none !important; -webkit-text-fill-color: currentColor; color: var(--txt); }
+.seg-title::before { background-image: none; background-color: var(--brand); box-shadow: none; }
+.accent-top::before { background-image: none; background-color: var(--line); }
+.shadow-glow { box-shadow: 0 6px 16px -10px rgba(0,0,0,.45); }
+
+/* Badge jenis layanan & tahap: versi lembut (abu), warna disisakan untuk status penting */
+.bg-blue-50, .bg-indigo-50, .bg-violet-50, .bg-sky-50, .bg-cyan-50, .bg-fuchsia-50, .bg-purple-50 { background-color: var(--surface-3); }
+.text-blue-700, .text-indigo-700, .text-violet-700, .text-sky-700, .text-cyan-700, .text-fuchsia-700, .text-purple-700 { color: var(--txt-soft); }
+.ring-blue-200, .ring-indigo-200, .ring-violet-200, .ring-sky-200, .ring-cyan-200, .ring-fuchsia-200, .ring-purple-200 { --tw-ring-color: var(--line); }
+[data-theme="dark"] .bg-blue-50, [data-theme="dark"] .bg-indigo-50, [data-theme="dark"] .bg-violet-50, [data-theme="dark"] .bg-sky-50, [data-theme="dark"] .bg-cyan-50, [data-theme="dark"] .bg-fuchsia-50 { background-color: var(--surface-3); }
+[data-theme="dark"] .text-blue-700, [data-theme="dark"] .text-indigo-700, [data-theme="dark"] .text-violet-700, [data-theme="dark"] .text-sky-700, [data-theme="dark"] .text-cyan-700, [data-theme="dark"] .text-fuchsia-700 { color: var(--txt-soft); }

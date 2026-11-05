@@ -69,4 +69,28 @@ export function needTranslator() {
 // alias nama (dipakai komponen lonceng)
 export const playCashRegister = cashRegister
 export const playPing = ping
+
+// --- Chat: bunyi lembut untuk pesan baru, dan nada berbeda (tetap lembut) untuk ping ---
+const CKEY = 'atlas-chat-sound'; const CVOL = 'atlas-chat-vol'
+export const chatSoundEnabled = () => { try { return localStorage.getItem(CKEY) !== '0' } catch { return true } }
+export const setChatSoundEnabled = (on) => { try { localStorage.setItem(CKEY, on ? '1' : '0') } catch { /* abaikan */ } }
+export const chatVolume = () => { try { return Math.min(1, Math.max(0, Number(localStorage.getItem(CVOL) ?? '0.6'))) } catch { return 0.6 } }
+export const setChatVolume = (v) => { try { localStorage.setItem(CVOL, String(v)) } catch { /* abaikan */ } }
+/** true bila browser masih memblokir audio (perlu interaksi pengguna dulu). */
+export const audioBlocked = () => { try { const c = ac(); return !c || c.state === 'suspended' } catch { return true } }
+export const unlockAudio = () => { try { const c = ac(); return c?.resume?.().then(() => true).catch(() => false) ?? Promise.resolve(false) } catch { return Promise.resolve(false) } }
+
+export function playChat() {
+  if (!chatSoundEnabled()) return
+  try { const c = ac(); if (!c) return; const g = chatVolume() * 0.12
+    tone(c, { f: 740, t0: 0, dur: 0.1, gain: g, type: 'sine' })
+    tone(c, { f: 988, t0: 0.08, dur: 0.14, gain: g * 0.85, type: 'sine' }) } catch { /* abaikan */ }
+}
+export function playChatPing() {
+  if (!chatSoundEnabled()) return
+  try { const c = ac(); if (!c) return; const g = chatVolume() * 0.14
+    tone(c, { f: 1175, t0: 0, dur: 0.12, gain: g, type: 'triangle' })
+    tone(c, { f: 880, t0: 0.12, dur: 0.16, gain: g, type: 'triangle' })
+    tone(c, { f: 1175, t0: 0.3, dur: 0.18, gain: g * 0.8, type: 'triangle' }) } catch { /* abaikan */ }
+}
 export const playNeedTranslator = needTranslator

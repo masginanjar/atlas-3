@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Landmark, Download, Send, Wallet, Flag, CheckCircle2, Clock3, Hourglass, BadgeCheck } from 'lucide-react'
+import { Landmark, Download, Send, Wallet, Flag, CheckCircle2, Clock3, Hourglass, BadgeCheck, Undo2, X } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { drive } from '../lib/integrations.js'
 import { saveBlob } from '../lib/download.js'
@@ -16,13 +16,55 @@ const STATUS = {
   pengajuan: { label: 'Draft Pengajuan', icon: Clock3, cls: 'bg-slate-100 text-slate-700 ring-slate-300' },
   persetujuan: { label: 'Menunggu Persetujuan', icon: Hourglass, cls: 'bg-amber-50 text-amber-800 ring-amber-300' },
   pembayaran: { label: 'Disetujui — Menunggu Pembayaran', icon: BadgeCheck, cls: 'bg-sky-50 text-sky-800 ring-sky-300' },
-  dibayar: { label: 'Sudah Dibayar', icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-800 ring-emerald-300' },
+  dibayar: { label: 'Sudah Dibayar — Menunggu Hasil', icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-800 ring-emerald-300' },
+  kirim: { label: 'Dibayar — Siap Kirim', icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-800 ring-emerald-300' },
+  dikirim: { label: 'Dibayar — Dokumen Dikirim', icon: CheckCircle2, cls: 'bg-emerald-50 text-emerald-800 ring-emerald-300' },
   selesai: { label: 'Selesai', icon: CheckCircle2, cls: 'bg-slate-800 text-white ring-slate-800' },
 }
 /** Badge status pengajuan vendor (ikon + teks, bukan hanya warna). */
-export function PengajuanStatus({ stage, className }) {
-  const s = STATUS[stage] ?? STATUS.pengajuan
+export function PengajuanStatus({ stage, className, revision }) {
+  const s = stage === 'pengajuan' && revision ? { label: 'Perlu Perbaikan', icon: Undo2, cls: 'bg-rose-50 text-rose-800 ring-rose-300' } : (STATUS[stage] ?? STATUS.pengajuan)
   return <span className={cx('inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1', s.cls, className)}><s.icon className="h-3 w-3" />{s.label}</span>
+}
+
+/** Callout alasan pengembalian pengajuan (tampil saat sub kembali ke tahap pengajuan). */
+export function RevisionNote({ sub, className }) {
+  const d = sub?.data || {}
+  if (!d.revision_note || sub.stage !== 'pengajuan') return null
+  return (
+    <div className={cx('flex items-start gap-2 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-900 ring-1 ring-rose-200', className)} role="note">
+      <Undo2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-600" />
+      <span><b className="font-semibold">Dikembalikan oleh {d.revision_name}</b>{d.revision_at ? ` · ${tgl(d.revision_at)} ${jam(d.revision_at)}` : ''}{d.revision_count > 1 ? ` · revisi ke-${d.revision_count}` : ''}: {d.revision_note}<span className="block text-[11px] text-rose-700">Perbaiki pengajuan lalu tekan "Ajukan" lagi.</span></span>
+    </div>
+  )
+}
+
+/** Tombol "Tolak / Perbaiki" + kotak alasan — mengembalikan pengajuan ke pengaju. */
+export function RejectPengajuan({ project, sub, size = 'sm', onDone, defaultOpen = false }) {
+  const { returnPengajuan, notify, user } = useApp()
+  const [open, setOpen] = useState(defaultOpen)
+  const [why, setWhy] = useState('')
+  const [busy, setBusy] = useState(false)
+  const allowed = (sub.stage === 'persetujuan' && ['direktur', 'superadmin'].includes(user.role)) || (sub.stage === 'pembayaran' && ['akunting', 'direktur', 'superadmin'].includes(user.role))
+  if (!allowed) return null
+  const send = async () => {
+    setBusy(true)
+    try { await returnPengajuan(project, sub.id, why); notify(`Pengajuan ${project.invoice_no} dikembalikan untuk diperbaiki`); setOpen(false); setWhy(''); onDone?.() }
+    catch (e) { notify(e.message, 'err') } finally { setBusy(false) }
+  }
+  if (!open) return <Button size={size} variant="outline" className="!text-rose-700 !ring-rose-300 hover:!bg-rose-50" onClick={() => setOpen(true)} title="Kembalikan ke pengaju untuk diperbaiki"><Undo2 className="h-3.5 w-3.5" />Tolak / Perbaiki</Button>
+  return (
+    <div className="w-full rounded-xl bg-rose-50 p-3 ring-1 ring-rose-200" onClick={(e) => e.stopPropagation()}>
+      <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-rose-900"><Undo2 className="h-3.5 w-3.5" />Kembalikan pengajuan untuk diperbaiki</p>
+      <textarea value={why} onChange={(e) => setWhy(e.target.value)} rows={2} autoFocus aria-label="Alasan penolakan / perbaikan" placeholder="Apa yang harus diperbaiki? mis. nominal ongkir salah, vendor keliru, tagihan belum dilampirkan…"
+        className="w-full rounded-lg border-0 bg-white px-2.5 py-2 text-sm text-ink ring-1 ring-rose-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-400" />
+      <p className="mt-1 text-[11px] text-rose-800">Pengajuan kembali ke tahap "Pengajuan Vendor"; pengaju mendapat notifikasi beserta alasan ini dan bisa mengajukan ulang.</p>
+      <div className="mt-2 flex justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={() => { setOpen(false); setWhy(''); if (defaultOpen) onDone?.() }}><X className="h-3.5 w-3.5" />Batal</Button>
+        <Button size="sm" variant="dark" loading={busy} disabled={!why.trim()} onClick={send}><Undo2 className="h-3.5 w-3.5" />Kembalikan</Button>
+      </div>
+    </div>
+  )
 }
 
 /** Tombol unduh bukti transfer (untuk dikirim ke vendor). */
@@ -108,8 +150,8 @@ export function SumberDanaPicker({ value, onChange, className, recommended }) {
 
 const STEPS = [
   { key: 'submitted', label: 'Diajukan', icon: Send, done: (st) => st !== 'pengajuan' },
-  { key: 'approved', label: 'Disetujui', icon: BadgeCheck, done: (st) => ['pembayaran', 'dibayar', DONE].includes(st) },
-  { key: 'paid', label: 'Dibayar', icon: Wallet, done: (st) => ['dibayar', DONE].includes(st) },
+  { key: 'approved', label: 'Disetujui', icon: BadgeCheck, done: (st) => !['pengajuan', 'persetujuan'].includes(st) },
+  { key: 'paid', label: 'Dibayar', icon: Wallet, done: (st) => !['pengajuan', 'persetujuan', 'pembayaran'].includes(st) },
   { key: 'closed', label: 'Selesai', icon: Flag, done: (st) => st === DONE },
 ]
 /** Progres pengajuan vendor: Diajukan → Disetujui → Dibayar → Selesai (dengan nama & waktu). */

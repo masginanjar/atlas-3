@@ -7,7 +7,7 @@
 import { rupiah } from './format.js'
 
 // Tabel yang tidak dicatat di activity_log (sudah punya riwayat sendiri / teknis)
-const SKIP = new Set(['activity_log', 'perf_daily', 'notifications', 'pings', 'share_log', 'requests', 'petty_cash', 'vendor_bills', 'fund_balances'])
+const SKIP = new Set(['activity_log', 'perf_daily', 'notifications', 'pings', 'share_log', 'requests', 'petty_cash', 'vendor_bills', 'fund_balances', 'notes', 'todos', 'reminders', 'messages'])
 const ABOUT_LABEL = { deadline: 'deadline', deadline_time: 'jam deadline', priority: 'prioritas', courier: 'kurir', resi_no: 'no. resi', resi_photo: 'foto resi', print_location: 'lokasi print', received_at: 'tanggal masuk', cs_name: 'CS', notes: 'catatan' }
 const PERSON = { vendor: 'vendor', customer: 'pelanggan', translator: 'penerjemah' }
 const names = (arr) => arr.slice(0, 3).map((f) => f.name).join(', ') + (arr.length > 3 ? ` +${arr.length - 3}` : '')

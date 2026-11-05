@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import JSZip from 'jszip'
 import { ArrowLeft, Hand, Download, Upload, BadgeCheck, CheckCircle2, Loader2, Lock, FileText, Archive, X } from 'lucide-react'
 import FileManager, { collect, uploadProjectFiles } from './FileManager.jsx'
 import { useUploadNamer } from './UploadNamer.jsx'
@@ -83,7 +82,7 @@ function DocCard({ project, sub }) {
   const blobOf = async (f) => (f.url?.startsWith('data:') ? dataUrlToBlob(f.url) : drive.blob(f))
   // semua dokumen sub project dalam 1 file ZIP
   const download = () => run('dl', async () => {
-    const zip = new JSZip(); const used = new Set()
+    const JSZip = (await import('jszip')).default; const zip = new JSZip(); const used = new Set()
     for (const [label, f] of docs) {
       let name = `${label} - ${f.name}`; let i = 2
       while (used.has(name)) name = `${label} (${i++}) - ${f.name}`

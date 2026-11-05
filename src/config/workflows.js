@@ -66,13 +66,29 @@ const VENDOR_FLOW = [
     notify: (p, s) => [{ to_user: s.data.submitted_by, kind: 'payment', text: 'Pengajuan Anda sudah dibayar — bukti transfer tersedia' },
       ...(p.created_by && p.created_by !== s.data.submitted_by ? [{ to_user: p.created_by, text: 'Vendor untuk order Anda sudah dibayar' }] : [])],
   },
+  // Setelah dibayar, order BELUM selesai — CS melanjutkan: hasil vendor → no. resi → dokumen dikirim → Selesai
   {
-    key: 'dibayar', label: 'Sudah Dibayar', roles: AKUNTING, action: 'Selesai',
-    hint: 'Download bukti transfer untuk dikirim ke vendor, lalu tekan Selesai untuk menutup pengajuan.',
-    fields: [{ key: 'hasil_vendor', label: 'File Hasil Vendor (opsional)', type: 'file' }],
+    key: 'dibayar', label: 'Sudah Dibayar — Menunggu Hasil Vendor', short: 'Sudah Dibayar', roles: ALL, action: 'Hasil Diterima',
+    hint: 'Akunting: download bukti transfer untuk vendor. CS: setelah hasil dari vendor diterima, unggah dokumen hasilnya lalu tekan Hasil Diterima.',
+    fields: [{ key: 'hasil_vendor', label: 'Upload Dokumen Hasil dari Vendor', type: 'file', required: true }],
+    onAdvance: (s, u) => ({ received_by: u.id, received_name: u.name, received_at: new Date().toISOString() }),
+    notify: (p, s, u) => (p.created_by && p.created_by !== u?.id ? [{ to_user: p.created_by, text: 'Hasil dari vendor sudah diunggah — siap dikirim ke pelanggan' }] : []),
+  },
+  {
+    key: 'kirim', label: 'Siap Kirim — Tulis No. Resi', short: 'Siap Kirim', roles: ALL, action: 'Dokumen Sudah Dikirim',
+    hint: 'Tulis nomor resi (cukup diketik, tanpa foto) sesuai metode pengiriman, lalu tekan Dokumen Sudah Dikirim.',
+    fields: [],
+    onAdvance: (s, u) => ({ shipped_by: u.id, shipped_name: u.name, shipped_at: new Date().toISOString() }),
+  },
+  {
+    key: 'dikirim', label: 'Dokumen Sudah Dikirim', roles: ALL, action: 'Selesai',
+    hint: 'Dokumen sudah dikirim ke pelanggan. Tambahkan catatan bila perlu, lalu tekan Selesai untuk menutup order.',
+    fields: [{ key: 'serah_note', label: 'Catatan serah terima (opsional)', type: 'text' }],
     onAdvance: (s, u) => ({ closed_by: u.id, closed_name: u.name, closed_at: new Date().toISOString() }),
   },
 ]
+/** Tahap alur vendor yang sudah dibayar (uang sudah keluar) tapi order masih berjalan. */
+export const VENDOR_PAID_STAGES = ['dibayar', 'kirim', 'dikirim']
 /** Termin pembayaran vendor (Setting → Vendor). */
 export const PAYMENT_TERMS = {
   immediate: { label: 'Langsung bayar per order', short: 'Bayar per order' },
@@ -172,11 +188,13 @@ export const CATEGORIES = {
         hint: 'Admin Pusat mengisi nomor registrasi setiap dokumen. Nomor ini dituliskan pada hasil cetak.',
         fields: [{ key: 'reg_numbers', label: 'Nomor registrasi per dokumen', type: 'reg_numbers', required: true }],
         onAdvance: (s, u) => ({ registered_by: u.id, registered_name: u.name, registered_at: new Date().toISOString() }),
-        notify: (p) => [{ to_branch: p.about?.print_location || p.branch, to_role: 'cs', text: `Dokumen siap print di cabang ${p.about?.print_location || p.branch}` }] },
+        notify: (p) => (p.about?.print_location === 'Vendor'
+          ? [{ to_user: p.created_by, text: 'Dokumen siap print — dicetak oleh vendor (eksternal), koordinasikan dengan vendor' }]
+          : [{ to_branch: p.about?.print_location || p.branch, to_role: 'cs', text: `Dokumen siap print di cabang ${p.about?.print_location || p.branch}` }]) },
       { key: 'siap_print', label: 'Siap Print', roles: ALL, printBranch: true, action: 'Tandai Sudah Dicetak', print: true,
-        hint: 'Download / print dokumen di cabang lokasi Print, beri stempel basah.',
+        hint: 'Download / print dokumen di cabang lokasi Print, beri stempel basah. Bila lokasi Print = Vendor: kirim file ke vendor untuk dicetak, lalu tandai sudah dicetak.',
         fields: [],
-        notify: (p) => (p.about?.print_location && p.about.print_location !== p.branch
+        notify: (p) => (p.about?.print_location && p.about.print_location !== p.branch && p.about.print_location !== 'Vendor'
           ? [{ to_branch: p.about.print_location, text: 'Sudah dicetak — jangan lupa stempel basah, scan, lalu upload PDF' }] : []) },
       { key: 'upload_scan', label: 'Stempel & Upload Scan', roles: ALL, printBranch: true, action: 'Upload → Siap Kirim',
         hint: 'Setelah dicetak & distempel basah, scan menjadi PDF lalu unggah di sini.',
@@ -264,6 +282,10 @@ export function stageIndex(cat, key) {
 export function stageLabel(cat, key) {
   if (key === DONE) return 'Selesai'
   return stagesOf(cat).find((s) => s.key === key)?.label ?? key
+}
+export function stageShort(cat, key) {
+  if (key === DONE) return 'Selesai'
+  const st = stagesOf(cat).find((s) => s.key === key); return st?.short || st?.label || key
 }
 export function progressOf(project) {
   const subs = project.sub_projects ?? []

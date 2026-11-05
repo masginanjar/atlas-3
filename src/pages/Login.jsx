@@ -1,8 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Search, Clock, ArrowRight } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { db, MODE } from '../lib/db.js'
 import { ROLES, branchLabel, roleLabel } from '../config/access.js'
-import { Button, Field, Input } from '../components/ui.jsx'
+import { takeIdleReason, IDLE_MS } from '../lib/session.js'
+import { Button, Field, Input, cx } from '../components/ui.jsx'
+
+const salam = () => { const h = new Date().getHours(); return h < 11 ? 'Selamat pagi' : h < 15 ? 'Selamat siang' : h < 18 ? 'Selamat sore' : 'Selamat malam' }
 
 export default function Login() {
   const { signIn, signUp, notify } = useApp()
@@ -10,10 +14,14 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [demoUsers, setDemoUsers] = useState([])
+  const [q, setQ] = useState('')
   const [view, setView] = useState('masuk') // masuk | daftar | lupa | sandi-baru
   const [info, setInfo] = useState('')
+  // keluar otomatis karena idle → tampilkan alasannya sekali
+  const [idleOut] = useState(() => takeIdleReason())
   // tautan pemulihan kata sandi dari email → Supabase mengarahkan kembali dengan type=recovery
   useEffect(() => { if (/type=recovery/.test(window.location.hash) || /type=recovery/.test(window.location.search)) setView('sandi-baru') }, [])
+
   const daftar = async (e) => {
     e.preventDefault(); setBusy(true)
     try {
@@ -38,42 +46,71 @@ export default function Login() {
     try { await signIn(em, password) } catch (err) { notify(err.message, 'err') } finally { setBusy(false) }
   }
 
+  const groups = useMemo(() => {
+    const term = q.trim().toLowerCase()
+    const match = (u) => !term || u.name.toLowerCase().includes(term) || (ROLES[u.role]?.label || '').toLowerCase().includes(term) || (u.branch || '').toLowerCase().includes(term)
+    return Object.keys(ROLES).map((r) => [r, demoUsers.filter((u) => u.role === r && match(u))]).filter(([, list]) => list.length)
+  }, [demoUsers, q])
+
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-[#0e1540] via-[#1b1f66] to-[#3b1a7a] md:flex-row">
-      <div className="relative flex flex-col justify-end overflow-hidden px-6 pb-8 pt-14 text-white md:w-1/2 md:justify-center md:px-16">
-        <div aria-hidden className="pointer-events-none absolute -left-24 -top-24 h-80 w-80 rounded-full bg-brand/40 blur-3xl" /><div aria-hidden className="pointer-events-none absolute -bottom-32 right-0 h-96 w-96 rounded-full bg-accent/25 blur-3xl" /><div aria-hidden className="pointer-events-none absolute right-1/4 top-1/3 h-56 w-56 rounded-full bg-pop/25 blur-3xl" />
-        <div className="mb-6 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-brand via-accent to-pop text-xl font-black text-white shadow-glow">A</div>
-        <h1 className="text-3xl font-extrabold tracking-tight md:text-4xl">ATLAS <span className="bg-gradient-to-r from-accent to-pop bg-clip-text text-transparent">Alfa</span></h1>
-        <p className="mt-2 max-w-sm text-sm text-white/60">Manajemen project terjemahan, apostille & legalisasi 247 Sworn Translator — 9 cabang, satu alur kerja.</p>
-      </div>
-      <div className="flex-1 rounded-t-3xl bg-paper/95 px-6 py-8 backdrop-blur md:grid md:place-items-center md:rounded-none">
-        <div className="w-full max-w-md">
+    <div className="relative grid min-h-screen place-items-center overflow-hidden bg-[var(--page)] px-4 py-8">
+      {/* latar lembut — ceria tapi tetap bersih */}
+      <div aria-hidden className="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-[var(--brand)] opacity-[0.06] blur-3xl" />
+      <div aria-hidden className="pointer-events-none absolute -bottom-40 -right-24 h-[28rem] w-[28rem] rounded-full bg-amber-300 opacity-[0.12] blur-3xl" />
+
+      <div className="relative w-full max-w-md">
+        <div className="mb-5 flex items-center gap-3">
+          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--brand)] text-lg font-black text-white shadow-sm">A</div>
+          <div className="leading-tight">
+            <p className="font-display text-base font-extrabold tracking-wide text-ink">ATLAS <span className="text-ink-mute">Alfa</span></p>
+            <p className="text-[11px] text-ink-mute">247 Sworn Translator · 9 cabang, satu alur kerja</p>
+          </div>
+        </div>
+
+        <div className="rounded-3xl bg-white p-6 shadow-[0_10px_40px_-18px_rgba(15,23,42,.35)] ring-1 ring-slate-200/80">
+          <h1 className="text-xl font-extrabold tracking-tight text-ink">{salam()} 👋</h1>
+          <p className="mt-0.5 text-sm text-ink-soft">{MODE === 'demo' ? 'Pilih akun untuk mencoba tiap peran & cabang.' : 'Masuk untuk melanjutkan pekerjaan Anda.'}</p>
+
+          {idleOut && (
+            <p role="status" className="mt-4 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-900 ring-1 ring-amber-200">
+              <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>Anda keluar otomatis setelah {IDLE_MS / 3600000} jam tidak aktif. Silakan masuk kembali.</span>
+            </p>
+          )}
+          {info && <p className="mt-4 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200">{info}</p>}
+
           {MODE === 'demo' ? (
-            <>
-              <h2 className="text-lg font-bold">Masuk sebagai</h2>
-              <p className="mb-4 text-xs text-ink-mute">Mode demo — pilih akun untuk mencoba tiap role & cabang.</p>
-              <div className="space-y-4">
-                {Object.keys(ROLES).filter((r) => demoUsers.some((u) => u.role === r)).map((r) => (
+            <div className="mt-4">
+              <label className="relative block">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+                <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nama, peran, atau cabang…" aria-label="Cari akun demo"
+                  className="w-full rounded-xl border-0 bg-slate-50 py-2.5 pl-9 pr-3 text-sm ring-1 ring-slate-200 focus:ring-2 focus:ring-brand" />
+              </label>
+              <div className="mt-3 max-h-[46vh] space-y-3 overflow-auto pr-1">
+                {groups.length === 0 && <p className="py-8 text-center text-xs text-ink-mute">Tidak ada akun yang cocok.</p>}
+                {groups.map(([r, list]) => (
                   <div key={r}>
-                    <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-mute">{ROLES[r].label}</p>
+                    <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-ink-mute">{ROLES[r].label}</p>
                     <div className="grid gap-1.5 sm:grid-cols-2">
-                      {demoUsers.filter((u) => u.role === r).map((u) => (
-                        <button key={u.id} onClick={() => submit(null, u.email)}
-                          className="flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2.5 text-left shadow-card ring-1 ring-slate-200/70 transition hover:-translate-y-px hover:ring-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
-                          <span className="min-w-0"><span className="block truncate text-sm font-semibold">{u.name}</span><span className="block truncate text-[11px] text-ink-mute">{u.role === 'otorisator' || u.extra_roles?.length ? `${[roleLabel(u), ...(u.extra_roles || []).map((x) => roleLabel(u, x))].join(' + ')} · ` : ''}{branchLabel(u)}</span></span>
+                      {list.map((u) => (
+                        <button key={u.id} onClick={() => submit(null, u.email)} disabled={busy}
+                          className="group flex items-center justify-between gap-2 rounded-xl bg-white px-3 py-2 text-left ring-1 ring-slate-200 transition hover:bg-slate-50 hover:ring-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-60">
+                          <span className="min-w-0">
+                            <span className="block truncate text-[13px] font-semibold text-ink">{u.name}</span>
+                            <span className="block truncate text-[11px] text-ink-mute">{u.role === 'otorisator' || u.extra_roles?.length ? `${[roleLabel(u), ...(u.extra_roles || []).map((x) => roleLabel(u, x))].join(' + ')} · ` : ''}{branchLabel(u)}</span>
+                          </span>
+                          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-ink-mute opacity-0 transition group-hover:opacity-100" />
                         </button>
                       ))}
                     </div>
                   </div>
                 ))}
               </div>
-            </>
+            </div>
           ) : (
-            <div className="space-y-4">
-              {info && <p className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-200">{info}</p>}
+            <div className="mt-4 space-y-4">
               {view === 'masuk' && (
                 <form onSubmit={submit} className="space-y-4">
-                  <h2 className="text-lg font-bold">Masuk</h2>
                   <Field label="Email"><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></Field>
                   <Field label="Kata sandi"><Input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></Field>
                   <Button className="w-full" size="lg" loading={busy}>Masuk</Button>
@@ -85,7 +122,7 @@ export default function Login() {
               )}
               {view === 'daftar' && (
                 <form onSubmit={daftar} className="space-y-4">
-                  <h2 className="text-lg font-bold">Buat kata sandi</h2>
+                  <h2 className="text-sm font-bold">Buat kata sandi</h2>
                   <p className="text-xs text-ink-mute">Untuk email yang sudah didaftarkan Superadmin di ATLAS. Setelah ini Anda langsung bisa masuk.</p>
                   <Field label="Email kantor"><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></Field>
                   <Field label="Kata sandi baru (min. 8 karakter)"><Input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></Field>
@@ -95,7 +132,7 @@ export default function Login() {
               )}
               {view === 'lupa' && (
                 <form onSubmit={lupa} className="space-y-4">
-                  <h2 className="text-lg font-bold">Lupa kata sandi</h2>
+                  <h2 className="text-sm font-bold">Lupa kata sandi</h2>
                   <Field label="Email"><Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" /></Field>
                   <Button className="w-full" size="lg" loading={busy}>Kirim tautan</Button>
                   <button type="button" onClick={() => setView('masuk')} className="w-full text-center text-xs text-ink-mute hover:underline">Kembali ke Masuk</button>
@@ -103,7 +140,7 @@ export default function Login() {
               )}
               {view === 'sandi-baru' && (
                 <form onSubmit={sandiBaru} className="space-y-4">
-                  <h2 className="text-lg font-bold">Kata sandi baru</h2>
+                  <h2 className="text-sm font-bold">Kata sandi baru</h2>
                   <Field label="Kata sandi baru (min. 8 karakter)"><Input type="password" required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></Field>
                   <Button className="w-full" size="lg" loading={busy}>Simpan</Button>
                 </form>
@@ -111,6 +148,7 @@ export default function Login() {
             </div>
           )}
         </div>
+        <p className={cx('mt-4 text-center text-[11px] text-ink-mute')}>Demi keamanan, sesi berakhir otomatis setelah {IDLE_MS / 3600000} jam tanpa aktivitas.</p>
       </div>
     </div>
   )
