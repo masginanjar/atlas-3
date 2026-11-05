@@ -179,13 +179,13 @@ export default function App() {
             <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
               {rolesOf(user).length > 1 && (
                 <select value={user.role} onChange={(e) => { setActiveRole(e.target.value); window.location.hash = '/dashboard' }} aria-label="Ganti peran"
-                  className="hidden rounded-lg border-0 bg-violet-50 py-1.5 pl-2.5 pr-7 text-xs font-bold text-violet-800 ring-1 ring-violet-200 focus:ring-2 focus:ring-brand lg:block">
+                  className="hidden h-11 rounded-xl border-0 bg-violet-50 pl-3 pr-8 text-xs font-bold text-violet-800 ring-1 ring-violet-200 focus:ring-2 focus:ring-brand lg:block">
                   {rolesOf(user).map((r) => <option key={r} value={r}>Peran: {roleLabel(user, r)}</option>)}
                 </select>
               )}
               <button onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')} aria-pressed={density === 'compact'}
                 title={density === 'compact' ? 'Kepadatan: Compact — klik untuk Comfortable' : 'Kepadatan: Comfortable — klik untuk Compact'} aria-label="Ganti kepadatan tampilan"
-                className="hidden rounded-lg p-1.5 text-ink-mute ring-1 ring-slate-200 hover:bg-white hover:text-brand lg:block">
+                className="hidden h-11 w-11 place-items-center rounded-xl text-ink-mute ring-1 ring-slate-200 hover:bg-white hover:text-brand lg:grid">
                 {density === 'compact' ? <Rows3 className="h-4 w-4" /> : <Rows2 className="h-4 w-4" />}
               </button>
               <span className="hidden lg:block"><GlobalSearch /></span>
@@ -197,11 +197,11 @@ export default function App() {
               {MODE === 'demo' && <span className="hidden rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 lg:inline">Demo</span>}
               {branchPicker && (
                 <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} aria-label="Filter cabang"
-                  className="hidden min-w-0 truncate rounded-lg border-0 bg-white py-1.5 pl-2.5 pr-7 text-xs font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-brand lg:block" title="Filter cabang">
+                  className="hidden h-11 min-w-0 truncate rounded-xl border-0 bg-white pl-3 pr-8 text-xs font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-brand lg:block" title="Filter cabang">
                   {branchOptions.map((b) => <option key={b} value={b}>{b === 'Semua' ? (can.seeAllBranches(user) ? 'Semua Cabang' : 'Semua cabang saya') : b}</option>)}
                 </select>
               )}
-              {!branchPicker && <span className="hidden rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold ring-1 ring-slate-200 lg:inline">{placeOf(user)}</span>}
+              {!branchPicker && <span className="hidden h-11 items-center rounded-xl bg-white px-3 text-xs font-semibold ring-1 ring-slate-200 lg:inline-flex">{placeOf(user)}</span>}
               <span className="mx-0.5 h-5 w-px bg-slate-200" />
               <HeaderUser />
             </div>
@@ -238,12 +238,12 @@ export default function App() {
       {/* Bottom nav mobile */}
       <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/70 bg-white/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
         {navItems(user).filter((n) => n.bar).slice(0, 4).map((n) => (
-          <a key={n.key} href={`#/${n.key}`} className={cx('flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold', page === n.key ? 'text-brand' : 'text-ink-mute')}>
+          <a key={n.key} href={`#/${n.key}`} className={cx('flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2 text-xs font-semibold', page === n.key ? 'text-brand' : 'text-ink-mute')}>
             <span className={cx('grid h-7 w-11 place-items-center rounded-full transition', page === n.key && 'bg-brand-soft')}><n.icon className="h-5 w-5" /></span>
             <span className="max-w-full truncate px-0.5">{n.label}</span>
           </a>
         ))}
-        <button type="button" onClick={() => setMore(true)} className={cx('flex flex-col items-center gap-0.5 py-2 text-[10px] font-semibold', more ? 'text-brand' : 'text-ink-mute')}>
+        <button type="button" onClick={() => setMore(true)} className={cx('flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2 text-xs font-semibold', more ? 'text-brand' : 'text-ink-mute')}>
           <span className="grid h-7 w-11 place-items-center rounded-full"><MoreHorizontal className="h-5 w-5" /></span>Menu
         </button>
       </nav>

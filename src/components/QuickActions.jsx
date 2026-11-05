@@ -21,7 +21,7 @@ export default function QuickActions() {
       <div className="hidden items-center gap-0.5 md:flex">
         {items.map(([k, p]) => (
           <button key={k} type="button" onClick={() => go(k)} title={p.tip} aria-label={p.tip} disabled={busy === k}
-            className="grid h-8 w-8 place-items-center rounded-lg text-ink-mute transition hover:bg-white hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+            className="grid h-11 w-11 place-items-center rounded-xl text-ink-mute transition hover:bg-white hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
             <p.icon className="h-[17px] w-[17px]" />
           </button>
         ))}

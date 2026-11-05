@@ -70,7 +70,7 @@ export default function HeaderUser() {
     <div className="relative" ref={box}>
       <button ref={btn} type="button" onClick={() => { setOpen((v) => !v); setSub('') }} aria-expanded={open} aria-haspopup="menu"
         aria-label={`Profil ${user.display_name || user.name}`} title={user.display_name || user.name}
-        className={cx('flex items-center gap-2 rounded-xl p-1 pr-2 ring-1 transition', open ? 'bg-ink/5 ring-ink/20' : 'ring-transparent hover:bg-white hover:ring-slate-200')}>
+        className={cx('flex h-11 min-w-11 items-center gap-2 rounded-xl p-1 pr-2 ring-1 transition', open ? 'bg-ink/5 ring-ink/20' : 'ring-transparent hover:bg-white hover:ring-slate-200')}>
         <span className="relative">
           <Avatar user={row} size={30} ring={false} className="ring-1 ring-slate-200" />
           <span className={cx('absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white', st.dot)} />
