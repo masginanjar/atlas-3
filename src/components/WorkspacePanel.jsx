@@ -56,7 +56,7 @@ function PanelHost() {
   if (panel.kind === 'pengajuan') return guard(<RequestForm open side onClose={shut} onSaved={() => setDirty(false)} />)
   if (panel.kind === 'note') return guard(<NoteForm note={p.note} link={p.link} onDirty={setDirty} onClose={shut} />)
   if (panel.kind === 'todo') return guard(<TodoForm todo={p.todo} link={p.link} onDirty={setDirty} onClose={shut} />)
-  if (panel.kind === 'reminder') return guard(<ReminderForm reminder={p.reminder} link={p.link} onDirty={setDirty} onClose={shut} />)
+  if (panel.kind === 'reminder') return guard(<ReminderForm reminder={p.reminder} link={p.link} prefill={p.prefill} onDirty={setDirty} onClose={shut} />)
   return null
 }
 
@@ -238,12 +238,12 @@ export function TodoForm({ todo, link, onClose, onDirty }) {
 
 // ---------------- PENGINGAT ----------------
 export const REPEATS = [['none', 'Sekali saja'], ['daily', 'Setiap hari'], ['weekly', 'Setiap minggu'], ['weekday', 'Setiap hari kerja (Sen–Jum)'], ['monthly', 'Setiap bulan']]
-export function ReminderForm({ reminder, link, onClose, onDirty }) {
+export function ReminderForm({ reminder, link, prefill, onClose, onDirty }) {
   const { user, save, notify } = useApp()
   const [f, setF] = useState(() => ({
-    title: reminder?.title || '', date: reminder?.at ? new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(reminder.at)) : todayStr(),
+    title: reminder?.title || prefill?.title || '', date: reminder?.at ? new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(reminder.at)) : todayStr(),
     time: reminder?.at ? new Intl.DateTimeFormat('id-ID', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(reminder.at)).replace('.', ':') : '09:00',
-    repeat: reminder?.repeat || 'none', note: reminder?.note || '', project_id: reminder?.project_id || link?.project_id || '',
+    repeat: reminder?.repeat || 'none', note: reminder?.note || prefill?.note || '', project_id: reminder?.project_id || prefill?.project_id || link?.project_id || '',
   }))
   const [busy, setBusy] = useState(false)
   const up = (patch) => { setF((x) => ({ ...x, ...patch })); onDirty?.(true) }
