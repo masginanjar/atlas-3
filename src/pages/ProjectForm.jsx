@@ -350,7 +350,7 @@ function InvoiceItemsView({ inv }) {
                     <p className="text-sm font-semibold text-ink">{it.name || 'Item'}</p>
                     {(it.quantity || it.rate) && <span className="text-[11px] text-ink-mute">{it.quantity ? `${it.quantity} ${it.unit || ''}`.trim() : ''}{it.rate ? ` × ${rupiah(it.rate)}` : ''}</span>}
                   </div>
-                  {String(it.description || '').trim() && <pre className="mt-1 select-all whitespace-pre-wrap break-words rounded-lg bg-slate-50 px-2.5 py-2 font-sans text-[13px] leading-relaxed text-ink-soft ring-1 ring-slate-100">{it.description.trim()}</pre>}
+                  {String(it.description || '').trim() && <pre className="mt-1 cursor-text select-text whitespace-pre-wrap break-words rounded-lg bg-slate-50 px-2.5 py-2 font-sans text-[13px] leading-relaxed text-ink-soft ring-1 ring-slate-100">{it.description.trim()}</pre>}
                 </div>
                 <button type="button" onClick={() => copy(textOf(it), `Item ${i + 1}`)} title="Salin item ini" aria-label={`Salin item ${i + 1}`} className="h-fit shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-brand-soft hover:text-brand"><Copy className="h-4 w-4" /></button>
               </li>
