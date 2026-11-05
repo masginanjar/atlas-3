@@ -48,7 +48,7 @@ export default function ThemePicker() {
   return (
     <Popover label="Tema tampilan" width="min-w-[250px]" button={({ open, toggle }) => (
       <button onClick={toggle} aria-expanded={open} aria-label="Tema tampilan" title="Tema: Light / Dark / warna aksen"
-        className={cx('grid h-8 w-8 place-items-center rounded-lg ring-1 ring-slate-200 hover:text-brand', open ? 'text-brand ring-brand' : 'text-ink-mute')}>
+        className={cx('grid h-11 w-11 place-items-center rounded-xl ring-1 ring-slate-200 hover:text-brand', open ? 'text-brand ring-brand' : 'text-ink-mute')}>
         <Palette className="h-4 w-4" />
       </button>
     )}>

@@ -90,7 +90,7 @@ export default function TeamPresence() {
     <Popover label="Tim Aktif" width="w-[min(360px,92vw)]" panelClass="max-sm:fixed max-sm:inset-x-2 max-sm:top-[calc(var(--appbar)+4px)] max-sm:w-auto"
       button={({ open, toggle }) => (
         <button type="button" onClick={toggle} aria-expanded={open} aria-label={`Tim Aktif — ${online} online`} title="Tim Aktif"
-          className={cx('flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-semibold ring-1 transition', open ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:text-brand')}>
+          className={cx('flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-semibold ring-1 transition', open ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:text-brand')}>
           <Users className="h-4 w-4" />
           <span className="tabular-nums">{online}</span>
           <span className={cx('h-1.5 w-1.5 rounded-full', online ? 'bg-emerald-500' : 'bg-slate-300')} />

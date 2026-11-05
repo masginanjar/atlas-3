@@ -56,7 +56,7 @@ export default function GlobalSearch() {
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} title="Cari (Ctrl+K)" aria-label="Cari"
-        className="grid h-8 w-8 place-items-center rounded-lg text-ink-mute transition hover:bg-white hover:text-brand"><Search className="h-[17px] w-[17px]" /></button>
+        className="grid h-11 w-11 place-items-center rounded-xl text-ink-mute transition hover:bg-white hover:text-brand"><Search className="h-[17px] w-[17px]" /></button>
       {open && (
         <div className="fixed inset-0 z-[90] flex items-start justify-center bg-ink/30 px-4 pt-[12vh] backdrop-blur-[2px]" onClick={() => setOpen(false)}>
           <div role="dialog" aria-label="Pencarian" onClick={(e) => e.stopPropagation()} className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">

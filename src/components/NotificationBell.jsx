@@ -124,7 +124,7 @@ export default function NotificationBell() {
   return (
     <div className="relative">
       <button ref={btnRef} type="button" onClick={() => setOpen((o) => !o)} aria-label={`Notifikasi (${total} belum dibaca)`} aria-expanded={open}
-        className={cx('relative grid h-8 w-8 place-items-center rounded-lg bg-white ring-1 ring-slate-200 hover:bg-slate-50', open && 'ring-brand')}>
+        className={cx('relative grid h-11 w-11 place-items-center rounded-xl bg-white ring-1 ring-slate-200 hover:bg-slate-50', open && 'ring-brand')}>
         <Bell className={cx('h-4 w-4', total ? 'text-brand' : 'text-ink-soft')} />
         {total > 0 && <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">{total}</span>}
       </button>
