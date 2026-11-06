@@ -4,3 +4,12 @@ dist-demo
 .env
 .env.local
 .vercel
+
+# Dump pelanggan dan cadangan lokal. Jangan di-commit.
+# Satu-satunya payload legacy yang boleh masuk git adalah berkas *.masked.json.
+src/lib/legacy/payload-*.json
+!src/lib/legacy/*.masked.json
+scripts/legacy/backup-*.json
+scripts/legacy/review-*.csv
+scripts/legacy/private/
+*.xlsx

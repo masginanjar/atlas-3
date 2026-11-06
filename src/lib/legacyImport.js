@@ -10,18 +10,26 @@
 /** Versi tanpa data pribadi (untuk demo publik): nama disamarkan, alamat/catatan/isi dokumen dihapus. */
 const SAFE_LEGACY = ['Timestamp', 'No. Invoice', 'Status', 'Proses Terjemahan', 'Deadline Softcopy', 'Cabang', 'Print-out', 'Nama CS', 'Kategori',
   'Bahasa/Produk', 'Tipe Proses', 'Otorisasi', 'Deadline Penerjemah', 'Penerjemah', 'Jumlah Dokumen', 'Jumlah Halaman', 'Pengiriman Via', 'Proses Apostille', 'Tujuan Negara Apostille']
+const SENSITIVE_CONFLICT = new Set(['alamat', 'customer_name', 'ship', 'notes'])
 const initials = (name) => String(name || '').split(/\s+/).filter(Boolean).map((w) => `${w[0].toUpperCase()}***`).join(' ') || 'Pelanggan'
+const maskIssue = (issue) => {
+  const text = String(issue || '')
+  if (/Beda alamat|Beda customer_name/.test(text)) return 'Beda data pribadi antar baris — nilai tidak disimpan'
+  return text.replace(/teks detail: [^)]*/, 'teks detail')
+}
 export function maskPayload(payload) {
   const label = { terjemahan: 'Terjemahan', apostille: 'Apostille', legalisasi: 'Legalisasi', jasa_lain: 'Jasa Lain' }
   return { ...payload, masked: true, projects: payload.projects.map((p) => ({
     ...p, customer_name: initials(p.customer_name), ship: null, notes: '',
+    conflicts: (p.conflicts || []).filter((c) => !SENSITIVE_CONFLICT.has(c.field)).map(({ field, row }) => ({ field, row })),
     subs: p.subs.map((x) => {
       const n = Math.max(1, x.file_count || (x.docs?.length ?? 1))
       return { ...x, title: `${label[x.type] || x.type} · ${n} dokumen`, description: Array.from({ length: n }, (_, i) => `${i + 1}. Dokumen ${i + 1}`).join('\n'),
         docs: x.docs ? [{ desc: 'Dokumen 1', pages: x.docs[0].pages }] : null,
-        legacy: Object.fromEntries(Object.entries(x.legacy).filter(([k]) => SAFE_LEGACY.includes(k))) }
+        legacy: Object.fromEntries(Object.entries(x.legacy || {}).filter(([k]) => SAFE_LEGACY.includes(k))) }
     }),
-  })) }
+  })),
+  review: (payload.review || []).map((r) => ({ row: r.row, invoice: r.invoice, issue: maskIssue(r.issue) })) }
 }
 
 const empty = (v) => v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0)

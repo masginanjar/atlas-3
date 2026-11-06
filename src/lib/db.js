@@ -9,7 +9,8 @@ import { createClient } from '@insforge/sdk'
 import { SUPABASE_READY, supabaseDb } from './supabase.js'
 import { seed, archiveProjects, billedDemo } from './seed.js'
 import { applyLegacyImport } from './legacyImport.js'
-// payload impor sistem lama; build publik (VITE_MASK_PII=1) memakai versi tersamar — lihat vite.config.js
+// Payload impor sistem lama hanya versi tersamar, dan hanya untuk mode demo.
+// Mode live (Supabase) tidak memuat berkas itu. Lihat vite.config.js.
 
 const URL_ = import.meta.env.VITE_INSFORGE_URL
 // 'supabase' (live, Supabase) · 'live' (InsForge, lama) · 'demo' (localStorage)
@@ -68,7 +69,9 @@ function migrate(m) {
 
 /** Impor data sistem lama (idempoten). Cadangan disimpan sebelum perubahan pertama; log tiap impor disimpan di mem.import_runs. */
 export async function importLegacy() {
-  // payload impor (±400 KB) hanya diunduh saat fitur ini dipakai — tidak ikut bundel awal
+  // Data live ada di Supabase. Jangan unduh atau terapkan dump legacy di mode itu.
+  if (IS_LIVE) return { changed: false, skipped: 'live' }
+  // Hanya demo: berkas tersamar, diunduh saat fitur impor dipakai.
   const LEGACY_2026_11_04 = (await import('@legacy-payload')).default
   const before = JSON.stringify(mem)
   const log = applyLegacyImport(mem, LEGACY_2026_11_04)
