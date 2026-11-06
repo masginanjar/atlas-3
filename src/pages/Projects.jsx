@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Plus, Search, FolderOpen, Banknote, CalendarClock, Layers, LayoutGrid, List, ChevronRight, ChevronDown, Sparkles, StickyNote, Printer, AlertTriangle, Eye, Columns3, Download, Bookmark, X, Save } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Plus, Minus, Search, FolderOpen, Banknote, CalendarClock, Layers, LayoutGrid, List, ChevronRight, ChevronDown, Sparkles, StickyNote, Printer, AlertTriangle, Eye, Columns3, Download, Bookmark, X, Save, Rows2, Rows3, Rows4, Maximize2, Minimize2 } from 'lucide-react'
 import FileManager, { fieldFiles, collect as collectFiles } from '../components/FileManager.jsx'
 import ProjectDetail from './ProjectDetail.jsx'
 import { saveBlob } from '../lib/download.js'
@@ -11,6 +11,7 @@ import { PengajuanStatus, DownloadBukti } from '../components/Pengajuan.jsx'
 import { SUB_TYPES } from '../config/subtypes.js'
 import { ProjectTypes, TypeBadge, PrintBadge, DemoBadge, InvoiceNo, DeadlineCell, NoteIcon } from '../components/badges.jsx'
 import { Button, Card, Empty, Input, Pill, Progress, Tabs, Sheet, Popover, cx } from '../components/ui.jsx'
+import { DENSITIES, useDensity } from '../lib/density.js'
 import { dayKey, addDays } from '../lib/performance.js'
 import { daysLeft, rupiah, tgl } from '../lib/format.js'
 import ProjectForm from './ProjectForm.jsx'
@@ -62,6 +63,19 @@ export default function Projects() {
   // project lewat deadline & belum selesai — selalu dipajang di atas tabel (hilang otomatis saat selesai)
   const late = useMemo(() => list.filter((p) => !isDone(p) && daysLeft(p.about?.deadline) < 0), [list])
   const rest = useMemo(() => late.length ? list.filter((p) => !late.includes(p)) : list, [list, late])
+
+  // pengatur tampilan daftar: kepadatan baris, ukuran huruf, dan mode layar penuh
+  const [density, setDensity] = useDensity()
+  const [zoom, setZoom] = useState(() => { const v = Number(localStorage.getItem('atlas-proj-zoom')); return v >= 70 && v <= 150 ? v : 100 })
+  useEffect(() => { try { localStorage.setItem('atlas-proj-zoom', String(zoom)) } catch { /* abaikan */ } }, [zoom])
+  const [full, setFull] = useState(false)
+  useEffect(() => { // Esc untuk keluar dari layar penuh
+    if (!full) return
+    const f = (e) => e.key === 'Escape' && setFull(false)
+    window.addEventListener('keydown', f)
+    document.body.style.overflow = 'hidden'
+    return () => { window.removeEventListener('keydown', f); document.body.style.overflow = '' }
+  }, [full])
 
   const tabs = [
     { value: 'all', label: 'Semua', count: scoped.length },
@@ -135,6 +149,7 @@ export default function Projects() {
             )}
             <button onClick={() => exportCsv(list, cols)} aria-label="Ekspor CSV" title="Ekspor daftar (sesuai filter) ke CSV"
               className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand"><Download className="h-4 w-4" /></button>
+            <ViewTools density={density} setDensity={setDensity} zoom={zoom} setZoom={setZoom} full={full} setFull={setFull} />
           </div>
 
           <FilterChips chips={[
@@ -148,6 +163,8 @@ export default function Projects() {
           ].filter(Boolean)} reset={() => { setTab('all'); setQ(''); setStatus('aktif'); setDlFilter(null); setPrFilter(''); setBpFilter({ branch: '', print: '' }) }} />
 
           {list.length > shownN && <p className="text-xs text-ink-mute">Menampilkan {shownN} dari {list.length} project</p>}
+          <ZoomArea zoom={zoom} full={full} onClose={() => setFull(false)} count={list.length}
+            tools={<ViewTools density={density} setDensity={setDensity} zoom={zoom} setZoom={setZoom} full={full} setFull={setFull} />}>
           {list.length === 0 && !(view === 'list' && (dlFilter || bpFilter.branch || bpFilter.print || q || tab !== 'all')) ? (
             <Card><Empty icon={FolderOpen} title="Belum ada project" text="Buat project baru dari invoice Zoho." action={<Button onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" />Project Baru</Button>} /></Card>
           ) : view === 'list' ? <ProjectList list={rest.slice(0, shownN)} late={late} dlFilter={dlFilter} setDlFilter={setDlFilter} prFilter={prFilter} setPrFilter={setPrFilter} cols={cols} detailFor={detailFor} setDetailFor={setDetailFor} filesFor={filesFor} setFilesFor={setFilesFor} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
@@ -156,6 +173,7 @@ export default function Projects() {
             </div>
           )}
           {list.length > shownN && <Button variant="outline" className="w-full" onClick={() => setShownN((n) => n + 36)}>Tampilkan 36 lagi ({list.length - shownN} tersisa)</Button>}
+          </ZoomArea>
         </>
       )}
 
@@ -182,6 +200,61 @@ export default function Projects() {
         </button>
       )}
       {formOpen && <ProjectForm onClose={() => setFormOpen(false)} />}
+    </div>
+  )
+}
+
+// ============================================================
+//  PENGATUR TAMPILAN DAFTAR PROJECT (khusus My Project)
+//  Kepadatan baris (rapat/normal/lega) · ukuran huruf · layar penuh.
+//  Hanya mengubah tampilan — data, filter, dan kolomnya tidak tersentuh.
+// ============================================================
+const ZOOM_STEPS = [70, 80, 90, 100, 110, 125, 150]
+function ViewTools({ density, setDensity, zoom, setZoom, full, setFull }) {
+  const i = DENSITIES.findIndex(([k]) => k === density)
+  const next = DENSITIES[(i + 1) % DENSITIES.length]
+  const zi = ZOOM_STEPS.indexOf(zoom) === -1 ? ZOOM_STEPS.indexOf(100) : ZOOM_STEPS.indexOf(zoom)
+  const step = (d) => setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, zi + d))])
+  return (
+    <>
+      <div className="flex shrink-0 items-center rounded-xl bg-white p-1 ring-1 ring-slate-200" role="group" aria-label="Ukuran huruf daftar">
+        <button type="button" onClick={() => step(-1)} disabled={zi === 0} aria-label="Perkecil huruf" title="Perkecil huruf"
+          className="grid h-8 w-8 place-items-center rounded-lg text-ink-mute hover:bg-slate-50 hover:text-brand disabled:opacity-30"><Minus className="h-4 w-4" /></button>
+        <button type="button" onClick={() => setZoom(100)} title="Kembalikan ke ukuran normal" aria-label={`Ukuran huruf ${zoom} persen, klik untuk normal`}
+          className="min-w-[42px] px-1 text-center text-[11px] font-bold tabular-nums text-ink-soft hover:text-brand">{zoom}%</button>
+        <button type="button" onClick={() => step(1)} disabled={zi === ZOOM_STEPS.length - 1} aria-label="Perbesar huruf" title="Perbesar huruf"
+          className="grid h-8 w-8 place-items-center rounded-lg text-ink-mute hover:bg-slate-50 hover:text-brand disabled:opacity-30"><Plus className="h-4 w-4" /></button>
+      </div>
+      <button type="button" onClick={() => setDensity(next[0])} aria-label={`Kepadatan baris: ${DENSITIES[i]?.[1] || 'Normal'} — klik untuk ${next[1]}`}
+        title={`Jarak atas-bawah baris: ${DENSITIES[i]?.[1] || 'Normal'} — klik untuk ${next[1]}`}
+        className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-white px-2.5 text-[11px] font-semibold text-ink-mute ring-1 ring-slate-200 hover:text-brand">
+        {density === 'compact' ? <Rows3 className="h-4 w-4" /> : density === 'lega' ? <Rows2 className="h-4 w-4" /> : <Rows4 className="h-4 w-4" />}
+        <span className="hidden sm:inline">{DENSITIES[i]?.[1] || 'Normal'}</span>
+      </button>
+      <button type="button" onClick={() => setFull(!full)} aria-pressed={full} aria-label={full ? 'Keluar dari layar penuh' : 'Lihat tabel layar penuh'}
+        title={full ? 'Keluar dari layar penuh (Esc)' : 'Layar penuh — lihat seluruh tabel'}
+        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand">
+        {full ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+      </button>
+    </>
+  )
+}
+
+/** Pembungkus daftar: menerapkan ukuran huruf & mode layar penuh. */
+function ZoomArea({ zoom, full, onClose, tools, count, children }) {
+  const body = <div style={zoom === 100 ? undefined : { zoom: zoom / 100 }}>{children}</div>
+  if (!full) return <div className="space-y-3">{body}</div>
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col bg-[var(--page)]">
+      <div className="border-b border-slate-200 bg-white px-3 py-2 sm:flex sm:items-center sm:gap-2">
+        <div className="flex items-center gap-2">
+          <b className="min-w-0 flex-1 truncate text-sm">Tabel Project <span className="font-normal text-ink-mute">({count})</span></b>
+          <button type="button" onClick={onClose} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand sm:order-last" aria-label="Tutup layar penuh"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2 sm:ml-auto sm:mt-0">{tools}</div>
+      </div>
+      {/* di layar penuh kepala tabel menempel di atas wadah ini, bukan di bawah header aplikasi */}
+      <div className="min-h-0 flex-1 space-y-3 overflow-auto p-3" style={{ '--list-top': '0px' }}>{body}</div>
     </div>
   )
 }
@@ -300,7 +373,6 @@ export const COLUMNS = [
   { key: 'deadline', label: 'Deadline', w: 'minmax(0,1fr)',
     cell: (p) => <DeadlineCell project={p} done={isDone(p)} align="left" /> },
   { key: 'layanan', label: 'Layanan', w: 'minmax(0,0.9fr)', cell: (p) => <ProjectTypes project={p} /> },
-  { key: 'catatan', label: 'Catatan', w: '56px', cls: 'flex justify-start pt-0.5', cell: (p) => <NoteIcon note={p.about?.notes} /> },
   { key: 'cabang', label: 'Cabang / Print', w: 'minmax(0,1fr)', cls: 'min-w-0 pt-0.5',
     cell: (p) => (
       <>
@@ -350,6 +422,8 @@ function ProjectList({ list: listAll, late: lateAll = [], dlFilter, setDlFilter,
                   <span className="flex items-center justify-end gap-1">
                     <button type="button" onClick={(e) => { e.stopPropagation(); setDetailFor(p); setFilesFor(null) }} aria-label={`Detail ${p.invoice_no}`} title="Detail project (panel kanan)"
                       className={cx('grid h-7 w-7 place-items-center rounded-lg ring-1 transition', detailFor?.id === p.id ? 'bg-brand text-white ring-brand' : 'bg-white text-brand ring-brand/30 hover:bg-brand hover:text-white')}><Eye className="h-4 w-4" /></button>
+                    {/* ikon catatan: tepat setelah ikon mata, hanya muncul bila project punya catatan */}
+                    <NoteIcon note={p.about?.notes} className="shrink-0" />
                     <button type="button" onClick={(e) => { e.stopPropagation(); setFilesFor(p) }} aria-label={`File project ${p.invoice_no}`} title="Folder file project (preview, print, download)"
                       className="relative grid h-7 w-7 place-items-center rounded-lg bg-white text-ink-soft ring-1 ring-slate-300 hover:bg-ink hover:text-white"><FolderOpen className="h-4 w-4" />{fileCount(p) > 0 && <span className="absolute -right-1 -top-1 grid h-3.5 min-w-[14px] place-items-center rounded-full bg-ink px-0.5 text-[9px] font-bold text-white">{fileCount(p)}</span>}</button>
                     <button type="button" onClick={(e) => { e.stopPropagation(); toggle(p.id) }} aria-expanded={open.has(p.id)} aria-label={`${open.has(p.id) ? 'Tutup' : 'Buka'} rincian ${p.invoice_no}`} title="Rincian sub project, data terjemahan & catatan"
@@ -386,7 +460,7 @@ function ProjectList({ list: listAll, late: lateAll = [], dlFilter, setDlFilter,
   return (
     <Card className="overflow-visible">
       <div style={{ gridTemplateColumns: gridCols }}
-        className="pointer-events-none sticky top-[var(--appbar)] z-10 hidden gap-3 rounded-t-2xl border-b border-slate-200 bg-slate-50/95 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-mute backdrop-blur lg:grid">
+        className="pointer-events-none sticky top-[var(--list-top,var(--appbar))] z-10 hidden gap-3 rounded-t-2xl border-b border-slate-200 bg-slate-50/95 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-mute backdrop-blur lg:grid">
         {COLUMNS.filter((c) => show(c.key)).map((c) => {
           if (c.key === 'prioritas') return (
             <button key={c.key} type="button" onClick={() => setPrOpen(true)} className={cx('pointer-events-auto flex items-center gap-1 text-left uppercase hover:text-brand', prFilter && 'text-brand')} title="Filter prioritas">

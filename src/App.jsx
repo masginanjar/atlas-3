@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, PanelLeftClose, PanelLeftOpen, Rows3, Rows2, Stamp, ReceiptText, StickyNote, AlarmClock, FilePlus2, MoreHorizontal, CalendarDays, ChevronDown, MessageCircle } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, PanelLeftClose, PanelLeftOpen, Stamp, ReceiptText, StickyNote, AlarmClock, FilePlus2, MoreHorizontal, CalendarDays, ChevronDown, MessageCircle } from 'lucide-react'
 import { useApp } from './lib/store.jsx'
 import Avatar from './components/Avatar.jsx'
 import { MODE, storageError, db } from './lib/db.js'
@@ -35,6 +35,8 @@ import HeaderUser from './components/HeaderUser.jsx'
 import QuickActions from './components/QuickActions.jsx'
 import { PanelProvider } from './components/WorkspacePanel.jsx'
 import SessionGuard from './components/SessionGuard.jsx'
+import ChatDock from './components/ChatDock.jsx'
+import { useDensity } from './lib/density.js'
 
 // Router sederhana berbasis hash: #/dashboard, #/projects, #/projects/<id>, #/settings
 function useRoute() {
@@ -73,19 +75,13 @@ const useSidebar = () => {
   const [mini, setMini] = useState(() => { try { return localStorage.getItem('atlas-sidebar') === 'mini' } catch { return false } })
   return [mini, () => setMini((v) => { const n = !v; try { localStorage.setItem('atlas-sidebar', n ? 'mini' : 'full') } catch { /* abaikan */ } return n })]
 }
-/** Kepadatan tampilan: comfortable (default) / compact. */
-export const useDensity = () => {
-  const [d, setD] = useState(() => { try { return localStorage.getItem('atlas-density') || 'comfortable' } catch { return 'comfortable' } })
-  useEffect(() => { document.documentElement.dataset.density = d; try { localStorage.setItem('atlas-density', d) } catch { /* abaikan */ } }, [d])
-  return [d, setD]
-}
 
 export default function App() {
   const { user, data, setActiveRole, booting, signOut, toast, dismissToast, notify, branchFilter, setBranchFilter, confirmState, setConfirmState, unlinkedInvoices, chatTotals } = useApp()
   const [page, param] = useRoute()
   const [mini, toggleMini] = useSidebar()
   useEffect(() => { applyTheme(readTheme()) }, []) // tema tersimpan diterapkan saat aplikasi dibuka
-  const [density, setDensity] = useDensity()
+  useDensity() // menerapkan kepadatan tersimpan ke seluruh aplikasi
   const [more, setMore] = useState(false)
   // kelompok sidebar yang sedang diciutkan (disimpan per browser)
   const [shut, setShut] = useState(() => { try { return JSON.parse(localStorage.getItem('atlas-nav-shut') || '[]') } catch { return [] } })
@@ -183,11 +179,7 @@ export default function App() {
                   {rolesOf(user).map((r) => <option key={r} value={r}>Peran: {roleLabel(user, r)}</option>)}
                 </select>
               )}
-              <button onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')} aria-pressed={density === 'compact'}
-                title={density === 'compact' ? 'Kepadatan: Compact — klik untuk Comfortable' : 'Kepadatan: Comfortable — klik untuk Compact'} aria-label="Ganti kepadatan tampilan"
-                className="hidden h-11 w-11 place-items-center rounded-xl text-ink-mute ring-1 ring-slate-200 hover:bg-white hover:text-brand lg:grid">
-                {density === 'compact' ? <Rows3 className="h-4 w-4" /> : <Rows2 className="h-4 w-4" />}
-              </button>
+              {/* Pengatur kepadatan pindah ke bilah alat My Project (dekat tombol Ekspor) */}
               <span className="hidden lg:block"><GlobalSearch /></span>
               <span className="hidden lg:block"><QuickActions /></span>
               <span className="mx-0.5 hidden h-5 w-px bg-slate-200 lg:block" />
@@ -234,6 +226,9 @@ export default function App() {
           <Suspense fallback={<div className="grid place-items-center py-24"><Loader2 className="h-5 w-5 animate-spin text-brand" /></div>}>{view}</Suspense>
         </main>
       </div>
+
+      {/* Chat menempel di bawah — tidak muncul di halaman Pesan Masuk (sudah ada di sana) */}
+      <ChatDock hidden={page === 'pesan'} />
 
       {/* Bottom nav mobile */}
       <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/70 bg-white/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
