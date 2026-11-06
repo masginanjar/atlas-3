@@ -15,8 +15,12 @@ export const IDLE_AFTER = 15 * 60 * 1000 // 15 menit tanpa interaksi → Idle
 
 const ms = (v) => (v ? new Date(v).getTime() : 0)
 
-/** 'online' | 'idle' | 'offline' — murni dari dua kolom di atas. */
+/** Direktur ditampilkan tersedia terus — bisa dimatikan sendiri di Setting → Preferensi. */
+export const always24h = (u) => (u?.base_role || u?.role) === 'direktur' && u?.available_24h !== false
+
+/** 'online' | 'idle' | 'offline' — dari dua kolom di atas; Direktur selalu 'online'. */
 export function statusOf(u, now = Date.now()) {
+  if (always24h(u)) return 'online'
   if (ms(u?.online_until) < now) return 'offline'
   return now - ms(u?.last_active_at) > IDLE_AFTER ? 'idle' : 'online'
 }

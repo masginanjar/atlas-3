@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Users, Search, MessageCircle } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { ROLES, PROOFREADER_TEAM, roleLabel, placeOf, seeProofreaderIdentity } from '../config/access.js'
-import { STATUS, statusOf, sinceLabel, IDLE_AFTER } from '../lib/presence.js'
+import { STATUS, statusOf, sinceLabel, IDLE_AFTER, always24h } from '../lib/presence.js'
 import Avatar from './Avatar.jsx'
 import { Popover, cx } from './ui.jsx'
 import { go } from '../lib/router.js'
@@ -32,8 +32,8 @@ export function teamFor(viewer, users, now = Date.now()) {
     if (HIDE_ROLES.includes(role) && !self) continue
     if (TEAM_ROLES.includes(role) && !show && !self) { tim.push(u); continue }
     // Direktur: tersedia 24 jam (bisa dimatikan sendiri di Setting → Preferensi)
-    const dir = role === 'direktur' && u.available_24h !== false
-    rows.push({ id: u.id, name: shortName(u.name), user: u, self: u.id === viewer?.id, role: u.role, roleText: roleLabel(u), place: placeOf(u), dir, status: dir ? 'online' : statusOf(u, now), since: u.last_active_at, h24: dir })
+    const dir = always24h(u) // Direktur: tampil Online terus & selalu di urutan pertama
+    rows.push({ id: u.id, name: shortName(u.name), user: u, self: u.id === viewer?.id, role: u.role, roleText: roleLabel(u), place: placeOf(u), dir, status: statusOf(u, now), since: u.last_active_at, h24: dir })
   }
   if (tim.length) {
     // satu identitas: hanya jumlah yang online yang dibagikan, tanpa nama perorangan
@@ -57,13 +57,13 @@ function Row({ r, now, onChat }) {
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">
           <span className="min-w-0 truncate text-[13px] font-semibold text-ink">{r.name}</span>
-          {r.h24 && <span title="Bisa dihubungi kapan saja" className="shrink-0 rounded-full bg-amber-50 px-1.5 py-px text-[10px] font-bold text-amber-700 ring-1 ring-amber-200">24 jam</span>}
         </span>
         <span className="block truncate text-[11px] text-ink-mute">{r.roleText} · {r.place}</span>
       </span>
       <span className="shrink-0 text-right">
         <span className={cx('block text-[11px] font-bold', s.text)}>{s.label}{r.team ? ` ${r.online}/${r.team}` : ''}</span>
-        <span className="block text-[10px] text-ink-mute">{sinceLabel(r.since, now)}</span>
+        {/* Direktur tampil Online terus — waktu "terakhir aktif" tidak ditampilkan agar tidak bertentangan */}
+        {!r.h24 && <span className="block text-[10px] text-ink-mute">{sinceLabel(r.since, now)}</span>}
       </span>
       {onChat && !r.self && (
         <button type="button" onClick={() => onChat(r.id)} title={`Chat ${r.name}`} aria-label={`Chat ${r.name}`}
