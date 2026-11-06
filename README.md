@@ -96,6 +96,7 @@ db/schema.sql             ← tabel + RLS InsForge
 
 ## Keamanan
 - **Privasi pelanggan:** Penerjemah, Proofreader & Otorisator hanya melihat **nama** pelanggan (kontak, alamat pengiriman, kurir & resi disembunyikan). Di mode live, agar data benar-benar tidak terkirim ke perangkat mereka, ubah `db.list('projects')` untuk role tersebut agar membaca view `projects_worker` (lihat `db/schema.sql`) dan cabut akses langsung mereka ke tabel `projects`.
+- Payload impor sistem lama yang ada di git hanya versi tersamar. Dump pelanggan, cadangan, dan `scripts/legacy/private/` tidak boleh di-commit. Build tidak lagi bisa memilih berkas tanpa samaran.
 - Kunci Zoho & Google **hanya di server** (tanpa prefix `VITE_`).
 - Setiap `/api` memeriksa token sesi InsForge.
 - RLS membatasi project & petty cash per cabang. Superadmin bisa melihat semua cabang.

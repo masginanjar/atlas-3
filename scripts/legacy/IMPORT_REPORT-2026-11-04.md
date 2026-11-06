@@ -57,8 +57,8 @@ Status & proses asli tersimpan per subproyek (`data.legacy`) dan di Riwayat.
 
 ## Cadangan & jejak
 - Sebelum perubahan pertama, aplikasi menyimpan cadangan data di browser: `atlas-alfa-v19:backup:projects-2026-11-04.xlsx`. Log impor: `import_runs`.
-- File: `mapping-2026-11-04.csv` (baris lama → proyek/subproyek baru), `review-2026-11-04.csv` (167 catatan tinjauan + konflik), `backup-sebelum-impor-demo.json`, `transform.py` (dapat dijalankan ulang).
+- Pemetaan baris tanpa kolom kontak: `mapping-2026-11-04.csv`. Ringkasan angka: `verifikasi-2026-11-04.json`. `transform.py` dapat dijalankan ulang pada ekspor lokal.
+- Dump tanpa samaran, cadangan JSON, catatan tinjauan, dan folder `scripts/legacy/private/` tidak boleh di-commit (lihat `.gitignore`). Catatan tinjauan bisa memuat perbedaan alamat, jadi berkas itu tetap lokal.
 
 ## Versi publik (artifact)
-Artifact demo dibagikan publik, jadi build artifact (`npm run build:demo:public`) memakai payload tersamar `payload-2026-11-04.masked.json`. Nama pelanggan disamarkan (mis. "B*** C***"). Alamat, no. HP, catatan, dan isi dokumen dihapus. Nomor invoice, kategori, status, bahasa, jumlah, penerjemah/vendor, dan deadline tetap utuh. Build ini sudah dicek: tidak ada nama, alamat, atau HP asli yang ikut ter-bundle.
-Build lengkap (`npm run build` / `build:demo`) memakai data asli. Bila browser sebelumnya memuat versi tersamar, data asli otomatis melengkapi proyek yang sama tanpa membuat entri ganda (sudah diuji).
+Build demo dan build biasa memakai payload tersamar `payload-2026-11-04.masked.json`. Mode live (Supabase) tidak memuat dump itu. Nama pelanggan pada payload tersamar berbentuk inisial. Alamat, no. HP, catatan, dan isi dokumen tidak ikut. Nomor invoice, kategori, status, bahasa, jumlah, penerjemah/vendor, dan deadline tetap utuh.

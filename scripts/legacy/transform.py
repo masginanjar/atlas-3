@@ -164,10 +164,13 @@ for idx, r in enumerate(R, start=2):
         proj = groups[base] = {**head, 'subs': [], 'notes_all': [head['notes']] if head['notes'] else [], 'conflicts': []}
     else:
         for k in ('branch', 'customer_name', 'print_location', 'cs_raw', 'priority', 'courier_name'):
-            if head[k] and proj[k] and head[k] != proj[k]: proj['conflicts'].append({'field': k, 'kept': proj[k], 'other': head[k], 'row': idx})
+            if head[k] and proj[k] and head[k] != proj[k]:
+                # Nama pelanggan tidak disalin ke catatan konflik (bisa ikut ke berkas tinjauan).
+                if k == 'customer_name': proj['conflicts'].append({'field': k, 'row': idx})
+                else: proj['conflicts'].append({'field': k, 'kept': proj[k], 'other': head[k], 'row': idx})
             if head[k] and not proj[k]: proj[k] = head[k]
         if head['ship'] and not proj['ship']: proj['ship'] = head['ship']
-        elif head['ship'] and proj['ship'] and head['ship']['raw'] != proj['ship']['raw']: proj['conflicts'].append({'field': 'alamat', 'kept': proj['ship']['raw'][:60], 'other': head['ship']['raw'][:60], 'row': idx})
+        elif head['ship'] and proj['ship'] and head['ship']['raw'] != proj['ship']['raw']: proj['conflicts'].append({'field': 'alamat', 'row': idx})
         if head['notes'] and head['notes'] not in proj['notes_all']: proj['notes_all'].append(head['notes'])
         if head['received_at'] and (not proj['received_at'] or head['received_at'] < proj['received_at']): proj['received_at'] = head['received_at']
     # subproyek sama persis (kategori+detail+bahasa) di invoice yang sama -> catat, tetap simpan sebagai pekerjaan terpisah
@@ -183,7 +186,11 @@ for base, p in groups.items():
     dls = [s['deadline'] for s in p['subs'] if s['deadline']]
     p['deadline'] = min(dls) if dls else None
     p['notes'] = '\n'.join(p.pop('notes_all'))
-    for c in p['conflicts']: review.append({'row': c['row'], 'invoice': base, 'issue': f'Beda {c["field"]} antar baris: dipakai "{c["kept"]}", baris lain "{c["other"]}"'})
+    for c in p['conflicts']:
+        if c['field'] in ('alamat', 'customer_name'):
+            review.append({'row': c['row'], 'invoice': base, 'issue': f'Beda {c["field"]} antar baris — nilai pribadi tidak disalin ke catatan'})
+        else:
+            review.append({'row': c['row'], 'invoice': base, 'issue': f'Beda {c["field"]} antar baris: dipakai "{c["kept"]}", baris lain "{c["other"]}"'})
     if len({s['deadline'] for s in p['subs']}) > 1: review.append({'row': p['subs'][0]['legacy_row'], 'invoice': base, 'issue': 'Deadline subproyek berbeda — deadline proyek = paling awal; deadline tiap sub disimpan di sub'})
     projects.append(p)
 
