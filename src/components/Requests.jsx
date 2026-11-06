@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Wallet, Undo2, ShoppingCart, Plus, Upload, FileCheck2, Loader2, ChevronUp, X, Check, Inbox } from 'lucide-react'
+import { Wallet, Undo2, ShoppingCart, Plus, Upload, FileCheck2, Loader2, ChevronUp, X, Check, Inbox, Ban, Banknote } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { drive } from '../lib/integrations.js'
 import { BRANCHES, can, branchesOf, pettyAccountsOf, pettyLabel, APOSTILLE_FUND, scopeByBranch } from '../config/access.js'
@@ -10,7 +10,7 @@ import CopyText from './CopyText.jsx'
 import { Button, Card, Field, Input, Select, Sheet, Textarea, cx } from './ui.jsx'
 import { rupiah, tgl } from '../lib/format.js'
 import TimeAgo from './TimeAgo.jsx'
-import { FinHead, FinBar, FinRow, FinAmount, FinActions, Rek } from './FinLayout.jsx'
+import { FinHead, FinBar, FinRow, FinAmount, FinActions, Rek, FinCell } from './FinLayout.jsx'
 
 // ============================================================
 //  PENGAJUAN UMUM (tanpa invoice): Top Up Petty Cash, Refund, Lain-lain.
@@ -128,14 +128,17 @@ export function RequestBoard({ bare }) {
               const f = get(r.id); const p = projectOf(r)
               return (
                 <FinRow key={r.id}>
-                  <span className="min-w-0">
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5"><KindBadge kind={r.kind} /><span className="truncate text-sm font-semibold text-ink">{r.purpose || '—'}</span></span>
-                    <span className="block truncate text-xs text-ink-soft">{r.requested_name || nameOf(r.requested_by)} · {r.branch}{r.kind === 'refund' && p ? <> · <CopyText text={p.invoice_no} label="No. Invoice" strong /> · {p.customer?.name} · <a href={`#/projects/${p.id}`} className="font-semibold text-brand hover:underline">buka</a></> : null}</span>
-                    <span className="flex items-center gap-2"><TimeAgo at={r.created_at} prefix="Diajukan" className="!mt-0" />{r.attachment && <DownloadBukti file={r.attachment} label="Lampiran" />}</span>
+                  {/* Jenis: badge di atas, waktu di bawah */}
+                  <span className="block min-w-0">
+                    <KindBadge kind={r.kind} />
+                    <span className="mt-0.5 flex min-w-0 items-center gap-2"><TimeAgo at={r.created_at} prefix="Diajukan" className="!mt-0" />{r.attachment && <DownloadBukti file={r.attachment} label="Lampiran" />}</span>
                   </span>
+                  {/* Deskripsi: keterangan di atas, nama CS & cabang di bawah */}
+                  <FinCell title={r.purpose || ''} top={r.purpose || '—'}
+                    bottom={<>{r.requested_name || nameOf(r.requested_by)} · {r.branch}{r.kind === 'refund' && p ? <> · <CopyText text={p.invoice_no} label="No. Invoice" strong /> · {p.customer?.name} · <a href={`#/projects/${p.id}`} className="font-semibold text-brand hover:underline">buka</a></> : null}</>} />
                   <FinAmount value={r.amount} sub={r.sumber_dana && can.seeFunding(user) ? `Dana ${r.sumber_dana}` : null} />
-                  <span className="min-w-0">{r.kind === 'topup' ? <span className="text-xs font-semibold text-emerald-700">→ {pettyLabel(r.fund || r.branch)}</span> : <Rek acc={r.recipient} empty="— (tunai / belum diisi)" />}</span>
-                  <span className="min-w-0 text-xs"><ReqStatus status={r.status} />
+                  <span className="min-w-0">{r.kind === 'topup' ? <span className="text-[13px] font-semibold text-emerald-700">→ {pettyLabel(r.fund || r.branch)}</span> : <Rek acc={r.recipient} empty="— (tunai / belum diisi)" />}</span>
+                  <span className="min-w-0 text-[13px]"><ReqStatus status={r.status} />
                     {r.status === 'ditolak' && <span className="mt-0.5 block truncate text-[11px] text-ink-mute" title={r.rejected_reason}>{r.rejected_reason}</span>}
                     {r.status === 'dibayar' && <span className="mt-0.5 block text-[11px] text-ink-mute">{tgl(r.paid_date)} · {r.paid_name}</span>}
                     {r.approved_name && r.status !== 'ditolak' && r.status !== 'dibayar' && <span className="block text-[11px] text-ink-mute">ACC {r.approved_name}</span>}
@@ -149,18 +152,18 @@ export function RequestBoard({ bare }) {
                     ) : f.reject ? (
                       <span className="flex w-full gap-1.5 lg:w-[280px]"><Input value={f.reason} onChange={(e) => set(r.id, { reason: e.target.value })} placeholder="Alasan ditolak" className="!h-8 text-xs" aria-label="Alasan penolakan" /><Button size="sm" variant="danger" loading={f.busy} onClick={() => reject(r)}>Tolak</Button><Button size="sm" variant="ghost" onClick={() => set(r.id, { reject: false })} aria-label="Batal"><X className="h-3.5 w-3.5" /></Button></span>
                     ) : (
-                      <><QuickAcc branch={r.branch} busy={f.busy} onAcc={(d) => approve(r, d)} onPick={(d) => set(r.id, { acc: true, dana: d })} /><Button size="sm" variant="outline" onClick={() => set(r.id, { reject: true })}>Tolak</Button></>
+                      <><QuickAcc branch={r.branch} busy={f.busy} onAcc={(d) => approve(r, d)} onPick={(d) => set(r.id, { acc: true, dana: d })} /><Button size="sm" variant="outline" className="!h-11 !w-11 sm:!h-8 sm:!w-10" onClick={() => set(r.id, { reject: true })} title="Tolak pengajuan" aria-label="Tolak pengajuan"><Ban className="h-4 w-4" /></Button></>
                     ))}
                     {r.status === 'disetujui' && canPay && (
                       <>
-                        <Input type="date" value={f.date} onChange={(e) => set(r.id, { date: e.target.value })} className="!h-8 !w-[130px] !px-2 text-xs" aria-label="Tanggal bayar" />
+                        <Input type="date" value={f.date} onChange={(e) => set(r.id, { date: e.target.value })} className="!h-8 !w-[116px] shrink-0 !px-1.5 text-xs" aria-label="Tanggal bayar" />
                         {f.file ? <span className="flex max-w-[110px] items-center gap-1 truncate text-xs font-semibold text-emerald-700"><FileCheck2 className="h-4 w-4 shrink-0" />{f.file.name}</span> : (
-                          <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-white px-2.5 text-xs font-semibold text-ink-soft ring-1 ring-slate-300 hover:text-brand hover:ring-brand">
-                            {f.up ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}Bukti
+                          <label title="Upload bukti transfer" aria-label="Upload bukti transfer" className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg bg-white text-ink-soft ring-1 ring-slate-300 hover:text-brand hover:ring-brand sm:h-8 sm:w-10">
+                            {f.up ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                             <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => upload(r, e.target.files?.[0])} aria-label={`Upload bukti pengajuan ${r.purpose}`} />
                           </label>
                         )}
-                        <Button size="sm" loading={f.busy} disabled={!f.file} onClick={() => pay(r)}>Tandai Dibayar</Button>
+                        <Button size="sm" className="!h-11 !w-11 sm:!h-8 sm:!w-10" loading={f.busy} disabled={!f.file} onClick={() => pay(r)} title="Tandai sudah dibayar" aria-label="Tandai sudah dibayar"><Banknote className="h-4 w-4" /></Button>
                       </>
                     )}
                     {r.status === 'dibayar' && <DownloadBukti file={r.bukti_transfer} />}

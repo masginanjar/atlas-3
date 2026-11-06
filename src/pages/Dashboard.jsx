@@ -21,7 +21,7 @@ import { TypeBadge, PrintBadge, DemoBadge } from '../components/badges.jsx'
 import { Card, Empty, Input, Sheet, cx } from '../components/ui.jsx'
 import { daysLeft, rupiah, tgl, stageArrivedAt } from '../lib/format.js'
 import TimeAgo from '../components/TimeAgo.jsx'
-import { FinHead, FinBar, FinRow, FinAmount, FinActions, Rek, DanaChip } from '../components/FinLayout.jsx'
+import { FinHead, FinBar, FinRow, FinAmount, FinActions, Rek, DanaChip, FinCell } from '../components/FinLayout.jsx'
 
 /** Statistik dashboard (dipakai Dashboard & halaman Keuangan). */
 export function useDashStats() {
@@ -389,12 +389,13 @@ function PengajuanBoard({ title, rows, mode, empty, bare }) {
             return (
               <li key={r.id} className={cx(expanded && 'bg-brand-soft/20')}>
                 <FinRow>
-                  <span className="min-w-0">
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5"><b className="whitespace-nowrap text-sm">{r.project.invoice_no}</b><DemoBadge project={r.project} /><span className="text-xs text-ink-mute">{r.project.branch}</span></span>
-                    <span className="block truncate text-xs text-ink-soft">{r.title} · {r.data?.vendor_service || '—'}</span>
-                    <span className="flex items-center gap-2"><TimeAgo at={(r.data?.submitted_at || stageArrivedAt(r, r.project))} prefix="Diajukan" className="!mt-0" />
-                      <button type="button" onClick={() => setOpen(open === r.id ? null : r.id)} aria-expanded={open === r.id} className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-brand hover:underline">{open === r.id ? 'Tutup rincian' : 'Rincian'}<ChevronDown className={cx('h-3 w-3 transition', open === r.id && 'rotate-180')} /></button></span>
+                  <span className="block min-w-0">
+                    <span className="flex min-w-0 flex-wrap items-center gap-x-2"><b className="whitespace-nowrap text-[15px]">{r.project.invoice_no}</b><DemoBadge project={r.project} /></span>
+                    <span className="mt-0.5 flex min-w-0 items-center gap-2"><TimeAgo at={(r.data?.submitted_at || stageArrivedAt(r, r.project))} prefix="Diajukan" className="!mt-0" />
+                      <button type="button" onClick={() => setOpen(open === r.id ? null : r.id)} aria-expanded={open === r.id} className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-brand hover:underline">{open === r.id ? 'Tutup' : 'Rincian'}<ChevronDown className={cx('h-3 w-3 transition', open === r.id && 'rotate-180')} /></button></span>
                   </span>
+                  <FinCell title={r.title} top={`${r.title} · ${r.data?.vendor_service || '—'}`}
+                    bottom={`${r.project.about?.cs_name || nameOf(r.project.created_by) || '—'} · ${r.project.branch}`} />
                   <FinAmount value={totalPengajuan(r.data)} sub={r.data?.sumber_dana && mode !== 'acc' ? `Dana ${r.data.sumber_dana}` : null} />
                   <span className="min-w-0"><span className="block truncate text-xs font-semibold text-ink">{v?.name || 'Vendor'}</span><Rek acc={v?.accounts?.[0]} empty="Belum ada rekening vendor" emptyHref="#/settings/vendor" /></span>
                   <span><PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} /></span>
@@ -403,7 +404,7 @@ function PengajuanBoard({ title, rows, mode, empty, bare }) {
                       ? (accFor === r.id ? <Button size="sm" variant="outline" onClick={() => setAccFor(null)}>Batal</Button>
                         : <QuickAcc branch={r.project.branch} busy={busy === r.id} onAcc={(d) => acc(r, d)} onPick={(d) => { setAccFor(r.id); setSumber(r.data?.sumber_dana || d) }} />)
                       : <Button size="sm" variant="outline" onClick={() => go(`projects/${r.project.id}`)}>Proses Bayar</Button>}
-                    <Button size="sm" variant="outline" className="!text-rose-700 !ring-rose-300 hover:!bg-rose-50" title="Kembalikan ke pengaju untuk diperbaiki" onClick={() => setRejectFor(rejectFor === r.id ? null : r.id)}><Undo2 className="h-3.5 w-3.5" /><span className="hidden sm:inline">Tolak / Perbaiki</span></Button>
+                    <Button size="sm" variant="outline" className="!h-11 !w-11 !text-rose-700 !ring-rose-300 hover:!bg-rose-50 sm:!h-8 sm:!w-10" title="Tolak / Perbaiki — kembalikan ke pengaju" aria-label="Tolak / Perbaiki" onClick={() => setRejectFor(rejectFor === r.id ? null : r.id)}><Undo2 className="h-4 w-4" /></Button>
                   </FinActions>
                 </FinRow>
                 {rejectFor === r.id && <div className="px-4 pb-3"><RejectPengajuan project={r.project} sub={r} defaultOpen onDone={() => setRejectFor(null)} /></div>}
@@ -470,23 +471,24 @@ function PayTable({ rows, paid, bare }) {
             const f = get(r.id); const acc = vendorOf(r)?.accounts?.[0]
             return (
               <FinRow key={r.id}>
-                <span className="min-w-0">
-                  <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5"><CopyText text={r.project.invoice_no} label="No. Invoice" strong /><span className="text-xs text-ink-mute">{r.project.branch}</span></span>
-                  <span className="block truncate text-xs text-ink-soft"><CopyText text={r.project.customer?.name} label="Nama Pelanggan" /> · {vendorOf(r)?.name} · {r.data?.vendor_service}</span>
-                  <span className="flex items-center gap-2"><TimeAgo at={r.data?.approved_at || stageArrivedAt(r, r.project)} prefix="ACC" className="!mt-0" /><a href={`#/projects/${r.project.id}`} className="text-[11px] font-semibold text-brand hover:underline">Buka project</a></span>
+                <span className="block min-w-0">
+                  <CopyText text={r.project.invoice_no} label="No. Invoice" strong />
+                  <span className="mt-0.5 flex min-w-0 items-center gap-2"><TimeAgo at={r.data?.approved_at || stageArrivedAt(r, r.project)} prefix="ACC" className="!mt-0" /><a href={`#/projects/${r.project.id}`} className="text-[11px] font-semibold text-brand hover:underline">Buka</a></span>
                 </span>
+                <FinCell title={r.title} top={`${r.title} · ${r.data?.vendor_service || '—'}`}
+                  bottom={<>{r.project.customer?.name || '—'} · {r.project.about?.cs_name || '—'} · {r.project.branch}</>} />
                 <FinAmount value={totalPengajuan(r.data)} sub={r.data?.sumber_dana ? `Dana ${r.data.sumber_dana}` : null} />
                 <Rek acc={acc} empty="Belum ada rekening — isi di Setting → Vendor" emptyHref="#/settings/vendor" />
                 <span><PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} /></span>
                 <FinActions>
-                  <Input type="date" value={f.date} onChange={(e) => set(r.id, { date: e.target.value })} className="!h-8 !w-[130px] !px-2 text-xs" aria-label="Tanggal bayar" />
+                  <Input type="date" value={f.date} onChange={(e) => set(r.id, { date: e.target.value })} className="!h-8 !w-[116px] shrink-0 !px-1.5 text-xs" aria-label="Tanggal bayar" />
                   {f.file ? <span className="inline-flex max-w-[110px] items-center gap-1 truncate text-xs font-semibold text-emerald-700"><FileCheck2 className="h-4 w-4 shrink-0" />{f.file.name}</span> : (
                     <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-white px-2.5 text-xs font-semibold text-ink-soft ring-1 ring-slate-300 hover:text-brand hover:ring-brand">
-                      {f.uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}Bukti
+                      {f.uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                       <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => upload(r, e.target.files?.[0])} aria-label={`Upload bukti ${r.project.invoice_no}`} />
                     </label>
                   )}
-                  <Button size="sm" loading={f.busy} disabled={!f.file || !acc || f.uploading} onClick={() => pay(r)}>Tandai Dibayar</Button>
+                  <Button size="sm" className="!h-11 !w-11 sm:!h-8 sm:!w-10" loading={f.busy} disabled={!f.file || !acc || f.uploading} onClick={() => pay(r)} title="Tandai sudah dibayar" aria-label="Tandai sudah dibayar"><Banknote className="h-4 w-4" /></Button>
                 </FinActions>
               </FinRow>
             )
@@ -499,7 +501,11 @@ function PayTable({ rows, paid, bare }) {
           <ul className="divide-y divide-slate-100">
             {paid.map((r) => (
               <FinRow key={r.id}>
-                <span className="min-w-0"><a href={`#/projects/${r.project.id}`} className="block"><b className="text-sm">{r.project.invoice_no}</b><span className="block truncate text-xs text-ink-soft">{vendorOf(r)?.name} · {r.data?.vendor_service}</span></a><TimeAgo at={r.data?.paid_at || stageArrivedAt(r, r.project)} prefix="Dibayar" className="!mt-0" /></span>
+                <span className="block min-w-0">
+                  <a href={`#/projects/${r.project.id}`} className="block truncate text-[15px] font-bold text-ink hover:text-brand">{r.project.invoice_no}</a>
+                  <TimeAgo at={r.data?.paid_at || stageArrivedAt(r, r.project)} prefix="Dibayar" className="!mt-0.5" />
+                </span>
+                <FinCell top={`${vendorOf(r)?.name || '—'} · ${r.data?.vendor_service || '—'}`} bottom={r.project.customer?.name || ''} />
                 <FinAmount value={totalPengajuan(r.data)} sub={r.data?.sumber_dana ? `Dana ${r.data.sumber_dana}` : null} />
                 <Rek acc={r.data?.rekening || vendorOf(r)?.accounts?.[0]} />
                 <span><PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} /></span>
@@ -1021,17 +1027,21 @@ function MySubmissions({ rows, bare }) {
         <Send className="h-4 w-4 text-violet-600" />
         <h2 className="font-bold">Pengajuan Saya <span className="text-ink-mute">({rows.length})</span></h2>
       </div>}
-      <FinHead cols={['Pengajuan', 'Nominal', 'Vendor / Layanan', 'Status', '']} />
+      <FinHead cols={['Pengajuan', 'Deskripsi', 'Nominal', 'Vendor / Layanan', 'Status', '']} />
       {!rows.length ? <p className="px-4 py-6 text-center text-sm text-ink-mute">Belum ada pengajuan vendor dari Anda.</p> : (
       <ul className="divide-y divide-slate-100">
         {rows.slice(0, 8).map((r) => (
           <FinRow key={r.id} onClick={() => go(`projects/${r.project.id}`)}>
-            <span className="min-w-0"><b className="text-sm">{r.project.invoice_no}</b><span className="block truncate text-xs text-ink-soft">{r.title}</span><TimeAgo at={(r.data?.submitted_at || stageArrivedAt(r, r.project))} prefix="Diajukan" className="!mt-0" /></span>
+            <span className="block min-w-0">
+              <b className="block truncate text-[15px]">{r.project.invoice_no}</b>
+              <TimeAgo at={(r.data?.submitted_at || stageArrivedAt(r, r.project))} prefix="Diajukan" className="!mt-0.5" />
+            </span>
+            <FinCell title={r.title} top={r.title} bottom={r.project.customer?.name || ''} />
             <FinAmount value={totalPengajuan(r.data)} sub={r.data?.sumber_dana ? `Dana ${r.data.sumber_dana}` : null} />
             <span className="min-w-0 text-xs"><span className="block truncate font-semibold text-ink">{vendorOf(r)?.name || '—'}</span><span className="block truncate text-ink-mute">{r.data?.vendor_service || '—'}</span></span>
             <span><PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} /></span>
             <span />
-            <span className="lg:col-span-5"><PengajuanTracker sub={r} compact /><RevisionNote sub={r} className="mt-1.5" /></span>
+            <span className="lg:col-span-6"><PengajuanTracker sub={r} compact /><RevisionNote sub={r} className="mt-1.5" /></span>
           </FinRow>
         ))}
       </ul>)}
