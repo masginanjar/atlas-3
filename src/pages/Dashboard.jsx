@@ -19,6 +19,7 @@ import { Button } from '../components/ui.jsx'
 import { useEffect, useState } from 'react'
 import { coverHariIni, sapaan } from '../lib/cover.js'
 import { myReminders, nextAt } from './Reminders.jsx'
+import PingBoard from '../components/PingBoard.jsx'
 import { TypeBadge, PrintBadge, DemoBadge } from '../components/badges.jsx'
 import { Card, Empty, Input, Sheet, cx } from '../components/ui.jsx'
 import { daysLeft, rupiah, tgl, jam, stageArrivedAt } from '../lib/format.js'
@@ -79,6 +80,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-7">
+      <PingBoard />
       <Hero user={user} s={s} unlinked={unlinkedInvoices?.length ?? unlinkedInvoices ?? 0} petty={rupiah(accounts.reduce((a, k) => a + (pettyBalance(k) || 0), 0))} todoCount={TODO_GROUP_ROLES.includes(user.role) ? roleGroupCount(s, user, data.people) : todoTasks.length} />
 
       {/* Kerja saya: Performa (prioritas) + To-Do List berdampingan di layar lebar */}

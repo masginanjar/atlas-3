@@ -53,14 +53,17 @@ export default function NotificationBell() {
     return () => { document.removeEventListener('pointerdown', close); window.removeEventListener('keydown', esc) }
   }, [open])
   // buka tab yang punya item belum dibaca
-  useEffect(() => { if (open) setTab(unreadTr.length > 0 ? 'tr' : unreadN.length > 0 ? 'notif' : unreadPay.length > 0 ? 'pay' : unreadP.length > 0 ? 'ping' : 'notif') }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open) setTab(unreadN.length > 0 || unreadTr.length > 0 ? 'notif' : unreadPay.length > 0 ? 'pay' : 'notif') }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const canOpen = (projectId) => { const p = data.projects.find((x) => x.id === projectId); return !!p && scopeByBranch(user, [p], 'Semua').length > 0 }
   const openProject = async (projectId, markFn, item) => { await markFn([item]); setOpen(false); go(`projects/${projectId}`) }
-  const markAll = () => (tab === 'notif' ? markRead(unreadN) : tab === 'pay' ? markRead(unreadPay) : tab === 'tr' ? markRead(unreadTr) : markPingRead(unreadP))
-  const unreadActive = tab === 'notif' ? unreadN.length : tab === 'pay' ? unreadPay.length : tab === 'tr' ? unreadTr.length : unreadP.length
-  const toggleSound = () => { const on = !sound; setSound(on); setSoundEnabled(on); if (on) (tab === 'ping' ? playPing : tab === 'tr' ? playNeedTranslator : playCashRegister)() }
-  const listOf = (t) => (t === 'pay' ? payList : t === 'tr' ? trList : notifList)
+  const markAll = () => (tab === 'notif' ? markRead([...unreadN, ...unreadTr]) : markRead(unreadPay))
+  const unreadActive = tab === 'notif' ? unreadN.length + unreadTr.length : unreadPay.length
+  const toggleSound = () => { const on = !sound; setSound(on); setSoundEnabled(on); if (on) (tab === 'pay' ? playCashRegister : playNeedTranslator)() }
+  // Dua tab saja. Item "Perlu Penerjemah" dilebur ke Notifikasi supaya
+  // tidak ada yang hilang saat tabnya dihapus.
+  const listOf = (t) => (t === 'pay' ? payList
+    : [...notifList, ...trList].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))))
 
   const panel = open && createPortal(
     <div ref={panelRef} role="dialog" aria-label="Notifikasi" className="fixed inset-x-2 top-[3.5rem] z-[85] flex max-h-[min(80vh,640px)] flex-col overflow-hidden rounded-3xl bg-white shadow-[0_24px_60px_-20px_rgba(14,21,64,0.35)] ring-1 ring-slate-200/80 sm:inset-x-auto sm:right-4 sm:w-[440px]">
@@ -75,7 +78,7 @@ export default function NotificationBell() {
       </div>
       {/* Tab: di HP hanya ikon & bisa digeser; label muncul mulai sm */}
       <div className="flex items-center gap-1.5 overflow-x-auto px-4 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist">
-        {[['notif', 'Notifikasi', unreadN.length, Bell], ...(LEAD ? [['tr', 'Perlu Penerjemah', unreadTr.length, Languages]] : []), ['pay', 'Pembayaran', unreadPay.length, Banknote], ['ping', 'Ping', unreadP.length, BellRing]].map(([k, label, n, Icon]) => (
+        {[['notif', 'Notifikasi', unreadN.length, Bell], ['pay', 'Pembayaran', unreadPay.length, Banknote]].map(([k, label, n, Icon]) => (
           <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} aria-label={label} title={label}
             className={cx('relative inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-xs font-semibold transition', tab === k ? 'bg-gradient-to-r from-brand to-[#6d5cf6] text-white shadow-glow' : 'bg-slate-100 text-ink-soft hover:bg-slate-200')}>
             <Icon className="h-4 w-4" /><span className="hidden sm:inline">{label}</span>
@@ -87,7 +90,7 @@ export default function NotificationBell() {
       </div>
       <div className="mt-2 min-h-0 flex-1 overflow-y-auto overscroll-contain border-t border-slate-100">
         {tab !== 'ping' ? (
-          listOf(tab).length === 0 ? (tab === 'pay' ? <EmptyState icon={Banknote} title="Belum ada pembayaran" text="Pengajuan / tagihan yang sudah dibayar akan muncul di sini — dengan bunyi mesin kasir 🔔" /> : tab === 'tr' ? <EmptyState icon={Languages} title="Semua terjemahan sudah dibagi" text="Project terjemahan baru yang belum punya penerjemah/vendor akan muncul di sini — dengan bunyi lonceng 🔔" /> : <EmptyState icon={Inbox} title="Belum ada notifikasi" text="Pembaruan tahap, penugasan, dan pengajuan akan muncul di sini." />) : (
+          listOf(tab).length === 0 ? (tab === 'pay' ? <EmptyState icon={Banknote} title="Belum ada pembayaran" text="Pengajuan / tagihan yang sudah dibayar akan muncul di sini — dengan bunyi mesin kasir 🔔" /> : <EmptyState icon={Inbox} title="Belum ada notifikasi" text="Pembaruan tahap, penugasan, dan pengajuan akan muncul di sini." />) : (
             <ul className="divide-y divide-slate-100">
               {listOf(tab).slice(0, 40).map((n) => {
                 const isNew = !(n.read_by || []).includes(user.id)

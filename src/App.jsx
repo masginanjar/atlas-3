@@ -41,6 +41,7 @@ import ChatDock from './components/ChatDock.jsx'
 import { CHAT_ENABLED } from './lib/flags.js'
 
 import JamZona from './components/JamZona.jsx'
+import NotifToast from './components/NotifToast.jsx'
 import { useDensity } from './lib/density.js'
 
 // Router sederhana berbasis hash: #/dashboard, #/projects, #/projects/<id>, #/settings
@@ -241,6 +242,7 @@ export default function App() {
 
       {/* Chat menempel di bawah — tidak muncul di halaman Pesan Masuk (sudah ada di sana) */}
       {CHAT_ENABLED && <ChatDock hidden={page === 'pesan'} />}
+      <NotifToast />
 
       {/* Bottom nav mobile */}
       <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/70 bg-white/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">

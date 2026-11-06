@@ -379,14 +379,15 @@ export function AppProvider({ children }) {
   }
 
   // ---------- ping (pengingat antar-role) ----------
-  const PING_COOLDOWN_MS = 15 * 60 * 1000
+  // Batas ping pekerjaan: maksimal 3x sehari, jeda 1 jam.
+  const PING_COOLDOWN_MS = 60 * 60 * 1000
   const myPings = useMemo(() => (!user ? [] : (data.pings || []).filter((p) => p.to_user === user.id)
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))), [data.pings, user])
   /** Ping terakhir dari user ini untuk pekerjaan & penerima yang sama (untuk batas 15 menit). */
   const lastPingTo = useCallback((to_user, project_id, sub_id) => (data.pings || [])
     .filter((p) => p.from_user === user?.id && p.to_user === to_user && p.project_id === project_id && (p.sub_id || null) === (sub_id || null))
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] || null, [data.pings, user])
-  const PING_DAILY_MAX = 2
+  const PING_DAILY_MAX = 3
   const sendPing = async ({ to_user, project, sub, stage, message }) => {
     const todayKey = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Makassar' })
     const todayN = (data.pings || []).filter((p) => p.from_user === user.id && p.to_user === to_user && p.project_id === project.id && (p.sub_id || null) === (sub?.id || null)

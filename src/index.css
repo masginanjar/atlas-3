@@ -243,3 +243,13 @@ body { background-image: none; }
   .card-table td[colspan] { display: block; }
   .card-table td[colspan]::before { content: none; }
 }
+
+/* Popup notifikasi: geser masuk dari kanan. Dinonaktifkan bila pengguna
+   memilih mengurangi animasi di pengaturan perangkatnya. */
+@keyframes geserMasuk {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-\[geserMasuk_\.25s_ease-out\] { animation: none !important; }
+}
