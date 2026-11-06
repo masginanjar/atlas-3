@@ -69,6 +69,7 @@ input[type="date"] { min-height: 42px; }
 :root { --nav: #ffffff; --nav-ink: #0e1540; --nav-mute: #7a85a8; --nav-line: #e9edf5; --nav-hover: #f1f4f9; }
 [data-theme="dark"] { --nav: #141a2b; --nav-ink: #e9edf9; --nav-mute: #939db9; --nav-line: #273049; --nav-hover: #1e2539; }
 [data-density="compact"] { --row-py: 0.4rem; --row-gap: 0.3rem; }
+[data-density="lega"] { --row-py: 1.05rem; --row-gap: 0.75rem; }
 .u-row { padding-top: var(--row-py); padding-bottom: var(--row-py); }
 .u-rowgap { gap: var(--row-gap); }
 [data-density="compact"] .u-hide-compact { display: none; }
