@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Landmark, Download, Send, Wallet, Flag, CheckCircle2, Clock3, Hourglass, BadgeCheck, Undo2, X } from 'lucide-react'
+import { Landmark, Download, Send, Wallet, Flag, CheckCircle2, Clock3, Hourglass, BadgeCheck, Undo2, X, Repeat2 } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { drive } from '../lib/integrations.js'
 import { saveBlob } from '../lib/download.js'
@@ -52,7 +52,7 @@ export function RejectPengajuan({ project, sub, size = 'sm', onDone, defaultOpen
     try { await returnPengajuan(project, sub.id, why); notify(`Pengajuan ${project.invoice_no} dikembalikan untuk diperbaiki`); setOpen(false); setWhy(''); onDone?.() }
     catch (e) { notify(e.message, 'err') } finally { setBusy(false) }
   }
-  if (!open) return <Button size={size} variant="outline" className="!text-rose-700 !ring-rose-300 hover:!bg-rose-50" onClick={() => setOpen(true)} title="Kembalikan ke pengaju untuk diperbaiki"><Undo2 className="h-3.5 w-3.5" />Tolak / Perbaiki</Button>
+  if (!open) return <Button size={size} variant="outline" className="!h-11 !w-11 !text-rose-700 !ring-rose-300 hover:!bg-rose-50 sm:!h-8 sm:!w-10" onClick={() => setOpen(true)} title="Tolak / Perbaiki — kembalikan ke pengaju" aria-label="Tolak / Perbaiki"><Undo2 className="h-4 w-4" /></Button>
   return (
     <div className="w-full rounded-xl bg-rose-50 p-3 ring-1 ring-rose-200" onClick={(e) => e.stopPropagation()}>
       <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-rose-900"><Undo2 className="h-3.5 w-3.5" />Kembalikan pengajuan untuk diperbaiki</p>
@@ -120,7 +120,7 @@ export function QuickAcc({ branch, onAcc, onPick, busy, label = 'ACC' }) {
   return (
     <span className="inline-flex items-center gap-1.5">
       <Button size="sm" loading={busy} onClick={() => onAcc(rec)} title={`Rekomendasi ${sumberLabel(rec)} (cabang ${branch || '—'})`}><CheckCircle2 className="h-3.5 w-3.5" />{label} · {rec}</Button>
-      <Button size="sm" variant="outline" onClick={() => onPick(rec)} title="Pilih rekening lain">Ganti</Button>
+      <Button size="sm" variant="outline" className="!h-11 !w-11 sm:!h-8 sm:!w-10" onClick={() => onPick(rec)} title="Ganti — pilih rekening lain" aria-label="Ganti rekening"><Repeat2 className="h-4 w-4" /></Button>
     </span>
   )
 }

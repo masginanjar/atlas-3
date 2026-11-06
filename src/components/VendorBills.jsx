@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Receipt, Plus, Upload, FileCheck2, Loader2, Check, X } from 'lucide-react'
+import { Receipt, Plus, Upload, FileCheck2, Loader2, Check, X, Ban, Banknote } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { drive } from '../lib/integrations.js'
 import { can, foreignLang, branchesOf } from '../config/access.js'
@@ -9,7 +9,7 @@ import CopyText from './CopyText.jsx'
 import { Button, Field, Input, Sheet, cx } from './ui.jsx'
 import { rupiah, tgl } from '../lib/format.js'
 import TimeAgo from './TimeAgo.jsx'
-import { FinHead, FinBar, FinRow, FinAmount, FinActions, Rek } from './FinLayout.jsx'
+import { FinHead, FinBar, FinRow, FinAmount, FinActions, Rek, FinCell } from './FinLayout.jsx'
 
 // ============================================================
 //  TAGIHAN VENDOR — untuk vendor bertermin "sesuai tagihan" / "bulanan".
@@ -95,17 +95,19 @@ export default function VendorBills() {
             </span>
           )
         })} />
-      <FinHead cols={['Tagihan', 'Nominal', 'Rekening Vendor', 'Status', 'Aksi']} />
+      <FinHead cols={['Vendor', 'Rincian Tagihan', 'Nominal', 'Rekening Vendor', 'Status', 'Aksi']} />
       {bills.length === 0 ? <p className="px-4 py-6 text-center text-sm text-ink-mute">Belum ada tagihan vendor.</p> : (
         <ul className="divide-y divide-slate-100">{bills.map((b) => {
           const f = get(b.id); const v = vendors.find((x) => x.id === b.vendor_id); const acc = v?.accounts?.[0]
           return (
             <FinRow key={b.id}>
-              <span className="min-w-0">
-                <span className="flex flex-wrap items-center gap-x-2"><b className="text-sm">{v?.name}</b><span className="text-xs text-ink-mute">{b.period}{b.vendor_invoice_no ? ` · No. ${b.vendor_invoice_no}` : ''}</span></span>
-                <span className="block truncate text-xs text-ink-soft" title={b.items.map((it) => `${it.invoice_no} · ${it.title} · ${rupiah(it.amount)}`).join('\n')}>{b.items.length} order: {b.items.map((it) => it.invoice_no).join(', ')}</span>
-                <span className="flex items-center gap-2"><TimeAgo at={b.created_at} prefix="Diajukan" className="!mt-0" />{b.invoice_file && <DownloadBukti file={b.invoice_file} label="File tagihan" />}</span>
+              <span className="block min-w-0">
+                <span className="block truncate text-[15px] font-bold leading-snug text-ink">{v?.name}</span>
+                <span className="mt-0.5 flex items-center gap-2"><TimeAgo at={b.created_at} prefix="Diajukan" className="!mt-0" />{b.invoice_file && <DownloadBukti file={b.invoice_file} label="File tagihan" />}</span>
               </span>
+              <FinCell title={b.items.map((it) => `${it.invoice_no} · ${it.title} · ${rupiah(it.amount)}`).join('\n')}
+                top={`${b.items.length} order: ${b.items.map((it) => it.invoice_no).join(', ')}`}
+                bottom={`${b.period}${b.vendor_invoice_no ? ` · No. ${b.vendor_invoice_no}` : ''}`} />
               <FinAmount value={b.total} sub={fund && b.sumber_dana ? `Dana ${b.sumber_dana}` : null} />
               <Rek acc={acc} empty="Belum ada rekening vendor" emptyHref="#/settings/vendor" />
               <span className="min-w-0 text-xs"><span className={cx('rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1', ST[b.status][1])}>{ST[b.status][0]}</span>
@@ -119,15 +121,15 @@ export default function VendorBills() {
                     <span className="flex justify-end gap-1.5"><Button size="sm" variant="outline" onClick={() => set(b.id, { acc: false })}>Batal</Button><Button size="sm" disabled={!f.dana} onClick={() => approve(b)}><Check className="h-3.5 w-3.5" />ACC{f.dana ? ` · ${f.dana}` : ''}</Button></span></span>
                 ) : f.rej ? (
                   <span className="flex w-full gap-1.5 lg:w-[280px]"><Input value={f.reason || ''} onChange={(e) => set(b.id, { reason: e.target.value })} placeholder="Alasan" className="!h-8 text-xs" aria-label="Alasan penolakan tagihan" /><Button size="sm" variant="danger" onClick={() => reject(b)}>Tolak</Button><Button size="sm" variant="ghost" onClick={() => set(b.id, { rej: false })} aria-label="Batal"><X className="h-3.5 w-3.5" /></Button></span>
-                ) : <><QuickAcc branch={billBranch(b)} onAcc={(d) => approve(b, d)} onPick={(d) => set(b.id, { acc: true, dana: d })} /><Button size="sm" variant="outline" onClick={() => set(b.id, { rej: true })}>Tolak</Button></>)}
+                ) : <><QuickAcc branch={billBranch(b)} onAcc={(d) => approve(b, d)} onPick={(d) => set(b.id, { acc: true, dana: d })} /><Button size="sm" variant="outline" className="!h-11 !w-11 sm:!h-8 sm:!w-10" onClick={() => set(b.id, { rej: true })} title="Tolak tagihan" aria-label="Tolak tagihan"><Ban className="h-4 w-4" /></Button></>)}
                 {b.status === 'disetujui' && canPay && (
                   <>
                     <Input type="date" value={f.date} onChange={(e) => set(b.id, { date: e.target.value })} className="!h-8 !w-[130px] !px-2 text-xs" aria-label="Tanggal bayar tagihan" />
                     {f.file ? <span className="flex max-w-[110px] items-center gap-1 truncate text-xs font-semibold text-emerald-700"><FileCheck2 className="h-4 w-4" />{f.file.name}</span> : (
-                      <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-white px-2.5 text-xs font-semibold ring-1 ring-slate-300 hover:ring-brand">{f.up ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}Bukti
+                      <label title="Upload bukti transfer" aria-label="Upload bukti transfer" className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg bg-white ring-1 ring-slate-300 hover:ring-brand sm:h-8 sm:w-10">{f.up ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                         <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => upload(b, e.target.files?.[0])} aria-label={`Upload bukti tagihan ${v?.name}`} /></label>
                     )}
-                    <Button size="sm" disabled={!f.file || !acc} onClick={() => pay(b)}>Tandai Dibayar</Button>
+                    <Button size="sm" className="!h-11 !w-11 sm:!h-8 sm:!w-10" disabled={!f.file || !acc} onClick={() => pay(b)} title="Tandai sudah dibayar" aria-label="Tandai sudah dibayar"><Banknote className="h-4 w-4" /></Button>
                   </>
                 )}
                 {b.status === 'dibayar' && <DownloadBukti file={b.bukti_transfer} />}
