@@ -39,7 +39,7 @@ export default function Login() {
     try { if (password.length < 8) throw new Error('Kata sandi minimal 8 karakter'); await db.updatePassword(password); notify('Kata sandi diperbarui'); window.location.hash = '#/dashboard'; window.location.reload() } catch (err) { notify(err.message, 'err') } finally { setBusy(false) }
   }
 
-  useEffect(() => { if (MODE === 'demo') db.list('users').then(setDemoUsers) }, [])
+  useEffect(() => { if (MODE === 'demo') db.list('users').then((u) => setDemoUsers(u.filter((x) => x.active !== false))) }, [])
 
   const submit = async (e, em = email) => {
     e?.preventDefault(); setBusy(true)

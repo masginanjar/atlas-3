@@ -63,9 +63,8 @@ const NAV = [
   ...(CHAT_ENABLED ? [{ key: 'pesan', label: 'Pesan Masuk', icon: MessageCircle, bar: true, badge: (u, d, bf, x) => x.chatTotals?.msg || 0 }] : []),
   { key: 'reminders', label: 'My Reminders', icon: AlarmClock, bar: true },
   { key: 'notes', label: 'Notes', icon: StickyNote, bar: true },
-  { key: 'pengajuan', label: 'Pengajuan', icon: FilePlus2, badge: needsAction },
   { group: 'Manajemen' },
-  { key: 'keuangan', label: 'Keuangan', icon: Wallet, show: canSeeKeuangan },
+  { key: 'keuangan', label: 'Keuangan', icon: Wallet, badge: needsAction },
   { group: 'Resources' },
   { key: 'daftar-harga', label: 'Daftar Harga', icon: Tags },
   { key: 'faq', label: 'FAQ & Panduan CS', icon: BookOpen },
@@ -110,12 +109,12 @@ export default function App() {
     : page === 'settings' ? <Settings />
     : page === 'aktivitas' ? <Activity />
     : page === 'monitoring' ? <Monitoring />
-    : page === 'keuangan' ? <Keuangan />
+    : page === 'keuangan' ? <Keuangan tab={param} />
     : page === 'apostille' ? <Apostille />
     : page === 'faktur' ? <Invoices />
     : page === 'notes' ? <Notes />
     : page === 'reminders' || page === 'todo' ? <MyReminders />
-    : page === 'pengajuan' ? <PengajuanPage />
+    : page === 'pengajuan' ? <Keuangan tab="pengajuan" />
     : page === 'calendar' ? <Calendar />
     : page === 'daftar-harga' ? <DaftarHarga />
     : page === 'faq' ? <Faq />
@@ -180,12 +179,12 @@ export default function App() {
         {/* Top bar */}
         <header className="sticky top-0 z-30 border-b border-white/60 bg-white/70 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] shadow-[0_1px_0_rgba(79,70,229,0.06)] backdrop-blur-md md:px-8">
           {/* Baris atas — di bawah 1024px hanya logo, lonceng & profil. Sisanya mulai lg. */}
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
             <div className="md:hidden"><Brand dark compact /></div>
             {/* Jam dua zona: pusat di Bali (WITA), mayoritas cabang di WIB.
                 Hanya dari lg ke atas — header HP tetap logo, lonceng, profil. */}
-            <JamZona className="ml-auto hidden xl:flex" />
-            <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2 xl:ml-3">
+            <JamZona className="ml-auto hidden shrink-0 xl:flex" />
+            <div className="ml-auto flex min-w-0 shrink items-center gap-1.5 sm:gap-2 xl:ml-3">
               {rolesOf(user).length > 1 && (
                 <select value={user.role} onChange={(e) => { setActiveRole(e.target.value); window.location.hash = '/dashboard' }} aria-label="Ganti peran"
                   className="hidden h-11 rounded-xl border-0 bg-violet-50 pl-3 pr-8 text-xs font-bold text-violet-800 ring-1 ring-violet-200 focus:ring-2 focus:ring-brand lg:block">

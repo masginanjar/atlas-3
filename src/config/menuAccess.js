@@ -6,7 +6,7 @@
 // ============================================================
 import { WORKER_ROLES } from './access.js'
 
-const APOSTILLE_ROLES = ['staf_apostille', 'supervisor', 'superadmin', 'direktur', 'admin_pusat']
+const APOSTILLE_ROLES = ['staf_apostille', 'supervisor', 'superadmin', 'direktur', 'admin_pusat', 'helper']
 export const canSeeApostille = (u) => APOSTILLE_ROLES.includes(u?.role) || (u?.extra_roles || []).some((r) => APOSTILLE_ROLES.includes(r))
 export const canSeeAllActivity = (u) => ['superadmin', 'direktur'].includes(u?.role)
 export const canMonitor = (u) => u?.role === 'superadmin'

@@ -37,6 +37,9 @@ export const ROLES = {
   proofreader: { label: 'Proofreader' },
   otorisator: { label: 'Otorisator' },
   staf_apostille: { label: 'Staf Apostille' },
+  // Helper: membantu CS & Staf Apostille, TERBATAS pada cabangnya sendiri.
+  // Bukan Admin Kantor Pusat — tidak melihat cabang lain.
+  helper: { label: 'Helper Cabang' },
 }
 /** Role pelaksana yang login & punya To-Do List sendiri. */
 /** Label role; otorisator dibedakan Master / Staf Otorisasi. */

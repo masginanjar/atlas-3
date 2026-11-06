@@ -21,7 +21,7 @@ export function seed() {
     { id: 'u-cs-bali3', name: 'Destri (CS Bali)', email: 'destri@247.id', role: 'cs', branch: 'Bali' },
     { id: 'u-cs-bali4', name: 'Rosyada (CS Bali)', email: 'rosyada@247.id', role: 'cs', branch: 'Bali' },
     { id: 'u-cs-jkt', name: 'Rika (CS Jakarta)', email: 'rika@247.id', role: 'cs', branch: 'Jakarta' },
-    { id: 'u-cs-jkt2', name: 'Wahyu (CS Jakarta)', email: 'wahyu.cs@247.id', role: 'cs', branch: 'Jakarta' },
+    { id: 'u-cs-jkt2', name: 'Wahyu', email: 'wahyu.cs@247.id', role: 'helper', branch: 'Jakarta' },
     { id: 'u-cs-sby', name: 'Ninda (CS Surabaya)', email: 'ninda@247.id', role: 'cs', branch: 'Surabaya' },
     { id: 'u-cs-mks', name: 'Aina (CS Makassar)', email: 'aina@247.id', role: 'cs', branch: 'Makassar' },
     { id: 'u-cs-mdn', name: 'Rhania (CS Medan)', email: 'rhania@247.id', role: 'cs', branch: 'Medan' },
@@ -40,9 +40,11 @@ export function seed() {
     { id: 'u-pr-ela', name: 'Ela', email: 'ela@247.id', role: 'proofreader', branch: 'Bali', extra_roles: ['otorisator'], otorisator_level: 'staf' },
     { id: 'u-ot-made', name: 'Muhammad Arifin', email: 'arifin@247.id', role: 'otorisator', branch: 'Bali', otorisator_level: 'master' },
     { id: 'u-ot-lukas', name: 'Sadipan', email: 'sadipan@247.id', role: 'otorisator', branch: 'Jakarta', otorisator_level: 'staf' },
-    { id: 'u-ap-putu', name: 'Khrisna', email: 'khrisna@247.id', role: 'staf_apostille', branch: 'Bali' },
-    { id: 'u-ap-fajar', name: 'Wahyu', email: 'wahyu@247.id', role: 'staf_apostille', branch: 'Jakarta' },
-  ].map((u) => ({ ...u, active: true, created_at: d(-60) }))
+    { id: 'u-ap-putu', name: 'Khrisna', email: 'khrisna@247.id', role: 'staf_apostille', branch: 'Jakarta', extra_roles: ['helper'] },
+    // Akun Wahyu ganda — dinonaktifkan, bukan dihapus, supaya riwayat project lama tetap utuh.
+    { id: 'u-ap-fajar', name: 'Wahyu (akun lama)', email: 'wahyu@247.id', role: 'staf_apostille', branch: 'Jakarta', active: false },
+    { id: 'u-hlp-naomi', name: 'Naomi', email: 'naomi@247.id', role: 'helper', branch: 'Jakarta' },
+  ].map((u) => ({ active: true, ...u, created_at: d(-60) }))
 
   const P = (name, type, branch, phone = '') => ({ id: id('p'), name, type, branch, phone, created_at: d(-50) })
   const people = [
@@ -133,7 +135,7 @@ export function seed() {
   const TR = { Bali: ['u-tr-andre', 'u-tr-maria'], Jakarta: ['u-tr-hendra'], Bandung: ['u-tr-lina'], Yogyakarta: ['u-tr-maria'] }
   const PR = { Bali: 'u-pr-kevin', Jakarta: 'u-pr-rina', Bandung: 'u-pr-rina', Yogyakarta: 'u-pr-kevin' }
   const OT = { Bali: ['u-ot-made', 'Muhammad Arifin'], Jakarta: ['u-ot-lukas', 'Sadipan'], Bandung: ['u-ot-lukas', 'Sadipan'], Yogyakarta: ['u-ot-made', 'Muhammad Arifin'] }
-  const AP = { Bali: ['u-ap-putu', 'Khrisna'], Jakarta: ['u-ap-fajar', 'Wahyu'], Bandung: ['u-ap-fajar', 'Wahyu'], Yogyakarta: ['u-ap-putu', 'Khrisna'] }
+  const AP = { Bali: ['u-ap-putu', 'Khrisna'], Jakarta: ['u-ap-putu', 'Khrisna'], Bandung: ['u-ap-putu', 'Khrisna'], Yogyakarta: ['u-ap-putu', 'Khrisna'] }
   const BR = ['Bali', 'Jakarta', 'Surabaya', 'Bandung', 'Makassar', 'Yogyakarta', 'Medan', 'Batam']
   const pick = (m, b) => m[b] ?? m.Bali
   const PRIO = ['Normal', 'Ekspres', 'Normal', 'Super Ekspres', 'Normal', 'Sameday', 'Ekspres', 'Normal', 'Normal', 'Ekspres']

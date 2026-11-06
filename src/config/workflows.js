@@ -12,6 +12,9 @@
 
 const ALL = ['superadmin', 'admin_pusat', 'supervisor', 'cs']
 const SPV = ['superadmin', 'supervisor']
+// Menetapkan/mengganti penerjemah tidak lagi harus menunggu Supervisor —
+// CS, Admin Pusat, dan Helper cabang juga boleh.
+const PILIH_PENERJEMAH = ['superadmin', 'supervisor', 'direktur', 'admin_pusat', 'cs', 'helper']
 const DIREKTUR = ['superadmin', 'direktur']
 const AKUNTING = ['superadmin', 'akunting']
 
@@ -161,7 +164,7 @@ export const CATEGORIES = {
         hint: 'Pastikan detail dokumen, halaman, deadline & lokasi Print sudah benar, lalu unggah dokumen sumber.',
         fields: [{ key: 'dokumen_sumber', label: 'Dokumen Sumber', type: 'file', required: true }],
         notify: (p) => [{ to_role: 'supervisor', to_branch: p.branch, text: 'Project baru menunggu penetapan penerjemah' }] },
-      { key: 'pilih_penerjemah', label: 'Pilih Penerjemah', roles: SPV, action: 'Tetapkan Penerjemah',
+      { key: 'pilih_penerjemah', label: 'Pilih Penerjemah', roles: PILIH_PENERJEMAH, action: 'Tetapkan Penerjemah',
         hint: 'Pekerjaan akan masuk ke To-Do List penerjemah yang dipilih.',
         fields: [{ key: 'translator', label: 'Penerjemah', type: 'user:penerjemah', required: true }],
         notify: (p, s) => [{ to_user: s.data.translator, text: 'Tugas terjemahan baru untuk Anda' }] },
