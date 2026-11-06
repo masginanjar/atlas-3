@@ -13,3 +13,5 @@ scripts/legacy/backup-*.json
 scripts/legacy/review-*.csv
 scripts/legacy/private/
 *.xlsx
+legacy/
+scripts/legacy/mapping-*.csv
