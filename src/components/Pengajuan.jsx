@@ -4,7 +4,7 @@ import { useApp } from '../lib/store.jsx'
 import { drive } from '../lib/integrations.js'
 import { saveBlob } from '../lib/download.js'
 import { totalPengajuan, SUMBER_DANA, sumberLabel, recommendFund } from '../config/workflows.js'
-import { can } from '../config/access.js'
+import { can, invoiceLabel} from '../config/access.js'
 import { fundSummary } from '../lib/funds.js'
 import { Button, cx } from './ui.jsx'
 import { rupiah, tgl, jam } from '../lib/format.js'
@@ -49,7 +49,7 @@ export function RejectPengajuan({ project, sub, size = 'sm', onDone, defaultOpen
   if (!allowed) return null
   const send = async () => {
     setBusy(true)
-    try { await returnPengajuan(project, sub.id, why); notify(`Pengajuan ${project.invoice_no} dikembalikan untuk diperbaiki`); setOpen(false); setWhy(''); onDone?.() }
+    try { await returnPengajuan(project, sub.id, why); notify(`Pengajuan ${invoiceLabel(project.invoice_no)} dikembalikan untuk diperbaiki`); setOpen(false); setWhy(''); onDone?.() }
     catch (e) { notify(e.message, 'err') } finally { setBusy(false) }
   }
   if (!open) return <Button size={size} variant="outline" className="!h-11 !w-11 !text-rose-700 !ring-rose-300 hover:!bg-rose-50 sm:!h-8 sm:!w-10" onClick={() => setOpen(true)} title="Tolak / Perbaiki — kembalikan ke pengaju" aria-label="Tolak / Perbaiki"><Undo2 className="h-4 w-4" /></Button>

@@ -7,6 +7,7 @@ import { Button, Card, cx } from '../components/ui.jsx'
 import TimeAgo from '../components/TimeAgo.jsx'
 
 import { myNotes, projectNotes } from '../lib/personal.js'
+import { invoiceLabel } from '../config/access.js'
 export { myNotes, projectNotes }
 
 const TABS = [['aktif', 'Catatan saya'], ['project', 'Dari project'], ['pinned', 'Disematkan'], ['arsip', 'Arsip'], ['trash', 'Trash']]
@@ -87,7 +88,7 @@ export default function Notes() {
                   </p>
                   <p className="whitespace-pre-line text-sm text-ink">{x.text}</p>
                   <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[11px]">
-                    <button type="button" onClick={() => go(`projects/${x.project.id}`)} className="inline-flex items-center gap-1 font-semibold text-brand hover:underline">{x.project.invoice_no} · {x.project.customer?.name || '—'}<ExternalLink className="h-3 w-3" /></button>
+                    <button type="button" onClick={() => go(`projects/${x.project.id}`)} className="inline-flex items-center gap-1 font-semibold text-brand hover:underline">{invoiceLabel(x.project.invoice_no)} · {x.project.customer?.name || '—'}<ExternalLink className="h-3 w-3" /></button>
                     <button type="button" onClick={() => open('note', { link: { project_id: x.project.id } })} className="rounded-lg px-2 py-1 font-semibold text-ink-soft ring-1 ring-slate-200 hover:ring-brand">Catat sendiri</button>
                   </div>
                 </Card>
@@ -115,7 +116,7 @@ export default function Notes() {
                   </div>
                   {!!(n.checklist || []).length && <p className="flex items-center gap-1 text-[11px] font-semibold text-ink-mute"><CheckSquare className="h-3 w-3" />{done}/{n.checklist.length} selesai</p>}
                   {!!(n.tags || []).length && <div className="flex flex-wrap gap-1">{n.tags.map((t) => <span key={t} className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-ink-soft">#{t}</span>)}</div>}
-                  {p && <button type="button" onClick={() => go(`projects/${p.id}`)} className="inline-flex w-fit items-center gap-1 text-[11px] font-semibold text-brand hover:underline">{p.invoice_no}<ExternalLink className="h-3 w-3" /></button>}
+                  {p && <button type="button" onClick={() => go(`projects/${p.id}`)} className="inline-flex w-fit items-center gap-1 text-[11px] font-semibold text-brand hover:underline">{invoiceLabel(p.invoice_no)}<ExternalLink className="h-3 w-3" /></button>}
                   <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 pt-2 text-[10px] text-ink-mute">
                     <TimeAgo at={n.updated_at || n.created_at} />
                     <span className="flex gap-1">

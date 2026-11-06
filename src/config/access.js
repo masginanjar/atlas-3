@@ -93,6 +93,12 @@ export function branchOfInvoice(no) {
 }
 /** Kode 3 angka pada nomor invoice, untuk ditampilkan apa adanya. */
 export const invoiceCode = (no) => (/^\s*INV-(\d{3})/i.exec(String(no || '')) || [])[1] || ''
+/**
+ * Nomor invoice untuk DITAMPILKAN — tanpa awalan "INV-", angkanya saja.
+ * Nilai yang tersimpan tetap lengkap ("INV-1012611016951") supaya
+ * pencocokan dengan Zoho, pencarian, dan kode cabang tidak terganggu.
+ */
+export const invoiceLabel = (no) => String(no ?? '').replace(/^\s*INV-/i, '')
 
 export const can = {
   seeAllBranches: (u) => ['superadmin', 'admin_pusat', 'supervisor', 'direktur', 'akunting'].includes(u?.role),

@@ -6,6 +6,7 @@ import { zoho } from './integrations.js'
 import { startHeartbeat, statusOf } from './presence.js'
 import { threadOf, myMessages, unreadByThread, pingQuota, openChatBus, PING_MAX_24H, PING_GAP_MS } from './chat.js'
 import { broadcastSignOut, markActivity, setIdleReason } from './session.js'
+import { CHAT_ENABLED } from './flags.js'
 import { DONE, stagesOf, flowOf, isBilled, regComplete, stageLabel } from '../config/workflows.js'
 
 const Ctx = createContext(null)
@@ -103,17 +104,20 @@ export function AppProvider({ children }) {
       pending.add(t); clearTimeout(timer); timer = setTimeout(flush, 400)
     }
     // muat ulang tabel utama (dipakai saat realtime tidak tersambung atau tab kembali aktif)
-    const MAIN = ['projects', 'notifications', 'pings', 'requests', 'petty_cash', 'vendor_bills', 'fund_balances', 'messages', 'todos', 'reminders', 'notes']
+    const MAIN = ['projects', 'notifications', 'pings', 'requests', 'petty_cash', 'vendor_bills', 'fund_balances', ...(CHAT_ENABLED ? ['messages'] : []), 'todos', 'reminders', 'notes']
     const refreshMain = (minGap = 4000) => { const now = Date.now(); if (now - lastFull < minGap) return; lastFull = now; for (const t of MAIN) pending.add(t); clearTimeout(timer); timer = setTimeout(flush, 50) }
     const stop = db.subscribe(TABLES, touch, (st) => { status = st; setLiveStatus(st === 'SUBSCRIBED' ? 'SUBSCRIBED' : st); if (st === 'SUBSCRIBED') refreshMain(0) })
     // Cadangan: bila realtime belum/tidak tersambung, polling tiap 20 detik agar perubahan rekan tetap muncul tanpa refresh
     const poll = setInterval(() => { if (status !== 'SUBSCRIBED') { setLiveStatus('POLLING'); refreshMain(6000) } }, 8000)
-    // Chat: selalu disegarkan cepat walau realtime sedang tersambung — pesan tidak boleh telat
-    const chatPoll = setInterval(() => { if (document.visibilityState === 'visible') touch('messages') }, 10000)
+    // Chat: selalu disegarkan cepat walau realtime sedang tersambung — pesan tidak boleh telat.
+    // Chat dimatikan → tidak ada penyegaran sama sekali.
+    const chatPoll = CHAT_ENABLED
+      ? setInterval(() => { if (document.visibilityState === 'visible') touch('messages') }, 10000)
+      : null
     // Kembali ke tab / layar HP menyala → segarkan sekali
     const onVisible = () => { if (document.visibilityState === 'visible') refreshMain() }
     document.addEventListener('visibilitychange', onVisible); window.addEventListener('focus', onVisible); window.addEventListener('online', onVisible)
-    return () => { alive = false; stop(); clearTimeout(timer); clearInterval(poll); clearInterval(chatPoll); document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('focus', onVisible); window.removeEventListener('online', onVisible) }
+    return () => { alive = false; stop(); clearTimeout(timer); clearInterval(poll); if (chatPoll) clearInterval(chatPoll); document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('focus', onVisible); window.removeEventListener('online', onVisible) }
   }, [user]) // eslint-disable-line react-hooks/exhaustive-deps
   // ---------- faktur Zoho (menu Faktur & badge "belum dibuat project") ----------
   const [invoices, setInvoices] = useState(null) // null = belum dimuat
@@ -411,7 +415,7 @@ export function AppProvider({ children }) {
   const bus = useRef(null)
   const [typing, setTyping] = useState({}) // { [thread]: { name, at } }
   useEffect(() => {
-    if (!baseUser) return
+    if (!baseUser || !CHAT_ENABLED) return
     const isPr = (baseUser.base_role || baseUser.role) === 'proofreader'
     const myBox = isPr ? 'tim-proofreader' : baseUser.id
     const pullMessages = async () => { try { await db.reload?.(); const rows = await db.list('messages'); setData((d) => ({ ...d, messages: rows })) } catch { /* abaikan */ } }

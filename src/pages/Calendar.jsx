@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight, FolderKanban, ListTodo, AlarmClock } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { scopeByBranch } from '../config/access.js'
+import { scopeByBranch, invoiceLabel} from '../config/access.js'
 import { TZ } from '../components/WorkspacePanel.jsx'
 import { myTodos } from './Todos.jsx'
 import { myReminders, nextAt } from './Reminders.jsx'
@@ -24,7 +24,7 @@ const DOT = { deadline: 'bg-rose-500', todo: 'bg-sky-500', reminder: 'bg-amber-5
 export function calendarItems(user, data, branchFilter) {
   const out = []
   for (const p of scopeByBranch(user, data.projects, branchFilter)) {
-    if (p.about?.deadline) out.push({ id: `p${p.id}`, type: 'deadline', at: p.about.deadline, title: `${p.invoice_no} · ${p.customer?.name || ''}`, open: () => go(`projects/${p.id}`) })
+    if (p.about?.deadline) out.push({ id: `p${p.id}`, type: 'deadline', at: p.about.deadline, title: `${invoiceLabel(p.invoice_no)} ${p.customer?.name || ''}`.trim(), open: () => go(`projects/${p.id}`) })
   }
   for (const t of myTodos(data, user)) if (t.due && !t.done) out.push({ id: `t${t.id}`, type: 'todo', at: t.due, title: t.title, ref: { todo: t } })
   for (const r of myReminders(data, user)) { const n = nextAt(r); if (n) out.push({ id: `r${r.id}`, type: 'reminder', at: n, title: r.title, ref: { reminder: r } }) }

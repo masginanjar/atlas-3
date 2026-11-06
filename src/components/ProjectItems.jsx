@@ -6,6 +6,7 @@ import { myNotes } from '../lib/personal.js'
 import { myTodos } from '../pages/Todos.jsx'
 import { myReminders, nextAt } from '../pages/Reminders.jsx'
 import { Card, cx } from './ui.jsx'
+import { invoiceLabel } from '../config/access.js'
 
 const when = (iso) => (iso ? new Date(iso).toLocaleString('id-ID', { timeZone: TZ, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '')
 
@@ -51,7 +52,7 @@ export default function ProjectItems({ project }) {
         </span>
       </div>
       {total === 0
-        ? <p className="text-xs text-ink-mute">Belum ada. Yang dibuat di sini otomatis tertaut ke project {project.invoice_no} dan tetap tersimpan di menu Notes / My To-do / Reminders.</p>
+        ? <p className="text-xs text-ink-mute">Belum ada. Yang dibuat di sini otomatis tertaut ke project {invoiceLabel(project.invoice_no)} dan tetap tersimpan di menu Notes / My To-do / Reminders.</p>
         : (
           <ul className="space-y-0.5">
             {notes.map((n) => <Row key={n.id} icon={StickyNote} title={n.title || '(tanpa judul)'} sub={(n.body || '').slice(0, 60)} onClick={() => open('note', { note: n })} />)}

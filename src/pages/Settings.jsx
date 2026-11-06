@@ -491,14 +491,19 @@ function People() {
     <div className="space-y-3">
       <Tabs tabs={Object.entries(PERSON_TYPES).filter(([k]) => k !== 'vendor').map(([k, l]) => ({ value: k, label: l, count: data.people.filter((p) => p.type === k).length }))} value={type} onChange={setType} />
       <CrudList table="people" rows={rows} title={PERSON_TYPES[type]} empty={`Belum ada ${PERSON_TYPES[type]}`}
-        blank={() => ({ name: '', type, branch: can.seeAllBranches(user) ? 'Semua' : user.branch, phone: '' })}
-        columns={(r) => <><p className="text-sm font-semibold">{r.name}</p><p className="text-[11px] text-ink-mute">{r.branch === 'Semua' ? 'Semua cabang' : r.branch}{r.phone && ` · ${r.phone}`}</p></>}
+        blank={() => ({ name: '', type, branch: can.seeAllBranches(user) ? 'Semua' : user.branch, phone: '', note: '' })}
+        columns={(r) => <><p className="text-sm font-semibold">{r.name}</p><p className="text-[11px] text-ink-mute">{r.branch === 'Semua' ? 'Semua cabang' : r.branch}{r.phone && ` · ${r.phone}`}</p>{r.note && <p className="mt-0.5 line-clamp-2 text-[11px] text-amber-800">{r.note}</p>}</>}
         renderForm={(e, set) => (
           <div className="space-y-3">
             <Field label="Nama" required><Input value={e.name} onChange={(x) => set({ ...e, name: x.target.value })} /></Field>
             <Field label="Jenis"><Select value={e.type} onChange={(x) => set({ ...e, type: x.target.value })}>{Object.entries(PERSON_TYPES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></Field>
             <Field label="Cabang"><Select value={e.branch} disabled={!can.seeAllBranches(user)} onChange={(x) => set({ ...e, branch: x.target.value })}>{['Semua', ...BRANCHES].map((b) => <option key={b}>{b}</option>)}</Select></Field>
             <Field label="Kontak / No. Rekening / Alamat"><Input value={e.phone} onChange={(x) => set({ ...e, phone: x.target.value })} /></Field>
+            <Field label="Catatan / persyaratan" hint="Muncul sebagai catatan kecil saat lembaga ini dipilih di sub project">
+              <textarea value={e.note || ''} onChange={(x) => set({ ...e, note: x.target.value })} rows={3}
+                placeholder="mis. Wajib lampirkan fotokopi KTP pemohon dan surat kuasa bermaterai."
+                className="w-full max-w-full rounded-xl border-0 bg-white px-3 py-2 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-brand" />
+            </Field>
           </div>
         )} />
     </div>

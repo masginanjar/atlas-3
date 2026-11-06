@@ -1,6 +1,9 @@
+import { tanggal, tanggalJam } from './waktu.js'
 export const rupiah = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID')
-export const tgl = (iso) => iso ? new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
-export const jam = (iso) => iso ? new Date(iso).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'
+// Penulisan baku: "Sel 3 Nov 08.13" — hari singkat, tanggal, bulan singkat,
+// jam memakai titik. Satu sumber untuk seluruh aplikasi (lihat lib/waktu.js).
+export const tgl = (iso) => tanggal(iso)
+export const jam = (iso) => tanggalJam(iso)
 export const daysLeft = (iso) => iso ? Math.ceil((new Date(iso) - Date.now()) / 864e5) : null
 export const kb = (b) => b > 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB'
 

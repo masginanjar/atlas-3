@@ -4,7 +4,7 @@ import { SUB_TYPES } from '../config/subtypes.js'
 import { Printer, StickyNote } from 'lucide-react'
 import { cx } from './ui.jsx'
 import { useApp } from '../lib/store.jsx'
-import { branchesOf } from '../config/access.js'
+import { branchesOf, invoiceLabel} from '../config/access.js'
 
 /** Ikon PRINT bila dokumen dititipkan cetak di cabang lain. */
 export function PrintBadge({ project, iconOnly, className }) {
@@ -62,8 +62,8 @@ export const isNewToday = (p) => !!p?.created_at && WITA_DAY(new Date(p.created_
 export function InvoiceNo({ project, className, size = 'sm' }) {
   const fresh = isNewToday(project)
   const txt = size === 'base' ? 'text-base' : 'text-sm'
-  if (!fresh) return <span className={cx('whitespace-nowrap font-bold', txt, className)}>{project.invoice_no}</span>
-  return <span title="Baru diinput hari ini" className={cx('inline-flex items-center whitespace-nowrap rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 px-2 py-0.5 font-extrabold text-emerald-700 ring-1 ring-emerald-300', txt, className)}>{project.invoice_no}</span>
+  if (!fresh) return <span className={cx('whitespace-nowrap font-bold', txt, className)}>{invoiceLabel(project.invoice_no)}</span>
+  return <span title="Baru diinput hari ini" className={cx('inline-flex items-center whitespace-nowrap rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 px-2 py-0.5 font-extrabold text-emerald-700 ring-1 ring-emerald-300', txt, className)}>{invoiceLabel(project.invoice_no)}</span>
 }
 const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
 /** Deadline dua baris: "7 Nov" / "3 hari lagi" · Hari ini merah, Besok oranye, terlambat merah. */

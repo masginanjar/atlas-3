@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Share2, MessageCircle, Mail, Copy, ExternalLink, Link2, ShieldOff, CalendarPlus, RefreshCw, History, FileCheck2, AlertTriangle, Info } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { can } from '../config/access.js'
+import { can, invoiceLabel} from '../config/access.js'
 import { finalFilesOf, paymentOf, newLink, linkState, addMonth, normPhone, isEmail, randomToken } from '../lib/portalCore.js'
 import { portalUrl, PORTAL_DEMO } from '../lib/portalClient.js'
 import { copyText } from './CopyText.jsx'
@@ -137,13 +137,13 @@ export default function ShareSheet({ project, open, onClose }) {
   }
   const copyMsg = async () => { const ok = await copyText(msg); if (!ok) return notify('Gagal menyalin', 'err'); await persist('copied'); notify('Pesan disalin — tempel di WhatsApp / email') }
   const openMail = async () => {
-    const subject = `${KINDS[kind].label} — ${project.invoice_no}`
+    const subject = `${KINDS[kind].label} — ${invoiceLabel(project.invoice_no)}`
     window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(msg)}`
     await persist('email_draft_opened'); notify('Aplikasi email dibuka dengan draf pesan')
   }
   const sendMail = async () => { // hanya bila layanan email terhubung (mode live)
     try {
-      const r = await fetch('/api/notify/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: email, subject: `${KINDS[kind].label} — ${project.invoice_no}`, text: msg }) }).then((x) => x.json())
+      const r = await fetch('/api/notify/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: email, subject: `${KINDS[kind].label} — ${invoiceLabel(project.invoice_no)}`, text: msg }) }).then((x) => x.json())
       await persist(r.id ? 'sent' : 'failed', r.id ? `ID layanan: ${r.id}` : r.error || '')
       notify(r.id ? 'Email diterima layanan pengirim' : `Email gagal: ${r.error || 'tidak diketahui'}`, r.id ? 'ok' : 'err')
     } catch (e) { await persist('failed', e.message); notify('Email gagal dikirim', 'err') }
@@ -166,7 +166,7 @@ export default function ShareSheet({ project, open, onClose }) {
 
   const chip = (on) => cx('rounded-xl px-3 py-2 text-left text-sm ring-1 transition', on ? 'bg-brand text-white ring-brand' : 'bg-white text-ink ring-slate-300 hover:ring-brand')
   return (
-    <Sheet open={open} onClose={onClose} title={<span className="inline-flex items-center gap-2"><Share2 className="h-4 w-4 text-brand" />Bagikan / Kirim Notifikasi · {project.invoice_no}</span>} xwide>
+    <Sheet open={open} onClose={onClose} title={<span className="inline-flex items-center gap-2"><Share2 className="h-4 w-4 text-brand" />Bagikan / Kirim Notifikasi · {invoiceLabel(project.invoice_no)}</span>} xwide>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {/* ---- kiri: pilihan ---- */}
         <div className="space-y-4">

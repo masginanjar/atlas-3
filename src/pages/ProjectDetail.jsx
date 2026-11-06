@@ -3,7 +3,7 @@ import { Share2, ArrowLeft, Pencil, Trash2, Upload, FileText, Download, Check, L
 import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
 import { drive } from '../lib/integrations.js'
-import { can, PERSON_TYPES, ROLES, scopeByBranch, activeClaim, placeOf, branchesOf, printBranchOf, displayNameFor, seeProofreaderIdentity, proofreaderTeamName, pickProofreader } from '../config/access.js'
+import { can, PERSON_TYPES, ROLES, scopeByBranch, activeClaim, placeOf, branchesOf, printBranchOf, displayNameFor, seeProofreaderIdentity, proofreaderTeamName, pickProofreader, invoiceLabel} from '../config/access.js'
 import { saveBlob, dataUrlToBlob } from '../lib/download.js'
 import ResiFields from '../components/ResiFields.jsx'
 import FilePreview from '../components/FilePreview.jsx'
@@ -50,7 +50,7 @@ export default function ProjectDetail({ id, embedded }) {
 
   const d = daysLeft(project.about?.deadline)
   const del = async () => {
-    if (!(await ask(`Hapus project ${project.invoice_no}? Tindakan ini tidak bisa dibatalkan.`))) return
+    if (!(await ask(`Hapus project ${invoiceLabel(project.invoice_no)}? Tindakan ini tidak bisa dibatalkan.`))) return
     await remove('projects', project.id); notify('Project dihapus'); go('projects')
   }
 
@@ -62,7 +62,7 @@ export default function ProjectDetail({ id, embedded }) {
       <Card className={embedded ? 'p-3' : 'p-4 md:p-5'}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            {!embedded && <h1 className="truncate text-xl font-extrabold tracking-tight sm:text-2xl" title={project.invoice_no}>{project.invoice_no}</h1>}
+            {!embedded && <h1 className="truncate text-xl font-extrabold tracking-tight sm:text-2xl" title={invoiceLabel(project.invoice_no)}>{invoiceLabel(project.invoice_no)}</h1>}
             <ProjectTypes project={project} className="mt-1" />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -441,7 +441,7 @@ export function StagePanel({ project, sub, stage }) {
                     <dt className="text-ink-mute">Bank</dt><dd><CopyText text={acc.bank} label="Bank" strong /></dd>
                     <dt className="text-ink-mute">No. Rekening</dt><dd><CopyText text={acc.number} label="No. Rekening" strong mono /></dd>
                     <dt className="text-ink-mute">Penerima</dt><dd><CopyText text={acc.holder} label="Nama Penerima" /></dd>
-                    <dt className="text-ink-mute">No. Invoice</dt><dd><CopyText text={project.invoice_no} label="No. Invoice" /></dd>
+                    <dt className="text-ink-mute">No. Invoice</dt><dd><CopyText text={invoiceLabel(project.invoice_no)} label="No. Invoice" /></dd>
                     <dt className="text-ink-mute">Pelanggan</dt><dd><CopyText text={project.customer?.name} label="Nama Pelanggan" /></dd>
                   </dl>
                 ) : <span />}

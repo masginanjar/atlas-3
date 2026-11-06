@@ -4,6 +4,7 @@ import { copyText } from './CopyText.jsx'
 import { SUB_TYPES } from '../config/subtypes.js'
 import { docListOf } from '../config/workflows.js'
 import { cx } from './ui.jsx'
+import { invoiceLabel } from '../config/access.js'
 
 // Kode bahasa untuk template chat vendor
 const LANG_CODE = { Indonesia: 'IND', Inggris: 'ENG', Mandarin: 'CHN', Jepang: 'JPN', Korea: 'KOR', Arab: 'ARB', Belanda: 'NLD', Jerman: 'DEU', Prancis: 'FRA', Spanyol: 'SPA', Rusia: 'RUS' }
@@ -27,7 +28,7 @@ export function fixOrderMessage(project, sub) {
   const isTr = ['terjemahan', 'terjemahan_nt'].includes(sub.type)
   const lines = [
     'FIX ORDER ✅',
-    `No. Order: ${project.invoice_no}`,
+    `No. Order: ${invoiceLabel(project.invoice_no)}`,
     `Nama: ${project.customer?.name || '-'}`,
     '',
     isTr ? `Bahasa: ${sub.lang_from || '-'} → ${sub.lang_to || '-'} (${code(sub.lang_from)}-${code(sub.lang_to)})`

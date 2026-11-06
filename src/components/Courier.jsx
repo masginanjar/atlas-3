@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { FileText, Store, Bike, Truck, Package, Plane, Ship, Car, ChevronDown, Check, MapPin, Send } from 'lucide-react'
+import { FileText, Store, Bike, Truck, Package, Plane, Ship, Car, ChevronDown, Check, MapPin, Send, Search } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { cx } from './ui.jsx'
 
@@ -26,8 +26,14 @@ export function CourierSelect({ value, onChange, printLocation, disabled }) {
   const { data } = useApp()
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
+  const [q, setQ] = useState('')
+  const boxRef = useRef(null)
   const list = sorted(data.couriers || [])
   const cur = list.find((c) => c.id === value)
+  // Daftar ekspedisi kini panjang, jadi bisa dicari. Tidak peduli huruf besar/kecil.
+  const cocok = q.trim()
+    ? list.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase()))
+    : list
 
   useEffect(() => {
     if (!open) return
@@ -35,6 +41,19 @@ export function CourierSelect({ value, onChange, printLocation, disabled }) {
     document.addEventListener('pointerdown', close)
     return () => document.removeEventListener('pointerdown', close)
   }, [open])
+
+  // Buka → kosongkan pencarian lama dan arahkan kursor ke kolom cari.
+  useEffect(() => {
+    if (!open) { setQ(''); return }
+    const t = setTimeout(() => boxRef.current?.focus(), 30)
+    return () => clearTimeout(t)
+  }, [open])
+
+  // Esc menutup; Enter memilih satu-satunya hasil.
+  const onKey = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); setOpen(false) }
+    if (e.key === 'Enter' && cocok.length === 1) { e.preventDefault(); onChange(cocok[0].id); setOpen(false) }
+  }
 
   return (
     <div ref={ref} className="relative">
@@ -53,8 +72,17 @@ export function CourierSelect({ value, onChange, printLocation, disabled }) {
         <p className="mt-1 flex items-center gap-1 text-[11px] text-ink-mute"><MapPin className="h-3 w-3" />Ambil di Kantor {printLocation || '—'}</p>
       )}
       {open && (
-        <ul role="listbox" className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-xl bg-white p-1 shadow-xl ring-1 ring-slate-200">
-          {list.map((c) => (
+        <div className="absolute z-20 mt-1 w-full max-w-full rounded-xl bg-white shadow-xl ring-1 ring-slate-200">
+          <div className="border-b border-slate-100 p-2">
+            <label className="relative block min-w-0">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" aria-hidden="true" />
+              <input ref={boxRef} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey}
+                placeholder="Cari kurir / ekspedisi…" aria-label="Cari kurir"
+                className="w-full max-w-full rounded-lg border-0 bg-slate-50 py-2 pl-8 pr-2.5 text-sm ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-brand" />
+            </label>
+          </div>
+        <ul role="listbox" className="max-h-60 w-full overflow-y-auto overscroll-contain p-1">
+          {cocok.map((c) => (
             <li key={c.id}>
               <button type="button" role="option" aria-selected={c.id === value} onClick={() => { onChange(c.id); setOpen(false) }}
                 className={cx('flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-slate-50', c.id === value && 'bg-brand-soft')}>
@@ -70,7 +98,9 @@ export function CourierSelect({ value, onChange, printLocation, disabled }) {
             </li>
           ))}
           {!list.length && <li className="px-3 py-4 text-center text-xs text-ink-mute">Belum ada kurir — tambahkan di Setting → Kurir</li>}
+          {!!list.length && !cocok.length && <li className="px-3 py-4 text-center text-xs text-ink-mute">Kurir tidak ditemukan</li>}
         </ul>
+        </div>
       )}
     </div>
   )

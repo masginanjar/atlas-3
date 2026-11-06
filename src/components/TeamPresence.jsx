@@ -6,6 +6,7 @@ import { STATUS, statusOf, sinceLabel, IDLE_AFTER, always24h } from '../lib/pres
 import Avatar from './Avatar.jsx'
 import { Popover, cx } from './ui.jsx'
 import { go } from '../lib/router.js'
+import { CHAT_ENABLED } from '../lib/flags.js'
 
 const ORDER = { online: 0, idle: 1, offline: 2 }
 /** Akun yang tidak ditampilkan di daftar Tim Aktif (tetap terlihat oleh dirinya sendiri). */
@@ -116,7 +117,7 @@ export default function TeamPresence() {
           </div>
           <ul className="mt-2 max-h-[46vh] space-y-0.5 overflow-auto pr-0.5">
             {shown.length === 0 ? <li className="px-2 py-6 text-center text-xs text-ink-mute">Tidak ada yang cocok.</li>
-              : shown.map((r) => <Row key={r.id} r={r} now={now} onChat={(id) => { close(); go(`pesan/${id}`) }} />)}
+              : shown.map((r) => <Row key={r.id} r={r} now={now} onChat={CHAT_ENABLED ? (id) => { close(); go(`pesan/${id}`) } : undefined} />)}
           </ul>
           <p className="mt-2 border-t border-slate-100 pt-2 text-[10px] leading-relaxed text-ink-mute">
             Online = tab ATLAS terbuka dan ada aktivitas. Idle = terbuka tapi diam lebih dari {IDLE_AFTER / 60000} menit. Offline = tab ditutup atau sudah keluar.

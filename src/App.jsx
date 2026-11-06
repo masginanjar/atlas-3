@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, PanelLeftClose, PanelLeftOpen, Stamp, ReceiptText, StickyNote, AlarmClock, FilePlus2, MoreHorizontal, CalendarDays, ChevronDown, MessageCircle } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, PanelLeftClose, PanelLeftOpen, Stamp, ReceiptText, StickyNote, AlarmClock, FilePlus2, MoreHorizontal, CalendarDays, ChevronDown, Tags, MessageCircle , BookOpen} from 'lucide-react'
 import { useApp } from './lib/store.jsx'
 import Avatar from './components/Avatar.jsx'
 import { MODE, storageError, db } from './lib/db.js'
@@ -27,6 +27,8 @@ const MyReminders = lazy(() => import('./pages/MyReminders.jsx'))
 const PengajuanPage = lazy(() => import('./pages/Pengajuan.jsx'))
 const Calendar = lazy(() => import('./pages/Calendar.jsx'))
 const Pesan = lazy(() => import('./pages/Pesan.jsx'))
+const DaftarHarga = lazy(() => import('./pages/DaftarHarga.jsx'))
+const Faq = lazy(() => import('./pages/Faq.jsx'))
 import GlobalSearch from './components/GlobalSearch.jsx'
 import NotificationBell from './components/NotificationBell.jsx'
 import ThemePicker, { readTheme, applyTheme } from './components/ThemePicker.jsx'
@@ -36,6 +38,9 @@ import QuickActions from './components/QuickActions.jsx'
 import { PanelProvider } from './components/WorkspacePanel.jsx'
 import SessionGuard from './components/SessionGuard.jsx'
 import ChatDock from './components/ChatDock.jsx'
+import { CHAT_ENABLED } from './lib/flags.js'
+
+import JamZona from './components/JamZona.jsx'
 import { useDensity } from './lib/density.js'
 
 // Router sederhana berbasis hash: #/dashboard, #/projects, #/projects/<id>, #/settings
@@ -55,12 +60,15 @@ const NAV = [
   { key: 'apostille', label: 'My Apostille', icon: Stamp, show: canSeeApostille },
   { key: 'calendar', label: 'Calendar', icon: CalendarDays },
   { group: 'Personal' },
-  { key: 'pesan', label: 'Pesan Masuk', icon: MessageCircle, bar: true, badge: (u, d, bf, x) => x.chatTotals?.msg || 0 },
+  ...(CHAT_ENABLED ? [{ key: 'pesan', label: 'Pesan Masuk', icon: MessageCircle, bar: true, badge: (u, d, bf, x) => x.chatTotals?.msg || 0 }] : []),
   { key: 'reminders', label: 'My Reminders', icon: AlarmClock, bar: true },
   { key: 'notes', label: 'Notes', icon: StickyNote, bar: true },
   { key: 'pengajuan', label: 'Pengajuan', icon: FilePlus2, badge: needsAction },
   { group: 'Manajemen' },
   { key: 'keuangan', label: 'Keuangan', icon: Wallet, show: canSeeKeuangan },
+  { group: 'Resources' },
+  { key: 'daftar-harga', label: 'Daftar Harga', icon: Tags },
+  { key: 'faq', label: 'FAQ & Panduan CS', icon: BookOpen },
   { key: 'monitoring', label: 'Monitoring', icon: MonitorCheck, show: canMonitor },
   { key: 'aktivitas', label: 'Aktivitas', icon: History, show: canSeeAllActivity },
   { group: '' },
@@ -109,7 +117,9 @@ export default function App() {
     : page === 'reminders' || page === 'todo' ? <MyReminders />
     : page === 'pengajuan' ? <PengajuanPage />
     : page === 'calendar' ? <Calendar />
-    : page === 'pesan' ? <Pesan peerParam={param} />
+    : page === 'daftar-harga' ? <DaftarHarga />
+    : page === 'faq' ? <Faq />
+    : page === 'pesan' && CHAT_ENABLED ? <Pesan peerParam={param} />
     : <Dashboard />
 
   return (
@@ -172,7 +182,10 @@ export default function App() {
           {/* Baris atas — di bawah 1024px hanya logo, lonceng & profil. Sisanya mulai lg. */}
           <div className="flex min-w-0 items-center gap-3">
             <div className="md:hidden"><Brand dark compact /></div>
-            <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
+            {/* Jam dua zona: pusat di Bali (WITA), mayoritas cabang di WIB.
+                Hanya dari lg ke atas — header HP tetap logo, lonceng, profil. */}
+            <JamZona className="ml-auto hidden xl:flex" />
+            <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2 xl:ml-3">
               {rolesOf(user).length > 1 && (
                 <select value={user.role} onChange={(e) => { setActiveRole(e.target.value); window.location.hash = '/dashboard' }} aria-label="Ganti peran"
                   className="hidden h-11 rounded-xl border-0 bg-violet-50 pl-3 pr-8 text-xs font-bold text-violet-800 ring-1 ring-violet-200 focus:ring-2 focus:ring-brand lg:block">
@@ -228,7 +241,7 @@ export default function App() {
       </div>
 
       {/* Chat menempel di bawah — tidak muncul di halaman Pesan Masuk (sudah ada di sana) */}
-      <ChatDock hidden={page === 'pesan'} />
+      {CHAT_ENABLED && <ChatDock hidden={page === 'pesan'} />}
 
       {/* Bottom nav mobile */}
       <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 border-t border-white/70 bg-white/85 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">

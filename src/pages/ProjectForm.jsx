@@ -6,7 +6,7 @@ import { zoho } from '../lib/integrations.js'
 import { parseInvoiceItems } from '../lib/zohoParse.js'
 import { usesDocs } from '../components/SubProjectEditor.jsx'
 import { copyText } from '../components/CopyText.jsx'
-import { BRANCHES, PRINT_VENDOR, can, branchesOf, isMultiBranch } from '../config/access.js'
+import { BRANCHES, PRINT_VENDOR, can, branchesOf, isMultiBranch, invoiceLabel} from '../config/access.js'
 import { stagesOf, deriveFlow } from '../config/workflows.js'
 import { Button, Field, FieldError, Input, Select, Sheet, SectionCard, cx, Textarea } from '../components/ui.jsx'
 import SubProjectEditor, { newSub, validateSub, docFileName, safeName } from '../components/SubProjectEditor.jsx'
@@ -35,6 +35,16 @@ export function autoDeadline(received, priority) {
  *  • side    : tampilkan sebagai panel geser dari samping, bukan dialog tengah
  *  • onSaved : dipanggil setelah tersimpan; bila ada, halaman tidak otomatis pindah ke detail project
  */
+/**
+ * Nomor invoice ditampilkan tanpa awalan "INV-", jadi CS bisa saja
+ * mengetik atau menempel angkanya saja. Yang disimpan harus tetap
+ * lengkap, kalau tidak kode cabang di menu Faktur tidak terbaca.
+ */
+const normInvoice = (v) => {
+  const t = String(v ?? '').trim().toUpperCase()
+  return /^\d+$/.test(t) ? `INV-${t}` : t
+}
+
 export default function ProjectForm({ onClose, project, preset, side, onSaved }) {
   const { user, data, save, notify } = useApp()
   const editing = !!project
@@ -99,7 +109,7 @@ export default function ProjectForm({ onClose, project, preset, side, onSaved })
   // Begitu invoice dipilih/diketik → baca item invoice dari salinan Zoho (debounce)
   useEffect(() => {
     if (editing) return
-    const no = invoice.trim().toUpperCase()
+    const no = normInvoice(invoice)
     if (!/^INV-\d{4,}$/i.test(no) || autoFill?.invoice_no === no) return
     let dead = false
     const t = setTimeout(() => zoho.invoiceDetail(no).then((d) => { if (dead) return; if (d) applyInvoice(d); else setInvoiceItems({ invoice_no: no, items: [] }) }).catch(() => {}), 350)
@@ -118,7 +128,7 @@ export default function ProjectForm({ onClose, project, preset, side, onSaved })
 
   const [tried, setTried] = useState(false)
   // Validasi per field — ditampilkan di bawah field setelah tombol simpan ditekan
-  const inv0 = invoice.trim().toUpperCase()
+  const inv0 = normInvoice(invoice)
   const errs = {
     customer: !customer && 'Pilih pelanggan dari Zoho',
     invoice: !inv0 ? 'Isi nomor invoice' : data.projects.some((p) => p.invoice_no === inv0 && p.id !== project?.id) && `Project ${inv0} sudah ada`,
@@ -129,7 +139,7 @@ export default function ProjectForm({ onClose, project, preset, side, onSaved })
 
   const submit = async () => {
     setTried(true)
-    const inv = invoice.trim().toUpperCase()
+    const inv = normInvoice(invoice)
     if (!customer) return notify('Pilih pelanggan dari Zoho', 'err')
     if (!inv) return notify('Isi nomor invoice', 'err')
     if (!about.deadline) return notify('Isi deadline', 'err')
@@ -218,7 +228,7 @@ export default function ProjectForm({ onClose, project, preset, side, onSaved })
   }
 
   return (
-    <Sheet open xwide tinted side={side ? 'right' : undefined} onClose={onClose} title={editing ? `Edit ${project.invoice_no}` : 'Project Baru'}
+    <Sheet open xwide tinted side={side ? 'right' : undefined} onClose={onClose} title={editing ? `Edit ${invoiceLabel(project.invoice_no)}` : 'Project Baru'}
       footer={<><Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={onClose}>Batal</Button><Button className="flex-1" loading={busy} onClick={submit}>{progress || (editing ? 'Simpan Perubahan' : 'Buat Project')}</Button></>}>
       <div className="space-y-6">
         <div className="grid gap-6 lg:grid-cols-2">
@@ -300,7 +310,7 @@ export default function ProjectForm({ onClose, project, preset, side, onSaved })
             {autoFill && (autoFill.ship || autoFill.courier || autoFill.priority) && (
               <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl bg-amber-50 px-3.5 py-2.5 text-xs text-amber-900 ring-1 ring-amber-200">
                 <Sparkles className="h-4 w-4 shrink-0 text-amber-600" />
-                <span><b className="font-semibold">Diisi otomatis dari {autoFill.invoice_no}</b>: {[autoFill.ship && 'alamat kirim', autoFill.courier && `kurir ${autoFill.courier}`, autoFill.priority && `prioritas ${autoFill.priority}`].filter(Boolean).join(' · ')}. Periksa & edit bila perlu — sub project diisi manual (lihat item invoice di atas).</span>
+                <span><b className="font-semibold">Diisi otomatis dari {invoiceLabel(autoFill.invoice_no)}</b>: {[autoFill.ship && 'alamat kirim', autoFill.courier && `kurir ${autoFill.courier}`, autoFill.priority && `prioritas ${autoFill.priority}`].filter(Boolean).join(' · ')}. Periksa & edit bila perlu — sub project diisi manual (lihat item invoice di atas).</span>
                 <button type="button" className="ml-auto inline-flex items-center gap-1 font-semibold text-amber-800 hover:underline" onClick={() => zoho.invoiceDetail(autoFill.invoice_no).then((d) => d && applyInvoice(d, { force: true }))}><RefreshCw className="h-3 w-3" />Isi ulang dari invoice</button>
               </div>
             )}
@@ -334,7 +344,7 @@ function InvoiceItemsView({ inv }) {
     <div className="overflow-hidden rounded-xl bg-white ring-1 ring-emerald-200" data-testid="invoice-items">
       <div className="flex flex-wrap items-center gap-2 bg-emerald-50 px-3.5 py-2">
         <Receipt className="h-4 w-4 shrink-0 text-emerald-700" />
-        <p className="min-w-0 flex-1 text-xs text-emerald-900"><b className="font-semibold">Item invoice {inv.invoice_no}</b> <span className="text-emerald-800/80">· hanya tampilan — baca/salin lalu isi sub project di bawah secara manual</span></p>
+        <p className="min-w-0 flex-1 text-xs text-emerald-900"><b className="font-semibold">Item invoice {invoiceLabel(inv.invoice_no)}</b> <span className="text-emerald-800/80">· hanya tampilan — baca/salin lalu isi sub project di bawah secara manual</span></p>
         {items.length > 0 && <button type="button" onClick={() => copy(items.map((it, i) => `${i + 1}. ${textOf(it)}`).join('\n\n'), 'Semua item')} className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-[11px] font-semibold text-emerald-800 ring-1 ring-emerald-300 hover:bg-emerald-100"><Copy className="h-3 w-3" />Salin semua</button>}
         <button type="button" onClick={() => setOpen((o) => !o)} className="rounded-lg p-1 text-emerald-800 hover:bg-emerald-100" aria-label={open ? 'Sembunyikan item invoice' : 'Tampilkan item invoice'} aria-expanded={open}>{open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}</button>
       </div>
@@ -486,9 +496,9 @@ function InvoicePicker({ customer, value, onChange, error }) {
       {list.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {list.map((iv) => (
-            <button key={iv.invoice_no} type="button" onClick={() => onChange(iv.invoice_no)}
+            <button key={invoiceLabel(iv.invoice_no)} type="button" onClick={() => onChange(iv.invoice_no)}
               title={`${tgl(iv.date)} · ${rupiah(iv.total)} · ${iv.status}`} aria-pressed={value === iv.invoice_no} className={cx('flex items-center gap-1.5 rounded-lg px-3 py-2 text-left ring-1 transition', value === iv.invoice_no ? 'bg-brand text-white ring-brand' : 'bg-white ring-slate-300 hover:ring-brand')}>
-              <span className="text-sm font-semibold">{iv.invoice_no}</span><span className={cx('text-xs', value === iv.invoice_no ? 'text-white/80' : 'text-ink-mute')}>{rupiah(iv.total)}</span>
+              <span className="text-sm font-semibold">{invoiceLabel(iv.invoice_no)}</span><span className={cx('text-xs', value === iv.invoice_no ? 'text-white/80' : 'text-ink-mute')}>{rupiah(iv.total)}</span>
               {value === iv.invoice_no && <Check className="h-3.5 w-3.5" />}
             </button>
           ))}

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { FileText, FileImage, Upload, Download, Trash2, Pencil, Check, X, Archive, Loader2, FolderOpen, Eye, Printer } from 'lucide-react'
+import { FileText, FileImage, Upload, Download, Trash2, Pencil, Check, X, Archive, Loader2, FolderOpen, Eye, Printer, ChevronRight } from 'lucide-react'
 import FilePreview from './FilePreview.jsx'
 import { canPreview, kindOf, printBlob } from '../lib/printing.js'
 import { useApp } from '../lib/store.jsx'
@@ -9,6 +9,7 @@ import { stagesOf, flowOf } from '../config/workflows.js'
 import { Button, Card, Empty, Select, cx } from './ui.jsx'
 import { jam, kb } from '../lib/format.js'
 import { useUploadNamer, nameTaken } from './UploadNamer.jsx'
+import { invoiceLabel } from '../config/access.js'
 
 const uid = () => crypto.randomUUID?.() ?? String(Date.now() + Math.random())
 const ext = (n) => (n.match(/\.[^.]+$/)?.[0] ?? '')
@@ -72,11 +73,12 @@ function patchEverywhere(next, f, value) {
 
 export default function FileManager({ project, readOnly }) {
   const { user, save, notify, ask } = useApp()
-  const [filter, setFilter] = useState('all')
+  // SATU folder aktif: yang dilihat = yang jadi tujuan upload.
+  // Acuannya ID sub project, bukan namanya — sub bernama sama tidak tertukar.
+  const [folder, setFolder] = useState('all')
   const [selected, setSelected] = useState(() => new Set())
   const [renaming, setRenaming] = useState(null)
   const [newName, setNewName] = useState('')
-  const [uploadSub, setUploadSub] = useState('')
   const [busy, setBusy] = useState(null)
   const [preview, setPreview] = useState(null)
   const inputRef = useRef(null)
@@ -85,7 +87,11 @@ export default function FileManager({ project, readOnly }) {
   const [reviewNames, namerDialog] = useUploadNamer({ existing: all.map((f) => f.name), invoice: project.invoice_no })
   const subs = project.sub_projects || []
   const subLabel = (id) => { const i = subs.findIndex((s) => s.id === id); return i < 0 ? 'Umum' : `Sub ${i + 1} · ${subs[i].title}` }
-  const shown = all.filter((f) => filter === 'all' || (filter === 'umum' ? !f.subId : f.subId === filter))
+  const shown = all.filter((f) => folder === 'all' || (folder === 'umum' ? !f.subId : f.subId === folder))
+  // Upload selalu masuk ke folder yang sedang terlihat. Di tampilan "semua
+  // file" belum ada folder yang dituju, jadi diarahkan ke Umum.
+  const uploadSub = folder === 'all' || folder === 'umum' ? '' : folder
+  const folderLabel = folder === 'all' ? 'Semua file' : folder === 'umum' ? 'Umum' : subLabel(folder)
   const toggle = (k) => setSelected((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n })
 
   // ---- simpan perubahan ke project ----
@@ -145,14 +151,14 @@ export default function FileManager({ project, readOnly }) {
       for (let i = 0; i < files.length; i++) {
         const f = files[i]; setBusy(`Mengemas ZIP ${i + 1}/${files.length}…`)
         let blob; try { blob = await drive.blob(f) } catch { skipped++; continue }
-        const folder = subLabel(f.subId).replace(/[\\/:*?"<>|]/g, '-').slice(0, 60)
-        let path = `${folder}/${f.name}`; let k = 1
-        while (used.has(path)) path = `${folder}/${f.name.replace(/(\.[^.]+)?$/, ` (${k++})$1`)}`
+        const namaFolder = subLabel(f.subId).replace(/[\\/:*?"<>|]/g, '-').slice(0, 60)
+        let path = `${namaFolder}/${f.name}`; let k = 1
+        while (used.has(path)) path = `${namaFolder}/${f.name.replace(/(\.[^.]+)?$/, ` (${k++})$1`)}`
         used.add(path); zip.file(path, blob)
       }
       if (!used.size) throw new Error('Tidak ada file yang bisa dikemas')
       setBusy('Membuat ZIP…')
-      await saveBlob(`${project.invoice_no}${suffix}.zip`, await zip.generateAsync({ type: 'blob' }))
+      await saveBlob(`${invoiceLabel(project.invoice_no)}${suffix}.zip`, await zip.generateAsync({ type: 'blob' }))
       if (skipped) notify(`${skipped} file dilewati (tidak tersedia)`, 'err')
     } catch (e) { notify(e.message, 'err') } finally { setBusy(null) }
   }
@@ -164,27 +170,42 @@ export default function FileManager({ project, readOnly }) {
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4">
         <div className="mr-auto">
           <h2 className="font-bold">File Project <span className="text-ink-mute">({all.length})</span></h2>
-          <p className="text-[11px] text-ink-mute">Google Drive · ATLAS / {project.branch} / {project.invoice_no}</p>
+          <p className="text-[11px] text-ink-mute">Google Drive · ATLAS / {project.branch} / {invoiceLabel(project.invoice_no)}</p>
         </div>
         <Button size="sm" variant="outline" onClick={() => downloadZip()} disabled={!all.length || !!busy}><Archive className="h-3.5 w-3.5" />Download ZIP</Button>
       </div>
 
-      {/* Upload */}
-      <div className="flex flex-wrap items-center gap-2 bg-slate-50 px-4 py-3">
-        <Select value={uploadSub} onChange={(e) => setUploadSub(e.target.value)} className="h-9 flex-1 bg-white py-1.5 text-xs sm:max-w-xs" aria-label="Kaitkan ke sub project">
-          <option value="">Ke: Umum</option>
-          {subs.map((s, i) => <option key={s.id} value={s.id}>Ke: Sub {i + 1} · {s.title}</option>)}
-        </Select>
-        <Button size="sm" onClick={() => inputRef.current?.click()} disabled={!!busy}><Upload className="h-3.5 w-3.5" />Upload File</Button>
-        <input ref={inputRef} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} />
+      {/* Folder aktif: breadcrumb + pemilih + upload. Yang dilihat = tujuan upload. */}
+      <div className="space-y-2 bg-slate-50 px-4 py-3">
+        <nav aria-label="Lokasi folder" className="flex min-w-0 flex-wrap items-center gap-1 text-xs">
+          <button type="button" onClick={() => setFolder('all')}
+            className={cx('rounded px-1 font-semibold', folder === 'all' ? 'text-ink' : 'text-brand hover:underline')}>File Project</button>
+          <ChevronRight className="h-3 w-3 shrink-0 text-ink-mute" aria-hidden="true" />
+          <span className="min-w-0 max-w-full truncate font-semibold tabular-nums text-ink">{invoiceLabel(project.invoice_no)}</span>
+          {folder !== 'all' && (
+            <>
+              <ChevronRight className="h-3 w-3 shrink-0 text-ink-mute" aria-hidden="true" />
+              <span className="min-w-0 max-w-full truncate font-semibold text-ink">{folderLabel}</span>
+            </>
+          )}
+        </nav>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Select value={folder} onChange={(e) => { setFolder(e.target.value); setSelected(new Set()) }}
+            className="h-9 min-w-0 flex-1 bg-white py-1.5 text-xs sm:max-w-xs" aria-label="Pilih folder project">
+            <option value="all">Semua file</option>
+            <option value="umum">Umum</option>
+            {subs.map((s, i) => <option key={s.id} value={s.id}>Sub {i + 1} · {s.title}</option>)}
+          </Select>
+          <Button size="sm" onClick={() => inputRef.current?.click()} disabled={!!busy}><Upload className="h-3.5 w-3.5" />Upload File</Button>
+          <input ref={inputRef} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} aria-label="Pilih satu atau beberapa file" />
+        </div>
+        <p className="text-[11px] leading-relaxed text-ink-mute">
+          Tersimpan ke <b>{folder === 'all' ? 'Umum' : folderLabel}</b>. Bisa pilih beberapa file sekaligus.
+        </p>
       </div>
 
       {/* Filter & aksi terpilih */}
       <div className="flex flex-wrap items-center gap-2 px-4 pt-3">
-        <Select value={filter} onChange={(e) => setFilter(e.target.value)} className="h-8 max-w-[160px] bg-white py-1 text-xs" aria-label="Filter sub project">
-          <option value="all">Semua file</option><option value="umum">Umum</option>
-          {subs.map((s, i) => <option key={s.id} value={s.id}>Sub {i + 1}</option>)}
-        </Select>
         {shown.length > 0 && (
           <label className="flex items-center gap-1.5 text-xs font-semibold text-ink-soft">
             <input type="checkbox" checked={shown.every((f) => selected.has(f.key))}

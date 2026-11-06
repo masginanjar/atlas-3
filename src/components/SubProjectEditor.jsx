@@ -3,15 +3,16 @@ import { Trash2, Plus, RotateCcw, Files, BookOpen, Languages, ArrowLeftRight, Us
 
 const TYPE_ICON = { terjemahan: Languages, terjemahan_nt: Languages, apostille: Stamp, legalisasi: ScrollText, jasa_lain: Shapes }
 import { useApp } from '../lib/store.jsx'
-import { SUB_TYPES, COUNTRIES, points, renumber } from '../config/subtypes.js'
+import { SUB_TYPES, COUNTRIES, OBJEK_APOSTILLE, points, renumber } from '../config/subtypes.js'
 import { Field, FieldError, Input, Select, cx } from './ui.jsx'
 import { placeOf } from '../config/access.js'
+import PilihCari from './PilihCari.jsx'
 
 const LANGS = ['Indonesia', 'Inggris', 'Mandarin', 'Jepang', 'Korea', 'Arab', 'Belanda', 'Jerman', 'Prancis', 'Spanyol', 'Rusia', 'Lainnya']
 
 export const newSub = (type = 'terjemahan') => ({
   _k: Math.random(), type, description: '', file_count: 0, pages: 0, pages_manual: false, docs: usesDocs(type) ? [{ desc: '', pages: 1 }] : undefined,
-  translator: '', translator_kind: '', lang_from: 'Indonesia', lang_to: 'Inggris', country: '', institution: '', executor_kind: '', executor_id: '', applicant_id: '',
+  translator: '', translator_kind: '', lang_from: 'Indonesia', lang_to: 'Inggris', country: '', objek: '', institution: '', executor_kind: '', executor_id: '', applicant_id: '',
 })
 
 /** Textarea bernomor: Enter → baris baru dengan nomor berikutnya. */
@@ -256,16 +257,33 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
           <div className="grid gap-4 sm:grid-cols-2">
             {extra.includes('country') && (
               <Field label="Tujuan Negara" icon={Globe2} required>
-                <Input list="atlas-countries" aria-invalid={errOn('negara')} value={sub.country} onChange={(e) => set({ country: e.target.value })} placeholder="Ketik / pilih negara" />
-                <datalist id="atlas-countries">{COUNTRIES.map((c) => <option key={c} value={c} />)}</datalist>
+                <PilihCari label="Tujuan negara" invalid={errOn('negara')} value={sub.country}
+                  onChange={(v) => set({ country: v })} options={COUNTRIES}
+                  placeholder="Pilih negara…" kosong="Negara tidak ditemukan" />
               </Field>
             )}
             {extra.includes('institution') && (
               <Field label="Lembaga" icon={Landmark} required hint={!of('lembaga').length ? 'Belum ada lembaga — tambahkan di Setting → Master Data' : undefined}>
-                <Select value={sub.institution} aria-invalid={errOn('lembaga')} onChange={(e) => set({ institution: e.target.value })}>
-                  <option value="">Pilih lembaga…</option>
-                  {of('lembaga').map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </Select>
+                <PilihCari label="Lembaga" invalid={errOn('lembaga')} value={sub.institution}
+                  onChange={(v) => set({ institution: v })} placeholder="Pilih lembaga…" kosong="Lembaga tidak ditemukan"
+                  options={of('lembaga').map((p) => ({ value: p.id, label: p.name, note: p.note || '' }))} />
+                {/* Persyaratan lembaga — diisi di Setting → Master Data, bukan di kode. */}
+                {(() => { const l = of('lembaga').find((p) => p.id === sub.institution); return l?.note
+                  ? <p className="mt-1.5 rounded-lg bg-amber-50 px-2.5 py-1.5 text-[11px] leading-relaxed text-amber-900 ring-1 ring-amber-200">{l.note}</p>
+                  : null })()}
+              </Field>
+            )}
+            {extra.includes('objek') && (
+              <Field label="Yang diapostille" icon={Stamp} required>
+                <div className="flex flex-wrap gap-1.5">
+                  {OBJEK_APOSTILLE.map(([v, l]) => (
+                    <button key={v} type="button" onClick={() => set({ objek: v })} aria-pressed={sub.objek === v}
+                      className={cx('min-h-[44px] rounded-xl px-3 text-sm font-semibold ring-1 transition',
+                        sub.objek === v ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-300 hover:ring-brand')}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
               </Field>
             )}
             {extra.includes('executor') && (
@@ -297,6 +315,7 @@ export function validateSub(s, i) {
   if (extra.includes('translator_nt') && !s.translator) return `${label}: pilih penerjemah`
   if (extra.includes('country') && !s.country.trim()) return `${label}: pilih tujuan negara`
   if (extra.includes('institution') && !s.institution) return `${label}: pilih lembaga`
+  if (extra.includes('objek') && !s.objek) return `${label}: pilih yang diapostille (asli / terjemahan / keduanya)`
   if (extra.includes('executor') && !s.executor_id) return `${label}: pilih eksekutor`
   return null
 }

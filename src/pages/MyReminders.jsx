@@ -8,6 +8,7 @@ import { REPEATS } from '../components/WorkspacePanel.jsx'
 import { go } from '../lib/router.js'
 import Avatar from '../components/Avatar.jsx'
 import { Button, Card, cx } from '../components/ui.jsx'
+import { invoiceLabel } from '../config/access.js'
 
 const when = (iso) => (iso ? new Date(iso).toLocaleString('id-ID', { timeZone: TZ, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '')
 const PRIO = { Mendesak: 'bg-rose-50 text-rose-700 ring-rose-200', Penting: 'bg-amber-50 text-amber-800 ring-amber-200', Normal: '' }
@@ -74,7 +75,7 @@ export default function MyReminders() {
             <span className="rounded-full bg-slate-100 px-1.5 font-semibold">{t.list || 'Umum'}</span>
             {t.priority !== 'Normal' && <span className={cx('rounded-full px-1.5 font-semibold ring-1', PRIO[t.priority])}>{t.priority}</span>}
             {t.due && <span className={cx(bucketOf(t) === 'terlambat' && 'font-bold text-rose-600')}>{when(t.due)}</span>}
-            {p && <button type="button" onClick={() => go(`projects/${p.id}`)} className="inline-flex items-center gap-0.5 font-semibold text-brand hover:underline">{p.invoice_no}<ExternalLink className="h-2.5 w-2.5" /></button>}
+            {p && <button type="button" onClick={() => go(`projects/${p.id}`)} className="inline-flex items-center gap-0.5 font-semibold text-brand hover:underline">{invoiceLabel(p.invoice_no)}<ExternalLink className="h-2.5 w-2.5" /></button>}
           </p>
           {t.note && <p className="mt-0.5 line-clamp-2 text-[11px] text-ink-soft">{t.note}</p>}
         </div>
@@ -109,7 +110,7 @@ export default function MyReminders() {
             <span className={cx(n && new Date(n) < new Date() && 'font-bold text-rose-600')}>{r.done_at ? `Selesai ${when(r.done_at)}` : n ? when(n) : 'Nonaktif'}</span>
             {r.repeat !== 'none' && <span className="rounded-full bg-slate-100 px-1.5 font-semibold">{repeatLabel(r.repeat)}</span>}
             {r.snooze_until && new Date(r.snooze_until) > new Date() && <span className="inline-flex items-center gap-0.5 text-amber-700"><Timer className="h-3 w-3" />ditunda</span>}
-            {p && <button type="button" onClick={() => go(`projects/${p.id}`)} className="inline-flex items-center gap-0.5 font-semibold text-brand hover:underline">{p.invoice_no}<ExternalLink className="h-2.5 w-2.5" /></button>}
+            {p && <button type="button" onClick={() => go(`projects/${p.id}`)} className="inline-flex items-center gap-0.5 font-semibold text-brand hover:underline">{invoiceLabel(p.invoice_no)}<ExternalLink className="h-2.5 w-2.5" /></button>}
           </p>
           {r.note && <p className="mt-0.5 line-clamp-2 text-[11px] text-ink-soft">{r.note}</p>}
         </div>

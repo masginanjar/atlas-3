@@ -6,7 +6,7 @@ import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
 import { cx } from './ui.jsx'
 import { relTime, tgl, daysLeft } from '../lib/format.js'
-import { scopeByBranch, roleLabel } from '../config/access.js'
+import { scopeByBranch, roleLabel, invoiceLabel} from '../config/access.js'
 import { DONE } from '../config/workflows.js'
 import Avatar from './Avatar.jsx'
 import { useNow } from './TimeAgo.jsx'
@@ -152,7 +152,7 @@ function PingItem({ p, isNew, sender, now, canOpen, onOpen, onRead, done }) {
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-x-1.5 text-sm"><b className="text-ink">{sender?.name || p.from_name}</b><span className="rounded-md bg-slate-100 px-1.5 py-px text-[10px] font-semibold text-ink-soft">{sender ? roleLabel(sender) : roleLabel(null, p.from_role)}</span><span className="ml-auto text-[11px] text-ink-mute">{relTime(p.created_at, now)}</span></p>
           <p className={cx('mt-1 text-sm leading-snug', isNew ? 'text-ink' : 'text-ink-soft')}>“{p.message}”</p>
-          <p className="mt-1.5 text-xs font-semibold text-ink">{p.invoice_no}{p.sub_title ? <span className="font-normal text-ink-soft"> · {p.sub_title}</span> : null}{p.stage_label ? <span className="font-normal text-ink-mute"> · {p.stage_label}</span> : null}</p>
+          <p className="mt-1.5 text-xs font-semibold text-ink">{invoiceLabel(p.invoice_no)}{p.sub_title ? <span className="font-normal text-ink-soft"> · {p.sub_title}</span> : null}{p.stage_label ? <span className="font-normal text-ink-mute"> · {p.stage_label}</span> : null}</p>
           <p className={cx('mt-0.5 flex items-center gap-1 text-xs', d !== null && d <= 0 && !done ? 'font-semibold text-rose-600' : 'text-ink-mute')}><CalendarClock className="h-3.5 w-3.5" />Deadline: {dl}</p>
           <div className="mt-2 flex items-center gap-2">
             {done ? <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200"><CheckCheck className="h-3.5 w-3.5" />Sudah Selesai</span> : null}

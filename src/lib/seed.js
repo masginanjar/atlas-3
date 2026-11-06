@@ -3,6 +3,7 @@ export const DEMO_PDF = (name) => ({ name, size: 450, url: 'data:application/pdf
 import { DEMO_CONTACTS } from './demoZoho.js'
 import { BRANCHES } from '../config/access.js'
 import { ONGKIR_TUJUAN as ONGKIR, totalBiaya } from '../config/workflows.js'
+import { DEFAULT_COURIERS } from '../config/couriers.js'
 const cust = (id) => structuredClone(DEMO_CONTACTS.find((c) => c.zoho_id === id))
 const d = (days) => new Date(Date.now() + days * 864e5).toISOString()
 let n = 0
@@ -272,14 +273,13 @@ export function seed() {
   ]
 
   const K = (name, type, icon, color, order) => ({ id: id('k'), name, type, icon, color, logo: '', order, created_at: d(-60) })
-  const couriers = [
-    K('Softcopy Saja', 'softcopy', 'file', '#64748b', 1), K('Diambil di Kantor', 'pickup', 'store', '#1f4fd1', 2),
-    K('Gojek', 'courier', 'bike', '#00a651', 3), K('Grab', 'courier', 'bike', '#00b14f', 4),
-    K('J&T', 'courier', 'truck', '#d71920', 5), K('JNE', 'courier', 'package', '#1b3d8f', 6),
-    K('Dikirim dari Penerjemah', 'vendor', 'send', '#7c3aed', 7),
-  ]
-  projects[0].about.courier = couriers[1].id
-  projects[1].about.courier = couriers[5].id
+  // Daftar ekspedisi dipusatkan di config/couriers.js supaya seed dan
+  // migrasi data lama memakai sumber yang sama (tidak ada yang ganda).
+  const couriers = DEFAULT_COURIERS.map((c, i) => K(c.name, c.type, c.icon, c.color, i + 1))
+  // dipilih berdasarkan nama, bukan posisi — daftar ekspedisi bisa bertambah
+  const kurir = (n) => couriers.find((c) => c.name === n) || couriers[0]
+  projects[0].about.courier = kurir('Diambil di Kantor').id
+  projects[1].about.courier = kurir('JNE').id
 
   projects.push(...archiveProjects())
   return { users, people, projects, petty_cash, couriers, notifications: [], requests, perf_daily: [] }

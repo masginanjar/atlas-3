@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, Search, Plus, ExternalLink, AlertTriangle, Loader2, FileText } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { zoho, payStateOf } from '../lib/integrations.js'
-import { can, scopeByBranch, branchOfInvoice, invoiceCode, branchesOf } from '../config/access.js'
+import { can, scopeByBranch, branchOfInvoice, invoiceCode, branchesOf, invoiceLabel} from '../config/access.js'
 import { canSeePayment } from '../config/menuAccess.js'
 import { go } from '../lib/router.js'
 import { Button, Card, cx } from '../components/ui.jsx'
@@ -131,7 +131,7 @@ export default function Invoices() {
                   return (
                     <li key={i.zoho_invoice_id || i.invoice_no} className={cx('grid gap-1 px-4 py-2.5 lg:grid-cols-[104px_minmax(0,1.1fr)_minmax(0,1.3fr)_96px_124px_minmax(0,1fr)] lg:items-center lg:gap-3', idx % 2 && 'bg-slate-50/70')}>
                       <p className="text-xs text-ink-soft">{tgl(i.date)}</p>
-                      <p className="text-sm font-bold"><CopyText text={i.invoice_no} label="No. Invoice" strong /></p>
+                      <p className="text-sm font-bold"><CopyText text={invoiceLabel(i.invoice_no)} label="No. Invoice" strong /></p>
                       <p className="truncate text-sm text-ink">{i.customer_name || '—'}</p>
                       <p className="truncate text-xs text-ink-soft">{i.branch || branchOfInvoice(i.invoice_no) || <span className="text-amber-700" title={`Kode ${invoiceCode(i.invoice_no)} belum terdaftar`}>Kode {invoiceCode(i.invoice_no)}</span>}</p>
                       <p><PayBadge status={i.status} prefix={false} /></p>

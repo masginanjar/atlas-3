@@ -7,6 +7,7 @@ import { isApprover, needsAction } from '../lib/badges.js'
 import { rupiah, tgl } from '../lib/format.js'
 import { go } from '../lib/router.js'
 import { Button, Card, cx } from '../components/ui.jsx'
+import { invoiceLabel } from '../config/access.js'
 
 export { isApprover, needsAction }
 
@@ -90,7 +91,7 @@ export default function Pengajuan() {
                           <p className="flex flex-wrap items-center gap-2"><KindBadge kind={r.kind} /><span className="truncate text-sm font-semibold text-ink">{r.purpose || '—'}</span></p>
                           <p className="flex flex-wrap items-center gap-x-2 text-[11px] text-ink-mute">
                             <span>{tgl(r.created_at)}</span><span>· {r.branch}</span>
-                            {p && <button type="button" onClick={() => go(`projects/${p.id}`)} className="inline-flex items-center gap-0.5 font-semibold text-brand hover:underline">{p.invoice_no}<ExternalLink className="h-2.5 w-2.5" /></button>}
+                            {p && <button type="button" onClick={() => go(`projects/${p.id}`)} className="inline-flex items-center gap-0.5 font-semibold text-brand hover:underline">{invoiceLabel(p.invoice_no)}<ExternalLink className="h-2.5 w-2.5" /></button>}
                             {r.decided_note && <span className="truncate">· {r.decided_note}</span>}
                           </p>
                         </div>

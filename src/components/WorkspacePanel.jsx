@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { StickyNote, ListTodo, AlarmClock, FilePlus2, FolderPlus, Plus, Check, Trash2 } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { can } from '../config/access.js'
+import { can, invoiceLabel} from '../config/access.js'
 import { Button, Field, Input, Select, Sheet, Textarea, cx } from './ui.jsx'
 import ProjectForm from '../pages/ProjectForm.jsx'
 import { RequestForm } from './Requests.jsx'
@@ -81,7 +81,7 @@ function LinkProject({ value, onChange }) {
     <Field label="Hubungkan ke project (opsional)" hint="Hanya ditautkan — datanya tidak disalin.">
       <Select value={value || ''} onChange={(e) => onChange(e.target.value || '')}>
         <option value="">— Tidak ditautkan —</option>
-        {list.map((p) => <option key={p.id} value={p.id}>{p.invoice_no} · {p.customer?.name || '—'}</option>)}
+        {list.map((p) => <option key={p.id} value={p.id}>{invoiceLabel(p.invoice_no)} · {p.customer?.name || '—'}</option>)}
       </Select>
     </Field>
   )

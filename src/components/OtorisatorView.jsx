@@ -6,7 +6,7 @@ import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
 import { drive } from '../lib/integrations.js'
 import { saveBlob, dataUrlToBlob } from '../lib/download.js'
-import { activeClaim } from '../config/access.js'
+import { activeClaim, invoiceLabel} from '../config/access.js'
 import { flowOf } from '../config/workflows.js'
 import { cx } from './ui.jsx'
 import { tgl, daysLeft } from '../lib/format.js'
@@ -30,7 +30,7 @@ export default function OtorisatorView({ project }) {
         <ArrowLeft className="h-5 w-5" />Kembali
       </button>
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight">{project.invoice_no}</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">{invoiceLabel(project.invoice_no)}</h1>
         <TimeAgo at={project.created_at} prefix="Diposting" className="!text-xs" />
         <p className={cx('mt-1 text-base', d !== null && d <= 1 ? 'font-bold text-rose-600' : 'text-ink-soft')}>Deadline: {tgl(project.about?.deadline)}</p>
       </div>
@@ -88,7 +88,7 @@ function DocCard({ project, sub }) {
       while (used.has(name)) name = `${label} (${i++}) - ${f.name}`
       used.add(name); zip.file(name, await blobOf(f))
     }
-    await saveBlob(`${project.invoice_no} - ${sub.title}.zip`.replace(/[\\/:*?"<>|]/g, '-'), await zip.generateAsync({ type: 'blob' })); setDownloaded(true)
+    await saveBlob(`${invoiceLabel(project.invoice_no)} - ${sub.title}.zip`.replace(/[\\/:*?"<>|]/g, '-'), await zip.generateAsync({ type: 'blob' })); setDownloaded(true)
   })
   const saveList = (list) => processStage(project, sub.id, { file_final: list[0] ?? null, file_final_list: list }, false)
   const [reviewNames, namerDialog] = useUploadNamer({ existing: collect(project).map((f) => f.name), invoice: project.invoice_no })

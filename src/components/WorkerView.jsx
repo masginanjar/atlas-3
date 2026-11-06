@@ -13,7 +13,7 @@ import { cx } from './ui.jsx'
 import { tgl, daysLeft } from '../lib/format.js'
 import TimeAgo from './TimeAgo.jsx'
 import { stageArrivedAt } from '../lib/format.js'
-import { placeOf, seeProofreaderIdentity, proofreaderTeamName, pickProofreader } from '../config/access.js'
+import { placeOf, seeProofreaderIdentity, proofreaderTeamName, pickProofreader, invoiceLabel} from '../config/access.js'
 
 /**
  * Tampilan SEDERHANA untuk Penerjemah & Proofreader:
@@ -45,7 +45,7 @@ export default function WorkerView({ project }) {
       </button>
 
       <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <h1 className="text-2xl font-extrabold tracking-tight">{project.invoice_no}</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">{invoiceLabel(project.invoice_no)}</h1>
         <TimeAgo at={project.created_at} prefix="Diposting" className="!text-xs" />
         <p className="mt-2 flex items-center gap-2 text-base font-semibold"><UserRound className="h-5 w-5 text-sky-600" />{project.customer?.name || '—'}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">

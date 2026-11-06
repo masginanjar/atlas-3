@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Minus, Search, FolderOpen, Banknote, CalendarClock, Layers, LayoutGrid, List, ChevronRight, ChevronDown, Sparkles, StickyNote, Printer, AlertTriangle, Eye, Columns3, Download, Bookmark, X, Save, Rows2, Rows3, Rows4, Maximize2, Minimize2 } from 'lucide-react'
+import { Plus, Minus, Search, FolderOpen, Banknote, CalendarClock, Layers, LayoutGrid, List, ChevronRight, ChevronDown, Sparkles, StickyNote, Printer, AlertTriangle, Eye, Columns3, Download, Bookmark, X, Save, Rows2, Rows3, Rows4, Maximize2, Minimize2, Table2} from 'lucide-react'
 import FileManager, { fieldFiles, collect as collectFiles } from '../components/FileManager.jsx'
 import ProjectDetail from './ProjectDetail.jsx'
 import { saveBlob } from '../lib/download.js'
 import WorkerBoard, { WorkerActions, isWorkRole } from '../components/WorkerActions.jsx'
 import { useApp } from '../lib/store.jsx'
-import { scopeByBranch, can, branchesOf } from '../config/access.js'
+import { scopeByBranch, can, branchesOf, invoiceLabel} from '../config/access.js'
+import ProjectSpreadsheet from '../components/ProjectSpreadsheet.jsx'
 import { DONE, isDone, progressOf, stageLabel, flowOf, totalPengajuan, stageIndex, stagesOf, VENDOR_PAID_STAGES } from '../config/workflows.js'
 import { PengajuanStatus, DownloadBukti } from '../components/Pengajuan.jsx'
 import { SUB_TYPES } from '../config/subtypes.js'
@@ -25,7 +26,12 @@ export default function Projects() {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('aktif')
   const [formOpen, setFormOpen] = useState(false)
-  const [view, setViewRaw] = useState(() => { try { return localStorage.getItem('atlas-view') || 'grid' } catch { return 'grid' } })
+  // Pencarian/filter/urutan tabel disimpan di sini, bukan di dalam tabelnya,
+  // supaya tidak hilang saat panel detail dibuka-tutup atau setelah cetak.
+  const [tableState, setTableState] = useState({ q: '', sortKey: 'timestamp', sortDir: 'desc', filters: {}, shownN: 36 })
+  const VIEWS = ['list', 'tabel']
+  // Tampilan kartu dihapus; preferensi lama yang masih 'grid' jatuh ke list.
+  const [view, setViewRaw] = useState(() => { try { const v = localStorage.getItem('atlas-view'); return VIEWS.includes(v) ? v : 'list' } catch { return 'list' } })
   const setView = (v) => { setViewRaw(v); try { localStorage.setItem('atlas-view', v) } catch { /* abaikan */ } }
   // urutan: 'deadline' (terdekat dulu) atau 'baru' (project terbaru dulu) — tombol saklar, tersimpan per perangkat
   const [sort, setSortRaw] = useState(() => { try { return localStorage.getItem('atlas-sort') || 'deadline' } catch { return 'deadline' } })
@@ -119,12 +125,6 @@ export default function Projects() {
                   className={cx('flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold', sort === k ? 'bg-ink text-white' : 'text-ink-mute hover:bg-slate-50')}><Icon className="h-3.5 w-3.5" /><span className="hidden sm:inline">{l}</span></button>
               ))}
             </div>
-            <div className="flex shrink-0 rounded-xl bg-white p-1 ring-1 ring-slate-200">
-              {[['grid', LayoutGrid, 'Tampilan kartu'], ['list', List, 'Tampilan list']].map(([k, Icon, l]) => (
-                <button key={k} onClick={() => setView(k)} aria-label={l} title={l}
-                  className={cx('grid h-8 w-8 place-items-center rounded-lg', view === k ? 'bg-ink text-white' : 'text-ink-mute hover:bg-slate-50')}><Icon className="h-4 w-4" /></button>
-              ))}
-            </div>
             <SavedViews current={{ tab, q, status, sort, dlFilter, prFilter, bpFilter, cols, view }} apply={(v) => { setTab(v.tab ?? 'all'); setQ(v.q ?? ''); setStatus(v.status ?? 'aktif'); setSort(v.sort ?? 'deadline'); setDlFilter(v.dlFilter ?? null); setPrFilter(v.prFilter ?? ''); setBpFilter(v.bpFilter ?? { branch: '', print: '' }); if (v.cols) saveCols(v.cols); if (v.view) setView(v.view) }} />
             {view === 'list' && (
               <Popover label="Pengaturan kolom" button={({ open: o, toggle }) => (
@@ -149,6 +149,12 @@ export default function Projects() {
             )}
             <button onClick={() => exportCsv(list, cols)} aria-label="Ekspor CSV" title="Ekspor daftar (sesuai filter) ke CSV"
               className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand"><Download className="h-4 w-4" /></button>
+            <div className="flex shrink-0 rounded-xl bg-white p-1 ring-1 ring-slate-200">
+              {[['list', List, 'List kompak'], ['tabel', Table2, 'Tabel — 1 baris 1 data']].map(([k, Icon, l]) => (
+                <button key={k} onClick={() => setView(k)} aria-label={l} title={l}
+                  className={cx('grid h-8 w-8 place-items-center rounded-lg', view === k ? 'bg-ink text-white' : 'text-ink-mute hover:bg-slate-50')}><Icon className="h-4 w-4" /></button>
+              ))}
+            </div>
             <ViewTools density={density} setDensity={setDensity} zoom={zoom} setZoom={setZoom} full={full} setFull={setFull} />
           </div>
 
@@ -168,24 +174,25 @@ export default function Projects() {
           {list.length === 0 && !(view === 'list' && (dlFilter || bpFilter.branch || bpFilter.print || q || tab !== 'all')) ? (
             <Card><Empty icon={FolderOpen} title="Belum ada project" text="Buat project baru dari invoice Zoho." action={<Button onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" />Project Baru</Button>} /></Card>
           ) : view === 'list' ? <ProjectList list={rest.slice(0, shownN)} late={late} dlFilter={dlFilter} setDlFilter={setDlFilter} prFilter={prFilter} setPrFilter={setPrFilter} cols={cols} detailFor={detailFor} setDetailFor={setDetailFor} filesFor={filesFor} setFilesFor={setFilesFor} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {list.slice(0, shownN).map((p) => <ProjectCard key={p.id} p={p} onOpen={() => { setDetailFor(p); setFilesFor(null) }} active={detailFor?.id === p.id} />)}
-            </div>
+            <ProjectSpreadsheet list={list} detailFor={detailFor} state={tableState} setState={setTableState}
+              onDetail={(p) => { setDetailFor(p); setFilesFor(null) }}
+              onFiles={(p) => setFilesFor(p)}
+              onPrint={(p) => { setFilesFor(p) }} />
           )}
-          {list.length > shownN && <Button variant="outline" className="w-full" onClick={() => setShownN((n) => n + 36)}>Tampilkan 36 lagi ({list.length - shownN} tersisa)</Button>}
+          {view !== 'tabel' && list.length > shownN && <Button variant="outline" className="w-full" onClick={() => setShownN((n) => n + 36)}>Tampilkan 36 lagi ({list.length - shownN} tersisa)</Button>}
           </ZoomArea>
         </>
       )}
 
       {filesFor && (
-        <Sheet open side onClose={() => setFilesFor(null)} title="File Project" subtitle={`${filesFor.invoice_no} · ${filesFor.customer?.name || ''}`}
+        <Sheet open side onClose={() => setFilesFor(null)} title="File Project" subtitle={`${invoiceLabel(filesFor.invoice_no)} · ${filesFor.customer?.name || ''}`}
           footer={<><Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={() => setFilesFor(null)}>Tutup</Button><span className="flex-1" />
             <Button variant="outline" size="sm" onClick={() => { setDetailFor(filesFor); setFilesFor(null) }}><Eye className="h-3.5 w-3.5" />Detail project</Button></>}>
           <FileManager project={projectOf(filesFor.id) || filesFor} />
         </Sheet>
       )}
       {detailFor && (
-        <Sheet open side wide onClose={() => setDetailFor(null)} title={detailFor.invoice_no} subtitle={`${detailFor.customer?.name || ''} · ${detailFor.branch}`}
+        <Sheet open side wide onClose={() => setDetailFor(null)} title={invoiceLabel(detailFor.invoice_no)} subtitle={`${detailFor.customer?.name || ''} · ${detailFor.branch}`}
           footer={<><Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={() => setDetailFor(null)}>Tutup</Button><span className="flex-1" />
             <a href={`#/projects/${detailFor.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline" title="Buka sebagai halaman penuh">Halaman penuh →</a></>}>
           <ProjectDetail id={detailFor.id} embedded />
@@ -265,7 +272,7 @@ function ProjectCard({ p, onOpen, active }) {
   const done = isDone(p)
   return (
     <div className="relative">
-    <button type="button" onClick={onOpen} aria-label={`Detail ${p.invoice_no}`} className="block w-full text-left">
+    <button type="button" onClick={onOpen} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} className="block w-full text-left">
       <Card className={cx('h-full p-4 pb-0 transition hover:-translate-y-0.5 hover:shadow-md', active && 'ring-2 ring-brand')}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -363,13 +370,68 @@ function exportCsv(list, cols) {
 }
 
 /** Kolom tabel My Project (tampilan daftar) — bisa dipilih lewat "Kolom" di toolbar. */
+/**
+ * Tampilan TABEL — satu baris satu project, untuk tim yang terbiasa
+ * dengan spreadsheet. Tidak bisa dibuka-tutup seperti List kompak;
+ * rinciannya lewat ikon mata (panel kanan).
+ * Di bawah md, .card-table mengubah tiap baris jadi kartu (standar UI).
+ */
+function ProjectTable({ list, cols, detailFor, onDetail, onFiles }) {
+  const show = (k) => !cols || cols.includes(k)
+  const kolom = COLUMNS.filter((c) => show(c.key))
+  if (list.length === 0) return null
+  return (
+    <div className="min-w-0 max-w-full overflow-x-auto rounded-2xl bg-white ring-1 ring-slate-200">
+      <table className="card-table w-full max-w-full table-fixed border-collapse text-left align-top">
+        <thead>
+          <tr className="border-b border-slate-200 bg-slate-50/80">
+            {kolom.map((c) => (
+              <th key={c.key} scope="col" className="whitespace-nowrap px-3 py-2.5 text-xs font-bold text-ink-soft">{c.label}</th>
+            ))}
+            <th scope="col" className="w-[92px] px-3 py-2.5 text-xs font-bold text-ink-soft">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((p, i) => (
+            <tr key={p.id}
+              className={cx('border-b border-slate-100 align-top last:border-0 md:hover:bg-brand-soft/40',
+                detailFor?.id === p.id ? 'bg-brand-soft/60' : i % 2 === 1 && 'md:bg-slate-50/60')}>
+              {kolom.map((c) => (
+                <td key={c.key} data-label={c.label} className="min-w-0 max-w-full px-3 py-2.5 text-sm">
+                  {c.cell(p, { prog: progressOf(p) })}
+                </td>
+              ))}
+              <td data-label="Aksi" className="px-3 py-2.5">
+                <span className="flex items-center gap-1.5">
+                  <button type="button" onClick={() => onDetail(p)} title="Detail project (panel kanan)"
+                    aria-label={`Detail ${invoiceLabel(p.invoice_no)}`}
+                    className={cx('grid h-11 w-11 place-items-center rounded-lg ring-1 transition md:h-7 md:w-7',
+                      detailFor?.id === p.id ? 'bg-brand text-white ring-brand' : 'bg-white text-brand ring-brand/30 hover:bg-brand hover:text-white')}>
+                    <Eye className="h-4 w-4" />
+                  </button>
+                  <NoteIcon note={p.about?.notes} className="shrink-0" />
+                  <button type="button" onClick={() => onFiles(p)} title="Folder file project"
+                    aria-label={`File project ${invoiceLabel(p.invoice_no)}`}
+                    className="grid h-11 w-11 place-items-center rounded-lg bg-white text-ink-soft ring-1 ring-slate-300 hover:bg-ink hover:text-white md:h-7 md:w-7">
+                    <FolderOpen className="h-4 w-4" />
+                  </button>
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export const COLUMNS = [
   { key: 'invoice', label: 'Invoice', w: 'minmax(0,1.4fr)',
     cell: (p) => <><span className="flex items-center gap-1.5"><InvoiceNo project={p} /><DemoBadge project={p} /></span><TimeAgo at={p.created_at} prefix="Diposting" /></> },
   { key: 'pelanggan', label: 'Pelanggan', w: 'minmax(0,1.2fr)', cls: 'min-w-0',
     cell: (p) => <><span className="block truncate text-sm font-semibold text-ink">{p.customer?.name}</span><CsName p={p} /></> },
-  { key: 'prioritas', label: 'Prioritas', w: '118px', cls: 'flex min-w-0 flex-wrap items-center gap-1.5 overflow-hidden pt-0.5',
-    cell: (p) => <><SubCount p={p} />{p.about?.priority && p.about.priority !== 'Normal' && <PriorityBadge p={p.about.priority} className="max-w-full" />}</> },
+  { key: 'prioritas', label: 'Prioritas', w: '118px', cls: 'min-w-0 overflow-hidden pt-0.5',
+    cell: (p) => <><PrioritasTeks p={p} /><SubText p={p} /></> },
   { key: 'deadline', label: 'Deadline', w: 'minmax(0,1fr)',
     cell: (p) => <DeadlineCell project={p} done={isDone(p)} align="left" /> },
   { key: 'layanan', label: 'Layanan', w: 'minmax(0,0.9fr)', cell: (p) => <ProjectTypes project={p} /> },
@@ -420,13 +482,13 @@ function ProjectList({ list: listAll, late: lateAll = [], dlFilter, setDlFilter,
                 <div style={{ gridTemplateColumns: gridCols }} className="hidden items-start gap-3 text-left lg:grid">
                   {COLUMNS.filter((c) => show(c.key)).map((c) => <span key={c.key} className={c.cls}>{c.cell(p, { prog })}</span>)}
                   <span className="flex items-center justify-end gap-1">
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setDetailFor(p); setFilesFor(null) }} aria-label={`Detail ${p.invoice_no}`} title="Detail project (panel kanan)"
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setDetailFor(p); setFilesFor(null) }} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} title="Detail project (panel kanan)"
                       className={cx('grid h-7 w-7 place-items-center rounded-lg ring-1 transition', detailFor?.id === p.id ? 'bg-brand text-white ring-brand' : 'bg-white text-brand ring-brand/30 hover:bg-brand hover:text-white')}><Eye className="h-4 w-4" /></button>
                     {/* ikon catatan: tepat setelah ikon mata, hanya muncul bila project punya catatan */}
                     <NoteIcon note={p.about?.notes} className="shrink-0" />
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setFilesFor(p) }} aria-label={`File project ${p.invoice_no}`} title="Folder file project (preview, print, download)"
+                    <button type="button" onClick={(e) => { e.stopPropagation(); setFilesFor(p) }} aria-label={`File project ${invoiceLabel(p.invoice_no)}`} title="Folder file project (preview, print, download)"
                       className="relative grid h-7 w-7 place-items-center rounded-lg bg-white text-ink-soft ring-1 ring-slate-300 hover:bg-ink hover:text-white"><FolderOpen className="h-4 w-4" />{fileCount(p) > 0 && <span className="absolute -right-1 -top-1 grid h-3.5 min-w-[14px] place-items-center rounded-full bg-ink px-0.5 text-[9px] font-bold text-white">{fileCount(p)}</span>}</button>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); toggle(p.id) }} aria-expanded={open.has(p.id)} aria-label={`${open.has(p.id) ? 'Tutup' : 'Buka'} rincian ${p.invoice_no}`} title="Rincian sub project, data terjemahan & catatan"
+                    <button type="button" onClick={(e) => { e.stopPropagation(); toggle(p.id) }} aria-expanded={open.has(p.id)} aria-label={`${open.has(p.id) ? 'Tutup' : 'Buka'} rincian ${invoiceLabel(p.invoice_no)}`} title="Rincian sub project, data terjemahan & catatan"
                       className={cx('grid h-7 w-7 place-items-center rounded-lg ring-1 transition', open.has(p.id) ? 'bg-brand text-white ring-brand' : 'text-ink-mute ring-slate-200 hover:bg-white hover:text-brand')}><ChevronDown className={cx('h-4 w-4 transition', open.has(p.id) && 'rotate-180')} /></button>
                   </span>
                 </div>
@@ -447,9 +509,9 @@ function ProjectList({ list: listAll, late: lateAll = [], dlFilter, setDlFilter,
               </div>
               <WorkerActions project={p} />
               <span className="absolute right-3 top-3 flex items-center gap-1 lg:hidden">
-                <button type="button" onClick={() => { setDetailFor(p); setFilesFor(null) }} aria-label={`Detail ${p.invoice_no} (HP)`} className="grid h-7 w-7 place-items-center rounded-lg bg-white text-brand ring-1 ring-brand/30"><Eye className="h-4 w-4" /></button>
-                <button type="button" onClick={() => setFilesFor(p)} aria-label={`File project ${p.invoice_no} (HP)`} className="grid h-7 w-7 place-items-center rounded-lg bg-white text-ink-soft ring-1 ring-slate-300"><FolderOpen className="h-4 w-4" /></button>
-                <button type="button" onClick={() => toggle(p.id)} aria-expanded={open.has(p.id)} aria-label={`${open.has(p.id) ? 'Tutup' : 'Buka'} rincian ${p.invoice_no} (HP)`}
+                <button type="button" onClick={() => { setDetailFor(p); setFilesFor(null) }} aria-label={`Detail ${invoiceLabel(p.invoice_no)} (HP)`} className="grid h-7 w-7 place-items-center rounded-lg bg-white text-brand ring-1 ring-brand/30"><Eye className="h-4 w-4" /></button>
+                <button type="button" onClick={() => setFilesFor(p)} aria-label={`File project ${invoiceLabel(p.invoice_no)} (HP)`} className="grid h-7 w-7 place-items-center rounded-lg bg-white text-ink-soft ring-1 ring-slate-300"><FolderOpen className="h-4 w-4" /></button>
+                <button type="button" onClick={() => toggle(p.id)} aria-expanded={open.has(p.id)} aria-label={`${open.has(p.id) ? 'Tutup' : 'Buka'} rincian ${invoiceLabel(p.invoice_no)} (HP)`}
                   className={cx('grid h-7 w-7 place-items-center rounded-lg ring-1', open.has(p.id) ? 'bg-brand text-white ring-brand' : 'text-ink-mute ring-slate-200')}><ChevronDown className={cx('h-4 w-4 transition', open.has(p.id) && 'rotate-180')} /></button>
               </span>
               </div>
@@ -579,7 +641,7 @@ function VendorPayments({ rows }) {
           {list.map((r) => (
             <div key={r.id} className="flex flex-wrap items-center gap-3 p-4">
               <a href={`#/projects/${r.project.id}`} className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-bold">{r.project.invoice_no}</span><TypeBadge type={r.type} /><PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} /></div>
+                <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-bold">{invoiceLabel(r.project.invoice_no)}</span><TypeBadge type={r.type} /><PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} /></div>
                 <p className="truncate text-xs text-ink-mute">{r.title} · {vendorName(r.data?.vendor)} · {r.data?.vendor_service || '—'} · {r.project.branch}{r.data?.sumber_dana && canFund ? ` · Dana ${r.data.sumber_dana}` : ''}</p>
                 {r.data?.paid_date && <p className="text-[11px] text-emerald-600">Dibayar {tgl(r.data.paid_date)}</p>}
               </a>
@@ -598,6 +660,17 @@ function VendorPayments({ rows }) {
 /** Rincian di bawah baris: daftar sub project, data terjemahan, progres per sub, dan catatan. */
 /** Kelompok file yang bisa diunduh langsung dari daftar, per sub project. */
 /** Lingkaran abu berisi jumlah sub project — tampil di kolom Prioritas (desktop) & baris HP. */
+/** Prioritas sebagai teks — "Normal" pun tetap ditampilkan. */
+function PrioritasTeks({ p }) {
+  const prio = p.about?.priority || 'Normal'
+  if (prio === 'Normal') return <span className="block truncate text-sm font-semibold text-ink">Normal</span>
+  return <PriorityBadge p={prio} className="max-w-full" />
+}
+/** Jumlah sub project: teks abu-abu di bawah prioritas, tanpa lingkaran. */
+function SubText({ p }) {
+  const n = p.sub_projects?.length || 0
+  return <span className="mt-0.5 block truncate text-[11px] text-ink-mute">{n} sub project</span>
+}
 function SubCount({ p }) {
   const n = p.sub_projects?.length || 0
   return <span title={`${n} sub project`} aria-label={`${n} sub project`} className="grid h-5 min-w-[20px] shrink-0 place-items-center rounded-full bg-slate-100 px-1 text-[11px] font-bold tabular-nums text-ink-soft ring-1 ring-slate-200">{n}</span>
@@ -613,7 +686,8 @@ function SubCountPrio({ p }) {
   const prio = p.about?.priority
   return (
     <>
-      <span className="mt-0.5 flex items-center gap-1.5"><SubCount p={p} />{prio && prio !== 'Normal' && <PriorityBadge p={prio} />}</span>
+      <PrioritasTeks p={p} />
+      <SubText p={p} />
       <CsName p={p} />
     </>
   )
@@ -622,50 +696,48 @@ function SubCountPrio({ p }) {
 function ProjectExpand({ p }) {
   const { nameOf } = useApp()
   const subs = p.sub_projects || []
-  const th = 'px-2.5 py-1.5 text-left text-[10px] font-bold uppercase tracking-wide text-ink-mute whitespace-nowrap'
-  const td = 'px-2.5 py-2 align-top text-xs text-ink'
+  const th = 'whitespace-nowrap px-2.5 py-1.5 text-left text-[11px] font-bold text-ink-mute'
+  const td = 'px-2.5 py-1.5 align-top text-xs text-ink'
   return (
     <div className="border-t border-brand/15 bg-slate-100/80 px-3 pb-3 pt-2.5 sm:px-4">
       <div className="space-y-2">
-        <div className="min-w-0">
-          {/* Tabel menyamping: satu baris per sub project — mudah dibaca & dibandingkan */}
-          <div className="overflow-x-auto rounded-xl bg-white shadow-sm ring-1 ring-slate-300">
-            <table className="w-full min-w-[640px] border-collapse">
-              <thead className="bg-ink text-white [&_th]:text-white/80">
-                <tr>
-                  <th className={cx(th, 'w-8 text-center')}>#</th><th className={th}>Jenis</th><th className={th}>Dokumen</th><th className={th}>Bahasa / Negara</th>
-                  <th className={cx(th, 'text-center')}>Hlm</th><th className={th}>Pelaksana</th><th className={th}>Tahap</th><th className={cx(th, 'w-28')}>Progres</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {subs.map((s, i) => {
-                  const flow = flowOf(s, p); const n = stagesOf(flow).length; const pct = s.stage === DONE ? 100 : Math.round((stageIndex(flow, s.stage) / n) * 100)
-                  const who = s.translator_kind === 'vendor' ? nameOf(s.translator || s.data?.vendor) : nameOf(s.data?.translator || s.translator)
-                  const label = (SUB_TYPES[s.type] || SUB_TYPES.jasa_lain).label
-                  const docs = (s.docs || []).filter((d) => d?.desc?.trim())
-                  const docList = docs.length ? docs.map((d) => ({ desc: d.desc.trim(), pages: d.pages, kind: d.kind })) : [{ desc: s.title }]
-                  const regs = (s.data?.reg_numbers || []).filter(Boolean)
-                  return (
-                    <tr key={s.id} className="hover:bg-slate-50/60">
-                      <td className={cx(td, 'text-center font-semibold text-ink-mute')}>{i + 1}</td>
-                      <td className={cx(td, 'whitespace-nowrap font-semibold')}>{label}{s.applicant_id && <span className="block text-[10px] font-normal text-ink-mute">ID/NIB {s.applicant_id}</span>}</td>
-                      <td className={cx(td, 'min-w-[200px]')}>
-                        <ol className="list-decimal space-y-0.5 pl-4">
-                          {docList.map((d, j) => <li key={j}>{d.desc}{d.pages ? <span className="text-ink-mute"> · {d.pages} hlm</span> : null}{d.kind === 'non_reguler' && <span className="ml-1 rounded bg-violet-50 px-1 text-[10px] font-semibold text-violet-700">non reg</span>}</li>)}
-                        </ol>
-                        {regs.length > 0 && <span className="mt-0.5 block font-mono text-[11px] text-amber-800">No. Reg {regs.join(', ')}</span>}
-                      </td>
-                      <td className={cx(td, 'whitespace-nowrap text-ink-soft')}>{s.lang_from ? `${s.lang_from} → ${s.lang_to}` : s.country ? `Negara: ${s.country}` : s.institution || '—'}</td>
-                      <td className={cx(td, 'text-center font-semibold')}>{s.pages || '—'}</td>
-                      <td className={cx(td, 'whitespace-nowrap text-ink-soft')}>{who ? <>{who}<span className="block text-[10px] text-ink-mute">{s.translator_kind === 'vendor' ? 'Vendor' : 'Penerjemah'}</span></> : <span className="text-amber-700">Belum dibagi</span>}</td>
-                      <td className={cx(td, 'whitespace-nowrap font-semibold text-brand')}>{s.stage === DONE ? 'Selesai' : stageLabel(flow, s.stage)}</td>
-                      <td className={td}><span className="flex items-center gap-2"><Progress value={pct} /><span className="w-8 text-[11px] font-semibold text-ink-mute">{pct}%</span></span></td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+        {/* Tabel sederhana — selaras dengan rincian pada tampilan Tabel */}
+        <div className="min-w-0 max-w-full overflow-x-auto rounded-xl bg-white ring-1 ring-slate-200">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50">
+                <th scope="col" className={cx(th, 'w-8')}>#</th>
+                <th scope="col" className={th}>Judul</th>
+                <th scope="col" className={th}>Arah Bahasa</th>
+                <th scope="col" className={th}>Penerjemah/Vendor</th>
+                <th scope="col" className={cx(th, 'text-right')}>Dok.</th>
+                <th scope="col" className={cx(th, 'text-right')}>Hlm.</th>
+                <th scope="col" className={th}>Tahap</th>
+              </tr>
+            </thead>
+            <tbody>
+              {subs.length === 0 && (
+                <tr><td colSpan={7} className="px-2.5 py-4 text-center text-xs text-ink-mute">Belum ada sub project.</td></tr>
+              )}
+              {subs.map((sb, i) => {
+                const who = sb.translator_kind === 'vendor' ? nameOf(sb.translator || sb.data?.vendor) : nameOf(sb.data?.translator || sb.translator)
+                const dok = sb.docs?.length || sb.file_count || 0
+                const hlm = sb.docs?.length ? sb.docs.reduce((a, d) => a + (Number(d.pages) || 0), 0) : (Number(sb.pages) || 0)
+                const arah = sb.lang_from && sb.lang_to ? `${sb.lang_from} → ${sb.lang_to}` : ''
+                return (
+                  <tr key={sb.id || i} className="border-t border-slate-100">
+                    <td className={cx(td, 'tabular-nums text-ink-mute')}>{i + 1}</td>
+                    <td className={cx(td, 'max-w-[220px] truncate font-semibold')} title={sb.title}>{sb.title || '—'}</td>
+                    <td className={cx(td, 'whitespace-nowrap')}>{arah || '—'}</td>
+                    <td className={cx(td, 'max-w-[160px] truncate')} title={who}>{who || '—'}</td>
+                    <td className={cx(td, 'text-right tabular-nums')}>{dok}</td>
+                    <td className={cx(td, 'text-right tabular-nums')}>{hlm}</td>
+                    <td className={cx(td, 'whitespace-nowrap text-brand')}>{stageLabel(flowOf(sb, p), sb.stage)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
         {p.about?.notes && <p className="flex items-start gap-1.5 whitespace-pre-line rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200"><StickyNote className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" /><span><b className="font-semibold">Catatan:</b> {p.about.notes}</span></p>}
       </div>

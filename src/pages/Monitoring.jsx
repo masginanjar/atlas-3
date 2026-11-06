@@ -3,7 +3,7 @@ import { Lock, Languages, Store, Stamp, UserCog, Calculator, ChevronDown, Chevro
 import { useApp } from '../lib/store.jsx'
 import { tasksOf, summarize, dayKey } from '../lib/performance.js'
 import { stageLabel, flowOf, DONE, totalPengajuan, termOf, isBilled, PAYMENT_TERMS } from '../config/workflows.js'
-import { placeOf } from '../config/access.js'
+import { placeOf, invoiceLabel} from '../config/access.js'
 import { rupiah, stageArrivedAt } from '../lib/format.js'
 import TimeAgo from '../components/TimeAgo.jsx'
 import { Card, Empty, Input, cx } from '../components/ui.jsx'
@@ -50,7 +50,7 @@ function PeopleTable({ people, projects, now, extraCols = [] }) {
   const TaskList = ({ r }) => (r.active.length === 0 ? <p className="py-2 text-xs text-ink-mute">Tidak ada tugas aktif.</p> : (
     <ul className="space-y-1.5">{r.active.map((t) => (
       <li key={t.sub.id} className="rounded-lg bg-white p-2 text-xs ring-1 ring-slate-200">
-        <a href={`#/projects/${t.project.id}`} className="font-bold text-brand hover:underline">{t.project.invoice_no}</a>
+        <a href={`#/projects/${t.project.id}`} className="font-bold text-brand hover:underline">{invoiceLabel(t.project.invoice_no)}</a>
         <p className="truncate">{t.sub.title}{t.sub.pages ? ` · ${t.sub.pages} hlm` : ''}</p>
         <p className="text-ink-mute">{stageLabel(t.flow, t.sub.stage)} · <span className={cx(dlText(t, now).late && 'font-semibold text-rose-600')}>{dlText(t, now).txt}</span></p>
       </li>
@@ -79,7 +79,7 @@ function PeopleTable({ people, projects, now, extraCols = [] }) {
           {r.s.pct !== null && (
             <p className="mt-2 flex items-center gap-2 text-xs"><span className="h-2 w-20 overflow-hidden rounded-full bg-slate-100"><span className={cx('block h-full rounded-full', r.s.pct >= 80 ? 'bg-emerald-500' : r.s.pct >= 50 ? 'bg-amber-400' : 'bg-orange-400')} style={{ width: `${r.s.pct}%` }} /></span><b className="tabular-nums">{r.s.pct}%</b><span className="text-ink-mute">{r.s.done.length}/{r.s.total} hari ini</span></p>
           )}
-          {next && <p className="mt-2 text-xs"><span className="text-ink-mute">Tugas terdekat: </span><b>{next.project.invoice_no}</b> · {next.sub.title}<span className={cx('block', dlText(next, now).late ? 'font-semibold text-rose-600' : 'text-ink-mute')}>{dlText(next, now).txt}</span></p>}
+          {next && <p className="mt-2 text-xs"><span className="text-ink-mute">Tugas terdekat: </span><b>{invoiceLabel(next.project.invoice_no)}</b> · {next.sub.title}<span className={cx('block', dlText(next, now).late ? 'font-semibold text-rose-600' : 'text-ink-mute')}>{dlText(next, now).txt}</span></p>}
           {isOpen && <div className="mt-2 border-t border-slate-100 pt-2"><TaskList r={r} /></div>}
         </li>
       )
@@ -101,14 +101,14 @@ function PeopleTable({ people, projects, now, extraCols = [] }) {
               {extraCols.map((c) => <td key={c.label} className="px-2 py-2.5 text-right tabular-nums">{c.get(r)}</td>)}
               <td className="px-2 py-2.5">{r.s.pct === null ? <span className="text-xs text-ink-mute">Belum ada deadline</span> : (
                 <span className="flex items-center gap-2"><span className="h-2 w-20 overflow-hidden rounded-full bg-slate-100"><span className={cx('block h-full rounded-full', r.s.pct >= 80 ? 'bg-emerald-500' : r.s.pct >= 50 ? 'bg-amber-400' : 'bg-orange-400')} style={{ width: `${r.s.pct}%` }} /></span><b className="text-xs tabular-nums">{r.s.pct}%</b><span className="text-[11px] text-ink-mute">{r.s.done.length}/{r.s.total}</span></span>)}</td>
-              <td className="max-w-[240px] px-4 py-2.5 text-xs">{next ? <><b>{next.project.invoice_no}</b> · {next.sub.title}<p className={cx(dlText(next, now).late ? 'font-semibold text-rose-600' : 'text-ink-mute')}>{dlText(next, now).txt}</p></> : <span className="text-ink-mute">—</span>}</td>
+              <td className="max-w-[240px] px-4 py-2.5 text-xs">{next ? <><b>{invoiceLabel(next.project.invoice_no)}</b> · {next.sub.title}<p className={cx(dlText(next, now).late ? 'font-semibold text-rose-600' : 'text-ink-mute')}>{dlText(next, now).txt}</p></> : <span className="text-ink-mute">—</span>}</td>
               <td className="pr-3 text-ink-mute"><ChevronDown className={cx('h-4 w-4 transition', isOpen && 'rotate-180')} /></td>
             </tr>
             {isOpen && <tr><td colSpan={7 + extraCols.length} className="bg-slate-50/60 px-4 py-2">
               {r.active.length === 0 ? <p className="py-2 text-xs text-ink-mute">Tidak ada tugas aktif.</p> : (
                 <table className="w-full text-xs"><thead className="text-left text-[10px] uppercase tracking-wide text-ink-mute"><tr><th className="py-1">Invoice</th><th>Dokumen</th><th>Tahap</th><th>Masuk</th><th className="text-right">Deadline</th></tr></thead>
                   <tbody className="divide-y divide-slate-200/70">{r.active.map((t) => (
-                    <tr key={t.sub.id}><td className="py-1.5"><a href={`#/projects/${t.project.id}`} className="font-bold text-brand hover:underline">{t.project.invoice_no}</a></td>
+                    <tr key={t.sub.id}><td className="py-1.5"><a href={`#/projects/${t.project.id}`} className="font-bold text-brand hover:underline">{invoiceLabel(t.project.invoice_no)}</a></td>
                       <td className="max-w-[260px] truncate">{t.sub.title}{t.sub.lang_from ? ` · ${t.sub.lang_from}→${t.sub.lang_to}` : ''}{t.sub.pages ? ` · ${t.sub.pages} hlm` : ''}</td>
                       <td className="font-semibold text-brand">{stageLabel(t.flow, t.sub.stage)}</td>
                       <td><TimeAgo at={stageArrivedAt(t.sub, t.project)} icon={false} /></td>
@@ -218,7 +218,7 @@ export default function Monitoring() {
                 <p className="mt-2 text-xs"><span className="text-ink-mute">Nilai berjalan: </span>{r.value ? <b className="tabular-nums">{rupiah(r.value)}</b> : <span className="text-ink-mute">biaya belum diisi</span>}</p>
                 {isOpen && <ul className="mt-2 space-y-1.5 border-t border-slate-100 pt-2">{r.mine.map((s) => (
                   <li key={s.id} className="rounded-lg bg-slate-50 p-2 text-xs ring-1 ring-slate-200">
-                    <a href={`#/projects/${s.project.id}`} className="font-bold text-brand hover:underline">{s.project.invoice_no}</a>
+                    <a href={`#/projects/${s.project.id}`} className="font-bold text-brand hover:underline">{invoiceLabel(s.project.invoice_no)}</a>
                     <p className="truncate">{s.title}{s.data?.vendor_service ? ` · ${s.data.vendor_service}` : ''}</p>
                     <p className="text-ink-mute">{stageLabel(s.flow, s.stage)} · <span className="tabular-nums">{rupiah(totalPengajuan(s.data) || Number(s.data?.vendor_cost) || 0)}</span></p>
                   </li>
@@ -242,7 +242,7 @@ export default function Monitoring() {
                   {isOpen && <tr><td colSpan={9} className="bg-slate-50/60 px-4 py-2">
                     <table className="w-full text-xs"><thead className="text-left text-[10px] uppercase tracking-wide text-ink-mute"><tr><th className="py-1">Invoice</th><th>Dokumen</th><th>Tahap</th><th>Masuk</th><th className="text-right">Nilai</th></tr></thead>
                       <tbody className="divide-y divide-slate-200/70">{r.mine.map((s) => (
-                        <tr key={s.id}><td className="py-1.5"><a href={`#/projects/${s.project.id}`} className="font-bold text-brand hover:underline">{s.project.invoice_no}</a></td>
+                        <tr key={s.id}><td className="py-1.5"><a href={`#/projects/${s.project.id}`} className="font-bold text-brand hover:underline">{invoiceLabel(s.project.invoice_no)}</a></td>
                           <td className="max-w-[260px] truncate">{s.title} · {s.data?.vendor_service || ''}</td><td className="font-semibold text-brand">{stageLabel(s.flow, s.stage)}</td>
                           <td><TimeAgo at={stageArrivedAt(s, s.project)} icon={false} /></td><td className="text-right tabular-nums">{rupiah(totalPengajuan(s.data) || Number(s.data?.vendor_cost) || 0)}</td></tr>
                       ))}</tbody></table>

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Receipt, Plus, Upload, FileCheck2, Loader2, Check, X, Ban, Banknote } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { drive } from '../lib/integrations.js'
-import { can, foreignLang, branchesOf } from '../config/access.js'
+import { can, foreignLang, branchesOf, invoiceLabel} from '../config/access.js'
 import { flowOf, DONE, PAYMENT_TERMS, termOf, isBilled, recommendFund } from '../config/workflows.js'
 import { SumberDanaPicker, DownloadBukti, QuickAcc } from './Pengajuan.jsx'
 import CopyText from './CopyText.jsx'
@@ -105,9 +105,9 @@ export default function VendorBills() {
                 <span className="block truncate text-[15px] font-bold leading-snug text-ink">{v?.name}</span>
                 <span className="mt-0.5 flex items-center gap-2"><TimeAgo at={b.created_at} prefix="Diajukan" className="!mt-0" />{b.invoice_file && <DownloadBukti file={b.invoice_file} label="File tagihan" />}</span>
               </span>
-              <FinCell title={b.items.map((it) => `${it.invoice_no} · ${it.title} · ${rupiah(it.amount)}`).join('\n')}
+              <FinCell title={b.items.map((it) => `${invoiceLabel(it.invoice_no)} · ${it.title} · ${rupiah(it.amount)}`).join('\n')}
                 top={`${b.items.length} order: ${b.items.map((it) => it.invoice_no).join(', ')}`}
-                bottom={`${b.period}${b.vendor_invoice_no ? ` · No. ${b.vendor_invoice_no}` : ''}`} />
+                bottom={`${b.period}${b.vendor_invoice_no ? ` · No. ${invoiceLabel(b.vendor_invoice_no)}` : ''}`} />
               <FinAmount value={b.total} sub={fund && b.sumber_dana ? `Dana ${b.sumber_dana}` : null} />
               <Rek acc={acc} empty="Belum ada rekening vendor" emptyHref="#/settings/vendor" />
               <span className="min-w-0 text-xs"><span className={cx('rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1', ST[b.status][1])}>{ST[b.status][0]}</span>
@@ -188,9 +188,9 @@ function BillForm({ vendor, orders, onClose, patchSubs }) {
         <Field label={`Order (${chosen.length}/${orders.length})`}>
           <ul className="space-y-1.5">{orders.map((o) => (
             <li key={o.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 ring-1 ring-slate-200">
-              <input type="checkbox" checked={sel.includes(o.id)} onChange={() => setSel((x) => (x.includes(o.id) ? x.filter((y) => y !== o.id) : [...x, o.id]))} aria-label={`Pilih ${o.project.invoice_no}`} />
-              <span className="min-w-0 flex-1 text-sm"><b>{o.project.invoice_no}</b> · {o.title}<span className="block text-xs text-ink-mute">{o.data.vendor_service} · order {tgl(o.data.ordered_at)}{o.stage === DONE ? ' · hasil diterima' : ' · masih dikerjakan'}</span></span>
-              <Input type="number" inputMode="numeric" value={amt[o.id]} onChange={(e) => setAmt((a) => ({ ...a, [o.id]: e.target.value }))} className="!w-32 text-right" aria-label={`Nominal ${o.project.invoice_no}`} />
+              <input type="checkbox" checked={sel.includes(o.id)} onChange={() => setSel((x) => (x.includes(o.id) ? x.filter((y) => y !== o.id) : [...x, o.id]))} aria-label={`Pilih ${invoiceLabel(o.project.invoice_no)}`} />
+              <span className="min-w-0 flex-1 text-sm"><b>{invoiceLabel(o.project.invoice_no)}</b> · {o.title}<span className="block text-xs text-ink-mute">{o.data.vendor_service} · order {tgl(o.data.ordered_at)}{o.stage === DONE ? ' · hasil diterima' : ' · masih dikerjakan'}</span></span>
+              <Input type="number" inputMode="numeric" value={amt[o.id]} onChange={(e) => setAmt((a) => ({ ...a, [o.id]: e.target.value }))} className="!w-32 text-right" aria-label={`Nominal ${invoiceLabel(o.project.invoice_no)}`} />
             </li>
           ))}</ul>
         </Field>

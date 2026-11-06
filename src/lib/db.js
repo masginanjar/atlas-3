@@ -9,6 +9,9 @@ import { createClient } from '@insforge/sdk'
 import { SUPABASE_READY, supabaseDb } from './supabase.js'
 import { seed, archiveProjects, billedDemo } from './seed.js'
 import { applyLegacyImport } from './legacyImport.js'
+import { CHAT_ENABLED } from './flags.js'
+import { ensureDefaultCouriers } from '../config/couriers.js'
+import { FAQ_SEED } from '../config/faqSeed.js'
 // Payload impor sistem lama hanya versi tersamar, dan hanya untuk mode demo.
 // Mode live (Supabase) tidak memuat berkas itu. Lihat vite.config.js.
 
@@ -16,7 +19,9 @@ const URL_ = import.meta.env.VITE_INSFORGE_URL
 // 'supabase' (live, Supabase) · 'live' (InsForge, lama) · 'demo' (localStorage)
 export const MODE = SUPABASE_READY ? 'supabase' : URL_ ? 'live' : 'demo'
 export const IS_LIVE = MODE !== 'demo'
-export const TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings', 'notes', 'todos', 'reminders', 'messages']
+const ALL_TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings', 'notes', 'todos', 'reminders', 'messages', 'daftar_harga', 'faq']
+// Chat dimatikan → `messages` tidak ikut dilanggan realtime maupun disegarkan.
+export const TABLES = CHAT_ENABLED ? ALL_TABLES : ALL_TABLES.filter((t) => t !== 'messages')
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()))
 
@@ -62,7 +67,71 @@ function migrate(m) {
   }
   // penerjemah, proofreader & otorisator = freelance → tanpa cabang
   for (const x of m.users) if (isFreelance(x) && (x.branch || x.branches?.length)) { x.branch = ''; x.branches = []; changed = true }
-  if (!m.couriers.some((c) => c.type === 'vendor')) { m.couriers.push({ id: 'k-vendor-ship', name: 'Dikirim dari Penerjemah', type: 'vendor', icon: 'send', color: '#7c3aed', logo: '', order: 7, created_at: new Date().toISOString() }); changed = true }
+  // Lengkapi ekspedisi bawaan yang belum ada; yang sudah ada tidak disentuh.
+  if (ensureDefaultCouriers(m.couriers, () => uid())) changed = true
+  // Contoh pengingat & to-do, supaya My Reminders dan Calendar tidak kosong.
+  // Hanya diisi sekali; begitu ada isinya, tidak pernah ditimpa lagi.
+  if (!(m.reminders || []).length) {
+    // Selalu di masa depan: kalau jamnya hari ini sudah lewat, digeser ke
+    // hari berikutnya. Kalau tidak, alarm langsung berbunyi saat demo dibuka.
+    const jam = (geserHari, j, mnt = 0) => {
+      const d = new Date(); d.setDate(d.getDate() + geserHari); d.setHours(j, mnt, 0, 0)
+      while (d.getTime() <= Date.now() + 60000) d.setDate(d.getDate() + 1)
+      return d.toISOString()
+    }
+    // Diberikan ke beberapa pengguna per peran, supaya akun demo mana pun
+    // yang dibuka tetap punya contoh pengingat.
+    const milik = (peran, ke = 0) => m.users.filter((u) => (u.base_role || u.role) === peran)[ke]?.id
+    const contoh = [
+      [milik('superadmin'), 'Rekap omset harian', jam(0, 17, 0), 'daily'],
+      [milik('superadmin'), 'Cek tagihan vendor jatuh tempo', jam(1, 9, 0), 'none'],
+      [milik('cs', 0), 'Telepon pelanggan soal alamat kirim', jam(0, 15, 30), 'none'],
+      [milik('cs', 0), 'Kirim draft ke pelanggan', jam(1, 10, 0), 'none'],
+      [milik('cs', 1), 'Ambil dokumen di notaris', jam(0, 13, 0), 'none'],
+      [milik('cs', 2), 'Konfirmasi resi ke kurir', jam(0, 14, 30), 'none'],
+      [milik('cs', 3), 'Tagih pelunasan pelanggan', jam(0, 16, 0), 'none'],
+      [milik('cs', 4), 'Susulkan dokumen kurang', jam(0, 10, 30), 'none'],
+      [milik('cs', 5), 'Kabari progres ke pelanggan', jam(0, 15, 0), 'none'],
+      [milik('penerjemah', 0), 'Setor hasil terjemahan', jam(0, 16, 0), 'none'],
+      [milik('penerjemah', 1), 'Setor hasil terjemahan', jam(0, 16, 30), 'none'],
+      [milik('penerjemah', 2), 'Mulai dokumen berikutnya', jam(0, 11, 0), 'none'],
+      [milik('penerjemah', 3), 'Cek revisi dari proofreader', jam(0, 14, 0), 'none'],
+      [milik('proofreader', 0), 'Proofread dokumen antre', jam(0, 13, 0), 'none'],
+      [milik('akunting', 0), 'Rekonsiliasi pembayaran hari ini', jam(0, 16, 30), 'daily'],
+      [milik('direktur', 0), 'Tinjau pengajuan menunggu ACC', jam(0, 10, 0), 'daily'],
+      [milik('admin_pusat', 0), 'Cek registrasi dokumen', jam(0, 11, 30), 'none'],
+      [milik('staf_apostille', 0), 'Antar berkas ke Kemenkumham', jam(0, 9, 30), 'none'],
+      [milik('supervisor'), 'Review beban kerja tim', jam(1, 8, 30), 'weekly'],
+    ].filter(([owner]) => owner)
+    m.reminders = contoh.map(([owner_id, title, at, repeat]) => ({
+      id: uid(), owner_id, title, at, repeat, active: true,
+      note: '', created_at: new Date().toISOString(),
+    }))
+    changed = true
+  }
+  // Kerangka daftar harga jual — ANGKANYA SENGAJA KOSONG. Harga jual
+  // diisi Direktur di aplikasi; mengarang angka di sini berbahaya karena
+  // CS bisa memakainya menawar ke pelanggan.
+  // FAQ contoh — sekali saja, supaya perubahan pengelola tidak tertimpa.
+  if (!(m.faq || []).length) {
+    m.faq = FAQ_SEED.map((r, i) => ({ id: uid(), ...r, status: 'terbit', urutan: i + 1,
+      editor: 'Contoh', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }))
+    changed = true
+  }
+  if (!(m.daftar_harga || []).length) {
+    const baris = [
+      ['Terjemahan Tersumpah', ['Inggris', 'Mandarin', 'Jepang', 'Korea', 'Jerman', 'Perancis', 'Belanda', 'Arab', 'Spanyol', 'Rusia', 'Turki'], 'per halaman'],
+      ['Terjemahan Non Tersumpah', ['Inggris', 'Mandarin'], 'per halaman'],
+      ['Apostille', ['Apostille Kemenkumham'], 'per dokumen'],
+      ['Legalisasi', ['Legalisasi Notaris', 'Legalisasi Kemenkumham', 'Legalisasi Kemenlu', 'Legalisasi Kemenag', 'Legalisasi Kedutaan'], 'per dokumen'],
+      ['Lainnya', ['Copy translate'], 'per halaman'],
+      ['Lainnya', ['Scan & kirim softcopy'], 'per pesanan'],
+    ]
+    let n = 0
+    m.daftar_harga = baris.flatMap(([kategori, items, satuan]) =>
+      items.map((layanan) => ({ id: uid(), kategori, layanan, satuan, harga_normal: null, harga_kilat: null, catatan: '', urutan: ++n })))
+    changed = true
+  }
   if (!m.projects.some((p) => String(p.id).startsWith('bill-'))) { m.projects.push(...billedDemo(m)); changed = true }
   return changed
 }

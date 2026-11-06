@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Wallet, Undo2, ShoppingCart, Plus, Upload, FileCheck2, Loader2, ChevronUp, X, Check, Inbox, Ban, Banknote } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { drive } from '../lib/integrations.js'
-import { BRANCHES, can, branchesOf, pettyAccountsOf, pettyLabel, APOSTILLE_FUND, scopeByBranch } from '../config/access.js'
+import { BRANCHES, can, branchesOf, pettyAccountsOf, pettyLabel, APOSTILLE_FUND, scopeByBranch, invoiceLabel} from '../config/access.js'
 import { sumberLabel } from '../config/workflows.js'
 import { SumberDanaPicker, DownloadBukti, QuickAcc } from './Pengajuan.jsx'
 import { recommendFund } from '../config/workflows.js'
@@ -135,7 +135,7 @@ export function RequestBoard({ bare }) {
                   </span>
                   {/* Deskripsi: keterangan di atas, nama CS & cabang di bawah */}
                   <FinCell title={r.purpose || ''} top={r.purpose || '—'}
-                    bottom={<>{r.requested_name || nameOf(r.requested_by)} · {r.branch}{r.kind === 'refund' && p ? <> · <CopyText text={p.invoice_no} label="No. Invoice" strong /> · {p.customer?.name} · <a href={`#/projects/${p.id}`} className="font-semibold text-brand hover:underline">buka</a></> : null}</>} />
+                    bottom={<>{r.requested_name || nameOf(r.requested_by)} · {r.branch}{r.kind === 'refund' && p ? <> · <CopyText text={invoiceLabel(p.invoice_no)} label="No. Invoice" strong /> · {p.customer?.name} · <a href={`#/projects/${p.id}`} className="font-semibold text-brand hover:underline">buka</a></> : null}</>} />
                   <FinAmount value={r.amount} sub={r.sumber_dana && can.seeFunding(user) ? `Dana ${r.sumber_dana}` : null} />
                   <span className="min-w-0">{r.kind === 'topup' ? <span className="text-[13px] font-semibold text-emerald-700">→ {pettyLabel(r.fund || r.branch)}</span> : <Rek acc={r.recipient} empty="— (tunai / belum diisi)" />}</span>
                   <span className="min-w-0 text-[13px]"><ReqStatus status={r.status} />
@@ -268,7 +268,7 @@ function ProjectSearch({ projects, value, onChange }) {
   const hits = (s ? projects.filter((p) => [p.invoice_no, p.customer?.name, p.branch].join(' ').toLowerCase().includes(s)) : projects).slice(0, 8)
   if (chosen && !open) return (
     <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 ring-1 ring-emerald-200">
-      <span className="min-w-0 flex-1 text-sm"><b>{chosen.invoice_no}</b> <span className="text-ink-soft">· {chosen.customer?.name} · {chosen.branch}</span></span>
+      <span className="min-w-0 flex-1 text-sm"><b>{invoiceLabel(chosen.invoice_no)}</b> <span className="text-ink-soft">· {chosen.customer?.name} · {chosen.branch}</span></span>
       <button type="button" onClick={() => { onChange(''); setQ(''); setOpen(true) }} className="text-xs font-semibold text-brand hover:underline">Ganti</button>
     </div>
   )
@@ -281,7 +281,7 @@ function ProjectSearch({ projects, value, onChange }) {
           {hits.map((p) => (
             <li key={p.id}><button type="button" role="option" aria-selected={p.id === value} onClick={() => { onChange(p.id); setOpen(false) }}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm hover:bg-brand-soft">
-              <b>{p.invoice_no}</b><span className="min-w-0 flex-1 truncate text-ink-soft">{p.customer?.name}</span><span className="text-[11px] text-ink-mute">{p.branch}</span>
+              <b>{invoiceLabel(p.invoice_no)}</b><span className="min-w-0 flex-1 truncate text-ink-soft">{p.customer?.name}</span><span className="text-[11px] text-ink-mute">{p.branch}</span>
             </button></li>
           ))}
           {!s && projects.length > 8 && <li className="px-3 py-1 text-[11px] text-ink-mute">Menampilkan 8 terbaru — ketik untuk mencari {projects.length} project.</li>}

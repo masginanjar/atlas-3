@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Stamp, Play, FolderOpen, Eye, Loader2, Search, CheckCircle2, Clock3, Upload } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { can, scopeByBranch, branchesOf } from '../config/access.js'
+import { can, scopeByBranch, branchesOf, invoiceLabel} from '../config/access.js'
 import { flowOf, stagesOf, stageLabel, DONE, stafStatus, totalBiaya } from '../config/workflows.js'
 import { SUB_TYPES } from '../config/subtypes.js'
 import { DeadlineCell } from '../components/badges.jsx'
@@ -95,20 +95,20 @@ export default function Apostille() {
 
       {workFor && (
         <Sheet open side wide onClose={() => setWorkFor(null)} title={workFor.sub.title}
-          subtitle={`${workFor.project.invoice_no} · ${workFor.project.customer?.name || ''} · ${stageLabel(flowOf(workFor.sub, workFor.project), workFor.sub.stage)}`}
+          subtitle={`${invoiceLabel(workFor.project.invoice_no)} · ${workFor.project.customer?.name || ''} · ${stageLabel(flowOf(workFor.sub, workFor.project), workFor.sub.stage)}`}
           footer={<><Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={() => setWorkFor(null)}>Tutup</Button><span className="flex-1" />
             <Button variant="outline" size="sm" onClick={() => { setDetailFor(workFor.project); setWorkFor(null) }}><Eye className="h-3.5 w-3.5" />Detail project</Button></>}>
           <WorkBody project={projectNow(data, workFor.project)} sub={subNow(data, workFor.project, workFor.sub)} />
         </Sheet>
       )}
       {filesFor && (
-        <Sheet open side onClose={() => setFilesFor(null)} title="File Project" subtitle={`${filesFor.invoice_no} · ${filesFor.customer?.name || ''}`}
+        <Sheet open side onClose={() => setFilesFor(null)} title="File Project" subtitle={`${invoiceLabel(filesFor.invoice_no)} · ${filesFor.customer?.name || ''}`}
           footer={<Button variant="outline" className="flex-1" onClick={() => setFilesFor(null)}>Tutup</Button>}>
           <FileManager project={projectNow(data, filesFor)} />
         </Sheet>
       )}
       {detailFor && (
-        <Sheet open side wide onClose={() => setDetailFor(null)} title={detailFor.invoice_no} subtitle={`${detailFor.customer?.name || ''} · ${detailFor.branch}`}
+        <Sheet open side wide onClose={() => setDetailFor(null)} title={invoiceLabel(detailFor.invoice_no)} subtitle={`${detailFor.customer?.name || ''} · ${detailFor.branch}`}
           footer={<><Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={() => setDetailFor(null)}>Tutup</Button><span className="flex-1" />
             <a href={`#/projects/${detailFor.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">Halaman penuh →</a></>}>
           <ProjectDetail id={detailFor.id} embedded />
@@ -145,13 +145,13 @@ function Row({ project, sub, flow, alt, active, nameOf, canCost, onDetail, onFil
   const quickStart = sub.stage === 'antrian'
   const start = async () => {
     setBusy(true)
-    try { await processStage(project, sub.id, {}, true); notify(`${project.invoice_no}: mulai diproses`) } catch (e) { notify(e.message, 'err'); onWork() } finally { setBusy(false) }
+    try { await processStage(project, sub.id, {}, true); notify(`${invoiceLabel(project.invoice_no)}: mulai diproses`) } catch (e) { notify(e.message, 'err'); onWork() } finally { setBusy(false) }
   }
   return (
     <li className={cx('transition', active ? 'bg-brand-soft/60 shadow-[inset_3px_0_0_0_var(--brand)]' : alt ? 'bg-slate-50/80' : '')}>
       <div className="u-row grid gap-2 px-4 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1.5fr)_minmax(0,1fr)_104px_minmax(0,1fr)_170px] lg:items-start lg:gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-bold"><CopyText text={project.invoice_no} label="No. Invoice" strong /></p>
+          <p className="text-sm font-bold"><CopyText text={invoiceLabel(project.invoice_no)} label="No. Invoice" strong /></p>
           <p className="truncate text-xs font-semibold text-ink-soft">{project.customer?.name}</p>
           <p className="truncate text-[11px] text-ink-mute">{(SUB_TYPES[sub.type] || SUB_TYPES.jasa_lain).label} · {project.branch}</p>
         </div>
@@ -168,8 +168,8 @@ function Row({ project, sub, flow, alt, active, nameOf, canCost, onDetail, onFil
         <div className="flex flex-col gap-1.5 lg:items-end">
           <span className={cx('w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1', done ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-slate-100 text-ink-soft ring-slate-200')}>{done ? 'Selesai' : stafStatus(sub.stage)}</span>
           <div className="flex items-center gap-1.5">
-            <button type="button" onClick={onFiles} aria-label={`File project ${project.invoice_no}`} title="File project" className="grid h-8 w-8 place-items-center rounded-xl bg-white text-ink-soft ring-1 ring-slate-300 hover:bg-ink hover:text-white"><FolderOpen className="h-4 w-4" /></button>
-            <button type="button" onClick={onDetail} aria-label={`Detail ${project.invoice_no}`} title="Detail project" className="grid h-8 w-8 place-items-center rounded-xl bg-white text-brand ring-1 ring-brand/30 hover:bg-brand hover:text-white"><Eye className="h-4 w-4" /></button>
+            <button type="button" onClick={onFiles} aria-label={`File project ${invoiceLabel(project.invoice_no)}`} title="File project" className="grid h-8 w-8 place-items-center rounded-xl bg-white text-ink-soft ring-1 ring-slate-300 hover:bg-ink hover:text-white"><FolderOpen className="h-4 w-4" /></button>
+            <button type="button" onClick={onDetail} aria-label={`Detail ${invoiceLabel(project.invoice_no)}`} title="Detail project" className="grid h-8 w-8 place-items-center rounded-xl bg-white text-brand ring-1 ring-brand/30 hover:bg-brand hover:text-white"><Eye className="h-4 w-4" /></button>
             {!done && (quickStart
               ? <Button size="sm" loading={busy} onClick={start}><Play className="h-3.5 w-3.5" />Mulai Proses</Button>
               : <Button size="sm" variant="dark" onClick={onWork}>{sub.stage === 'cs_upload' ? 'Lihat' : 'Kerjakan'}</Button>)}

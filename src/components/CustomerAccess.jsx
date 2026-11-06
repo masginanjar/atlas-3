@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Globe, Copy, Check, Clock, Ban, RotateCcw, Eye, FileText, StickyNote, BadgeCheck, History, ExternalLink } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { can } from '../config/access.js'
+import { can, invoiceLabel} from '../config/access.js'
 import { randomToken } from '../lib/portalCore.js'
 import { ACCESS_DAYS, addDays, accessState, publishableOf, receiptGroups, orderStep, isDigital, phonesOf, DRAFT_NOTE } from '../lib/portalCust.js'
 import { cekUrl } from '../lib/custClient.js'
@@ -87,7 +87,7 @@ export default function CustomerAccess({ project }) {
             <Button size="sm" variant="outline" onClick={copy}>{copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}{copied ? 'Tersalin' : 'Salin'}</Button>
             <Button size="sm" variant="outline" onClick={() => window.open(cekUrl(), '_blank', 'noopener')}><Eye className="h-3.5 w-3.5" />Pratinjau</Button>
           </div>
-          <p className="mt-1.5 text-[11px] text-ink-mute">Pelanggan membuka link ini, mengisi nomor HP ({phones.map((p) => p.replace(/^(\d{4})\d+(\d{3})$/, '$1••••$2')).join(' / ') || 'belum ada'}), lalu memilih invoice {project.invoice_no}.</p>
+          <p className="mt-1.5 text-[11px] text-ink-mute">Pelanggan membuka link ini, mengisi nomor HP ({phones.map((p) => p.replace(/^(\d{4})\d+(\d{3})$/, '$1••••$2')).join(' / ') || 'belum ada'}), lalu memilih invoice {invoiceLabel(project.invoice_no)}.</p>
         </div>
 
         {/* dokumen yang dipublikasikan */}

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Play, Send, FolderOpen, Hand, CheckCircle2, FileText, Upload, Loader2, Circle, Inbox, Building2, Headset, Printer, Eye, Download, ChevronDown } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { can, activeClaim, placeOf, seeProofreaderIdentity, proofreaderTeamName, pickProofreader } from '../config/access.js'
+import { can, activeClaim, placeOf, seeProofreaderIdentity, proofreaderTeamName, pickProofreader, invoiceLabel} from '../config/access.js'
 import { flowOf, stagesOf } from '../config/workflows.js'
 import { SUB_TYPES } from '../config/subtypes.js'
 import FileManager, { fieldFiles, uploadProjectFiles, collect } from './FileManager.jsx'
@@ -120,7 +120,7 @@ function WorkSheet({ project, sub, t, onClose }) {
     try { await saveBlob(f.name, f.url?.startsWith('data:') ? dataUrlToBlob(f.url) : await drive.blob(f)) } catch (e) { notify(e.message, 'err') } finally { setDl(null) }
   }
   return (
-    <Sheet open side onClose={onClose} title={sub.title} subtitle={`${project.invoice_no} · ${project.customer?.name || ''} · ${t.stage.label}`}
+    <Sheet open side onClose={onClose} title={sub.title} subtitle={`${invoiceLabel(project.invoice_no)} · ${project.customer?.name || ''} · ${t.stage.label}`}
       footer={<>
         <Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={onClose}>Tutup</Button>
         <Button className="flex-[2]" variant="dark" loading={t.busy === 'next'} disabled={!!t.blocked}
@@ -228,7 +228,7 @@ function TaskRow({ project, sub, alt }) {
       <div className="u-row grid gap-2 px-4 lg:grid-cols-[minmax(0,1.6fr)_104px_minmax(0,1fr)_minmax(0,400px)] lg:items-start lg:gap-3">
         {/* Judul: No. Invoice → pelanggan → layanan → cabang & CS */}
         <div className="min-w-0">
-          <p className="text-sm font-bold text-ink"><CopyText text={project.invoice_no} label="No. Invoice" strong /></p>
+          <p className="text-sm font-bold text-ink"><CopyText text={invoiceLabel(project.invoice_no)} label="No. Invoice" strong /></p>
           <p className="truncate text-xs font-semibold text-ink-soft">{project.customer?.name}</p>
           <p className="truncate text-[11px] text-ink-mute">{(SUB_TYPES[sub.type] || SUB_TYPES.jasa_lain).label}{sub.lang_from ? ` · ${sub.lang_from} → ${sub.lang_to}` : ''}{pages ? ` · ${pages} hlm` : ''}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-ink-mute">
