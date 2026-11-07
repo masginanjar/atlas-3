@@ -70,7 +70,7 @@ export const safeName = (n = '') => n.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s
 /** Nama file otomatis dari deskripsi dokumen (ekstensi file asli dipertahankan). */
 export const docFileName = (d) => d.file_name?.trim() || `${safeName(d.desc) || (d.file?.name || 'dokumen').replace(/\.[^.]+$/, '')}${extOf(d.file?.name)}`
 
-function DocTable({ docs, onChange, invalid, simple = false, uploadLabel = 'Upload file dokumen ini' }) {
+function DocTable({ docs, onChange, invalid, simple = false, uploadLabel = 'Upload file (opsional)' }) {
   const [focus, setFocus] = useState(null)
   const refs = useRef([])
   useEffect(() => { if (focus !== null) { refs.current[focus]?.focus(); setFocus(null) } }, [focus, docs.length])
@@ -152,7 +152,7 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
     <div className={cx('rounded-xl bg-white p-3 shadow-sm ring-1 sm:p-5', error ? 'ring-2 ring-rose-400' : 'ring-emerald-200')}>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className="grid h-7 min-w-7 place-items-center rounded-lg bg-emerald-600 px-2 text-xs font-bold text-white">{n}</span>
-        <div className="order-last flex min-w-0 flex-1 basis-full gap-1 rounded-xl bg-slate-100 p-1 sm:order-none sm:basis-0" role="tablist" aria-label="Jenis sub project">
+        <div className="order-last flex min-w-0 flex-1 basis-full gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 [scrollbar-width:none] sm:order-none sm:basis-0" role="tablist" aria-label="Jenis sub project">
           {Object.entries(SUB_TYPES).map(([k, t]) => {
             const Icon = TYPE_ICON[k]; const on = sub.type === k
             return (
@@ -176,12 +176,11 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
         {usesDocs(sub.type) ? (
           <div>
             <span className="mb-1.5 block text-[13px] font-semibold text-ink-soft">{sub.type === 'terjemahan' ? 'Detail Dokumen' : `Dokumen yang akan di-${sub.type === 'apostille' ? 'apostille' : 'legalisasi'}`} <span className="text-rose-500" aria-hidden>*</span></span>
-            <DocTable docs={docsOf(sub)} invalid={errOn('dokumen')} simple={sub.type !== 'terjemahan'} uploadLabel={sub.type === 'terjemahan' ? 'Upload file dokumen ini' : 'Upload scan dokumen ini'} onChange={(docs) => set(fromDocs(docs))} />
-            {sub.type !== 'terjemahan' && <p className="mt-1.5 text-[11px] text-ink-mute">1 baris = 1 dokumen · tekan Enter untuk baris berikutnya · scan/foto dokumen diunggah per baris agar tim proses bisa mengunduhnya</p>}
+            <DocTable docs={docsOf(sub)} invalid={errOn('dokumen')} simple={sub.type !== 'terjemahan'} uploadLabel={sub.type === 'terjemahan' ? 'Upload file (opsional)' : 'Upload scan (opsional)'} onChange={(docs) => set(fromDocs(docs))} />
           </div>
         ) : (
           <>
-            <Field label="Deskripsi" required hint="Tekan Enter untuk poin berikutnya · 1 poin = 1 file">
+            <Field label="Deskripsi" required hint="1 poin = 1 file">
               <NumberedTextarea value={sub.description} invalid={errOn('deskripsi')} onChange={setDesc} placeholder="1. Nama dokumen" />
             </Field>
             <div className="grid grid-cols-2 gap-4">
@@ -212,7 +211,7 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
               </Field>
             )}
             {extra.includes('translator_nt') && (
-              <Field label="Penerjemah" icon={UserPen} required hint={locked ? 'Terkunci — alur sudah berjalan' : 'Langsung ke penerjemah internal — tanpa supervisor, proofreader & otorisasi'}>
+              <Field label="Penerjemah" icon={UserPen} required hint={locked ? 'Terkunci — alur sudah berjalan' : 'Tanpa supervisor, proofreader & otorisasi'}>
                 <Select value={sub.translator || ''} disabled={locked} aria-invalid={errOn('penerjemah')} onChange={(e) => set({ translator_kind: 'translator', translator: e.target.value })}>
                   <option value="">— Pilih penerjemah —</option>
                   {data.users.filter((u) => u.role === 'penerjemah' && u.active !== false).map((u) => <option key={u.id} value={u.id}>{u.name} · {placeOf(u)}</option>)}
@@ -233,7 +232,7 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
         )}
 
         {['apostille', 'legalisasi'].includes(sub.type) && (
-          <Field label="Nomor ID Pemohon / No. NIB / SK Kemenkumham Perusahaan" icon={IdCard} hint="Identitas pemohon pada dokumen: NIK/paspor untuk perorangan, NIB atau nomor SK Kemenkumham untuk perusahaan. Lampirkan scan ID-nya di sebelah kanan.">
+          <Field label="Nomor ID Pemohon / No. NIB / SK Kemenkumham Perusahaan" icon={IdCard} hint="NIK/paspor, NIB, atau nomor SK Kemenkumham">
             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
               <Input value={sub.applicant_id || ''} onChange={(e) => set({ applicant_id: e.target.value })} placeholder="mis. 5171xxxxxxxxxxxx / NIB 1234567890123 / AHU-0012345.AH.01.01.2024" />
               {sub.applicant_file ? (
@@ -307,10 +306,6 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
 export function validateSub(s, i) {
   const label = `Sub ${i + 1}`
   if (!points(s.description).length) return usesDocs(s.type) ? `${label}: isi minimal 1 dokumen` : `${label}: isi deskripsi minimal 1 poin`
-  if (usesDocs(s.type)) {
-    const missing = (s.docs || []).filter((d) => d.desc.trim() && !d.file && !d.existing)
-    if (missing.length) return `${label}: upload file untuk dokumen ${missing.map((d) => `"${d.desc.trim()}"`).join(', ')} — project hanya bisa dibuat bila semua dokumen sudah diunggah`
-  }
   const extra = (SUB_TYPES[s.type] ?? SUB_TYPES.jasa_lain).extra
   if (extra.includes('translator_nt') && !s.translator) return `${label}: pilih penerjemah`
   if (extra.includes('country') && !s.country.trim()) return `${label}: pilih tujuan negara`

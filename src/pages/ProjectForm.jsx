@@ -45,7 +45,7 @@ const normInvoice = (v) => {
   return /^\d+$/.test(t) ? `INV-${t}` : t
 }
 
-export default function ProjectForm({ onClose, project, preset, side, onSaved }) {
+export default function ProjectForm({ onClose, project, preset, side, page, onSaved }) {
   const { user, data, save, notify } = useApp()
   const editing = !!project
   const [customer, setCustomer] = useState(project?.customer ?? preset?.customer ?? null)
@@ -227,9 +227,14 @@ export default function ProjectForm({ onClose, project, preset, side, onSaved })
     } catch (e) { notify(e.message, 'err') } finally { setBusy(false); setProgress('') }
   }
 
-  return (
-    <Sheet open xwide tinted side={side ? 'right' : undefined} onClose={onClose} title={editing ? `Edit ${invoiceLabel(project.invoice_no)}` : 'Project Baru'}
-      footer={<><Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={onClose}>Batal</Button><Button className="flex-1" loading={busy} onClick={submit}>{progress || (editing ? 'Simpan Perubahan' : 'Buat Project')}</Button></>}>
+  const judul = editing ? `Edit ${invoiceLabel(project.invoice_no)}` : 'Project Baru'
+  const kaki = (
+    <>
+      <Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={onClose}>Batal</Button>
+      <Button className="flex-1" loading={busy} onClick={submit}>{progress || (editing ? 'Simpan Perubahan' : 'Buat Project')}</Button>
+    </>
+  )
+  const isi = (
       <div className="space-y-6">
         <div className="grid gap-6 lg:grid-cols-2">
           <SectionCard tone="sky" icon={UserRound} title="Data Pelanggan" aside="Zoho Books">
@@ -310,7 +315,7 @@ export default function ProjectForm({ onClose, project, preset, side, onSaved })
             {autoFill && (autoFill.ship || autoFill.courier || autoFill.priority) && (
               <div role="status" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl bg-amber-50 px-3.5 py-2.5 text-xs text-amber-900 ring-1 ring-amber-200">
                 <Sparkles className="h-4 w-4 shrink-0 text-amber-600" />
-                <span><b className="font-semibold">Diisi otomatis dari {invoiceLabel(autoFill.invoice_no)}</b>: {[autoFill.ship && 'alamat kirim', autoFill.courier && `kurir ${autoFill.courier}`, autoFill.priority && `prioritas ${autoFill.priority}`].filter(Boolean).join(' · ')}. Periksa & edit bila perlu — sub project diisi manual (lihat item invoice di atas).</span>
+                <span><b className="font-semibold">Diisi otomatis dari {invoiceLabel(autoFill.invoice_no)}</b>: {[autoFill.ship && 'alamat kirim', autoFill.courier && `kurir ${autoFill.courier}`, autoFill.priority && `prioritas ${autoFill.priority}`].filter(Boolean).join(' · ')}</span>
                 <button type="button" className="ml-auto inline-flex items-center gap-1 font-semibold text-amber-800 hover:underline" onClick={() => zoho.invoiceDetail(autoFill.invoice_no).then((d) => d && applyInvoice(d, { force: true }))}><RefreshCw className="h-3 w-3" />Isi ulang dari invoice</button>
               </div>
             )}
@@ -329,6 +334,25 @@ export default function ProjectForm({ onClose, project, preset, side, onSaved })
           {editing && (project.files?.length > 0) && <p className="mt-3 text-xs text-ink-mute">{project.files.length} file sudah ada — kelola di halaman detail (File Project).</p>}
         </SectionCard>
       </div>
+  )
+
+  // Halaman penuh — dipakai saat dibuka dari menu / ikon +, bukan panel geser,
+  // supaya formnya lebar dan mudah dibaca sambil mengisi.
+  if (page) return (
+    <div className="space-y-3">
+      <h1 className="text-lg font-extrabold tracking-tight sm:text-xl">{judul}</h1>
+      <div className="form-rapat rounded-xl bg-white p-4 ring-1 ring-slate-200 sm:px-6 sm:py-5">{isi}</div>
+      {/* Tombol seukuran wajar & rata kiri — seperti bilah aksi Zoho */}
+      <div className="sticky bottom-0 z-20 -mx-1 flex flex-wrap gap-2 border-t border-slate-200 bg-white/95 px-1 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] backdrop-blur">
+        <Button loading={busy} onClick={submit} className="px-6">{progress || (editing ? 'Simpan Perubahan' : 'Buat Project')}</Button>
+        <Button variant="outline" onClick={onClose} className="px-5">Batal</Button>
+      </div>
+    </div>
+  )
+
+  return (
+    <Sheet open xwide tinted side={side ? 'right' : undefined} onClose={onClose} title={judul} footer={kaki}>
+      {isi}
     </Sheet>
   )
 }

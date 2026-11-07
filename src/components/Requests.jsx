@@ -215,7 +215,7 @@ export function RequestForm({ open, onClose, side, onSaved }) {
   }
 
   return (
-    <Sheet open={open} side={side ? "right" : undefined} onClose={onClose} title="Buat Pengajuan" wide
+    <Sheet open={open} side={side ? "right" : undefined} onClose={onClose} title="Buat Pengajuan"
       footer={<><Button variant="outline" className="flex-1" onClick={onClose}>Batal</Button><Button className="flex-1" loading={busy} onClick={submit}>Ajukan ke Direktur</Button></>}>
       <div className="space-y-4">
         <div role="radiogroup" aria-label="Jenis pengajuan" className="grid grid-cols-3 gap-2">

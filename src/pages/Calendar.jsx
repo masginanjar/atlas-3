@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight, FolderKanban, ListTodo, AlarmClock } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, FolderKanban, ListTodo, AlarmClock, Plus, Plane } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { scopeByBranch, invoiceLabel} from '../config/access.js'
 import { TZ } from '../components/WorkspacePanel.jsx'
@@ -7,7 +7,9 @@ import { myTodos } from './Todos.jsx'
 import { myReminders, nextAt } from './Reminders.jsx'
 import { go } from '../lib/router.js'
 import { usePanel } from '../components/WorkspacePanel.jsx'
-import { Card, cx } from '../components/ui.jsx'
+import { Card, Button, cx } from '../components/ui.jsx'
+import { indeksJadwal, yangLibur, namaPendek, cabangBolehLihat } from '../lib/jadwal.js'
+import { BRANCHES, branchesOf } from '../config/access.js'
 
 const dayKey = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date(d))
 const jam = (d) => new Date(d).toLocaleTimeString('id-ID', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
@@ -32,11 +34,32 @@ export function calendarItems(user, data, branchFilter) {
 }
 
 export default function Calendar() {
-  const { user, data, branchFilter } = useApp()
+  const { user, data, branchFilter, nameOf } = useApp()
   const { open } = usePanel()
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() } })
   const [show, setShow] = useState({ deadline: true, todo: true, reminder: true })
   const [pick, setPick] = useState(() => dayKey(new Date())) // tanggal terpilih (khusus tampilan HP)
+
+  const [showLibur, setShowLibur] = useState(true)
+  // Siapa yang libur — dibaca dari Jadwal, dibatasi cabang yang boleh dilihat,
+  // supaya mudah menghindari menaruh deadline di hari orangnya libur.
+  const cabangSaya = useMemo(() => {
+    const boleh = cabangBolehLihat(user)
+    return branchFilter && branchFilter !== 'Semua' && boleh.includes(branchFilter) ? [branchFilter] : boleh
+  }, [user, branchFilter])
+  const liburHari = useMemo(() => {
+    const peta = indeksJadwal(data.jadwal)
+    const out = {}
+    for (const r of data.jadwal || []) {
+      if (r.shift !== 'libur' || !cabangSaya.includes(r.cabang)) continue
+      out[r.tanggal] ||= []
+    }
+    for (const iso of Object.keys(out)) {
+      out[iso] = cabangSaya.flatMap((cb) => yangLibur(peta, iso, cb)
+        .map((r) => ({ nama: namaPendek(nameOf(r.user_id)), cabang: cb })))
+    }
+    return out
+  }, [data.jadwal, cabangSaya, nameOf])
 
   const items = useMemo(() => calendarItems(user, data, branchFilter).filter((i) => show[i.type]), [user, data, branchFilter, show])
   const byDay = useMemo(() => {
@@ -59,7 +82,7 @@ export default function Calendar() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight"><CalendarDays className="h-5 w-5 text-ink-mute" />Calendar</h1>
+          <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight"><CalendarDays className="h-5 w-5 text-ink-mute" />Linimasa</h1>
           <p className="text-sm text-ink-soft">Deadline project, to-do, dan pengingat dalam satu tampilan — sumbernya data yang sama.</p>
         </div>
         <div className="flex items-center gap-1.5">
@@ -76,6 +99,14 @@ export default function Calendar() {
             <t.icon className="h-3.5 w-3.5" />{t.label}
           </button>
         ))}
+        <button type="button" onClick={() => setShowLibur((v) => !v)} aria-pressed={showLibur}
+          className={cx('inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold ring-1 transition',
+            showLibur ? 'bg-rose-50 text-rose-700 ring-rose-200' : 'bg-white text-ink-mute ring-slate-200')}>
+          <Plane className="h-3.5 w-3.5" />Libur tim
+        </button>
+        <Button size="sm" variant="outline" className="ml-auto" onClick={() => open('todo')}>
+          <Plus className="h-3.5 w-3.5" />To-do Baru
+        </Button>
       </div>
 
       <Card className="overflow-hidden p-0">
@@ -96,10 +127,28 @@ export default function Calendar() {
                   {list.length > 0 && (list.length > 3
                     ? <span className="rounded-full bg-ink px-1.5 text-[10px] font-bold text-white">{list.length}</span>
                     : <span className="flex gap-0.5">{kinds.map((t) => <span key={t} className={cx('h-1.5 w-1.5 rounded-full', DOT[t])} />)}</span>)}
+                  {showLibur && (liburHari[k] || []).length > 0 && <Plane className="h-2.5 w-2.5 text-rose-500" />}
                 </button>
                 {/* md ke atas: daftar agenda seperti biasa */}
-                <div className="hidden md:block">
-                  {d && <p className={cx('mb-1 text-[11px] font-bold', k === todayK ? 'text-brand' : 'text-ink-mute')}>{d.getDate()}</p>}
+                <div className="group/day relative hidden md:block">
+                  {d && (
+                    <div className="mb-1 flex items-center gap-1">
+                      <p className={cx('text-[11px] font-bold', k === todayK ? 'text-brand' : 'text-ink-mute')}>{d.getDate()}</p>
+                      {/* tanda + : buat To-do pada tanggal ini */}
+                      <button type="button" onClick={() => open('todo', { todo: { due: k } })}
+                        aria-label={`Buat to-do tanggal ${d.getDate()}`} title="Buat To-do pada tanggal ini"
+                        className="ml-auto grid h-5 w-5 place-items-center rounded text-ink-mute opacity-0 transition hover:bg-brand hover:text-white focus:opacity-100 group-hover/day:opacity-100">
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                  {showLibur && (liburHari[k] || []).length > 0 && (
+                    <p className="mb-0.5 flex items-start gap-1 rounded bg-rose-50 px-1 py-0.5 text-[10px] font-semibold text-rose-700"
+                      title={`Libur: ${(liburHari[k] || []).map((x) => `${x.nama} (${x.cabang})`).join(', ')}`}>
+                      <Plane className="mt-px h-2.5 w-2.5 shrink-0" />
+                      <span className="min-w-0 truncate">{(liburHari[k] || []).map((x) => x.nama).join(', ')}</span>
+                    </p>
+                  )}
                   <ul className="space-y-0.5">
                     {list.slice(0, 3).map((it) => (
                       <li key={it.id}>
@@ -122,7 +171,15 @@ export default function Calendar() {
       <Card className="p-4 md:hidden">
         {!pick ? <p className="text-sm text-ink-mute">Ketuk sebuah tanggal untuk melihat jam dan rincian agendanya.</p> : (
           <>
-            <p className="text-sm font-bold">{new Date(`${pick}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="min-w-0 flex-1 text-sm font-bold">{new Date(`${pick}T00:00:00`).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              <Button size="sm" variant="outline" onClick={() => open('todo', { todo: { due: pick } })}><Plus className="h-3.5 w-3.5" />To-do</Button>
+            </div>
+            {showLibur && (liburHari[pick] || []).length > 0 && (
+              <p className="mt-1.5 flex flex-wrap items-center gap-1 rounded-lg bg-rose-50 px-2 py-1.5 text-xs font-semibold text-rose-700">
+                <Plane className="h-3.5 w-3.5" />Libur: {(liburHari[pick] || []).map((x) => `${x.nama} (${x.cabang})`).join(', ')}
+              </p>
+            )}
             {(byDay[pick] || []).length === 0 ? <p className="mt-1 text-sm text-ink-mute">Tidak ada agenda pada tanggal ini.</p> : (
               <ul className="mt-2 space-y-1.5">
                 {(byDay[pick] || []).map((it) => (
@@ -137,7 +194,7 @@ export default function Calendar() {
           </>
         )}
       </Card>
-      <p className="text-[11px] text-ink-mute">Kalender hanya menampilkan tanggal yang sudah ada di project, to-do, dan pengingat Anda — tidak ada pencatatan tanggal terpisah di sini.</p>
+      <p className="text-[11px] text-ink-mute">Kalender menampilkan tanggal yang sudah ada di project, to-do, dan pengingat Anda. Tanda libur dibaca dari menu Jadwal — berguna agar deadline tidak jatuh saat orangnya libur.</p>
     </div>
   )
 }

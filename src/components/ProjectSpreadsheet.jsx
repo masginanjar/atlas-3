@@ -102,7 +102,9 @@ function BarisSub({ subs, kolom }) {
   )
 }
 
-export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles, onPrint, state, setState }) {
+export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles, onPrint, state, setState, hideCols = [] }) {
+  // Kolom yang disembunyikan untuk peran tertentu (mis. pelaksana freelance tidak punya cabang).
+  const KOLOM = hideCols.length ? TABLE_COLS.filter((c) => !hideCols.includes(c.key)) : TABLE_COLS
   const { data } = useApp()
   const namaUser = useMemo(() => {
     const peta = new Map()
@@ -188,7 +190,7 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
           </Button>
           {filterOpen && (
             <div className="absolute right-0 z-30 mt-1 w-[min(92vw,20rem)] max-w-[92vw] space-y-2.5 rounded-xl bg-white p-3 shadow-xl ring-1 ring-slate-200">
-              {[['prioritas', opsi.prioritas], ['status', opsi.status], ['cabang', opsi.cabang], ['cs', opsi.cs], ['arah', opsi.arah], ['orang', opsi.orang]].map(([k, list]) => (
+              {[['prioritas', opsi.prioritas], ['status', opsi.status], ['cabang', opsi.cabang], ['cs', opsi.cs], ['arah', opsi.arah], ['orang', opsi.orang]].filter(([k]) => !hideCols.includes(k)).map(([k, list]) => (
                 <label key={k} className="block">
                   <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-ink-mute">{FILTER_LABEL[k]}</span>
                   <select value={filters[k] || ''} onChange={(e) => set({ filters: { ...filters, [k]: e.target.value }, shownN: PAGE })}
@@ -239,7 +241,7 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
           <table className="card-table w-full border-collapse text-left align-top text-sm">
             <thead>
               <tr>
-                {TABLE_COLS.map((c) => (
+                {KOLOM.map((c) => (
                   <th key={c.key} scope="col" style={{ width: c.w, minWidth: c.w }}
                     className={cx('sticky top-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-ink-soft',
                       c.sticky && 'md:left-0 md:z-20')}>
@@ -260,7 +262,7 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
                   title="Klik untuk melihat sub project"
                   className={cx('cursor-pointer border-b border-slate-100 align-top last:border-0 md:hover:bg-brand-soft/40',
                     detailFor?.id === r.id ? 'bg-brand-soft/60' : buka.has(r.id) ? 'bg-brand-soft/40' : i % 2 === 1 && 'md:bg-slate-50/60')}>
-                  {TABLE_COLS.map((c) => (
+                  {KOLOM.map((c) => (
                     <td key={c.key} data-label={c.label}
                       className={cx('min-w-0 max-w-full px-3 py-2.5', c.sticky && 'md:sticky md:left-0 md:bg-inherit')}>
                       {nilai(r, c.key)}
@@ -283,8 +285,8 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
                 if (!buka.has(r.id)) return [tr]
                 return [tr, (
                   <tr key={`${r.id}-sub`} className="border-b border-slate-100 bg-slate-50/70">
-                    <td colSpan={TABLE_COLS.length + 1} className="p-0">
-                      <BarisSub kolom={TABLE_COLS} subs={(r.subs || []).map((x) => ({
+                    <td colSpan={KOLOM.length + 1} className="p-0">
+                      <BarisSub kolom={KOLOM} subs={(r.subs || []).map((x) => ({
                         id: x.id, judul: x.title,
                         arah: x.lang_from && x.lang_to ? `${x.lang_from} → ${x.lang_to}` : '',
                         orang: namaUser(x.data?.translator || x.translator || x.data?.vendor || ''),

@@ -47,7 +47,7 @@ export default function Notes() {
     <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight"><StickyNote className="h-5 w-5 text-ink-mute" />Notes</h1>
+          <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight"><StickyNote className="h-5 w-5 text-ink-mute" />Catatan</h1>
           <p className="text-sm text-ink-soft">Catatan pribadi Anda. Tidak terlihat oleh rekan lain kecuali Anda bagikan.</p>
         </div>
         <Button size="sm" variant="dark" onClick={() => open('note')}><Plus className="h-3.5 w-3.5" />Catatan Baru</Button>

@@ -18,6 +18,7 @@ import { ACCESS_DAYS } from '../lib/portalCust.js'
 import { COURIER_ICONS, COURIER_TYPES, CourierLogo } from '../components/Courier.jsx'
 import AvatarEditor from '../components/AvatarEditor.jsx'
 import Avatar from '../components/Avatar.jsx'
+import LoginSettings from '../components/LoginSettings.jsx'
 
 export default function Settings() {
   const { user } = useApp()
@@ -30,6 +31,7 @@ export default function Settings() {
     can.manageUsers(user) && { value: 'users', label: 'Pengguna' },
     ['superadmin', 'admin_pusat'].includes(user.role) && { value: 'file', label: 'File' },
     can.manageUsers(user) && { value: 'integrasi', label: 'Integrasi' },
+    user.role === 'superadmin' && { value: 'tampilan', label: 'Tampilan' },
   ].filter(Boolean)
   // tab awal bisa ditentukan lewat rute, mis. #/settings/petty (dari kartu Petty Cash di dashboard)
   const fromHash = () => { const t = window.location.hash.replace(/^#\/?/, '').split('/')[1]; return tabs.some((x) => x.value === t) ? t : 'profil' }
@@ -48,6 +50,7 @@ export default function Settings() {
       {tab === 'users' && <Users />}
       {tab === 'file' && <><FileRules />{can.manageUsers(user) && <PortalSettings />}</>}
       {tab === 'integrasi' && <Integrations />}
+      {tab === 'tampilan' && <LoginSettings />}
     </div>
   )
 }

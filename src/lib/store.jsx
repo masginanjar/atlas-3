@@ -5,7 +5,7 @@ import { branchesOf, APOSTILLE_FUND, ROLES, roleLabel, displayNameFor, WORKER_RO
 import { zoho } from './integrations.js'
 import { startHeartbeat, statusOf } from './presence.js'
 import { threadOf, myMessages, unreadByThread, pingQuota, openChatBus, PING_MAX_24H, PING_GAP_MS } from './chat.js'
-import { broadcastSignOut, markActivity, setIdleReason } from './session.js'
+import { broadcastSignOut, markActivity, setIdleReason, simpanTujuan, ambilTujuan } from './session.js'
 import { CHAT_ENABLED } from './flags.js'
 import { DONE, stagesOf, flowOf, isBilled, regComplete, stageLabel } from '../config/workflows.js'
 import { cariStok, cariPeringatan, kunciPeringatan, teksPeringatan, sudahTercatat, arahLabel, canKelolaAffidavit, AMBANG_RENDAH } from './affidavit.js'
@@ -95,8 +95,13 @@ export function AppProvider({ children }) {
     db.currentUser().then(async (u) => { if (u) { setUser(u); await refresh() } }).finally(() => setBooting(false))
   }, [refresh])
 
-  const signIn = async (email, password) => { const u = await db.signIn(email, password); setActiveRole(u.role); setUser(u); await refresh(); return u }
-  const signUp = async (email, password) => { const u = await db.signUp?.(email, password); if (u && !u.pending) { setActiveRole(u.role); setUser(u); await refresh() } return u }
+  // Setelah masuk: kembali ke halaman terakhir yang diizinkan, selain itu ke My Project.
+  const arahkanSetelahMasuk = () => {
+    const tujuan = ambilTujuan()
+    window.location.hash = `/${tujuan || 'projects'}`
+  }
+  const signIn = async (email, password) => { const u = await db.signIn(email, password); setActiveRole(u.role); setUser(u); arahkanSetelahMasuk(); await refresh(); return u }
+  const signUp = async (email, password) => { const u = await db.signUp?.(email, password); if (u && !u.pending) { setActiveRole(u.role); setUser(u); arahkanSetelahMasuk(); await refresh() } return u }
   // Realtime (Supabase): perubahan dari pengguna lain → muat ulang tabel terkait (digabung per 400 ms)
   const [liveStatus, setLiveStatus] = useState('') // '', 'SUBSCRIBED', 'CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED', 'POLLING'
   useEffect(() => {
@@ -186,7 +191,7 @@ export function AppProvider({ children }) {
   }, [data.users, baseUser?.id])
 
   const signOut = useCallback(async (reason) => {
-    if (reason === 'idle') setIdleReason()
+    if (reason === 'idle') { setIdleReason(); simpanTujuan() }
     try { if (baseUser) await db.update('users', baseUser.id, { online_until: null }) } catch { /* abaikan */ }
     await db.signOut(); broadcastSignOut(); setUser(null); setActiveRole('')
   }, [baseUser?.id]) // eslint-disable-line react-hooks/exhaustive-deps

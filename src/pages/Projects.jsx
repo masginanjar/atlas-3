@@ -15,7 +15,6 @@ import { Button, Card, Empty, Input, Pill, Progress, Tabs, Sheet, Popover, cx } 
 import { DENSITIES, useDensity } from '../lib/density.js'
 import { dayKey, addDays } from '../lib/performance.js'
 import { daysLeft, rupiah, tgl } from '../lib/format.js'
-import ProjectForm from './ProjectForm.jsx'
 import { PriorityBadge } from '../components/Priority.jsx'
 import TimeAgo from '../components/TimeAgo.jsx'
 
@@ -25,7 +24,6 @@ export default function Projects() {
   const [tab, setTab] = useState('all')
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('aktif')
-  const [formOpen, setFormOpen] = useState(false)
   // Pencarian/filter/urutan tabel disimpan di sini, bukan di dalam tabelnya,
   // supaya tidak hilang saat panel detail dibuka-tutup atau setelah cetak.
   const [tableState, setTableState] = useState({ q: '', sortKey: 'timestamp', sortDir: 'desc', filters: {}, shownN: 36 })
@@ -53,6 +51,11 @@ export default function Projects() {
   const [cols, setCols] = useState(() => { try { const v = JSON.parse(localStorage.getItem('atlas-cols') || 'null'); return Array.isArray(v) && v.length ? v.filter((k) => ALL_COLS.includes(k)) : ALL_COLS } catch { return ALL_COLS } })
   const saveCols = (next) => { setCols(next); try { localStorage.setItem('atlas-cols', JSON.stringify(next)) } catch { /* abaikan */ } }
   const worker = isWorkRole(user) // penerjemah / proofreader / otorisator → tampilan fokus tugas
+  // Pelaksana freelance tidak terikat cabang, jadi kolom cabang/print/CS disembunyikan.
+  // Selain itu tampilan List & Tabel-nya sama persis dengan My Project milik CS.
+  const SEMBUNYI_TABEL = ['cabang', 'print', 'cs']
+  const SEMBUNYI_LIST = ['cabang']
+  const colsAktif = worker ? cols.filter((k) => !SEMBUNYI_LIST.includes(k)) : cols
   const [fullView, setFullView] = useState(false)
   const [shownN, setShownN] = useState(36)
   const list = useMemo(() => {
@@ -94,7 +97,7 @@ export default function Projects() {
     <div className={cx('space-y-4', !worker && 'pb-[150px] md:pb-0')}>
       <div className="flex items-end justify-between gap-3">
         <div><h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">My Project</h1><p className="text-sm text-ink-mute">{worker ? 'Dokumen yang ditugaskan kepada Anda' : 'Nama project = nomor invoice Zoho'}</p></div>
-        {!worker && <Button className="hidden md:inline-flex" onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" />Project Baru</Button>}
+        {!worker && <Button className="hidden md:inline-flex" onClick={() => go('projects/new')}><Plus className="h-4 w-4" />Project Baru</Button>}
       </div>
 
       {!worker && <Tabs tabs={tabs} value={tab} onChange={setTab} />}
@@ -125,7 +128,7 @@ export default function Projects() {
                   className={cx('flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold', sort === k ? 'bg-ink text-white' : 'text-ink-mute hover:bg-slate-50')}><Icon className="h-3.5 w-3.5" /><span className="hidden sm:inline">{l}</span></button>
               ))}
             </div>
-            <SavedViews current={{ tab, q, status, sort, dlFilter, prFilter, bpFilter, cols, view }} apply={(v) => { setTab(v.tab ?? 'all'); setQ(v.q ?? ''); setStatus(v.status ?? 'aktif'); setSort(v.sort ?? 'deadline'); setDlFilter(v.dlFilter ?? null); setPrFilter(v.prFilter ?? ''); setBpFilter(v.bpFilter ?? { branch: '', print: '' }); if (v.cols) saveCols(v.cols); if (v.view) setView(v.view) }} />
+            <SavedViews current={{ tab, q, status, sort, dlFilter, prFilter, bpFilter, cols: colsAktif, view }} apply={(v) => { setTab(v.tab ?? 'all'); setQ(v.q ?? ''); setStatus(v.status ?? 'aktif'); setSort(v.sort ?? 'deadline'); setDlFilter(v.dlFilter ?? null); setPrFilter(v.prFilter ?? ''); setBpFilter(v.bpFilter ?? { branch: '', print: '' }); if (v.cols) saveCols(v.cols); if (v.view) setView(v.view) }} />
             {view === 'list' && (
               <Popover label="Pengaturan kolom" button={({ open: o, toggle }) => (
                 <button onClick={toggle} aria-expanded={o} aria-label="Pengaturan kolom tabel" title="Pilih kolom yang ditampilkan"
@@ -134,20 +137,20 @@ export default function Projects() {
                 {() => (
                   <div className="space-y-1.5">
                     <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Kolom tabel</p>
-                    {COLUMNS.map((c) => (
+                    {COLUMNS.filter((c) => !(worker && SEMBUNYI_LIST.includes(c.key))).map((c) => (
                       <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-sm hover:bg-slate-50">
-                        <input type="checkbox" checked={cols.includes(c.key)} disabled={c.key === 'invoice'}
-                          onChange={(e) => saveCols(e.target.checked ? ALL_COLS.filter((k) => k === c.key || cols.includes(k)) : cols.filter((k) => k !== c.key))}
+                        <input type="checkbox" checked={colsAktif.includes(c.key)} disabled={c.key === 'invoice'}
+                          onChange={(e) => saveCols(e.target.checked ? ALL_COLS.filter((k) => k === c.key || colsAktif.includes(k)) : colsAktif.filter((k) => k !== c.key))}
                           className="h-4 w-4 rounded border-slate-300 text-brand disabled:opacity-40" />
                         {c.label}{c.key === 'invoice' && <span className="text-[11px] text-ink-mute">(wajib)</span>}
                       </label>
                     ))}
-                    <button type="button" onClick={() => saveCols(ALL_COLS)} className="mt-1 w-full rounded-lg px-1 py-1 text-left text-xs font-semibold text-brand hover:underline">Tampilkan semua kolom</button>
+                    <button type="button" onClick={() => saveCols(ALL_COLS.filter((k) => !(worker && SEMBUNYI_LIST.includes(k))))} className="mt-1 w-full rounded-lg px-1 py-1 text-left text-xs font-semibold text-brand hover:underline">Tampilkan semua kolom</button>
                   </div>
                 )}
               </Popover>
             )}
-            <button onClick={() => exportCsv(list, cols)} aria-label="Ekspor CSV" title="Ekspor daftar (sesuai filter) ke CSV"
+            <button onClick={() => exportCsv(list, colsAktif)} aria-label="Ekspor CSV" title="Ekspor daftar (sesuai filter) ke CSV"
               className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand"><Download className="h-4 w-4" /></button>
             <div className="flex shrink-0 rounded-xl bg-white p-1 ring-1 ring-slate-200">
               {[['list', List, 'List kompak'], ['tabel', Table2, 'Tabel — 1 baris 1 data']].map(([k, Icon, l]) => (
@@ -172,9 +175,9 @@ export default function Projects() {
           <ZoomArea zoom={zoom} full={full} onClose={() => setFull(false)} count={list.length}
             tools={<ViewTools density={density} setDensity={setDensity} zoom={zoom} setZoom={setZoom} full={full} setFull={setFull} />}>
           {list.length === 0 && !(view === 'list' && (dlFilter || bpFilter.branch || bpFilter.print || q || tab !== 'all')) ? (
-            <Card><Empty icon={FolderOpen} title="Belum ada project" text="Buat project baru dari invoice Zoho." action={<Button onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" />Project Baru</Button>} /></Card>
-          ) : view === 'list' ? <ProjectList list={rest.slice(0, shownN)} late={late} dlFilter={dlFilter} setDlFilter={setDlFilter} prFilter={prFilter} setPrFilter={setPrFilter} cols={cols} detailFor={detailFor} setDetailFor={setDetailFor} filesFor={filesFor} setFilesFor={setFilesFor} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
-            <ProjectSpreadsheet list={list} detailFor={detailFor} state={tableState} setState={setTableState}
+            <Card><Empty icon={FolderOpen} title={worker ? 'Belum ada project untuk Anda' : 'Belum ada project'} text={worker ? 'Project akan muncul di sini begitu ada yang ditugaskan kepada Anda.' : 'Buat project baru dari invoice Zoho.'} action={worker ? null : <Button onClick={() => go('projects/new')}><Plus className="h-4 w-4" />Project Baru</Button>} /></Card>
+          ) : view === 'list' ? <ProjectList list={rest.slice(0, shownN)} late={late} dlFilter={dlFilter} setDlFilter={setDlFilter} prFilter={prFilter} setPrFilter={setPrFilter} cols={colsAktif} detailFor={detailFor} setDetailFor={setDetailFor} filesFor={filesFor} setFilesFor={setFilesFor} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
+            <ProjectSpreadsheet list={list} detailFor={detailFor} state={tableState} setState={setTableState} hideCols={worker ? SEMBUNYI_TABEL : []}
               onDetail={(p) => { setDetailFor(p); setFilesFor(null) }}
               onFiles={(p) => setFilesFor(p)}
               onPrint={(p) => { setFilesFor(p) }} />
@@ -200,13 +203,12 @@ export default function Projects() {
       )}
       {!worker && (
         // di atas menu bawah (±64px) + safe area iPhone, supaya tidak menempel di tepi layar
-        <button onClick={() => setFormOpen(true)} aria-label="Project baru"
+        <button onClick={() => go('projects/new')} aria-label="Project baru"
           style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
           className="fixed right-4 z-30 grid h-14 w-14 place-items-center rounded-2xl bg-brand text-white shadow-lg shadow-brand/30 md:hidden">
           <Plus className="h-6 w-6" />
         </button>
       )}
-      {formOpen && <ProjectForm onClose={() => setFormOpen(false)} />}
     </div>
   )
 }

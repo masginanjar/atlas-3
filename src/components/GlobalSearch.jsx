@@ -31,7 +31,7 @@ export function searchAll(user, data, branchFilter, term) {
   return out.slice(0, 24)
 }
 
-export default function GlobalSearch() {
+export default function GlobalSearch({ pill }) {
   const { user, data, branchFilter } = useApp()
   const { open: openPanel } = usePanel()
   const [open, setOpen] = useState(false)
@@ -55,8 +55,21 @@ export default function GlobalSearch() {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} title="Cari (Ctrl+K)" aria-label="Cari"
-        className="grid h-11 w-11 place-items-center rounded-xl text-ink-mute transition hover:bg-white hover:text-brand"><Search className="h-[17px] w-[17px]" /></button>
+      {pill ? (
+        /* Bentuk kolom pencarian membulat untuk header — tetap membuka
+           dialog pencarian yang sama, jadi fungsinya tidak berubah. */
+        <button type="button" onClick={() => setOpen(true)} title="Cari (Ctrl+K)" aria-label="Cari"
+          className="flex h-11 w-full items-center gap-2 rounded-full border px-3 text-left text-sm transition md:h-9"
+          style={{ borderColor: 'var(--head-line)', color: 'var(--head-mute)' }}>
+          <Search className="h-4 w-4 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">Cari project, catatan, to-do…</span>
+          <span className="hidden shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold sm:inline"
+            style={{ background: 'var(--head-hover)' }}>Ctrl K</span>
+        </button>
+      ) : (
+        <button type="button" onClick={() => setOpen(true)} title="Cari (Ctrl+K)" aria-label="Cari"
+          className="grid h-11 w-11 place-items-center rounded-xl text-ink-mute transition hover:bg-white hover:text-brand"><Search className="h-[17px] w-[17px]" /></button>
+      )}
       {open && (
         <div className="fixed inset-0 z-[90] flex items-start justify-center bg-ink/30 px-4 pt-[12vh] backdrop-blur-[2px]" onClick={() => setOpen(false)}>
           <div role="dialog" aria-label="Pencarian" onClick={(e) => e.stopPropagation()} className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">

@@ -130,7 +130,7 @@ export function NoteForm({ note, link, onClose, onDirty }) {
   const delItem = (id) => up({ checklist: f.checklist.filter((c) => c.id !== id) })
 
   return (
-    <Sheet open side wide onClose={onClose} title={note ? 'Edit Catatan' : 'Catatan Baru'} subtitle="Pribadi — hanya Anda yang bisa melihatnya"
+    <Sheet open side onClose={onClose} title={note ? 'Edit Catatan' : 'Catatan Baru'} subtitle="Pribadi — hanya Anda yang bisa melihatnya"
       footer={<><SaveState state={state} /><Button variant="outline" className="ml-auto" onClick={onClose}>Tutup</Button>
         <Button onClick={async () => { if (!f.title.trim() && !f.body.trim()) return notify('Isi judul atau isi catatan', 'err'); onDirty?.(false); onClose(); notify('Catatan tersimpan') }}>Selesai</Button></>}>
       <div className="space-y-4">

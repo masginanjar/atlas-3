@@ -27,6 +27,20 @@ export const takeIdleReason = () => { const v = read(K_IDLE); if (v) { try { loc
 /** Beri tahu tab lain bahwa sesi berakhir. */
 export const broadcastSignOut = () => write(K_OUT, String(now()))
 
+// --- tujuan terakhir sebelum sesi putus, supaya setelah masuk kembali ke sana ---
+const K_TUJUAN = 'atlas-tujuan'
+/** Simpan halaman yang sedang dibuka saat sesi berakhir. */
+export const simpanTujuan = () => {
+  const h = (window.location.hash || '').replace(/^#\/?/, '')
+  if (h && !/^(login|dashboard)$/.test(h)) write(K_TUJUAN, h)
+}
+/** Ambil (sekali) tujuan terakhir. Kosong bila tidak ada. */
+export const ambilTujuan = () => {
+  const v = read(K_TUJUAN)
+  if (v) { try { localStorage.removeItem(K_TUJUAN) } catch { /* abaikan */ } }
+  return v || ''
+}
+
 /**
  * Pantau idle. Memanggil onWarn(sisaDetik) saat masuk 5 menit terakhir,
  * onSafe() saat pengguna kembali aktif, dan onExpire() saat 3 jam terlewati.

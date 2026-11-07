@@ -65,8 +65,42 @@ input[type="date"] { min-height: 42px; }
 @media (prefers-reduced-motion: reduce) { .animate-\[atlas-slide-in_\.18s_ease-out\], .animate-\[toast-in_\.18s_ease-out\] { animation: none } }
 
 /* Kepadatan tampilan: Compact / Comfortable (disimpan di Setting tampilan) */
-:root { --row-py: 0.75rem; --row-gap: 0.5rem; --appbar: 57px; }
+:root { --row-py: 0.75rem; --row-gap: 0.5rem; --appbar: 57px; --railw: 44px; }
+/* Toolbar tegak di tepi kanan — lebih lebar mulai tablet supaya ikonnya lega. */
+@media (min-width: 768px) { :root { --railw: 52px; } }
 :root { --nav: #ffffff; --nav-ink: #0e1540; --nav-mute: #7a85a8; --nav-line: #e9edf5; --nav-hover: #f1f4f9; }
+/* Header atas: hitam sebagai warna bawaan, mengikuti tema Light/Dark/Custom. */
+:root { --head: #0b1020; --head-ink: #ffffff; --head-mute: #a3adc9; --head-line: #2b3453; --head-hover: #1b2439; }
+[data-theme="dark"] { --head: #0b1020; --head-ink: #e9edf9; --head-mute: #939db9; --head-line: #273049; --head-hover: #1a2234; }
+/* Kontrol bawaan (pencarian, tim, lonceng, profil) dipakai apa adanya —
+   hanya warnanya yang disesuaikan agar terbaca di header gelap. */
+.app-head [data-headbtn] > button,
+.app-head [data-headbtn] > div > button[aria-expanded],
+.app-head [data-headbtn] > button[aria-expanded] {
+  background: transparent !important;
+  color: var(--head-mute);
+  box-shadow: none !important;
+}
+.app-head [data-headbtn] > button:hover,
+.app-head [data-headbtn] > div > button[aria-expanded]:hover,
+.app-head [data-headbtn] > button[aria-expanded]:hover { background: var(--head-hover); color: var(--head-ink); }
+.app-head [data-headbtn] > div > button[aria-expanded="true"] { background: var(--head-hover) !important; color: var(--head-ink); }
+/* Semua tombol pemicu di header: ikon & teksnya ikut warna header.
+   Isi dropdown-nya tidak tersentuh karena dibatasi pada tombol pemicu. */
+.app-head [data-headbtn] > button,
+.app-head [data-headbtn] > div > button:first-child { color: var(--head-mute); }
+.app-head [data-headbtn] > button :is(p, span, svg),
+.app-head [data-headbtn] > div > button:first-child :is(p, span, svg) { color: inherit; }
+.app-head [data-headbtn] > button:hover,
+.app-head [data-headbtn] > div > button:first-child:hover { background: var(--head-hover) !important; color: var(--head-ink); }
+/* Di bawah 1280px nama & peran pada tombol profil disembunyikan supaya
+   header tidak sesak — menu profilnya TIDAK boleh dipotong, jadi tidak
+   memakai overflow:hidden pada pembungkusnya. */
+@media (max-width: 1279.98px) {
+  .app-head [data-headbtn] button[aria-label^="Profil"] > span:last-child { display: none !important; }
+}
+/* badge merah & titik status tetap berwarna aslinya */
+.app-head [data-headbtn] button :is(.bg-rose-500, .bg-rose-600, .bg-emerald-500, .bg-amber-500, .bg-slate-300) { color: #fff; }
 [data-theme="dark"] { --nav: #141a2b; --nav-ink: #e9edf9; --nav-mute: #939db9; --nav-line: #273049; --nav-hover: #1e2539; }
 [data-density="compact"] { --row-py: 0.4rem; --row-gap: 0.3rem; }
 [data-density="lega"] { --row-py: 1.05rem; --row-gap: 0.75rem; }
@@ -253,3 +287,33 @@ body { background-image: none; }
 @media (prefers-reduced-motion: reduce) {
   .animate-\[geserMasuk_\.25s_ease-out\] { animation: none !important; }
 }
+
+
+/* ============================================================
+   FORM HALAMAN PENUH (Project Baru) — tampilan rapat ala Zoho:
+   kartu berwarna diratakan jadi seksi polos bergaris, ikon besar
+   disembunyikan, dan jarak antar bagian dirapatkan supaya tidak
+   banyak ruang kosong. Isi, field, dan tombolnya tidak berubah.
+   ============================================================ */
+.form-rapat section {
+  background: #fff !important;
+  box-shadow: none !important;
+  border-radius: 0;
+  padding: 0 0 1rem;
+  border-top: 1px solid var(--line, #e2e8f0);
+  margin-top: 1rem;
+}
+.form-rapat section:first-of-type { border-top: 0; margin-top: 0; }
+/* lencana ikon berwarna di judul seksi */
+.form-rapat section > div:first-child > span:first-child { display: none; }
+.form-rapat section > div:first-child { margin-bottom: .75rem; }
+.form-rapat section h4 {
+  font-size: 12px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--txt-mute, #64748b);
+}
+/* rapatkan jarak bawaan */
+.form-rapat .space-y-6 > * + * { margin-top: 1rem; }
+.form-rapat .space-y-5 > * + * { margin-top: .75rem; }
+.form-rapat .gap-6 { gap: 1rem 1.5rem; }
+/* dua kolom tidak saling menarik tinggi — ini sumber ruang kosong */
+.form-rapat .grid { align-items: start; }

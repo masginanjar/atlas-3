@@ -31,7 +31,6 @@ export default function Invoices() {
   const [busy, setBusy] = useState(false)
   const [q, setQ] = useState('')
   const [tab, setTab] = useState('all') // all | unlinked | linked
-  const [form, setForm] = useState(null) // { invoice, customer } → panel kanan
   const [opening, setOpening] = useState('')
 
   // sumber data: satu tempat di store (dipakai juga untuk angka di menu Faktur)
@@ -71,15 +70,20 @@ export default function Invoices() {
     return { all: all.length, linked, unlinked: all.length - linked }
   }, [rows, projectOf])
 
+  // Project Baru dibuka sebagai HALAMAN PENUH. Data pelanggan diambil dulu
+  // dari Zoho, lalu dititipkan lewat sessionStorage karena alamat hanya
+  // memuat nomor invoice — bukan seluruh isian.
   const openForm = async (inv) => {
-    if (opening || form) return // cegah klik berulang membuat panel/project ganda
+    if (opening) return // cegah klik berulang membuat project ganda
     if (projectOf(inv)) return notify('Invoice ini sudah punya project', 'err')
     setOpening(inv.invoice_no)
     let customer = null
     try { if (inv.customer_id) customer = await zoho.contact(inv.customer_id) } catch { /* lanjut tanpa data pelanggan */ }
     if (!customer && inv.customer_name) customer = { zoho_id: inv.customer_id || '', name: inv.customer_name, email: '', phone: '', ship: {} }
     setOpening('')
-    setForm({ invoice_no: inv.invoice_no, zoho_invoice_id: inv.zoho_invoice_id, customer })
+    const preset = { invoice_no: inv.invoice_no, zoho_invoice_id: inv.zoho_invoice_id, customer }
+    try { sessionStorage.setItem(`atlas-preset:${inv.zoho_invoice_id}`, JSON.stringify(preset)) } catch { /* abaikan */ }
+    go(`projects/new/${inv.zoho_invoice_id}`)
   }
 
   const TABS = [['all', 'Semua', counts.all], ['unlinked', 'Belum masuk project', counts.unlinked], ['linked', 'Sudah masuk project', counts.linked]]
@@ -141,7 +145,7 @@ export default function Invoices() {
                             ? <button type="button" onClick={() => go(`projects/${p.id}`)} className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100">Sudah Masuk Project<ExternalLink className="h-3 w-3" /></button>
                             : <span className="rounded-lg bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-200" title="Project ada di cabang lain">Sudah Masuk Project</span>
                           : can.editProject(user)
-                            ? <Button size="sm" variant="dark" loading={opening === i.invoice_no} disabled={!!form || (!!opening && opening !== i.invoice_no)} onClick={() => openForm(i)}><Plus className="h-3.5 w-3.5" />Buat Project</Button>
+                            ? <Button size="sm" variant="dark" loading={opening === i.invoice_no} disabled={!!opening && opening !== i.invoice_no} onClick={() => openForm(i)}><Plus className="h-3.5 w-3.5" />Buat Project</Button>
                             : <span className="text-[11px] text-ink-mute">Belum masuk project</span>}
                       </div>
                     </li>
@@ -152,10 +156,6 @@ export default function Invoices() {
       </Card>
       <p className="text-[11px] text-ink-mute">Daftar ini disaring dari 3 angka di depan nomor invoice (101 Bali, 202 Jakarta, 303 Bandung, 304 Yogyakarta, 305 Surabaya, 306 Medan, 307 Semarang, 308 Makassar, 309 Batam), jadi tiap cabang hanya melihat fakturnya sendiri. Nomor dan status invoice mengikuti Zoho Books — tidak diubah dari sini. Status pembayaran hanya informasi, tidak memengaruhi alur kerja project.</p>
 
-      {form && (
-        <ProjectForm side preset={form} onClose={() => setForm(null)}
-          onSaved={() => { setForm(null) /* filter & posisi scroll tetap; tanda berubah sendiri karena project baru masuk daftar */ }} />
-      )}
     </div>
   )
 }

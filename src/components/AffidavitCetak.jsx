@@ -111,7 +111,7 @@ export default function AffidavitCetak({ project, sub }) {
       </p>
       {sisa == null && (
         <p className="mt-1 text-[11px] font-semibold text-amber-800">
-          Stok cabang ini belum pernah ditetapkan Admin Pusat — minta pusat mengisinya dulu di menu Tracking Affidavit.
+          Stok cabang ini belum pernah ditetapkan Admin Pusat — minta pusat mengisinya dulu di menu Affidavit.
         </p>
       )}
       {user?.role === 'cs' && sisa != null && sisa < AMBANG_RENDAH && (

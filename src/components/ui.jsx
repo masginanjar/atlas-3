@@ -105,7 +105,9 @@ export function Sheet({ open, onClose, title, subtitle, children, footer, wide, 
   return createPortal(
     <div className={cx('fixed inset-0 z-[80] flex',
       // panel samping: mulai di bawah bar atas & tidak menghalangi klik, jadi header dan tabel di belakang tetap bisa dipakai
-      side ? cx('pointer-events-none pt-[var(--appbar)]', fromLeft ? 'justify-start' : 'justify-end') : 'items-end justify-center bg-ink/40 backdrop-blur-[2px] sm:items-center sm:p-4')}
+      // panel samping dari kanan berhenti di sebelah KIRI toolbar tegak,
+      // supaya toolbar tetap terlihat dan bisa dipakai mengganti panel
+      side ? cx('pointer-events-none pt-[var(--appbar)]', fromLeft ? 'justify-start' : 'justify-end pr-[var(--railw)]') : 'items-end justify-center bg-ink/40 backdrop-blur-[2px] sm:items-center sm:p-4')}
       onClick={side ? undefined : onClose}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal={side ? undefined : 'true'} aria-label={title}
         className={cx('pointer-events-auto flex w-full flex-col bg-white shadow-2xl',

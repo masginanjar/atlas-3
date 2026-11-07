@@ -3,7 +3,8 @@ import { FolderKanban, CheckCircle2, AlarmClock, Wallet, Banknote, ArrowRight, I
 import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
 import { BRANCHES, ROLES, can, scopeByBranch, activeClaim, WORKER_ROLES, roleLabel, branchesOf, isMultiBranch, APOSTILLE_FUND, pettyLabel, pettyAccountsOf, foreignLang, coordinatorFor, placeOf, invoiceLabel} from '../config/access.js'
-import { CATEGORIES, DONE, isDone, stagesOf, stageLabel, flowOf, totalPengajuan, stafStatus, PAYMENT_TERMS, termOf, isBilled, recommendFund, VENDOR_PAID_STAGES, stageShort } from '../config/workflows.js'
+import { CATEGORIES, DONE, isDone, stagesOf, stageLabel, flowOf, totalPengajuan, stafStatus, PAYMENT_TERMS, termOf, isBilled, recommendFund, VENDOR_PAID_STAGES, stageShort, stageIndex } from '../config/workflows.js'
+import { kindPages } from '../config/subtypes.js'
 import { PriorityBadge } from '../components/Priority.jsx'
 import { TypeBadge as TB } from '../components/badges.jsx'
 import { PengajuanSummary, PengajuanStatus, SumberDanaPicker, QuickAcc, PengajuanTracker, DownloadBukti, RejectPengajuan, RevisionNote } from '../components/Pengajuan.jsx'
@@ -73,15 +74,15 @@ export default function Dashboard() {
   const ops = [
     user.coordinator_lang && <CoordBoard key="coord" lang={user.coordinator_lang} />,
     ['superadmin', 'supervisor'].includes(user.role) && <TranslatorLoad key="load" range={trRange} setRange={setTrRange} />,
-    ['superadmin', 'supervisor'].includes(user.role) && <AssignTable key="assign" rows={s.needTr} range={trRange} setRange={setTrRange} />,
     ['superadmin', 'supervisor', 'staf_apostille'].includes(user.role) && s.staf.length > 0 && <StafBoard key="staf" rows={s.staf} />,
-    ['superadmin', 'admin_pusat', 'supervisor'].includes(user.role) && <FlowPositions key="flow" subs={s.subs} />,
   ].filter(Boolean)
 
   return (
     <div className="space-y-7">
       <PingBoard />
-      <Hero user={user} s={s} unlinked={unlinkedInvoices?.length ?? unlinkedInvoices ?? 0} petty={rupiah(accounts.reduce((a, k) => a + (pettyBalance(k) || 0), 0))} todoCount={TODO_GROUP_ROLES.includes(user.role) ? roleGroupCount(s, user, data.people) : todoTasks.length} />
+      <Hero user={user} s={s} unlinked={unlinkedInvoices?.length ?? unlinkedInvoices ?? 0} petty={rupiah(accounts.reduce((a, k) => a + (pettyBalance(k) || 0), 0))}
+        pettyCabang={accounts.filter((k) => k !== APOSTILLE_FUND).reduce((a, k) => a + (pettyBalance(k) || 0), 0)}
+        pettyApos={accounts.includes(APOSTILLE_FUND) ? (pettyBalance(APOSTILLE_FUND) || 0) : 0} todoCount={TODO_GROUP_ROLES.includes(user.role) ? roleGroupCount(s, user, data.people) : todoTasks.length} />
 
       {/* Kerja saya: Performa (prioritas) + To-Do List berdampingan di layar lebar */}
       <Segment title="Kerja Saya">
@@ -122,11 +123,6 @@ export default function Dashboard() {
 
       {ops.length > 0 && <Segment title="Operasional">{ops}</Segment>}
 
-      {!exec && !WORKER_ROLES.includes(user.role) && (
-        <Segment title="Keuangan" action={<a href="#/keuangan" className="text-xs font-semibold text-brand hover:underline">Buka halaman Keuangan →</a>}>
-          {accounts.length > 0 && <PettyStrip accounts={accounts} balance={pettyBalance} />}
-        </Segment>
-      )}
     </div>
   )
 }
@@ -191,7 +187,8 @@ function PengingatTodo({ user }) {
   )
 }
 
-function Hero({ user, s, todoCount, unlinked, petty }) {
+const PETTY_RINCI = ['superadmin', 'supervisor', 'direktur']
+function Hero({ user, s, todoCount, unlinked, petty, pettyCabang, pettyApos }) {
   const { tema, kutipan, sumber, jenisHadis } = coverHariIni()
   const Ikon = jenisHadis ? Moon : Sparkles
   const act = s.active.filter((p) => !p.demo_perf)
@@ -205,7 +202,14 @@ function Hero({ user, s, todoCount, unlinked, petty }) {
     { k: 'dl', label: 'Deadline hari ini', value: today + late, sub: late ? `${late} terlambat` : 'tidak ada yang terlambat', icon: AlarmClock, href: '#/projects', tone: urgent ? 'danger' : 'ok' },
     { k: 'active', label: 'Project aktif', value: act.length, sub: `${s.done} selesai`, icon: FolderKanban, href: '#/projects' },
     { k: 'vendor', label: 'Order vendor berjalan', value: vendor, sub: `${s.approvals.length} menunggu ACC`, icon: Banknote, href: '#/keuangan' },
-    { k: 'petty', label: 'Petty cash', value: petty, sub: 'saldo tersedia', icon: Wallet, href: '#/settings/petty', uang: true },
+    // Supervisor, Superadmin & Direktur melihat kas cabang dan kas Apostille
+    // terpisah — keduanya memang dikelola dan dipertanggungjawabkan sendiri.
+    ...(PETTY_RINCI.includes(user.role)
+      ? [
+        { k: 'petty-cab', label: 'Petty Cash Cabang', value: rupiah(pettyCabang), sub: 'saldo tersedia', icon: Wallet, href: '#/settings/petty', uang: true },
+        { k: 'petty-apo', label: 'Petty Cash Apostille', value: rupiah(pettyApos), sub: 'kas Supervisor', icon: Stamp, href: '#/settings/petty', uang: true },
+      ]
+      : [{ k: 'petty', label: 'Petty cash', value: petty, sub: 'saldo tersedia', icon: Wallet, href: '#/settings/petty', uang: true }]),
   ]
   return (
     <>
@@ -793,42 +797,6 @@ function CoordBoard({ lang }) {
   )
 }
 
-/** Posisi sub project per alur — ringkas (1 baris per alur, hanya tahap yang berisi). Khusus Superadmin/Admin Pusat/Supervisor. */
-function FlowPositions({ subs }) {
-  const [open, toggle] = useFold('flows')
-  const flows = Object.entries(CATEGORIES).map(([key, c]) => {
-    const list = subs.filter((x) => x.flow === key)
-    const stages = [...c.stages.map((x) => x.key), DONE].map((k) => ({ k, n: list.filter((x) => x.stage === k).length })).filter((x) => x.n)
-    return { key, c, total: list.length, done: list.filter((x) => x.stage === DONE).length, stages }
-  }).filter((f) => f.total)
-  return (
-    <Card className="overflow-hidden">
-      <div className="card-head flex items-center gap-2 px-4 py-3">
-        <FolderKanban className="h-4 w-4 text-brand" />
-        <h2 className="font-bold">Posisi sub project per alur</h2>
-        <span className="text-xs text-ink-mute">{subs.length} sub project</span>
-        <FoldBtn open={open} onClick={toggle} label="Posisi sub project per alur" className="ml-auto" />
-      </div>
-      {open && (
-        <ul className="divide-y divide-slate-100 border-t border-slate-100">
-          {flows.map(({ key, c, total, done, stages }) => (
-            <li key={key} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5">
-              <span className="w-40 shrink-0 text-sm font-semibold">{c.label} <span className="text-xs font-normal text-ink-mute">· {total}</span></span>
-              <span className="flex min-w-0 flex-1 flex-wrap gap-1">
-                {stages.map(({ k, n }) => (
-                  <span key={k} className={cx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ring-1', k === DONE ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-slate-50 text-ink-soft ring-slate-200')}>
-                    {stageLabel(key, k)}<b className="tabular-nums">{n}</b>
-                  </span>
-                ))}
-              </span>
-              <span className="w-20 text-right text-xs font-semibold tabular-nums text-emerald-700">{Math.round((done / total) * 100)}% selesai</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
-  )
-}
 
 /** Buka/tutup seksi dashboard — tersimpan per perangkat. */
 function useFold(key) {
@@ -873,13 +841,42 @@ const rangeLabel = (r) => {
   if (r.from === r.to) return r.from === today ? 'Hari ini' : r.from === tmr ? 'Besok' : tgl(r.from)
   return `${r.from ? tgl(r.from) : '…'} – ${r.to ? tgl(r.to) : '…'}`
 }
-function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
+export function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
   const { data } = useApp()
   const [open, toggle] = useFold('load')
   const [rangeLocal, setRangeLocal] = useState({ from: '', to: '' })
   const range = rangeProp ?? rangeLocal; const setRange = setRangeProp ?? setRangeLocal
   const ranged = !!(range.from || range.to)
   const preset = (days) => { const a = new Date(); const b = new Date(Date.now() + days * 864e5); setRange({ from: isoDay(a), to: isoDay(b) }) }
+  // Halaman yang SUDAH dikerjakan — perhitungannya sama dengan statistik
+  // "Jumlah Terjemahan Saya": halaman dihitung saat tahap penerjemahan lewat,
+  // memakai tanggal selesai terjemahan, bukan deadline.
+  const bulanIni = isoDay(new Date()).slice(0, 7)
+  const halSelesai = useMemo(() => {
+    const per = new Map()
+    for (const p of data.projects) {
+      for (const sb of p.sub_projects || []) {
+        const flow = flowOf(sb, p)
+        if (!['tr_int', 'tr_nt'].includes(flow)) continue
+        const uid = sb.data?.translator
+        if (!uid) continue
+        const lewat = sb.stage === DONE || stageIndex(flow, sb.stage) > stageIndex(flow, 'penerjemahan')
+        if (!lewat) continue
+        const at = sb.data?.translated_at || (sb.history || []).find((h) => /^Penerjemahan/.test(h.action || ''))?.at
+        if (!at) continue
+        const hari = String(isoDay(new Date(at)))
+        const masuk = (range.from || range.to)
+          ? (!range.from || hari >= range.from) && (!range.to || hari <= range.to)
+          : hari.slice(0, 7) === bulanIni
+        if (!masuk) continue
+        const k = kindPages(sb)
+        const n = flow === 'tr_nt' ? (Number(sb.pages) || 1) : ((k.reguler || 0) + (k.non_reguler || 0)) || (Number(sb.pages) || 1)
+        per.set(uid, (per.get(uid) || 0) + n)
+      }
+    }
+    return per
+  }, [data.projects, range.from, range.to, bulanIni])
+
   const rows = useMemo(() => {
     const inRange = (dl) => { if (!dl) return false; const day = String(dl).slice(0, 10); return (!range.from || day >= range.from) && (!range.to || day <= range.to) }
     const subs = data.projects.flatMap((p) => (p.sub_projects || []).map((x) => ({ ...x, project: p, flow: flowOf(x, p) })))
@@ -896,6 +893,7 @@ function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
   const max = Math.max(CAP, ...rows.trs.map((r) => r.n + r.done))
   const tone = (n) => (n === 0 ? ['bg-emerald-500', 'Kosong', 'text-emerald-700'] : n < CAP - 1 ? ['bg-brand', 'Tersedia', 'text-brand'] : n < CAP ? ['bg-amber-500', 'Hampir penuh', 'text-amber-700'] : ['bg-rose-500', 'Penuh', 'text-rose-700'])
   const total = rows.trs.reduce((a, r) => a + r.n + r.done, 0)
+  const totalHal = rows.trs.reduce((a, r) => a + (halSelesai.get(r.u.id) || 0), 0)
   const chip = (on) => cx('rounded-lg px-2.5 py-1 text-xs font-semibold ring-1', on ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-ink-soft ring-slate-200 hover:ring-indigo-400')
   const today = isoDay(new Date())
   return (
@@ -903,7 +901,9 @@ function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
       <div className="card-head flex flex-wrap items-center gap-2 bg-indigo-50/60 px-4 py-3">
         <Users className="h-4 w-4 text-indigo-600" />
         <h2 className="font-bold">Kapasitas Penerjemah</h2>
-        <span className="text-xs text-ink-mute">{ranged ? `deadline ${rangeLabel(range)} · ${total} dokumen` : `dokumen sedang diterjemahkan · kapasitas ${CAP}/orang`}</span>
+        <span className="text-xs text-ink-mute">{ranged
+          ? `${rangeLabel(range)} · ${totalHal} halaman dikerjakan`
+          : `bulan ini · ${totalHal} halaman dikerjakan · kapasitas ${CAP}/orang`}</span>
         <FoldBtn open={open} onClick={toggle} label="Kapasitas Penerjemah" className="ml-auto" />
       </div>
       {open && (
@@ -930,7 +930,9 @@ function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
                     {done > 0 && <div className="h-3 bg-slate-300" style={{ width: `${(done / max) * 100}%` }} title="Sudah selesai diterjemahkan" />}
                     <span className="absolute inset-y-0 border-l-2 border-dashed border-slate-400/70" style={{ left: `${(CAP / max) * 100}%` }} title="Batas kapasitas" />
                   </div>
-                  <p className="text-right text-xs tabular-nums sm:text-left"><b>{n}</b> dok{done ? <span className="text-ink-mute"> (+{done} selesai)</span> : ''} · {pages} hal <span className={cx('ml-1 font-semibold', txt)}>{label}</span>
+                  <p className="text-right text-xs tabular-nums sm:text-left">
+                    <b>{halSelesai.get(u.id) || 0}</b> hal <span className="text-ink-mute">dikerjakan</span>
+                    <span className={cx('ml-1 font-semibold', txt)}>{label}</span>
                     {next && <span className="hidden text-ink-mute sm:inline"> · DL {tgl(next)}</span>}</p>
                 </div>
               )
@@ -995,7 +997,7 @@ function WorkerDesk({ user, tasks }) {
 }
 
 /** Supervisor/Superadmin: tetapkan penerjemah internal / vendor langsung dari dashboard. */
-function AssignTable({ rows: allRows, range = { from: '', to: '' }, setRange = () => {} }) {
+export function AssignTable({ rows: allRows, range = { from: '', to: '' }, setRange = () => {} }) {
   const { data, assignTranslator, notify } = useApp()
   const [open, toggle] = useFold('assign')
   // filter deadline dari judul kolom (rentang / tanggal tertentu) — Kapasitas Penerjemah di atas ikut tanggal yang sama

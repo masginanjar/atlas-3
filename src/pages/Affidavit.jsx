@@ -61,7 +61,7 @@ export default function Affidavit() {
     <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="flex items-center gap-2 text-lg font-bold text-ink"><FileStack className="h-5 w-5 text-brand" />Tracking Affidavit</h1>
+          <h1 className="flex items-center gap-2 text-lg font-bold text-ink"><FileStack className="h-5 w-5 text-brand" />Affidavit</h1>
           <p className="text-xs text-ink-soft">
             {pantau ? 'Stok lembar affidavit semua cabang.' : `Stok lembar affidavit cabang ${cabangSaya.join(', ') || '—'}.`}
             {' '}Hanya 4 arah bahasa yang memakai lembar.

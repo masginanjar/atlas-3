@@ -233,23 +233,36 @@ export default function WorkerBoard({ projects }) {
   )
 }
 
-/** Tampilan Tabel: satu baris satu tugas. Isi & tombolnya sama dengan tampilan List. */
+/**
+ * Tampilan Tabel: satu baris satu tugas.
+ * Susunan, ukuran, jarak, dan gaya tabel dibuat sama dengan My Project pada
+ * role CS (lihat ProjectSpreadsheet) — yang berbeda hanya kolom & tombol aksi,
+ * karena pelaksana freelance tidak punya cabang dan hanya melihat tugasnya.
+ */
+const KOLOM_TUGAS = [
+  { key: 'invoice', label: 'No. Invoice', w: '132px' },
+  { key: 'pelanggan', label: 'Nama Pelanggan', w: '160px' },
+  { key: 'dokumen', label: 'Dokumen', w: '200px' },
+  { key: 'cs', label: 'CS', w: '112px' },
+  { key: 'deadline', label: 'Deadline', w: '136px' },
+  { key: 'progres', label: 'Progres', w: '156px' },
+]
+
 function TabelTugas({ rows }) {
   return (
-    <div className="min-w-0 max-w-full md:overflow-x-auto">
-      <table className="card-table w-full text-xs">
-        <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-ink-mute">
+    <div className="min-w-0 max-w-full overflow-x-auto rounded-b-2xl bg-white">
+      <table className="card-table w-full border-collapse text-left align-top text-sm">
+        <thead>
           <tr>
-            <th scope="col" className="px-3 py-2 text-left font-bold">No. Invoice</th>
-            <th scope="col" className="px-3 py-2 text-left font-bold">Pelanggan</th>
-            <th scope="col" className="px-3 py-2 text-left font-bold">Dokumen</th>
-            <th scope="col" className="px-3 py-2 text-left font-bold">Cabang / CS</th>
-            <th scope="col" className="px-3 py-2 text-left font-bold">Deadline</th>
-            <th scope="col" className="px-3 py-2 text-left font-bold">Progres</th>
-            <th scope="col" className="px-3 py-2 text-left font-bold">Aksi</th>
+            {KOLOM_TUGAS.map((c) => (
+              <th key={c.key} scope="col" style={{ width: c.w, minWidth: c.w }}
+                className="sticky top-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-ink-soft">{c.label}</th>
+            ))}
+            <th scope="col" style={{ width: '220px', minWidth: '220px' }}
+              className="sticky top-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-ink-soft">Aksi</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody>
           {rows.map(({ pr, sub }, i) => <TaskTr key={sub.id} project={pr} sub={sub} alt={i % 2 === 1} />)}
         </tbody>
       </table>
@@ -263,29 +276,24 @@ function TaskTr({ project, sub, alt }) {
   const docList = (sub.docs || []).filter((d) => d?.desc?.trim())
   const pages = docList.reduce((a, d) => a + (Number(d.pages) || 0), 0) || sub.pages || 0
   return (
-    <tr className={cx('align-top', alt && 'md:bg-slate-50/60')}>
-      <td data-label="No. Invoice" className="px-3 py-2 font-bold text-ink">
+    <tr className={cx('border-b border-slate-100 align-top last:border-0 md:hover:bg-brand-soft/40', alt && 'md:bg-slate-50/60')}>
+      <td data-label="No. Invoice" className="min-w-0 max-w-full px-3 py-2.5 text-sm font-bold text-ink">
         <CopyText text={invoiceLabel(project.invoice_no)} label="No. Invoice" strong />
       </td>
-      <td data-label="Pelanggan" className="px-3 py-2 font-semibold text-ink-soft">{project.customer?.name || '—'}</td>
-      <td data-label="Dokumen" className="px-3 py-2">
+      <td data-label="Nama Pelanggan" className="min-w-0 max-w-full px-3 py-2.5 text-sm font-semibold text-ink-soft">{project.customer?.name || '—'}</td>
+      <td data-label="Dokumen" className="min-w-0 max-w-full px-3 py-2.5 text-sm">
         <span className="block font-semibold text-ink">{sub.title || (SUB_TYPES[sub.type] || SUB_TYPES.jasa_lain).label}</span>
         <span className="block text-[11px] text-ink-mute">
           {(SUB_TYPES[sub.type] || SUB_TYPES.jasa_lain).label}{sub.lang_from ? ` · ${sub.lang_from} → ${sub.lang_to}` : ''}{pages ? ` · ${pages} hlm` : ''}
         </span>
       </td>
-      <td data-label="Cabang / CS" className="px-3 py-2 text-[11px] text-ink-soft">
-        <span className="block font-semibold">{project.branch}</span>
-        {csName(project) && <span className="block text-ink-mute">{csName(project)}</span>}
-        {project.about?.print_location && project.about.print_location !== project.branch
-          && <span className="block font-semibold text-fuchsia-700">Print {project.about.print_location}</span>}
-      </td>
-      <td data-label="Deadline" className="px-3 py-2">
+      <td data-label="CS" className="min-w-0 max-w-full px-3 py-2.5 text-sm text-ink-soft">{csName(project) || '—'}</td>
+      <td data-label="Deadline" className="min-w-0 max-w-full px-3 py-2.5 text-sm">
         <DeadlineCell project={project} align="left" />
         <PriorityBadge p={project.about?.priority} className="mt-0.5" />
       </td>
-      <td data-label="Progres" className="px-3 py-2"><ProgresTugas t={t} /></td>
-      <td data-label="Aksi" className="px-3 py-2"><AksiTugas t={t} sub={sub} setOpen={setOpen} /></td>
+      <td data-label="Progres" className="min-w-0 max-w-full px-3 py-2.5 text-sm"><ProgresTugas t={t} /></td>
+      <td data-label="Aksi" className="min-w-0 max-w-full px-3 py-2.5 text-sm"><AksiTugas t={t} sub={sub} setOpen={setOpen} /></td>
       {t.namerDialog}
       {open && <WorkSheet project={project} sub={sub} t={t} onClose={() => setOpen(false)} />}
     </tr>
@@ -343,11 +351,12 @@ function TaskRow({ project, sub, alt }) {
           <p className="text-sm font-bold text-ink"><CopyText text={invoiceLabel(project.invoice_no)} label="No. Invoice" strong /></p>
           <p className="truncate text-xs font-semibold text-ink-soft">{project.customer?.name}</p>
           <p className="truncate text-[11px] text-ink-mute">{(SUB_TYPES[sub.type] || SUB_TYPES.jasa_lain).label}{sub.lang_from ? ` · ${sub.lang_from} → ${sub.lang_to}` : ''}{pages ? ` · ${pages} hlm` : ''}</p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-ink-mute">
-            <span className="inline-flex items-center gap-1" title={`Cabang ${project.branch}`}><Building2 className="h-3 w-3" /><b className="font-semibold text-ink-soft">{project.branch}</b></span>
-            {csName(project) && <span className="inline-flex items-center gap-1" title={`CS: ${csName(project)}`}>· <Headset className="h-3 w-3" />{csName(project)}</span>}
-            {project.about?.print_location && project.about.print_location !== project.branch && <span className="inline-flex items-center gap-1 font-semibold text-fuchsia-700" title={`Lokasi print: ${project.about.print_location}`}>· <Printer className="h-3 w-3" />{project.about.print_location}</span>}
-          </p>
+          {/* Pelaksana freelance tidak terikat cabang — yang ditampilkan hanya CS penanggung jawab. */}
+          {csName(project) && (
+            <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-ink-mute">
+              <span className="inline-flex items-center gap-1" title={`CS: ${csName(project)}`}><Headset className="h-3 w-3" />{csName(project)}</span>
+            </p>
+          )}
         </div>
         {/* Deadline & prioritas */}
         <div className="flex items-center gap-2 lg:block">
