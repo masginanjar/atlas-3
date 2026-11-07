@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Play, Send, FolderOpen, Hand, CheckCircle2, FileText, Upload, Loader2, Circle, Inbox, Building2, Headset, Printer, Eye, Download, ChevronDown } from 'lucide-react'
+import { Play, Send, FolderOpen, Hand, CheckCircle2, FileText, Upload, Loader2, Circle, Inbox, Building2, Headset, Printer, Eye, Download, ChevronDown, List, Table2 } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { can, activeClaim, placeOf, seeProofreaderIdentity, proofreaderTeamName, pickProofreader, invoiceLabel} from '../config/access.js'
 import { flowOf, stagesOf } from '../config/workflows.js'
@@ -199,20 +199,134 @@ function WorkSheet({ project, sub, t, onClose }) {
  */
 export default function WorkerBoard({ projects }) {
   const { user } = useApp()
+  // Pilihan List / Tabel, sama seperti My Project pada akun Superadmin.
+  // Disimpan terpisah supaya tidak mengubah pilihan di halaman lain.
+  const [view, setViewRaw] = useState(() => {
+    try { const v = localStorage.getItem('atlas-view-tugas'); return v === 'tabel' ? 'tabel' : 'list' } catch { return 'list' }
+  })
+  const setView = (v) => { setViewRaw(v); try { localStorage.setItem('atlas-view-tugas', v) } catch { /* abaikan */ } }
+
   const rows = (projects || []).flatMap((pr) => myWorkSubs(user, pr).map((sub) => ({ pr, sub })))
     .sort((a, b) => new Date(a.pr.about?.deadline || 0) - new Date(b.pr.about?.deadline || 0))
   if (!rows.length) return <Card><Empty icon={Inbox} title="Tidak ada tugas" text="Semua dokumen yang ditugaskan kepada Anda sudah dikerjakan. 🎉" /></Card>
   return (
     <Card className="overflow-visible" data-testid="worker-board">
-      <div className="pointer-events-none sticky top-[var(--appbar)] z-10 flex items-center gap-2 rounded-t-2xl border-b border-slate-200 bg-brand-soft/90 px-4 py-2 backdrop-blur">
-        <FileText className="h-4 w-4 text-brand" />
-        <h2 className="text-[15px] font-bold">Tugas Saya <span className="text-ink-mute">({rows.length})</span></h2>
-        <span className="ml-auto hidden text-[11px] text-ink-mute sm:inline">Mulai → Upload hasil → Kirim. Semua dari halaman ini.</span>
+      <div className="sticky top-[var(--appbar)] z-10 flex flex-wrap items-center gap-2 rounded-t-2xl border-b border-slate-200 bg-brand-soft/90 px-4 py-2 backdrop-blur">
+        <FileText className="h-4 w-4 shrink-0 text-brand" />
+        <h2 className="min-w-0 text-[15px] font-bold">Tugas Saya <span className="text-ink-mute">({rows.length})</span></h2>
+        <span className="ml-auto hidden text-[11px] text-ink-mute lg:inline">Mulai → Upload hasil → Kirim. Semua dari halaman ini.</span>
+        <div className="ml-auto flex shrink-0 rounded-xl bg-white p-1 ring-1 ring-slate-200 lg:ml-0" role="group" aria-label="Pilihan tampilan">
+          {[['list', List, 'List kompak'], ['tabel', Table2, 'Tabel — 1 baris 1 tugas']].map(([k, Icon, l]) => (
+            <button key={k} type="button" onClick={() => setView(k)} aria-label={l} aria-pressed={view === k} title={l}
+              className={cx('grid h-8 w-8 place-items-center rounded-lg', view === k ? 'bg-ink text-white' : 'text-ink-mute hover:bg-slate-50')}><Icon className="h-4 w-4" /></button>
+          ))}
+        </div>
       </div>
-      <ul className="divide-y divide-slate-200/70 [&>li:last-child]:overflow-hidden [&>li:last-child]:rounded-b-2xl">
-        {rows.map(({ pr, sub }, i) => <TaskRow key={sub.id} project={pr} sub={sub} alt={i % 2 === 1} />)}
-      </ul>
+      {view === 'tabel' ? (
+        <TabelTugas rows={rows} />
+      ) : (
+        <ul className="divide-y divide-slate-200/70 [&>li:last-child]:overflow-hidden [&>li:last-child]:rounded-b-2xl">
+          {rows.map(({ pr, sub }, i) => <TaskRow key={sub.id} project={pr} sub={sub} alt={i % 2 === 1} />)}
+        </ul>
+      )}
     </Card>
+  )
+}
+
+/** Tampilan Tabel: satu baris satu tugas. Isi & tombolnya sama dengan tampilan List. */
+function TabelTugas({ rows }) {
+  return (
+    <div className="min-w-0 max-w-full md:overflow-x-auto">
+      <table className="card-table w-full text-xs">
+        <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-ink-mute">
+          <tr>
+            <th scope="col" className="px-3 py-2 text-left font-bold">No. Invoice</th>
+            <th scope="col" className="px-3 py-2 text-left font-bold">Pelanggan</th>
+            <th scope="col" className="px-3 py-2 text-left font-bold">Dokumen</th>
+            <th scope="col" className="px-3 py-2 text-left font-bold">Cabang / CS</th>
+            <th scope="col" className="px-3 py-2 text-left font-bold">Deadline</th>
+            <th scope="col" className="px-3 py-2 text-left font-bold">Progres</th>
+            <th scope="col" className="px-3 py-2 text-left font-bold">Aksi</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map(({ pr, sub }, i) => <TaskTr key={sub.id} project={pr} sub={sub} alt={i % 2 === 1} />)}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function TaskTr({ project, sub, alt }) {
+  const [open, setOpen] = useState(false)
+  const t = useTask(project, sub, () => setOpen(false))
+  const docList = (sub.docs || []).filter((d) => d?.desc?.trim())
+  const pages = docList.reduce((a, d) => a + (Number(d.pages) || 0), 0) || sub.pages || 0
+  return (
+    <tr className={cx('align-top', alt && 'md:bg-slate-50/60')}>
+      <td data-label="No. Invoice" className="px-3 py-2 font-bold text-ink">
+        <CopyText text={invoiceLabel(project.invoice_no)} label="No. Invoice" strong />
+      </td>
+      <td data-label="Pelanggan" className="px-3 py-2 font-semibold text-ink-soft">{project.customer?.name || '—'}</td>
+      <td data-label="Dokumen" className="px-3 py-2">
+        <span className="block font-semibold text-ink">{sub.title || (SUB_TYPES[sub.type] || SUB_TYPES.jasa_lain).label}</span>
+        <span className="block text-[11px] text-ink-mute">
+          {(SUB_TYPES[sub.type] || SUB_TYPES.jasa_lain).label}{sub.lang_from ? ` · ${sub.lang_from} → ${sub.lang_to}` : ''}{pages ? ` · ${pages} hlm` : ''}
+        </span>
+      </td>
+      <td data-label="Cabang / CS" className="px-3 py-2 text-[11px] text-ink-soft">
+        <span className="block font-semibold">{project.branch}</span>
+        {csName(project) && <span className="block text-ink-mute">{csName(project)}</span>}
+        {project.about?.print_location && project.about.print_location !== project.branch
+          && <span className="block font-semibold text-fuchsia-700">Print {project.about.print_location}</span>}
+      </td>
+      <td data-label="Deadline" className="px-3 py-2">
+        <DeadlineCell project={project} align="left" />
+        <PriorityBadge p={project.about?.priority} className="mt-0.5" />
+      </td>
+      <td data-label="Progres" className="px-3 py-2"><ProgresTugas t={t} /></td>
+      <td data-label="Aksi" className="px-3 py-2"><AksiTugas t={t} sub={sub} setOpen={setOpen} /></td>
+      {t.namerDialog}
+      {open && <WorkSheet project={project} sub={sub} t={t} onClose={() => setOpen(false)} />}
+    </tr>
+  )
+}
+
+/** Tombol aksi tugas — dipakai tampilan List maupun Tabel, supaya persis sama. */
+function AksiTugas({ t, sub, setOpen, className }) {
+  return (
+    <div className={cx('flex flex-wrap items-center gap-1.5', className)}>
+      {!t.started
+        ? <Button size="sm" loading={t.busy === 'start'} title="Tandai mulai dikerjakan, lalu unduh dokumen sumber"
+            onClick={async () => { if (await t.start()) setOpen(true) }}>{t.stage.claimable ? <Hand className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}{t.stage.claimable ? 'Ambil' : 'Mulai'}</Button>
+        : <UploadBtn t={t} />}
+      {t.started && t.pick && (
+        <select value={t.who} onChange={(e) => t.setWho(e.target.value)} aria-label={t.pick.label} title={t.pick.label}
+          className="h-8 max-w-[150px] rounded-xl border-0 bg-white px-2 text-xs font-semibold ring-1 ring-slate-300 focus:ring-2 focus:ring-brand">
+          <option value="">{t.pick.label}…</option>
+          {t.people.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+      )}
+      <button type="button" onClick={() => setOpen(true)} aria-label={`Dokumen & rincian ${sub.title}`} title="Buka jendela kerja: dokumen sumber, hasil, catatan"
+        className="grid h-8 w-8 place-items-center rounded-xl bg-white text-ink-soft ring-1 ring-slate-300 hover:bg-ink hover:text-white"><FolderOpen className="h-4 w-4" /></button>
+      <Button size="sm" variant="dark" loading={t.busy === 'next'} onClick={() => (t.blocked ? setOpen(true) : t.next())} title={t.blocked || t.stage.action} className="whitespace-nowrap">
+        <Send className="h-3.5 w-3.5" />{(t.stage.action || 'Selesai').length > 16 ? 'Kirim →' : t.stage.action}
+      </Button>
+    </div>
+  )
+}
+
+/** Progres 3 langkah, bentuk ringkas untuk tampilan Tabel. */
+function ProgresTugas({ t, ringkas }) {
+  const steps = [['Mulai', t.started], ['Upload hasil', t.files.length > 0], ['Kirim', false]]
+  return (
+    <ol className={cx('flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]', ringkas && 'gap-x-1.5')}>
+      {steps.map(([label, done], i) => (
+        <li key={label} className={cx('inline-flex items-center gap-1 font-semibold', done ? 'text-emerald-700' : 'text-ink-mute')}>
+          {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}{ringkas ? i + 1 : `${i + 1}. ${label}`}
+        </li>
+      ))}
+    </ol>
   )
 }
 
@@ -221,8 +335,6 @@ function TaskRow({ project, sub, alt }) {
   const t = useTask(project, sub, () => setOpen(false))
   const docList = (sub.docs || []).filter((d) => d?.desc?.trim())
   const pages = docList.reduce((a, d) => a + (Number(d.pages) || 0), 0) || sub.pages || 0
-  const steps = [['Mulai', t.started], ['Upload hasil', t.files.length > 0], ['Kirim', false]]
-
   return (
     <li className={cx('scroll-mt-28 transition', open ? 'bg-brand-soft/70 shadow-[inset_3px_0_0_0_var(--tw-ring-color)] ring-brand' : alt ? 'bg-slate-50/80' : '')}>
       <div className="u-row grid gap-2 px-4 lg:grid-cols-[minmax(0,1.6fr)_104px_minmax(0,1fr)_minmax(0,400px)] lg:items-start lg:gap-3">
@@ -243,32 +355,9 @@ function TaskRow({ project, sub, alt }) {
           <PriorityBadge p={project.about?.priority} className="lg:mt-0.5" />
         </div>
         {/* Progres 3 langkah */}
-        <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
-          {steps.map(([label, done], i) => (
-            <li key={label} className={cx('inline-flex items-center gap-1 font-semibold', done ? 'text-emerald-700' : 'text-ink-mute')}>
-              {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}{i + 1}. {label}
-            </li>
-          ))}
-        </ol>
+        <ProgresTugas t={t} />
         {/* Aksi: Mulai → Upload → Kirim (tombol yang sama dengan isi pop-up) */}
-        <div className="flex flex-wrap items-center gap-1.5 lg:justify-end">
-          {!t.started
-            ? <Button size="sm" loading={t.busy === 'start'} title="Tandai mulai dikerjakan, lalu unduh dokumen sumber"
-                onClick={async () => { if (await t.start()) setOpen(true) }}>{t.stage.claimable ? <Hand className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}{t.stage.claimable ? 'Ambil' : 'Mulai'}</Button>
-            : <UploadBtn t={t} />}
-          {t.started && t.pick && (
-            <select value={t.who} onChange={(e) => t.setWho(e.target.value)} aria-label={t.pick.label} title={t.pick.label}
-              className="h-8 max-w-[150px] rounded-xl border-0 bg-white px-2 text-xs font-semibold ring-1 ring-slate-300 focus:ring-2 focus:ring-brand">
-              <option value="">{t.pick.label}…</option>
-              {t.people.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-            </select>
-          )}
-          <button type="button" onClick={() => setOpen(true)} aria-label={`Dokumen & rincian ${sub.title}`} title="Buka jendela kerja: dokumen sumber, hasil, catatan"
-            className="grid h-8 w-8 place-items-center rounded-xl bg-white text-ink-soft ring-1 ring-slate-300 hover:bg-ink hover:text-white"><FolderOpen className="h-4 w-4" /></button>
-          <Button size="sm" variant="dark" loading={t.busy === 'next'} onClick={() => (t.blocked ? setOpen(true) : t.next())} title={t.blocked || t.stage.action} className="whitespace-nowrap">
-            <Send className="h-3.5 w-3.5" />{(t.stage.action || 'Selesai').length > 16 ? 'Kirim →' : t.stage.action}
-          </Button>
-        </div>
+        <AksiTugas t={t} sub={sub} setOpen={setOpen} className="lg:justify-end" />
       </div>
       {/* Daftar dokumen — tabel menyamping */}
       <div className="u-hide-compact px-4 pb-3">
