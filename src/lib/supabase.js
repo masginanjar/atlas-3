@@ -58,6 +58,25 @@ export const supabaseDb = {
   },
   async resetPassword(email) { unwrap(await sb().auth.resetPasswordForEmail(String(email).trim().toLowerCase(), { redirectTo: window.location.origin + window.location.pathname })) },
   async updatePassword(password) { unwrap(await sb().auth.updateUser({ password })) },
+  /**
+   * Superadmin menetapkan kata sandi pengguna lain.
+   * Dikerjakan Edge Function "set-password" di server — service_role key TIDAK
+   * pernah ada di kode front-end. Server membaca ulang peran pemanggil dari
+   * database, jadi peran tidak bisa dipalsukan dari browser.
+   */
+  async setUserPassword(email, password) {
+    const { data } = await sb().auth.getSession()
+    const token = data?.session?.access_token
+    if (!token) throw new Error('Sesi habis. Masuk ulang.')
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/set-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ email, password }),
+    })
+    const j = await r.json().catch(() => ({}))
+    if (!r.ok || j.error) throw new Error(j.error || 'Gagal menetapkan kata sandi')
+    return j
+  },
   async currentUser() {
     const { data } = await sb().auth.getSession()
     return data?.session?.user ? profileByAuth(data.session.user).catch(() => null) : null

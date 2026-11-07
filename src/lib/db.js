@@ -276,6 +276,13 @@ function demoPresence(rows) {
 }
 
 const demo = {
+  // Mode demo tidak punya sistem kata sandi — fungsinya tetap ada supaya
+  // tombolnya bisa dicoba, tapi tidak menyimpan apa pun.
+  async setUserPassword(email) {
+    const u = load().users.find((x) => String(x.email).toLowerCase() === String(email).toLowerCase())
+    if (!u) throw new Error('Email itu tidak terdaftar di ATLAS.')
+    return { ok: true, demo: true, nama: u.name }
+  },
   async signIn(email) {
     const u = load().users.find((x) => x.email.toLowerCase() === email.toLowerCase() && x.active !== false)
     if (!u) throw new Error('User tidak ditemukan')

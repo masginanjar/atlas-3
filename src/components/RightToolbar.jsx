@@ -67,7 +67,7 @@ export default function RightToolbar() {
   return (
     <aside aria-label="Aksi cepat"
       style={{ width: 'var(--railw)' }}
-      className="fixed right-0 top-[var(--appbar)] z-[90] flex h-[calc(100dvh-var(--appbar))] flex-col items-center gap-1 border-l border-slate-200 bg-slate-50/95 py-2 backdrop-blur-sm">
+      className="fixed right-0 top-[var(--appbar)] z-[90] hidden h-[calc(100dvh-var(--appbar))] flex-col items-center gap-1 border-l border-slate-200 bg-slate-50/95 py-2 backdrop-blur-sm md:flex">
       {items.map(([k, p]) => (
         <Ikon key={k} icon={p.icon} label={p.tip} active={HALAMAN[k] ? false : panel?.kind === k}
           innerRef={(el) => { tombol.current[k] = el }} onClick={() => !busy && pilih(k)} />

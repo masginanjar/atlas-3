@@ -65,7 +65,8 @@ input[type="date"] { min-height: 42px; }
 @media (prefers-reduced-motion: reduce) { .animate-\[atlas-slide-in_\.18s_ease-out\], .animate-\[toast-in_\.18s_ease-out\] { animation: none } }
 
 /* Kepadatan tampilan: Compact / Comfortable (disimpan di Setting tampilan) */
-:root { --row-py: 0.75rem; --row-gap: 0.5rem; --appbar: 57px; --railw: 44px; }
+/* Toolbar kanan hanya tampil dari md ke atas, jadi di HP tidak ada ruang yang disisakan. */
+:root { --row-py: 0.75rem; --row-gap: 0.5rem; --appbar: 57px; --railw: 0px; }
 /* Toolbar tegak di tepi kanan — lebih lebar mulai tablet supaya ikonnya lega. */
 @media (min-width: 768px) { :root { --railw: 52px; } }
 :root { --nav: #ffffff; --nav-ink: #0e1540; --nav-mute: #7a85a8; --nav-line: #e9edf5; --nav-hover: #f1f4f9; }

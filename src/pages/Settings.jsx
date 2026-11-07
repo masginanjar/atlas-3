@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Pencil, Store, Phone, MapPin, Landmark, Tags, StickyNote, ArrowDownLeft, ArrowUpRight, CheckCircle2, CircleDashed, RotateCcw } from 'lucide-react'
+import { Plus, Trash2, Pencil, Store, Phone, MapPin, Landmark, Tags, StickyNote, ArrowDownLeft, ArrowUpRight, CheckCircle2, CircleDashed, RotateCcw, Eye, EyeOff } from 'lucide-react'
 import { PAYMENT_TERMS, termOf, SUMBER_DANA, sumberLabel } from '../config/workflows.js'
 import { useApp } from '../lib/store.jsx'
 import { db, MODE, storageUsage } from '../lib/db.js'
@@ -429,8 +429,12 @@ function PettyCash() {
           <p className="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-800 ring-1 ring-emerald-200">Saldo saat ini <b>{rupiah(pettyBalance(form.branch))}</b>{Number(form.amount) > 0 && <> → setelah top up <b>{rupiah(pettyBalance(form.branch) + Number(form.amount))}</b></>}</p>
           <Field label="Nominal (Rp)" required hint={form.amount ? rupiah(form.amount) : undefined}><Input type="number" inputMode="numeric" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} /></Field>
           <div className="flex flex-wrap gap-1.5">{[500000, 1000000, 2000000, 5000000].map((n) => <button key={n} type="button" onClick={() => setForm({ ...form, amount: String(n) })} className="rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-semibold text-ink-soft ring-1 ring-slate-200 hover:ring-brand">{rupiah(n)}</button>)}</div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Sumber dana"><Select value={form.sumber} onChange={(e) => setForm({ ...form, sumber: e.target.value })}><option value="">— pilih —</option>{SUMBER_DANA.map((d) => <option key={d.code} value={d.code}>{sumberLabel(d.code)}</option>)}</Select></Field>
+          {/* Sumber dana hanya untuk yang memang memegang keuangan — staf cabang tidak perlu tahu
+              uangnya keluar dari rekening mana. */}
+          <div className={cx('grid gap-3', can.seeAllFinance(user) ? 'grid-cols-2' : 'grid-cols-1')}>
+            {can.seeAllFinance(user) && (
+              <Field label="Sumber dana"><Select value={form.sumber} onChange={(e) => setForm({ ...form, sumber: e.target.value })}><option value="">— pilih —</option>{SUMBER_DANA.map((d) => <option key={d.code} value={d.code}>{sumberLabel(d.code)}</option>)}</Select></Field>
+            )}
             <Field label="Tanggal"><Input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></Field>
           </div>
           <Field label="Keterangan"><Input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} placeholder="Top up bulan November" /></Field>
@@ -632,6 +636,66 @@ function Vendors() {
   )
 }
 
+/** Superadmin menetapkan kata sandi pengguna lain (dikerjakan di server). */
+function SandiPengguna({ e }) {
+  const { user, notify } = useApp()
+  const [buka, setBuka] = useState(false)
+  const [sandi, setSandi] = useState('')
+  const [lihat, setLihat] = useState(false)
+  const [busy, setBusy] = useState(false)
+  if (user.role !== 'superadmin' || !e.email) return null
+
+  const acak = () => {
+    const huruf = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+    const n = new Uint32Array(12); crypto.getRandomValues(n)
+    setSandi([...n].map((x) => huruf[x % huruf.length]).join(''))
+    setLihat(true)
+  }
+  const simpan = async () => {
+    setBusy(true)
+    try {
+      if (!db.setUserPassword) throw new Error('Fitur ini hanya tersedia di mode Supabase.')
+      const r = await db.setUserPassword(e.email, sandi)
+      notify(r.demo ? 'Mode demo — kata sandi tidak benar-benar disimpan'
+        : r.dibuat ? `Akun login ${r.nama} dibuat & kata sandi ditetapkan`
+        : `Kata sandi ${r.nama} berhasil diganti`)
+      setSandi(''); setLihat(false); setBuka(false)
+    } catch (err) { notify(err.message, 'err') } finally { setBusy(false) }
+  }
+
+  return (
+    <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+      {!buka ? (
+        <button type="button" onClick={() => setBuka(true)}
+          className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand hover:underline">
+          <ShieldCheck className="h-4 w-4" />Atur kata sandi pengguna ini
+        </button>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-[13px] font-bold text-ink">Atur kata sandi — {e.name || e.email}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="relative min-w-0 flex-1 basis-48">
+              <Input type={lihat ? 'text' : 'password'} value={sandi} onChange={(x) => setSandi(x.target.value)}
+                placeholder="Minimal 8 karakter" autoComplete="new-password" aria-label="Kata sandi baru" className="pr-10" />
+              <button type="button" onClick={() => setLihat((v) => !v)} aria-label={lihat ? 'Sembunyikan' : 'Tampilkan'}
+                className="absolute right-1 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-ink-mute hover:bg-white">
+                {lihat ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </span>
+            <Button type="button" size="sm" variant="outline" onClick={acak}>Acak</Button>
+            <Button type="button" size="sm" aria-label="Simpan kata sandi pengguna" loading={busy} disabled={sandi.length < 8} onClick={simpan}>Simpan</Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => { setBuka(false); setSandi(''); setLihat(false) }}>Batal</Button>
+          </div>
+          <p className="text-[11px] text-ink-mute">
+            Kata sandi langsung berlaku. Sampaikan ke orangnya lewat jalur pribadi, bukan grup, dan minta diganti setelah berhasil masuk.
+            Kalau akun login-nya belum ada, akan dibuatkan sekalian.
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Users() {
   const { data } = useApp()
   return (
@@ -664,6 +728,7 @@ function Users() {
             </Field>
           )}
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={e.active !== false} onChange={(x) => set({ ...e, active: x.target.checked })} />Aktif</label>
+          <SandiPengguna e={e} />
         </div>
       )} />
   )
