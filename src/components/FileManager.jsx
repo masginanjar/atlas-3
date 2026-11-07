@@ -36,7 +36,7 @@ export const fieldFiles = (data, key) => {
 }
 
 /** Semua file project: file manajemen project + file yang diunggah di tahap alur kerja (tanpa ganda). */
-export function collect(project) {
+export function collect(project, { termasukTrash = false } = {}) {
   const list = (project.files || []).map((f) => ({ ...f, key: `p:${f.id}`, kind: 'project', subId: f.sub_id, source: 'Manajemen file' }))
   const seen = new Map(list.map((f) => [fileIdentity(f), f]))
   for (const s of project.sub_projects || []) {
@@ -51,11 +51,12 @@ export function collect(project) {
       }
     }
   }
-  return list.sort((a, b) => new Date(b.uploaded_at || 0) - new Date(a.uploaded_at || 0))
+  const hasil = termasukTrash ? list : list.filter((f) => !f.trashed_at)
+  return hasil.sort((a, b) => new Date(b.uploaded_at || 0) - new Date(a.uploaded_at || 0))
 }
 
 /** Hapus / ubah satu file di semua tempat ia dipakai (File Project & field tahap). */
-function patchEverywhere(next, f, value) {
+export function patchEverywhere(next, f, value) {
   const id = fileIdentity(f)
   next.files = value ? next.files.map((x) => (fileIdentity(x) === id ? { ...x, ...value } : x)) : next.files.filter((x) => fileIdentity(x) !== id)
   for (const s of next.sub_projects) {

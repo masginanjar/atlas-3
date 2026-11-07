@@ -72,6 +72,7 @@ const MENU = [
     { key: 'faktur', label: 'Faktur', icon: ReceiptText, show: canSeeInvoices, badge: (u, d, bf, extra) => extra.unlinkedInvoices },
     { key: 'daftar-harga', label: 'Katalog', icon: Tags, show: canSeeKatalog },
     { key: 'pelanggan', label: 'Pelanggan', icon: Users, show: canSeePelanggan },
+    { key: 'vendor', label: 'Vendor', icon: Store, show: canSeeVendor },
   ] },
   { id: 'project', label: 'Project', icon: FolderKanban, children: [
     { key: 'penugasan', label: 'Penugasan', icon: Users, show: canSeePenugasan },
@@ -80,7 +81,6 @@ const MENU = [
     { key: 'apostille', label: 'My Apostille', icon: Stamp, show: canSeeApostille,
       tambah: { to: 'projects/new', tip: 'Project Baru (Apostille / Legalisasi)', allow: (u) => can.editProject(u) } },
     { key: 'dokumen', label: 'Dokumen', icon: HardDrive },
-    { key: 'vendor', label: 'Vendor', icon: Store, show: canSeeVendor },
     { key: 'calendar', label: 'Linimasa', icon: CalendarDays,
       tambah: { tip: 'Buat baru', allow: () => true, items: [{ panel: 'todo', label: 'Buat To-do' }, { panel: 'reminder', label: 'Buat Pengingat' }] } },
     { key: 'keuangan', label: 'Keuangan', icon: Wallet, badge: needsAction,
