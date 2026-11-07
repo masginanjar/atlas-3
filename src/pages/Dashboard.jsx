@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { FolderKanban, CheckCircle2, AlarmClock, Wallet, Banknote, ArrowRight, Inbox, Stamp, ChevronDown, Hand, Upload, Loader2, FileCheck2, Send, Languages, ChevronUp, Users, Undo2, CalendarDays, X , Sunrise, Moon, Waves, Activity, Target, Sprout, Sparkles, Coffee, ReceiptText} from 'lucide-react'
+import { FolderKanban, CheckCircle2, AlarmClock, Wallet, Banknote, ArrowRight, Inbox, Stamp, ChevronDown, Hand, Upload, Loader2, FileCheck2, Send, Languages, ChevronUp, Users, Undo2, CalendarDays, X , Sunrise, Moon, Waves, Activity, Target, Sprout, Sparkles, Coffee, ReceiptText, ArrowUp, ArrowDown} from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
 import { BRANCHES, ROLES, can, scopeByBranch, activeClaim, WORKER_ROLES, roleLabel, branchesOf, isMultiBranch, APOSTILLE_FUND, pettyLabel, pettyAccountsOf, foreignLang, coordinatorFor, placeOf, invoiceLabel} from '../config/access.js'
@@ -17,6 +17,7 @@ import FundSummary from '../components/FundSummary.jsx'
 import VendorBills, { useUnbilled, billBadgeCount } from '../components/VendorBills.jsx'
 import { hasPersonalTasks, canSeeTeam } from '../lib/performance.js'
 import { Button } from '../components/ui.jsx'
+import { useTabel, Th } from '../components/TabelSortir.jsx'
 import { useEffect, useState } from 'react'
 import { coverHariIni, sapaan } from '../lib/cover.js'
 import { myReminders, nextAt } from './Reminders.jsx'
@@ -692,6 +693,15 @@ function CoordBoard({ lang }) {
   const [form, setForm] = useState({})
   const get = (id) => ({ vendor: '', svc: '', ongkir: '', file: null, busy: false, ...form[id] })
   const set = (id, patch) => setForm((f) => ({ ...f, [id]: { ...get(id), ...f[id], ...patch } }))
+  // Judul kolom tabel order vendor bisa diklik untuk mengurutkan.
+  const kolomVendorOrder = useMemo(() => [
+    { key: 'invoice', label: 'Invoice & Pelanggan', sort: (r) => `${r.project.invoice_no || ''} ${r.project.customer?.name || ''}`.toLowerCase() },
+    { key: 'pemesan', label: 'Pemesan', sort: (r) => `${r.project.branch || ''} ${r.project.about?.cs_name || ''}`.toLowerCase() },
+    { key: 'dokumen', label: 'Dokumen', sort: (r) => String(r.title || '').toLowerCase() },
+    { key: 'deadline', label: 'Deadline', sort: (r) => new Date(r.project.about?.deadline || 0).getTime() },
+    { key: 'vendor', label: tab === 'ajukan' ? 'Vendor · Layanan · Ongkir · Tagihan' : 'Vendor & Status', sort: (r) => String(r.data?.vendor || '') },
+  ], [tab])
+
   const vendors = useMemo(() => data.people.filter((p) => p.type === 'vendor')
     .sort((a, b) => Number((b.languages || []).includes(lang) || (b.services || []).some((x) => x.name.includes(lang))) - Number((a.languages || []).includes(lang) || (a.services || []).some((x) => x.name.includes(lang)))), [data.people, lang])
   const all = useMemo(() => data.projects.flatMap((p) => (p.sub_projects || []).map((x) => ({ ...x, project: p, flow: flowOf(x, p) })))
@@ -704,6 +714,7 @@ function CoordBoard({ lang }) {
     selesai: all.filter((x) => x.stage === DONE),
   }
   const list = groups[tab]
+  const { rows: urut, sortKey, sortDir, klikJudul } = useTabel(list, kolomVendorOrder)
   const upload = async (r, file) => {
     if (!file) return
     set(r.id, { busy: true })
@@ -739,12 +750,13 @@ function CoordBoard({ lang }) {
       {open && (list.length === 0 ? <p className="px-4 py-6 text-center text-sm text-ink-mute">Tidak ada order di sini.</p> : (
         <div className="overflow-x-auto">
           <table className="card-table w-full min-w-[980px] text-sm">
-            <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-ink-mute">
-              <tr><th className="px-4 py-2 font-semibold">Invoice & Pelanggan</th><th className="px-2 py-2 font-semibold">Pemesan</th><th className="px-2 py-2 font-semibold">Dokumen</th>
-                <th className="px-2 py-2 font-semibold">Deadline</th><th className="px-2 py-2 font-semibold">{tab === 'ajukan' ? 'Vendor · Layanan · Ongkir · Tagihan' : 'Vendor & Status'}</th><th className="px-4 py-2" /></tr>
+            <thead>
+              <tr>
+                {kolomVendorOrder.map((c) => <Th key={c.key} kolom={c} sortKey={sortKey} sortDir={sortDir} onKlik={klikJudul} className={c.key === 'invoice' ? 'px-4' : undefined} />)}
+                <th className="border-b border-slate-200 bg-slate-50 px-4" /></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {list.map((r) => {
+              {urut.map((r) => {
                 const f = get(r.id); const v = vendors.find((x) => x.id === (f.vendor || r.data?.vendor)); const dl = daysLeft(r.project.about?.deadline)
                 const docs = r.docs?.length ? r.docs : [{ desc: r.title, pages: r.pages }]
                 return (
@@ -997,12 +1009,22 @@ function WorkerDesk({ user, tasks }) {
 }
 
 /** Supervisor/Superadmin: tetapkan penerjemah internal / vendor langsung dari dashboard. */
+/** Kolom tabel Perlu Penerjemah. Deadline dirender khusus (sortir + filter rentang). */
+const KOLOM_ASSIGN = [
+  { key: 'invoice', label: 'No. Invoice & Pelanggan', sort: (r) => `${r.project.invoice_no || ''} ${r.project.customer?.name || ''}`.toLowerCase() },
+  { key: 'dokumen', label: 'Dokumen', sort: (r) => String(r.title || '').toLowerCase() },
+  { key: 'bahasa', label: 'Bahasa', sort: (r) => `${r.lang_from || ''} ${r.lang_to || ''}`.toLowerCase() },
+  { key: 'deadline', label: 'Deadline', sort: (r) => new Date(r.project.about?.deadline || 0).getTime() },
+  { key: 'orang', label: 'Penerjemah / Vendor', sort: (r) => String(r.data?.translator || r.data?.vendor || '') },
+]
+
 export function AssignTable({ rows: allRows, range = { from: '', to: '' }, setRange = () => {} }) {
   const { data, assignTranslator, notify } = useApp()
   const [open, toggle] = useFold('assign')
   // filter deadline dari judul kolom (rentang / tanggal tertentu) — Kapasitas Penerjemah di atas ikut tanggal yang sama
   const ranged = !!(range.from || range.to)
   const rows = useMemo(() => (ranged ? allRows.filter((r) => { const d = r.project.about?.deadline; if (!d) return false; const day = String(d).slice(0, 10); return (!range.from || day >= range.from) && (!range.to || day <= range.to) }) : allRows), [allRows, range, ranged])
+  const { rows: tUrut, sortKey: tSortKey, sortDir: tSortDir, klikJudul: tKlik } = useTabel(rows, KOLOM_ASSIGN)
   const [dlOpen, setDlOpen] = useState(false)
   const today = isoDay(new Date())
   const [draft, setDraft] = useState({ date: today, from: today, to: isoDay(new Date(Date.now() + 6 * 864e5)) })
@@ -1086,16 +1108,28 @@ export function AssignTable({ rows: allRows, range = { from: '', to: '' }, setRa
       ) : (
         <div className="overflow-x-auto">
           <table className="card-table w-full min-w-[880px] text-sm">
-            <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-ink-mute">
-              <tr><th className="px-4 py-2 font-semibold">No. Invoice & Pelanggan</th><th className="px-2 py-2 font-semibold">Dokumen</th><th className="px-2 py-2 font-semibold">Bahasa</th>
-                <th className="px-2 py-2 font-semibold">
-                  <button type="button" onClick={() => setDlOpen(true)} className={cx('flex items-center gap-1 uppercase hover:text-brand', ranged && 'text-brand')} title="Atur rentang / tanggal deadline" aria-label="Filter deadline perlu penerjemah">
-                    Deadline <ChevronDown className="h-3 w-3" />{ranged && <span className="rounded-full bg-brand px-1.5 py-px text-[10px] normal-case tracking-normal text-white">{rangeLabel(range)}</span>}
-                  </button>
-                </th><th className="px-2 py-2 font-semibold">Penerjemah / Vendor</th><th className="px-4 py-2" /></tr>
+            <thead>
+              <tr>
+                {KOLOM_ASSIGN.slice(0, 3).map((c) => <Th key={c.key} kolom={c} sortKey={tSortKey} sortDir={tSortDir} onKlik={tKlik} className={c.key === 'invoice' ? 'px-4' : undefined} />)}
+                {/* Deadline: judulnya punya dua fungsi — klik teks untuk mengurutkan, klik panah untuk menyaring rentang */}
+                <th scope="col" className="h-9 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-2 text-left text-[11px] font-bold uppercase tracking-wide text-ink-mute">
+                  <span className="flex items-center gap-1">
+                    <button type="button" onClick={() => tKlik('deadline')} title="Urutkan menurut Deadline" aria-label="Urutkan menurut Deadline"
+                      className="inline-flex items-center gap-1 hover:text-ink">
+                      Deadline
+                      {tSortKey === 'deadline' && (tSortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                    </button>
+                    <button type="button" onClick={() => setDlOpen(true)} className={cx('inline-flex items-center gap-1 rounded px-0.5 hover:text-brand', ranged && 'text-brand')}
+                      title="Atur rentang / tanggal deadline" aria-label="Filter deadline perlu penerjemah">
+                      <ChevronDown className="h-3 w-3" />{ranged && <span className="rounded-full bg-brand px-1.5 py-px text-[10px] normal-case tracking-normal text-white">{rangeLabel(range)}</span>}
+                    </button>
+                  </span>
+                </th>
+                {KOLOM_ASSIGN.slice(4).map((c) => <Th key={c.key} kolom={c} sortKey={tSortKey} sortDir={tSortDir} onKlik={tKlik} />)}
+                <th className="border-b border-slate-200 bg-slate-50 px-4" /></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.map((r) => {
+              {tUrut.map((r) => {
                 const f = { ...get(r.id), pick: pickOf(r) }; const [kind, pid] = f.pick.split(':'); const co = coordOf(r)
                 const v = kind === 'vendor' ? vendors.find((x) => x.id === pid) : null
                 const svc = v && f.svc !== '' ? v.services?.[Number(f.svc)] : null
@@ -1181,6 +1215,15 @@ function MySubmissions({ rows, bare }) {
   )
 }
 
+/** Kolom tabel pekerjaan Apostille / Legalisasi. */
+const KOLOM_APOS = [
+  { key: 'project', label: 'Project & Pelanggan', sort: (r) => `${r.project.invoice_no || ''} ${r.project.customer?.name || ''}`.toLowerCase() },
+  { key: 'layanan', label: 'Layanan', sort: (r) => String(r.type || '').toLowerCase() },
+  { key: 'negara', label: 'Negara / Lembaga', sort: (r) => String(r.country || r.institution || '').toLowerCase() },
+  { key: 'deadline', label: 'Deadline', sort: (r) => new Date(r.project.about?.deadline || 0).getTime() },
+  { key: 'status', label: 'Status', sort: (r) => String(r.stage || '').toLowerCase() },
+]
+
 const STATUS_STYLE = {
   'Belum Diproses': { cls: 'bg-slate-100 text-slate-700 ring-slate-300', icon: Inbox },
   'Sedang Diproses': { cls: 'bg-amber-50 text-amber-800 ring-amber-300', icon: Hand },
@@ -1194,6 +1237,7 @@ function StafBoard({ rows }) {
   const [busy, setBusy] = useState(null)
   const list = rows.filter((r) => (tab === 'aktif' ? r.stage !== DONE : tab === 'selesai' ? r.stage === DONE : true))
     .sort((a, b) => new Date(a.project.about?.deadline || 0) - new Date(b.project.about?.deadline || 0))
+  const { rows: aUrut, sortKey: aSortKey, sortDir: aSortDir, klikJudul: aKlik } = useTabel(list, KOLOM_APOS)
   const start = async (r) => {
     setBusy(r.id)
     try { await processStage(r.project, r.id, {}, true); notify(`${invoiceLabel(r.project.invoice_no)}: Sedang Diproses`) } catch (e) { notify(e.message, 'err') } finally { setBusy(null) }
@@ -1214,12 +1258,13 @@ function StafBoard({ rows }) {
       {!open ? null : list.length === 0 ? <p className="px-4 py-6 text-center text-sm text-ink-mute">Tidak ada pekerjaan.</p> : (
         <div className="overflow-x-auto">
           <table className="card-table w-full min-w-[760px] text-sm">
-            <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-ink-mute">
-              <tr><th className="px-4 py-2 font-semibold">Project & Pelanggan</th><th className="px-2 py-2 font-semibold">Layanan</th><th className="px-2 py-2 font-semibold">Negara / Lembaga</th>
-                <th className="px-2 py-2 font-semibold">Deadline</th><th className="px-2 py-2 font-semibold">Status</th><th className="px-4 py-2" /></tr>
+            <thead>
+              <tr>
+                {KOLOM_APOS.map((c) => <Th key={c.key} kolom={c} sortKey={aSortKey} sortDir={aSortDir} onKlik={aKlik} className={c.key === 'project' ? 'px-4' : undefined} />)}
+                <th className="border-b border-slate-200 bg-slate-50 px-4" /></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {list.map((r) => {
+              {aUrut.map((r) => {
                 const st = stafStatus(r.stage); const S = STATUS_STYLE[st]; const d = daysLeft(r.project.about?.deadline)
                 return (
                   <tr key={r.id} className="hover:bg-slate-50/60">

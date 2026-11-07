@@ -7,6 +7,7 @@ import { placeOf, invoiceLabel} from '../config/access.js'
 import { rupiah, stageArrivedAt } from '../lib/format.js'
 import TimeAgo from '../components/TimeAgo.jsx'
 import { Card, Empty, Input, cx } from '../components/ui.jsx'
+import { useTabel, Th } from '../components/TabelSortir.jsx'
 import { addDays } from '../lib/performance.js'
 
 import { canMonitor } from '../config/menuAccess.js'
@@ -36,6 +37,18 @@ function Section({ id, icon: Icon, title, tone, chips, children }) {
 }
 
 /** Tabel per orang: tugas aktif, terlambat, progres hari ini; klik baris untuk melihat daftar tugasnya. */
+/** Kolom tabel Vendor — judulnya bisa diklik untuk mengurutkan. */
+const KOLOM_VENDOR = [
+  { key: 'vendor', label: 'Vendor', sort: (r) => r.v.name.toLowerCase() },
+  { key: 'acc', label: 'Menunggu ACC', num: true, sort: (r) => r.acc.length },
+  { key: 'pay', label: 'Menunggu bayar', num: true, sort: (r) => r.pay.length },
+  { key: 'work', label: 'Dikerjakan', num: true, sort: (r) => r.work.length },
+  { key: 'unbilled', label: 'Belum ditagih', num: true, sort: (r) => r.unbilled.length },
+  { key: 'halaman', label: 'Halaman dikerjakan', num: true, sort: (r) => r.done.pages },
+  { key: 'bills', label: 'Tagihan proses', num: true, sort: (r) => r.bills.length },
+  { key: 'nilai', label: 'Nilai berjalan', num: true, sort: (r) => r.value },
+]
+
 function PeopleTable({ people, projects, now, extraCols = [] }) {
   const [openId, setOpenId] = useState(null)
   const today = dayKey(now)
@@ -46,6 +59,17 @@ function PeopleTable({ people, projects, now, extraCols = [] }) {
     return { u, active, late: active.filter((t) => t.dl.at < now).length, todayN: active.filter((t) => t.dl.day === today).length, s,
       pages: active.reduce((a, t) => a + (Number(t.sub.pages) || 0), 0) }
   }).sort((a, b) => b.late - a.late || b.active.length - a.active.length || a.u.name.localeCompare(b.u.name)), [people, projects, today, now])
+  // Judul kolom bisa diklik untuk mengurutkan; kolom tambahan per-role ikut.
+  const kolomOrang = useMemo(() => [
+    { key: 'nama', label: 'Nama', sort: (r) => r.u.name.toLowerCase() },
+    { key: 'aktif', label: 'Tugas aktif', num: true, sort: (r) => r.active.length },
+    { key: 'telat', label: 'Terlambat', num: true, sort: (r) => r.late },
+    { key: 'hariini', label: 'Deadline hari ini', num: true, sort: (r) => r.todayN },
+    ...extraCols.map((c, i) => ({ key: `x${i}`, label: c.label, num: true, sort: (r) => Number(c.get(r)) || 0 })),
+    { key: 'performa', label: 'Performa hari ini', sort: (r) => (r.s.pct == null ? -1 : r.s.pct) },
+    { key: 'terdekat', label: 'Tugas terdekat' },
+  ], [extraCols])
+  const { rows: urut, sortKey, sortDir, klikJudul } = useTabel(rows, kolomOrang)
   if (!rows.length) return <Empty title="Belum ada orang dengan role ini" />
   const TaskList = ({ r }) => (r.active.length === 0 ? <p className="py-2 text-xs text-ink-mute">Tidak ada tugas aktif.</p> : (
     <ul className="space-y-1.5">{r.active.map((t) => (
@@ -85,11 +109,10 @@ function PeopleTable({ people, projects, now, extraCols = [] }) {
       )
     })}</ul>
     <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[760px] text-sm">
-      <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-ink-mute"><tr>
-        <th className="px-4 py-2">Nama</th><th className="px-2 py-2 text-right">Tugas aktif</th><th className="px-2 py-2 text-right">Terlambat</th><th className="px-2 py-2 text-right">Deadline hari ini</th>
-        {extraCols.map((c) => <th key={c.label} className="px-2 py-2 text-right">{c.label}</th>)}
-        <th className="px-2 py-2">Performa hari ini</th><th className="px-4 py-2">Tugas terdekat</th><th className="w-8" /></tr></thead>
-      <tbody className="divide-y divide-slate-100">{rows.map((r) => {
+      <thead><tr>
+        {kolomOrang.map((c) => <Th key={c.key} kolom={c} sortKey={sortKey} sortDir={sortDir} onKlik={klikJudul} className={c.key === 'nama' ? 'px-4' : undefined} />)}
+        <th className="w-8 border-b border-slate-200 bg-slate-50" /></tr></thead>
+      <tbody className="divide-y divide-slate-100">{urut.map((r) => {
         const isOpen = openId === r.u.id; const next = r.active[0]
         return (
           <Fragment key={r.u.id}>
@@ -156,6 +179,7 @@ export default function Monitoring() {
     return { v, mine, acc: by(['pengajuan', 'persetujuan']), pay: by(['pembayaran']), work: by(['dibayar', 'kirim', 'dikirim', 'order', 'proses_vendor']), unbilled, bills, done: vendorDone(v.id),
       value: mine.reduce((a, s) => a + (totalPengajuan(s.data) || Number(s.data?.vendor_cost) || 0), 0) }
   }).filter((r) => r.mine.length || r.unbilled.length || r.bills.length || r.done.n).sort((a, b) => b.mine.length - a.mine.length), [vendors, subs, data.vendor_bills, range]) // eslint-disable-line react-hooks/exhaustive-deps
+  const { rows: vUrut, sortKey: vSortKey, sortDir: vSortDir, klikJudul: vKlik } = useTabel(vRows, KOLOM_VENDOR)
   const [vOpen, setVOpen] = useState(null)
 
   // ---------- staf apostille: antrian belum ditugaskan ----------
@@ -227,8 +251,10 @@ export default function Monitoring() {
             )
           })}</ul>
           <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[760px] text-sm">
-            <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-ink-mute"><tr><th className="px-4 py-2">Vendor</th><th className="px-2 py-2 text-right">Menunggu ACC</th><th className="px-2 py-2 text-right">Menunggu bayar</th><th className="px-2 py-2 text-right">Dikerjakan</th><th className="px-2 py-2 text-right">Belum ditagih</th><th className="px-2 py-2 text-right">Halaman dikerjakan</th><th className="px-2 py-2 text-right">Tagihan proses</th><th className="px-4 py-2 text-right">Nilai berjalan</th><th className="w-8" /></tr></thead>
-            <tbody className="divide-y divide-slate-100">{vRows.map((r) => {
+            <thead><tr>
+              {KOLOM_VENDOR.map((c) => <Th key={c.key} kolom={c} sortKey={vSortKey} sortDir={vSortDir} onKlik={vKlik} className={c.key === 'vendor' || c.key === 'nilai' ? 'px-4' : undefined} />)}
+              <th className="w-8 border-b border-slate-200 bg-slate-50" /></tr></thead>
+            <tbody className="divide-y divide-slate-100">{vUrut.map((r) => {
               const isOpen = vOpen === r.v.id
               return (
                 <Fragment key={r.v.id}>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { FileStack, Truck, Check, Pencil, AlertTriangle, History, PackageCheck, Filter, X } from 'lucide-react'
+import { FileStack, Truck, Check, Pencil, AlertTriangle, History, PackageCheck, Filter, X, ArrowUp, ArrowDown } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { Button, Card, Input, Select, Field, Sheet, Empty, Pill, cx } from '../components/ui.jsx'
 import { BRANCHES } from '../config/access.js'
@@ -16,8 +16,19 @@ const TONE = {
   slate: 'bg-slate-100 text-slate-600 ring-slate-200',
 }
 
+/** Kolom tabel — urutan tetap: Cabang | Arah Bahasa | Sisa | Dikirim | Status | Aksi.
+ *  Cabang & Arah diberi ruang lebih besar; kolom angka dan Aksi dibuat sempit. */
+const KOLOM = [
+  { key: 'cabang', label: 'Cabang', w: '24%', sort: (r) => r.cabang.toLowerCase() },
+  { key: 'arah', label: 'Arah Bahasa', w: '30%', sort: (r) => r.arahLabel.toLowerCase() },
+  { key: 'sisa', label: 'Sisa', w: '11%', num: true, sort: (r) => (r.sisa == null ? -1 : r.sisa) },
+  { key: 'dikirim', label: 'Dikirim', w: '12%', num: true, sort: (r) => r.dikirim || 0 },
+  { key: 'status', label: 'Status', w: '15%', sort: (r) => r.status.label.toLowerCase() },
+  { key: 'aksi', label: 'Aksi', w: '8%' },
+]
+
 const Status = ({ s }) => (
-  <span className={cx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ring-1', TONE[s.tone])}>
+  <span className={cx('inline-flex h-6 items-center gap-1 whitespace-nowrap rounded-full px-2 text-[11px] font-bold leading-none ring-1', TONE[s.tone])}>
     {s.key === 'habis' && <AlertTriangle className="h-3 w-3" />}{s.label}
   </span>
 )
@@ -25,8 +36,8 @@ const Status = ({ s }) => (
 /** Angka sisa — "—" dibedakan dari 0 supaya "belum diisi" tidak terbaca "habis". */
 const Sisa = ({ n }) => (
   n == null
-    ? <span className="text-sm text-ink-mute">—</span>
-    : <span className={cx('text-base font-bold tabular-nums', n <= 0 ? 'text-rose-700' : n < AMBANG_RENDAH ? 'text-amber-700' : 'text-ink')}>{n}</span>
+    ? <span className="text-[14px] text-ink-mute">—</span>
+    : <span className={cx('text-[14px] font-bold tabular-nums', n <= 0 ? 'text-rose-700' : n < AMBANG_RENDAH ? 'text-amber-700' : 'text-ink')}>{n}</span>
 )
 
 export default function Affidavit() {
@@ -40,14 +51,31 @@ export default function Affidavit() {
   const [isiStok, setIsiStok] = useState(null)   // { cabang, arah, sisa }
   const [kirim, setKirim] = useState(null)       // { cabang, arah }
   const [riwayat, setRiwayat] = useState(null)   // { cabang, arah }
+  // Urutan tabel — klik judul kolom untuk mengurutkan naik/turun.
+  const [sortKey, setSortKey] = useState('')
+  const [sortDir, setSortDir] = useState('asc')
+  const klikJudul = (k) => {
+    if (sortKey === k) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(k); setSortDir('asc') }
+  }
 
   const semua = useMemo(
     () => barisStok(cabangSaya, data.affidavit_stok, data.affidavit_kirim),
     [cabangSaya, data.affidavit_stok, data.affidavit_kirim],
   )
-  const rows = useMemo(() => semua.filter(
-    (r) => (fCabang === 'Semua' || r.cabang === fCabang) && (fArah === 'Semua' || r.arah === fArah),
-  ), [semua, fCabang, fArah])
+  const rows = useMemo(() => {
+    const saring = semua.filter(
+      (r) => (fCabang === 'Semua' || r.cabang === fCabang) && (fArah === 'Semua' || r.arah === fArah),
+    )
+    const kol = KOLOM.find((c) => c.key === sortKey && c.sort)
+    if (!kol) return saring // urutan bawaan: baris yang perlu perhatian di atas
+    const arah = sortDir === 'asc' ? 1 : -1
+    return [...saring].sort((a, b) => {
+      const x = kol.sort(a), y = kol.sort(b)
+      if (typeof x === 'number' && typeof y === 'number') return (x - y) * arah
+      return String(x).localeCompare(String(y), 'id') * arah
+    })
+  }, [semua, fCabang, fArah, sortKey, sortDir])
 
   const perlu = semua.filter((r) => r.status.key !== 'cukup').length
   const adaFilter = fCabang !== 'Semua' || fArah !== 'Semua'
@@ -102,64 +130,75 @@ export default function Affidavit() {
         </Card>
       )}
 
-      {/* filter */}
-      <div className="flex flex-wrap items-end gap-2">
+      {/* Toolbar filter — satu baris, tinggi kontrol 34px, lebar seukuran isi */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">
+          <Filter className="h-3.5 w-3.5" />Filter
+        </span>
         {pantau && (
-          <Field label="Cabang" className="min-w-0 flex-1 basis-40">
-            <Select value={fCabang} onChange={(e) => setFCabang(e.target.value)} aria-label="Filter cabang">
-              <option>Semua</option>{cabangSaya.map((b) => <option key={b}>{b}</option>)}
-            </Select>
-          </Field>
+          <select value={fCabang} onChange={(e) => setFCabang(e.target.value)} aria-label="Filter cabang"
+            className="h-[34px] w-auto max-w-full rounded-lg border-0 bg-white pl-2.5 pr-7 text-[13px] font-semibold text-ink ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-brand">
+            <option value="Semua">Semua cabang</option>{cabangSaya.map((b) => <option key={b}>{b}</option>)}
+          </select>
         )}
-        <Field label="Arah bahasa" className="min-w-0 flex-1 basis-48">
-          <Select value={fArah} onChange={(e) => setFArah(e.target.value)} aria-label="Filter arah bahasa">
-            <option value="Semua">Semua</option>{ARAH_AFFIDAVIT.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
-          </Select>
-        </Field>
+        <select value={fArah} onChange={(e) => setFArah(e.target.value)} aria-label="Filter arah bahasa"
+          className="h-[34px] w-auto max-w-full rounded-lg border-0 bg-white pl-2.5 pr-7 text-[13px] font-semibold text-ink ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-brand">
+          <option value="Semua">Semua arah bahasa</option>{ARAH_AFFIDAVIT.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
+        </select>
         {adaFilter && (
-          <Button size="sm" variant="ghost" onClick={() => { setFCabang('Semua'); setFArah('Semua') }}>
+          <button type="button" onClick={() => { setFCabang('Semua'); setFArah('Semua') }}
+            className="inline-flex h-[34px] items-center gap-1 rounded-lg px-2.5 text-[13px] font-semibold text-ink-mute hover:bg-slate-100 hover:text-ink">
             <X className="h-3.5 w-3.5" />Reset
-          </Button>
+          </button>
         )}
+        <span className="ml-auto text-[11px] text-ink-mute">{rows.length} baris</span>
       </div>
 
       {!rows.length ? (
         <Empty icon={Filter} title="Tidak ada baris" text="Ubah filter cabang atau arah bahasa." />
       ) : (
         <Card className="overflow-hidden">
-          <div className="md:overflow-x-auto">
-            <table className="card-table w-full table-fixed text-sm">
-              <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-ink-mute">
-                <tr>
-                  <th className="w-[22%] px-3 py-2 text-left font-bold">Cabang</th>
-                  <th className="w-[28%] px-3 py-2 text-left font-bold">Arah</th>
-                  <th className="w-[12%] px-3 py-2 text-right font-bold">Sisa</th>
-                  <th className="w-[14%] px-3 py-2 text-right font-bold">Dikirim</th>
-                  <th className="w-[14%] px-3 py-2 text-left font-bold">Status</th>
-                  <th className="w-[10%] px-3 py-2 text-right font-bold">Aksi</th>
+          {/* Layar kecil: tabel digulir mendatar agar kolom tetap terbaca (bukan diubah jadi kartu). */}
+          <div className="min-w-0 max-w-full overflow-x-auto">
+            <table className="w-full min-w-[620px] border-collapse text-[13px]">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  {KOLOM.map((c) => (
+                    <th key={c.key} scope="col" style={{ width: c.w }}
+                      className={cx('h-9 whitespace-nowrap px-3 text-[11px] font-bold uppercase tracking-wide text-ink-mute', c.num ? 'text-right' : 'text-left')}>
+                      {c.sort ? (
+                        <button type="button" onClick={() => klikJudul(c.key)}
+                          title={`Urutkan menurut ${c.label}`} aria-label={`Urutkan menurut ${c.label}`}
+                          className={cx('inline-flex items-center gap-1 hover:text-ink', c.num && 'w-full justify-end')}>
+                          {c.label}
+                          {sortKey === c.key && (sortDir === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                        </button>
+                      ) : c.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {rows.map((r) => (
-                  <tr key={r.id} className="align-middle">
-                    <td data-label="Cabang" className="px-3 py-2 font-semibold text-ink">{r.cabang}</td>
-                    <td data-label="Arah" className="px-3 py-2 text-ink-soft">{r.arahLabel}</td>
-                    <td data-label="Sisa" className="px-3 py-2 text-right md:text-right"><Sisa n={r.sisa} /></td>
-                    <td data-label="Dikirim" className="px-3 py-2 text-right text-xs text-ink-soft">
-                      {r.dikirim ? <Pill className="bg-sky-100 text-sky-800">{r.dikirim} lembar</Pill> : <span className="text-ink-mute">—</span>}
+                  <tr key={r.id} className="border-b border-slate-100 align-middle last:border-0 hover:bg-brand-soft/30">
+                    <td className="px-3 py-1.5 font-semibold text-ink">{r.cabang}</td>
+                    <td className="px-3 py-1.5 text-ink-soft">{r.arahLabel}</td>
+                    <td className="px-3 py-1.5 text-right"><Sisa n={r.sisa} /></td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-ink-soft">
+                      {r.dikirim ? <span className="font-semibold text-sky-800">{r.dikirim}</span> : <span className="text-ink-mute">—</span>}
                     </td>
-                    <td data-label="Status" className="px-3 py-2"><Status s={r.status} /></td>
-                    <td data-label="Aksi" className="px-3 py-2">
-                      <div className="flex flex-wrap items-center justify-end gap-1">
+                    <td className="px-3 py-1.5"><Status s={r.status} /></td>
+                    <td className="px-3 py-1.5">
+                      <div className="flex items-center justify-end gap-0.5">
                         <button type="button" onClick={() => setRiwayat({ cabang: r.cabang, arah: r.arah })}
                           aria-label={`Riwayat ${r.cabang} ${r.arahLabel}`} title="Riwayat pemakaian & pengiriman"
-                          className="inline-grid h-11 w-11 place-items-center rounded-lg text-ink-mute hover:bg-slate-100 hover:text-ink">
+                          className="inline-grid h-11 w-11 place-items-center rounded-lg text-ink-mute hover:bg-slate-100 hover:text-ink md:h-[30px] md:w-[30px]">
                           <History className="h-4 w-4" />
                         </button>
                         {boleh && (
                           <button type="button" onClick={() => setIsiStok({ cabang: r.cabang, arah: r.arah, sisa: r.sisa })}
                             aria-label={`Ubah stok ${r.cabang} ${r.arahLabel}`} title="Tetapkan / koreksi stok"
-                            className="inline-grid h-11 w-11 place-items-center rounded-lg text-brand hover:bg-brand-soft">
+                            className="inline-grid h-11 w-11 place-items-center rounded-lg text-brand hover:bg-brand-soft md:h-[30px] md:w-[30px]">
                             <Pencil className="h-4 w-4" />
                           </button>
                         )}

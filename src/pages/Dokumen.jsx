@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { Card, Input, Empty, cx } from '../components/ui.jsx'
+import { useTabel, Th } from '../components/TabelSortir.jsx'
 import { collect } from '../components/FileManager.jsx'
 import FilePreview from '../components/FilePreview.jsx'
 import { scopeByBranch, invoiceLabel } from '../config/access.js'
@@ -31,6 +32,15 @@ const WARNA = {
   text: 'bg-slate-100 text-slate-600 ring-slate-200',
   other: 'bg-slate-100 text-slate-500 ring-slate-200',
 }
+
+/** Kolom tabel berkas — judulnya bisa diklik untuk mengurutkan. */
+const KOLOM_BERKAS = [
+  { key: 'nama', label: 'Berkas', sort: (f) => String(f.name || '').toLowerCase() },
+  { key: 'oleh', label: 'Diunggah oleh', sort: (f) => String(f.by || '').toLowerCase() },
+  { key: 'waktu', label: 'Waktu', sort: (f) => String(f.at || '') },
+  { key: 'ukuran', label: 'Ukuran', num: true, sort: (f) => Number(f.size) || 0 },
+  { key: 'aksi', label: 'Aksi', num: true },
+]
 
 export default function Dokumen() {
   const { user, data, branchFilter, notify } = useApp()
@@ -89,6 +99,9 @@ export default function Dokumen() {
     if (projectId) return cocok.filter((f) => f.project.id === projectId)
     return []
   }, [cocok, projectId, mencari])
+
+  // Sortir dari judul kolom tabel berkas.
+  const { rows: barisBerkas, sortKey, sortDir, klikJudul } = useTabel(isiFolder, KOLOM_BERKAS)
 
   const unduh = async (f) => {
     try { await saveBlob(f.name, f.url?.startsWith('data:') ? dataUrlToBlob(f.url) : await drive.blob(f)); notify(`${f.name} diunduh`) }
@@ -189,23 +202,19 @@ export default function Dokumen() {
 
       {/* daftar berkas */}
       {(mencari || projectId) && (
-        isiFolder.length === 0
+        barisBerkas.length === 0
           ? <Empty icon={FileText} title="Tidak ada berkas" text={mencari ? 'Coba kata kunci lain.' : 'Project ini belum punya berkas.'} />
           : (
             <Card className="overflow-hidden">
               <div className="md:overflow-x-auto">
                 <table className="card-table w-full text-sm">
-                  <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-ink-mute">
+                  <thead>
                     <tr>
-                      <th scope="col" className="px-3 py-2 text-left font-bold">Berkas</th>
-                      <th scope="col" className="px-3 py-2 text-left font-bold">Diunggah oleh</th>
-                      <th scope="col" className="px-3 py-2 text-left font-bold">Waktu</th>
-                      <th scope="col" className="px-3 py-2 text-right font-bold">Ukuran</th>
-                      <th scope="col" className="px-3 py-2 text-right font-bold">Aksi</th>
+                      {KOLOM_BERKAS.map((c) => <Th key={c.key} kolom={c} sortKey={sortKey} sortDir={sortDir} onKlik={klikJudul} />)}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {isiFolder.map((f) => {
+                    {barisBerkas.map((f) => {
                       const jenis = kindOf(f)
                       return (
                         <tr key={f.key} className="align-top">

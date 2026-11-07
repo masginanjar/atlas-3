@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Users, Search, X, Building2, Mail, Phone, FolderKanban, Lock } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { Card, Input, Empty, cx } from '../components/ui.jsx'
+import { useTabel, Th } from '../components/TabelSortir.jsx'
 import { invoiceLabel, rolesOf } from '../config/access.js'
 import { tanggal } from '../lib/waktu.js'
 import { go } from '../lib/router.js'
@@ -46,6 +47,15 @@ function rangkum(projects) {
     .sort((a, b) => b.jml - a.jml || a.nama.localeCompare(b.nama))
 }
 
+/** Kolom tabel Pelanggan — semua judul bisa diklik untuk mengurutkan. */
+const KOLOM = [
+  { key: 'nama', label: 'Pelanggan', sort: (r) => r.nama.toLowerCase() },
+  { key: 'kontak', label: 'Kontak', sort: (r) => `${r.email || ''} ${r.phone || ''}`.trim().toLowerCase() },
+  { key: 'cabang', label: 'Cabang', sort: (r) => r.cabang.join(', ').toLowerCase() },
+  { key: 'jml', label: 'Project', num: true, sort: (r) => r.jml },
+  { key: 'terakhir', label: 'Terakhir', sort: (r) => r.invoiceTerakhir || '' },
+]
+
 export default function Pelanggan() {
   const { user, data, branchFilter } = useApp()
   const [q, setQ] = useState('')
@@ -64,6 +74,9 @@ export default function Pelanggan() {
     return rows.filter((r) => [r.nama, r.email, r.phone, ...r.cabang].filter(Boolean)
       .some((v) => String(v).toLowerCase().includes(s)))
   }, [rows, q])
+
+  // Sortir dari judul kolom (pencarian memakai kolom cari di atas).
+  const { rows: baris, sortKey, sortDir, klikJudul } = useTabel(cocok, KOLOM)
 
   if (!canSeePelanggan(user)) {
     return <Card><Empty icon={Lock} title="Halaman Pelanggan hanya untuk Superadmin" /></Card>
@@ -92,23 +105,19 @@ export default function Pelanggan() {
         )}
       </div>
 
-      {!cocok.length ? (
+      {!baris.length ? (
         <Empty icon={Users} title="Tidak ada pelanggan" text={q ? 'Coba kata kunci lain.' : 'Belum ada project yang tercatat.'} />
       ) : (
         <Card className="overflow-hidden">
           <div className="md:overflow-x-auto">
             <table className="card-table w-full text-sm">
-              <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-ink-mute">
+              <thead>
                 <tr>
-                  <th scope="col" className="px-3 py-2 text-left font-bold">Pelanggan</th>
-                  <th scope="col" className="px-3 py-2 text-left font-bold">Kontak</th>
-                  <th scope="col" className="px-3 py-2 text-left font-bold">Cabang</th>
-                  <th scope="col" className="px-3 py-2 text-right font-bold">Project</th>
-                  <th scope="col" className="px-3 py-2 text-left font-bold">Terakhir</th>
+                  {KOLOM.map((c) => <Th key={c.key} kolom={c} sortKey={sortKey} sortDir={sortDir} onKlik={klikJudul} />)}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {cocok.map((r) => (
+                {baris.map((r) => (
                   <tr key={r.kunci} className="align-top">
                     <td data-label="Pelanggan" className="px-3 py-2">
                       <span className="block font-semibold text-ink">{r.nama}</span>
