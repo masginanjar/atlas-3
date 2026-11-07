@@ -28,6 +28,9 @@ export const canMonitor = (u) => u?.role === 'superadmin'
 export const canSeePenugasan = (u) => ['superadmin', 'supervisor'].includes(u?.role)
 /** Daftar pelanggan: hanya Superadmin. */
 export const canSeePelanggan = (u) => u?.role === 'superadmin'
+/** Katalog layanan & data vendor — pengaturan tingkat perusahaan, khusus Superadmin. */
+export const canSeeKatalog = (u) => u?.role === 'superadmin'
+export const canSeeVendor = (u) => u?.role === 'superadmin'
 export const canSeeKeuangan = (u) => !!u && !WORKER_ROLES.includes(u.role)
 /** Menu Faktur & badge pembayaran: pelaksana tidak perlu. */
 export const canSeeInvoices = (u) => !WORKER_ROLES.includes(u?.role)

@@ -318,3 +318,34 @@ body { background-image: none; }
 .form-rapat .gap-6 { gap: 1rem 1.5rem; }
 /* dua kolom tidak saling menarik tinggi — ini sumber ruang kosong */
 .form-rapat .grid { align-items: start; }
+
+/* ------------------------------------------------------------------
+   Tabel kompak standar (Faktur, Pelanggan, Katalog, Vendor, Affidavit).
+   Satu baris satu data: tinggi baris 40–44px, font 13px, isi rata
+   tengah vertikal, garis pemisah tipis, dan highlight lembut saat hover.
+   Dipakai bersama <Th> dari TabelSortir.jsx.
+   ------------------------------------------------------------------ */
+.tbl-rapat { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+.tbl-rapat thead th {
+  height: 36px; padding: 0 .75rem; white-space: nowrap;
+  border-bottom: 1px solid var(--line, #e2e8f0); background: #f8fafc;
+  font-size: 11px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase;
+  color: var(--txt-soft, #475569);
+}
+.tbl-rapat tbody tr { height: 42px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.tbl-rapat tbody tr:last-child { border-bottom: 0; }
+@media (hover: hover) { .tbl-rapat tbody tr:hover { background: color-mix(in srgb, var(--brand) 6%, transparent); } }
+.tbl-rapat tbody td { padding: .375rem .75rem; vertical-align: middle; }
+/* Kolom angka & kolom aksi */
+.tbl-rapat .num { text-align: right; font-variant-numeric: tabular-nums; }
+/* Tombol aksi: 44px di layar sentuh, 30px di desktop supaya baris tetap rapat */
+.tbl-rapat .aksi { display: flex; align-items: center; justify-content: flex-end; gap: .125rem; }
+.tbl-rapat .aksi > button, .tbl-rapat .aksi > a {
+  display: grid; place-items: center; height: 44px; width: 44px; border-radius: .5rem;
+}
+@media (min-width: 768px) { .tbl-rapat .aksi > button, .tbl-rapat .aksi > a { height: 30px; width: 30px; } }
+
+/* Tombol di dalam tabel kompak ikut dipendekkan supaya baris tetap 40–44px. */
+.tbl-rapat tbody td button:not(.aksi > button),
+.tbl-rapat tbody td a:not(.aksi > a) { min-height: 0; }
+.tbl-rapat tbody td > span > button { height: 28px; padding-top: 0; padding-bottom: 0; }

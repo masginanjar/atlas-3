@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
-import { Users, Search, X, Building2, Mail, Phone, FolderKanban, Lock } from 'lucide-react'
+import { Users, Building2, Mail, Phone, FolderKanban, Lock } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { Card, Input, Empty, cx } from '../components/ui.jsx'
-import { useTabel, Th } from '../components/TabelSortir.jsx'
+import { Card, Empty, cx } from '../components/ui.jsx'
+import { useTabel, Th, CariTabel } from '../components/TabelSortir.jsx'
 import { invoiceLabel, rolesOf } from '../config/access.js'
 import { tanggal } from '../lib/waktu.js'
 import { go } from '../lib/router.js'
@@ -53,12 +53,14 @@ const KOLOM = [
   { key: 'kontak', label: 'Kontak', sort: (r) => `${r.email || ''} ${r.phone || ''}`.trim().toLowerCase() },
   { key: 'cabang', label: 'Cabang', sort: (r) => r.cabang.join(', ').toLowerCase() },
   { key: 'jml', label: 'Project', num: true, sort: (r) => r.jml },
+  { key: 'nilai', label: 'Nilai', num: true, sort: (r) => r.nilai || 0 },
   { key: 'terakhir', label: 'Terakhir', sort: (r) => r.invoiceTerakhir || '' },
 ]
 
 export default function Pelanggan() {
   const { user, data, branchFilter } = useApp()
   const [q, setQ] = useState('')
+  const [fCabang, setFCabang] = useState('')
 
   const rows = useMemo(() => {
     const semua = data.projects || []
@@ -68,12 +70,18 @@ export default function Pelanggan() {
     return rangkum(scoped)
   }, [data.projects, branchFilter])
 
+  const cabangAda = useMemo(
+    () => [...new Set(rows.flatMap((r) => r.cabang))].filter(Boolean).sort((a, b) => a.localeCompare(b, 'id')),
+    [rows],
+  )
   const cocok = useMemo(() => {
     const s = q.trim().toLowerCase()
-    if (!s) return rows
-    return rows.filter((r) => [r.nama, r.email, r.phone, ...r.cabang].filter(Boolean)
-      .some((v) => String(v).toLowerCase().includes(s)))
-  }, [rows, q])
+    return rows.filter((r) => {
+      if (fCabang && !r.cabang.includes(fCabang)) return false
+      if (!s) return true
+      return [r.nama, r.email, r.phone, ...r.cabang].filter(Boolean).some((v) => String(v).toLowerCase().includes(s))
+    })
+  }, [rows, q, fCabang])
 
   // Sortir dari judul kolom (pencarian memakai kolom cari di atas).
   const { rows: baris, sortKey, sortDir, klikJudul } = useTabel(cocok, KOLOM)
@@ -93,24 +101,23 @@ export default function Pelanggan() {
         </p>
       </div>
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <Input className="pl-9 pr-9" placeholder="Cari nama, email, telepon, cabang…" value={q}
-          onChange={(e) => setQ(e.target.value)} aria-label="Cari pelanggan" />
-        {q && (
-          <button type="button" onClick={() => setQ('')} aria-label="Hapus pencarian"
-            className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-ink-mute hover:bg-slate-100">
-            <X className="h-4 w-4" />
-          </button>
-        )}
+      {/* Toolbar: cari · filter cabang — tinggi kontrol 34px */}
+      <div className="flex flex-wrap items-center gap-2">
+        <CariTabel value={q} onChange={setQ} label="Cari nama, email, telepon, cabang…" className="basis-64" />
+        <select value={fCabang} onChange={(e) => setFCabang(e.target.value)} aria-label="Filter cabang"
+          className="h-[34px] w-auto max-w-full rounded-lg border-0 bg-white pl-2.5 pr-7 text-[13px] font-semibold text-ink ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-brand">
+          <option value="">Semua cabang</option>
+          {cabangAda.map((b) => <option key={b} value={b}>{b}</option>)}
+        </select>
+        <span className="ml-auto text-[11px] text-ink-mute">{baris.length} dari {rows.length} pelanggan</span>
       </div>
 
       {!baris.length ? (
         <Empty icon={Users} title="Tidak ada pelanggan" text={q ? 'Coba kata kunci lain.' : 'Belum ada project yang tercatat.'} />
       ) : (
         <Card className="overflow-hidden">
-          <div className="md:overflow-x-auto">
-            <table className="card-table w-full text-sm">
+          <div className="min-w-0 max-w-full overflow-x-auto">
+            <table className="tbl-rapat" style={{ minWidth: '760px' }}>
               <thead>
                 <tr>
                   {KOLOM.map((c) => <Th key={c.key} kolom={c} sortKey={sortKey} sortDir={sortDir} onKlik={klikJudul} />)}
@@ -118,36 +125,34 @@ export default function Pelanggan() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {baris.map((r) => (
-                  <tr key={r.kunci} className="align-top">
-                    <td data-label="Pelanggan" className="px-3 py-2">
-                      <span className="block font-semibold text-ink">{r.nama}</span>
-                      {r.nilai > 0 && <span className="block text-[11px] text-ink-mute">{rupiah(r.nilai)}</span>}
+                  <tr key={r.kunci}>
+                    <td><span className="block max-w-[260px] truncate font-semibold text-ink" title={r.nama}>{r.nama}</span></td>
+                    <td className="text-[12px] text-ink-soft">
+                      {r.email || r.phone ? (
+                        <span className="flex max-w-[240px] items-center gap-1.5">
+                          {r.email ? <Mail className="h-3.5 w-3.5 shrink-0 text-ink-mute" /> : <Phone className="h-3.5 w-3.5 shrink-0 text-ink-mute" />}
+                          <span className="min-w-0 truncate" title={[r.email, r.phone].filter(Boolean).join(' · ')}>{[r.email, r.phone].filter(Boolean).join(' · ')}</span>
+                        </span>
+                      ) : <span className="text-ink-mute">—</span>}
                     </td>
-                    <td data-label="Kontak" className="px-3 py-2 text-xs text-ink-soft">
-                      {r.email && <span className="flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 shrink-0 text-ink-mute" /><span className="min-w-0 truncate">{r.email}</span></span>}
-                      {r.phone && <span className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 shrink-0 text-ink-mute" />{r.phone}</span>}
-                      {!r.email && !r.phone && <span className="text-ink-mute">—</span>}
-                    </td>
-                    <td data-label="Cabang" className="px-3 py-2 text-xs">
-                      <span className="flex flex-wrap items-center gap-1">
-                        {r.cabang.map((b) => (
-                          <span key={b} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-ink-soft">
-                            <Building2 className="h-3 w-3" />{b}
-                          </span>
-                        ))}
+                    <td className="text-[12px]">
+                      <span className="flex max-w-[200px] items-center gap-1 whitespace-nowrap" title={r.cabang.join(', ')}>
+                        <Building2 className="h-3 w-3 shrink-0 text-ink-mute" />
+                        <span className="min-w-0 truncate text-ink-soft">{r.cabang.join(', ') || '—'}</span>
                       </span>
                     </td>
-                    <td data-label="Project" className="px-3 py-2 text-right">
-                      <span className={cx('text-base font-bold tabular-nums', r.jml > 1 ? 'text-brand' : 'text-ink')}>{r.jml}</span>
+                    <td className="num">
+                      <span className={cx('text-[14px] font-bold', r.jml > 1 ? 'text-brand' : 'text-ink')}>{r.jml}</span>
                     </td>
-                    <td data-label="Terakhir" className="px-3 py-2 text-xs">
+                    <td className="num text-[12px] text-ink-soft">{r.nilai > 0 ? rupiah(r.nilai) : '—'}</td>
+                    <td className="text-[12px]">
                       {r.idTerakhir ? (
-                        <button type="button" onClick={() => go(`projects/${r.idTerakhir}`)}
-                          className="inline-flex items-center gap-1.5 font-semibold text-brand hover:underline">
-                          <FolderKanban className="h-3.5 w-3.5" />{invoiceLabel(r.invoiceTerakhir)}
+                        <button type="button" onClick={() => go(`projects/${r.idTerakhir}`)} title={r.terakhir ? `Project terakhir · ${tanggal(r.terakhir)}` : 'Project terakhir'}
+                          className="inline-flex items-center gap-1.5 whitespace-nowrap font-semibold text-brand hover:underline">
+                          <FolderKanban className="h-3.5 w-3.5 shrink-0" />{invoiceLabel(r.invoiceTerakhir)}
+                          {r.terakhir && <span className="font-normal text-ink-mute">· {tanggal(r.terakhir)}</span>}
                         </button>
                       ) : <span className="text-ink-mute">—</span>}
-                      {r.terakhir && <span className="block text-ink-mute">{tanggal(r.terakhir)}</span>}
                     </td>
                   </tr>
                 ))}

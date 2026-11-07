@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, PanelLeftClose, PanelLeftOpen, Stamp, ReceiptText, StickyNote, AlarmClock, FilePlus2, MoreHorizontal, CalendarDays, ChevronDown, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, PanelLeftClose, PanelLeftOpen, Stamp, ReceiptText, StickyNote, AlarmClock, FilePlus2, MoreHorizontal, CalendarDays, ChevronDown, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store } from 'lucide-react'
 import { useApp } from './lib/store.jsx'
 import { MODE, storageError, db } from './lib/db.js'
 import { AlertTriangle } from 'lucide-react'
@@ -11,7 +11,7 @@ import { simpanCache, DEFAULT_LOGIN } from './config/loginTheme.js'
 import Dashboard from './pages/Dashboard.jsx'
 import Projects from './pages/Projects.jsx'
 import ProjectDetail from './pages/ProjectDetail.jsx'
-import { canSeeAllActivity, canMonitor, canSeeKeuangan, canSeeApostille, canSeeInvoices, canSeeAffidavit, canSeePelanggan, canSeePenugasan, menuBoleh } from './config/menuAccess.js'
+import { canSeeAllActivity, canMonitor, canSeeKeuangan, canSeeApostille, canSeeInvoices, canSeeAffidavit, canSeePelanggan, canSeePenugasan, canSeeKatalog, canSeeVendor, menuBoleh } from './config/menuAccess.js'
 import { needsAction } from './lib/badges.js'
 import { ReminderWatcher } from './pages/Reminders.jsx'
 // Halaman yang tidak dibuka tiap hari dimuat saat diklik → halaman pertama jauh lebih ringan
@@ -49,6 +49,7 @@ import { CHAT_ENABLED } from './lib/flags.js'
 import JamZona from './components/JamZona.jsx'
 import NotifToast from './components/NotifToast.jsx'
 import RightToolbar from './components/RightToolbar.jsx'
+import VendorPage from './pages/Vendor.jsx'
 import { usePanel, PANELS, PANEL_ORDER } from './components/WorkspacePanel.jsx'
 import { useDensity } from './lib/density.js'
 
@@ -69,7 +70,7 @@ const MENU = [
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, bar: true },
   { id: 'penjualan', label: 'Penjualan', icon: ReceiptText, children: [
     { key: 'faktur', label: 'Faktur', icon: ReceiptText, show: canSeeInvoices, badge: (u, d, bf, extra) => extra.unlinkedInvoices },
-    { key: 'daftar-harga', label: 'Daftar Harga', icon: Tags },
+    { key: 'daftar-harga', label: 'Katalog', icon: Tags, show: canSeeKatalog },
     { key: 'pelanggan', label: 'Pelanggan', icon: Users, show: canSeePelanggan },
   ] },
   { id: 'project', label: 'Project', icon: FolderKanban, children: [
@@ -79,6 +80,7 @@ const MENU = [
     { key: 'apostille', label: 'My Apostille', icon: Stamp, show: canSeeApostille,
       tambah: { to: 'projects/new', tip: 'Project Baru (Apostille / Legalisasi)', allow: (u) => can.editProject(u) } },
     { key: 'dokumen', label: 'Dokumen', icon: HardDrive },
+    { key: 'vendor', label: 'Vendor', icon: Store, show: canSeeVendor },
     { key: 'calendar', label: 'Linimasa', icon: CalendarDays,
       tambah: { tip: 'Buat baru', allow: () => true, items: [{ panel: 'todo', label: 'Buat To-do' }, { panel: 'reminder', label: 'Buat Pengingat' }] } },
     { key: 'keuangan', label: 'Keuangan', icon: Wallet, badge: needsAction,
@@ -174,6 +176,7 @@ export default function App() {
     : page === 'faq' ? <Faq />
     : page === 'pelanggan' ? <Pelanggan />
     : page === 'dokumen' ? <Dokumen />
+    : page === 'vendor' ? <VendorPage />
     : page === 'penugasan' ? <Penugasan />
     : page === 'affidavit' ? <Affidavit />
     : page === 'jadwal' ? <Jadwal />

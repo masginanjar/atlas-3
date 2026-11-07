@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus, Trash2, Pencil, Store, Phone, MapPin, Landmark, Tags, StickyNote, ArrowDownLeft, ArrowUpRight, CheckCircle2, CircleDashed, RotateCcw, Eye, EyeOff } from 'lucide-react'
 import { PAYMENT_TERMS, termOf, SUMBER_DANA, sumberLabel } from '../config/workflows.js'
 import { useApp } from '../lib/store.jsx'
@@ -18,6 +18,7 @@ import { ACCESS_DAYS } from '../lib/portalCust.js'
 import { COURIER_ICONS, COURIER_TYPES, CourierLogo } from '../components/Courier.jsx'
 import AvatarEditor from '../components/AvatarEditor.jsx'
 import Avatar from '../components/Avatar.jsx'
+import { useTabel, Th, CariTabel } from '../components/TabelSortir.jsx'
 import LoginSettings from '../components/LoginSettings.jsx'
 
 export default function Settings() {
@@ -464,24 +465,94 @@ function PettyCash() {
   )
 }
 
-function CrudList({ table, rows, columns, empty, blank, renderForm, title, prepare, wide }) {
+/**
+ * Daftar data + formulir tambah/edit.
+ *
+ * Dua tampilan:
+ *  - bawaan  : kartu per baris (dipakai Master Data & Kurir).
+ *  - kolom[] : tabel kompak satu baris satu data, lengkap dengan pencarian,
+ *              filter, dan pengurutan lewat klik judul kolom.
+ * Pencarian, filter, dan urutan TIDAK hilang saat pop-up edit dibuka/ditutup,
+ * karena keadaannya disimpan di komponen ini, bukan di dalam pop-up.
+ */
+function CrudList({ table, rows, columns, empty, blank, renderForm, title, prepare, wide, kolom, filter, cariLabel }) {
   const { save, remove, notify, ask } = useApp()
   const [edit, setEdit] = useState(null)
+  const [pilihFilter, setPilihFilter] = useState({})
   const submit = async () => {
     try { await save(table, prepare ? prepare(edit) : edit); notify('Tersimpan'); setEdit(null) } catch (e) { notify(e.message, 'err') }
   }
+
+  const tersaring = useMemo(() => {
+    if (!filter?.length) return rows
+    return rows.filter((r) => filter.every((f) => !pilihFilter[f.key] || f.cocok(r, pilihFilter[f.key])))
+  }, [rows, filter, pilihFilter])
+  const { rows: baris, sortKey, sortDir, klikJudul, cari, setCari } = useTabel(tersaring, kolom || [])
+
+  const hapus = async (r) => { if (await ask('Hapus data ini?')) { await remove(table, r.id); notify('Dihapus') } }
+
   return (
     <div className="space-y-3">
+      {kolom ? (
+        <>
+          {/* Toolbar: tambah · cari · filter — tinggi kontrol 34px */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => setEdit(blank())}><Plus className="h-4 w-4" />Tambah {title}</Button>
+            <CariTabel value={cari} onChange={setCari} label={cariLabel || `Cari ${title.toLowerCase()}`} className="basis-56" />
+            {(filter || []).map((f) => (
+              <select key={f.key} value={pilihFilter[f.key] || ''} aria-label={f.aria || f.label}
+                onChange={(e) => setPilihFilter((v) => ({ ...v, [f.key]: e.target.value }))}
+                className="h-[34px] w-auto max-w-full rounded-lg border-0 bg-white pl-2.5 pr-7 text-[13px] font-semibold text-ink ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-brand">
+                <option value="">{f.label}</option>
+                {f.opsi(rows).map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            ))}
+            <span className="ml-auto text-[11px] text-ink-mute">{baris.length} dari {rows.length}</span>
+          </div>
+          {baris.length === 0 ? <Card><Empty title={rows.length ? 'Tidak ada data yang cocok' : empty} /></Card> : (
+            <Card className="overflow-hidden">
+              <div className="min-w-0 max-w-full overflow-x-auto">
+                <table className="tbl-rapat" style={{ minWidth: `${kolom.length * 110 + 110}px` }}>
+                  <thead>
+                    <tr>
+                      {kolom.map((c) => <Th key={c.key} kolom={c} sortKey={sortKey} sortDir={sortDir} onKlik={klikJudul} />)}
+                      <th style={{ width: '96px' }} className="text-right">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {baris.map((r) => (
+                      <tr key={r.id}>
+                        {kolom.map((c) => <td key={c.key} className={c.num ? 'num' : undefined}>{c.sel(r)}</td>)}
+                        <td>
+                          <span className="aksi">
+                            <button onClick={() => setEdit(r)} title={`Edit ${title.toLowerCase()}`} aria-label={`Edit ${r.name || r.layanan || title}`}
+                              className="text-ink-mute hover:bg-slate-100 hover:text-ink"><Pencil className="h-4 w-4" /></button>
+                            <button onClick={() => hapus(r)} title={`Hapus ${title.toLowerCase()}`} aria-label={`Hapus ${r.name || r.layanan || title}`}
+                              className="text-rose-500 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button>
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </>
+      ) : (
+        <>
       <Button onClick={() => setEdit(blank())}><Plus className="h-4 w-4" />Tambah {title}</Button>
       <Card className="divide-y divide-slate-100">
         {rows.length === 0 ? <Empty title={empty} /> : rows.map((r) => (
           <div key={r.id} className="flex items-center gap-3 px-4 py-3">
             <div className="min-w-0 flex-1">{columns(r)}</div>
             <button onClick={() => setEdit(r)} className="rounded-lg p-2 text-ink-mute hover:bg-slate-100" aria-label="Edit"><Pencil className="h-4 w-4" /></button>
-            <button onClick={async () => { if (await ask('Hapus data ini?')) { await remove(table, r.id); notify('Dihapus') } }} className="rounded-lg p-2 text-rose-500 hover:bg-rose-50" aria-label="Hapus"><Trash2 className="h-4 w-4" /></button>
+            <button onClick={() => hapus(r)} className="rounded-lg p-2 text-rose-500 hover:bg-rose-50" aria-label="Hapus"><Trash2 className="h-4 w-4" /></button>
           </div>
         ))}
       </Card>
+        </>
+      )}
       <Sheet open={!!edit} wide={wide} onClose={() => setEdit(null)} title={edit?.id ? `Edit ${title}` : `Tambah ${title}`}
         footer={<><Button variant="outline" className="flex-1" onClick={() => setEdit(null)}>Batal</Button><Button className="flex-1" onClick={submit}>Simpan</Button></>}>
         {edit && renderForm(edit, setEdit)}
@@ -558,7 +629,7 @@ function Couriers() {
   )
 }
 
-function Vendors() {
+export function Vendors() {
   const { data } = useApp()
   const rows = data.people.filter((p) => p.type === 'vendor')
   const listEdit = (e, set, key, blank) => {
@@ -570,8 +641,32 @@ function Vendors() {
       del: (i) => set({ ...e, [key]: arr.filter((_, j) => j !== i) }),
     }
   }
+  const KOLOM_VENDOR_SET = [
+    { key: 'nama', label: 'Vendor', sort: (r) => String(r.name || '').toLowerCase(),
+      sel: (r) => <span className="font-semibold text-ink">{r.name}</span> },
+    { key: 'bahasa', label: 'Bahasa / Layanan', sort: (r) => (r.languages || []).join(', ').toLowerCase(),
+      cari: (r) => `${(r.languages || []).join(' ')} ${(r.services || []).map((x) => x.name).join(' ')}`,
+      sel: (r) => <span className="text-ink-soft">{r.languages?.length ? r.languages.join(', ') : '—'}</span> },
+    { key: 'kontak', label: 'Kontak', sort: (r) => `${r.contact || ''} ${r.phone || ''}`.toLowerCase(),
+      sel: (r) => <span className="text-ink-soft">{[r.contact, r.phone].filter(Boolean).join(' · ') || '—'}</span> },
+    { key: 'termin', label: 'Termin', sort: (r) => PAYMENT_TERMS[termOf(r)].short,
+      sel: (r) => <span className="font-semibold text-violet-700">{PAYMENT_TERMS[termOf(r)].short}</span> },
+    { key: 'layanan', label: 'Layanan', num: true, sort: (r) => (r.services || []).length,
+      sel: (r) => (r.services || []).length },
+    { key: 'rek', label: 'Rekening', num: true, sort: (r) => (r.accounts || []).length,
+      sel: (r) => (r.accounts || []).length },
+  ]
+  const FILTER_VENDOR = [
+    { key: 'bahasa', label: 'Semua bahasa', aria: 'Filter bahasa',
+      opsi: (rs) => [...new Set(rs.flatMap((r) => r.languages || []))].sort((a, b) => a.localeCompare(b, 'id')),
+      cocok: (r, v) => (r.languages || []).includes(v) },
+    { key: 'termin', label: 'Semua termin', aria: 'Filter termin',
+      opsi: (rs) => [...new Set(rs.map((r) => PAYMENT_TERMS[termOf(r)].short))].sort(),
+      cocok: (r, v) => PAYMENT_TERMS[termOf(r)].short === v },
+  ]
   return (
     <CrudList table="people" rows={rows} title="Vendor" empty="Belum ada vendor" wide
+      kolom={KOLOM_VENDOR_SET} filter={FILTER_VENDOR} cariLabel="Cari vendor, bahasa, layanan…"
       prepare={(e) => ({
         ...e,
         services: (e.services || []).filter((x) => x.name.trim()).map((x) => ({ name: x.name.trim(), price: Number(x.price) || 0 })),
