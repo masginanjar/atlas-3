@@ -5,6 +5,7 @@ import { Button, cx } from './ui.jsx'
 import { invoiceLabel } from '../config/access.js'
 import { tanggalJam, tanggal } from '../lib/waktu.js'
 import { projectRow, TABLE_COLS, sortRows, filterOptions, applyFilters, FILTER_LABEL } from '../lib/projectRow.js'
+import { stageLabel, flowOf } from '../config/workflows.js'
 
 const PAGE = 36
 
@@ -78,7 +79,7 @@ function BarisSub({ subs, kolom }) {
       <table className="w-full border-collapse text-left text-xs">
         <thead>
           <tr className="text-ink-mute">
-            {['Sub', 'Judul', 'Arah Bahasa', 'Penerjemah/Vendor', 'Dok.', 'Hlm.', 'Tahap'].map((h) => (
+            {['#', 'Judul', 'Arah Bahasa', 'Penerjemah/Vendor', 'Dok.', 'Hlm.', 'Tahap'].map((h) => (
               <th key={h} scope="col" className="whitespace-nowrap px-2 py-1.5 font-bold">{h}</th>
             ))}
           </tr>
@@ -289,7 +290,8 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
                         orang: namaUser(x.data?.translator || x.translator || x.data?.vendor || ''),
                         dok: x.docs?.length || x.file_count || 0,
                         hal: x.docs?.length ? x.docs.reduce((a, d) => a + (Number(d.pages) || 0), 0) : (Number(x.pages) || 0),
-                        tahap: x.stage || '',
+                        // nama tahap yang terbaca, bukan kode mentah ('siap_print')
+                        tahap: x.stage ? stageLabel(flowOf(x, r.p), x.stage) : '',
                       }))} />
                     </td>
                   </tr>

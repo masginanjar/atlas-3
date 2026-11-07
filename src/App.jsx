@@ -10,7 +10,7 @@ import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Projects from './pages/Projects.jsx'
 import ProjectDetail from './pages/ProjectDetail.jsx'
-import { canSeeAllActivity, canMonitor, canSeeKeuangan, canSeeApostille, canSeeInvoices, canSeeAffidavit } from './config/menuAccess.js'
+import { canSeeAllActivity, canMonitor, canSeeKeuangan, canSeeApostille, canSeeInvoices, canSeeAffidavit, menuBoleh } from './config/menuAccess.js'
 import { needsAction } from './lib/badges.js'
 import { ReminderWatcher } from './pages/Reminders.jsx'
 // Halaman yang tidak dibuka tiap hari dimuat saat diklik → halaman pertama jauh lebih ringan
@@ -78,7 +78,7 @@ const NAV = [
   { group: '' },
   { key: 'settings', label: 'Setting', icon: Cog },
 ]
-const navItems = (user) => NAV.filter((n) => n.key && (!n.show || n.show(user)))
+const navItems = (user) => NAV.filter((n) => n.key && menuBoleh(user, n.key) && (!n.show || n.show(user)))
 /** Nama kelompok untuk item NAV ke-i. */
 const groupOf = (i) => { for (let k = i; k >= 0; k--) if (NAV[k].group !== undefined) return NAV[k].group; return '' }
 
@@ -90,7 +90,7 @@ const useSidebar = () => {
 
 export default function App() {
   const { user, data, setActiveRole, booting, signOut, toast, dismissToast, notify, branchFilter, setBranchFilter, confirmState, setConfirmState, unlinkedInvoices, chatTotals } = useApp()
-  const [page, param] = useRoute()
+  const [rawPage, param] = useRoute()
   const [mini, toggleMini] = useSidebar()
   useEffect(() => { applyTheme(readTheme()) }, []) // tema tersimpan diterapkan saat aplikasi dibuka
   useDensity() // menerapkan kepadatan tersimpan ke seluruh aplikasi
@@ -104,11 +104,14 @@ export default function App() {
   const [storeErr, setStoreErr] = useState(storageError)
   useEffect(() => { const f = (e) => setStoreErr(e.detail); window.addEventListener('atlas-storage', f); return () => window.removeEventListener('atlas-storage', f) }, [])
 
-  if (page === 'p' && param) return <><Suspense fallback={null}><Portal token={param} /></Suspense><Toast toast={toast} onClose={dismissToast} /></> // tautan khusus (vendor / pelanggan lama) — tanpa login
-  if (page === 'cek') return <Suspense fallback={null}><PortalCek /></Suspense> // portal pelanggan — satu link umum, tanpa login
+  if (rawPage === 'p' && param) return <><Suspense fallback={null}><Portal token={param} /></Suspense><Toast toast={toast} onClose={dismissToast} /></> // tautan khusus (vendor / pelanggan lama) — tanpa login
+  if (rawPage === 'cek') return <Suspense fallback={null}><PortalCek /></Suspense> // portal pelanggan — satu link umum, tanpa login
   if (booting) return <div className="grid min-h-screen place-items-center"><Loader2 className="h-6 w-6 animate-spin text-brand" /></div>
   if (!user) return <><Login /><Toast toast={toast} onClose={dismissToast} /></>
 
+  // Halaman yang tidak boleh dibuka peran ini dialihkan ke Dashboard,
+  // supaya alamat langsung (#/keuangan dsb.) juga tertutup.
+  const page = menuBoleh(user, rawPage) ? rawPage : 'dashboard'
   const view = page === 'projects' && param ? <ProjectDetail id={param} />
     : page === 'projects' ? <Projects />
     : page === 'settings' ? <Settings />
@@ -145,8 +148,8 @@ export default function App() {
           {NAV.map((n, i) => {
             if (n.group !== undefined) {
               // judul kelompok bisa diciutkan (panah) supaya menu tetap fokus
-              const next = NAV.slice(i + 1).find((x) => x.key)
-              if (!next || (next.show && !next.show(user))) return null
+              const next = NAV.slice(i + 1).find((x) => x.key && menuBoleh(user, x.key) && (!x.show || x.show(user)))
+              if (!next) return null
               if (mini || !n.group) return <div key={`g${i}`} className="mx-2 my-2 border-t" style={{ borderColor: 'var(--nav-line)' }} />
               const on = !shut.includes(n.group)
               return (
@@ -156,6 +159,7 @@ export default function App() {
                 </button>
               )
             }
+            if (!menuBoleh(user, n.key)) return null
             if (n.show && !n.show(user)) return null
             if (!mini && shut.includes(groupOf(i))) return null
             const b = n.badge ? n.badge(user, data, branchFilter, { unlinkedInvoices, chatTotals }) : 0

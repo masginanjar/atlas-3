@@ -4,7 +4,21 @@
 //  seluruh halaman hanya untuk mengecek hak akses — halaman berat
 //  baru diunduh saat menunya benar-benar dibuka.
 // ============================================================
-import { WORKER_ROLES } from './access.js'
+import { WORKER_ROLES, isFreelance } from './access.js'
+
+/**
+ * Penerjemah, Proofreader, dan Otorisator bekerja pada dokumen saja —
+ * menunya dipersempit supaya tidak penuh hal yang tidak mereka pakai.
+ * "settings" tetap ada karena di situ mereka mengganti profil & kata sandi.
+ */
+export const MENU_PELAKSANA = ['dashboard', 'projects', 'calendar', 'reminders', 'notes', 'settings']
+
+/** Benar bila menu orang ini dipersempit (semua perannya pelaksana lepas). */
+export const menuDipersempit = (u) => isFreelance(u)
+
+/** Boleh membuka halaman ini? Dipakai menu DAN rute, supaya alamat langsung juga tertutup. */
+export const menuBoleh = (u, key) =>
+  !menuDipersempit(u) || MENU_PELAKSANA.includes(key)
 
 const APOSTILLE_ROLES = ['staf_apostille', 'supervisor', 'superadmin', 'direktur', 'admin_pusat', 'helper']
 export const canSeeApostille = (u) => APOSTILLE_ROLES.includes(u?.role) || (u?.extra_roles || []).some((r) => APOSTILLE_ROLES.includes(r))
