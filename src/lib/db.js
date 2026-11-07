@@ -14,6 +14,7 @@ import { ensureDefaultCouriers } from '../config/couriers.js'
 import { FAQ_SEED } from '../config/faqSeed.js'
 import { ARAH_AFFIDAVIT } from './affidavit.js'
 import { BRANCHES as AFF_BRANCHES } from '../config/access.js'
+import { PANGGILAN, BALI_NOV_2026, LIBUR_CABANG_NOV_2026, geserHari } from '../config/jadwalSeed.js'
 
 const AFF_ARAH = ARAH_AFFIDAVIT.map((a) => a.key)
 // Payload impor sistem lama hanya versi tersamar, dan hanya untuk mode demo.
@@ -23,7 +24,7 @@ const URL_ = import.meta.env.VITE_INSFORGE_URL
 // 'supabase' (live, Supabase) · 'live' (InsForge, lama) · 'demo' (localStorage)
 export const MODE = SUPABASE_READY ? 'supabase' : URL_ ? 'live' : 'demo'
 export const IS_LIVE = MODE !== 'demo'
-const ALL_TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings', 'notes', 'todos', 'reminders', 'messages', 'daftar_harga', 'faq', 'affidavit_stok', 'affidavit_pakai', 'affidavit_kirim']
+const ALL_TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings', 'notes', 'todos', 'reminders', 'messages', 'daftar_harga', 'faq', 'affidavit_stok', 'affidavit_pakai', 'affidavit_kirim', 'jadwal', 'cuti']
 // Chat dimatikan → `messages` tidak ikut dilanggan realtime maupun disegarkan.
 export const TABLES = CHAT_ENABLED ? ALL_TABLES : ALL_TABLES.filter((t) => t !== 'messages')
 
@@ -152,6 +153,44 @@ function migrate(m) {
     }
     m.affidavit_pakai ||= []
     m.affidavit_kirim ||= []
+    changed = true
+  }
+  // Contoh jadwal November 2026, disalin dari lembar jadwal asli.
+  if (!(m.jadwal || []).length) {
+    const cari = (panggilan, cabang) => {
+      const potong = PANGGILAN[panggilan]
+      if (!potong) return null
+      return (m.users || []).find((u) => u.active !== false && u.name.includes(potong)
+        && (!cabang || u.branch === cabang || (u.branches || []).includes(cabang))) || null
+    }
+    const out = []
+    const tambah = (iso, cabang, panggilan, shift) => {
+      const [nama, jam] = String(panggilan).split('@')
+      const u = cari(nama.trim(), cabang)
+      if (!u) return
+      out.push({ id: uid(), tanggal: iso, cabang, user_id: u.id, shift,
+        jam_mulai: jam || '', created_at: new Date().toISOString() })
+    }
+    // Bali: seluruh baris shift + libur
+    BALI_NOV_2026.minggu.forEach((mg, w) => {
+      for (const [shift, sel] of Object.entries(mg)) {
+        sel.forEach((isi, h) => {
+          if (!isi) return
+          const iso = geserHari(BALI_NOV_2026.mulai, w * 7 + h)
+          for (const nama of String(isi).split(',')) tambah(iso, 'Bali', nama.trim(), shift)
+        })
+      }
+    })
+    // Cabang lain: lembar aslinya hanya mencatat hari libur
+    for (const [cabang, minggu] of Object.entries(LIBUR_CABANG_NOV_2026)) {
+      minggu.forEach((mg, w) => mg.forEach((isi, h) => {
+        if (!isi) return
+        const iso = geserHari(BALI_NOV_2026.mulai, w * 7 + h)
+        for (const nama of String(isi).split(',')) tambah(iso, cabang, nama.trim(), 'libur')
+      }))
+    }
+    m.jadwal = out
+    m.cuti ||= []
     changed = true
   }
   if (!m.projects.some((p) => String(p.id).startsWith('bill-'))) { m.projects.push(...billedDemo(m)); changed = true }

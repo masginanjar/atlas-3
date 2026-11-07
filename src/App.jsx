@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, PanelLeftClose, PanelLeftOpen, Stamp, ReceiptText, StickyNote, AlarmClock, FilePlus2, MoreHorizontal, CalendarDays, ChevronDown, Tags, MessageCircle, BookOpen, FileStack } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, PanelLeftClose, PanelLeftOpen, Stamp, ReceiptText, StickyNote, AlarmClock, FilePlus2, MoreHorizontal, CalendarDays, ChevronDown, Tags, MessageCircle, BookOpen, FileStack, CalendarRange } from 'lucide-react'
 import { useApp } from './lib/store.jsx'
 import Avatar from './components/Avatar.jsx'
 import { MODE, storageError, db } from './lib/db.js'
@@ -30,6 +30,7 @@ const Pesan = lazy(() => import('./pages/Pesan.jsx'))
 const DaftarHarga = lazy(() => import('./pages/DaftarHarga.jsx'))
 const Faq = lazy(() => import('./pages/Faq.jsx'))
 const Affidavit = lazy(() => import('./pages/Affidavit.jsx'))
+const Jadwal = lazy(() => import('./pages/Jadwal.jsx'))
 import GlobalSearch from './components/GlobalSearch.jsx'
 import NotificationBell from './components/NotificationBell.jsx'
 import ThemePicker, { readTheme, applyTheme } from './components/ThemePicker.jsx'
@@ -61,6 +62,7 @@ const NAV = [
   { key: 'projects', label: 'My Project', icon: FolderKanban, bar: true },
   { key: 'apostille', label: 'My Apostille', icon: Stamp, show: canSeeApostille },
   { key: 'calendar', label: 'Calendar', icon: CalendarDays },
+  { key: 'jadwal', label: 'Jadwal', icon: CalendarRange },
   { group: 'Personal' },
   ...(CHAT_ENABLED ? [{ key: 'pesan', label: 'Pesan Masuk', icon: MessageCircle, bar: true, badge: (u, d, bf, x) => x.chatTotals?.msg || 0 }] : []),
   { key: 'reminders', label: 'My Reminders', icon: AlarmClock, bar: true },
@@ -122,6 +124,7 @@ export default function App() {
     : page === 'daftar-harga' ? <DaftarHarga />
     : page === 'faq' ? <Faq />
     : page === 'affidavit' ? <Affidavit />
+    : page === 'jadwal' ? <Jadwal />
     : page === 'pesan' && CHAT_ENABLED ? <Pesan peerParam={param} />
     : <Dashboard />
 
