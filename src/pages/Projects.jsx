@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Minus, Search, FolderOpen, Banknote, CalendarClock, Layers, LayoutGrid, List, ChevronRight, ChevronDown, Sparkles, StickyNote, Printer, AlertTriangle, Eye, Columns3, Download, Bookmark, X, Save, Rows2, Rows3, Rows4, Maximize2, Minimize2, Table2} from 'lucide-react'
+import { Plus, Minus, Search, FolderOpen, Banknote, CalendarClock, Layers, LayoutGrid, List, ChevronRight, ChevronDown, Sparkles, StickyNote, Printer, AlertTriangle, Eye, Columns3, Bookmark, X, Save, Rows2, Rows3, Rows4, Maximize2, Minimize2, Table2} from 'lucide-react'
 import FileManager, { fieldFiles, collect as collectFiles } from '../components/FileManager.jsx'
 import ProjectDetail from './ProjectDetail.jsx'
-import { saveBlob } from '../lib/download.js'
 import WorkerBoard, { WorkerActions, isWorkRole } from '../components/WorkerActions.jsx'
 import { useApp } from '../lib/store.jsx'
 import { scopeByBranch, can, branchesOf, invoiceLabel} from '../config/access.js'
 import ProjectSpreadsheet from '../components/ProjectSpreadsheet.jsx'
+import UnduhData from '../components/UnduhData.jsx'
+import { KapasitasSaya } from '../components/Kapasitas.jsx'
 import { DONE, isDone, progressOf, stageLabel, flowOf, totalPengajuan, stageIndex, stagesOf, VENDOR_PAID_STAGES } from '../config/workflows.js'
 import { PengajuanStatus, DownloadBukti } from '../components/Pengajuan.jsx'
 import { SUB_TYPES } from '../config/subtypes.js'
@@ -97,8 +98,8 @@ export default function Projects() {
     <div className={cx('space-y-4', !worker && 'pb-[150px] md:pb-0')}>
       <div className="flex items-end justify-between gap-3">
         <div><h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">My Project</h1><p className="text-sm text-ink-mute">{worker ? 'Dokumen yang ditugaskan kepada Anda' : 'Nama project = nomor invoice Zoho'}</p></div>
-        {!worker && <Button className="hidden md:inline-flex" onClick={() => go('projects/new')}><Plus className="h-4 w-4" />Project Baru</Button>}
       </div>
+      {worker && <KapasitasSaya />}
 
       {!worker && <Tabs tabs={tabs} value={tab} onChange={setTab} />}
 
@@ -150,8 +151,7 @@ export default function Projects() {
                 )}
               </Popover>
             )}
-            <button onClick={() => exportCsv(list, colsAktif)} aria-label="Ekspor CSV" title="Ekspor daftar (sesuai filter) ke CSV"
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand"><Download className="h-4 w-4" /></button>
+            <UnduhData />
             <div className="flex shrink-0 rounded-xl bg-white p-1 ring-1 ring-slate-200">
               {[['list', List, 'List kompak'], ['tabel', Table2, 'Tabel — 1 baris 1 data']].map(([k, Icon, l]) => (
                 <button key={k} onClick={() => setView(k)} aria-label={l} title={l}
@@ -359,16 +359,6 @@ function SavedViews({ current, apply }) {
       )}
     </Popover>
   )
-}
-
-/** Ekspor daftar (sesuai filter & kolom) ke CSV — dibuka di Excel. */
-function exportCsv(list, cols) {
-  const head = ['No. Invoice', 'Pelanggan', 'Cabang', 'Lokasi Print', 'Prioritas', 'Deadline', 'Sub project', 'Tahap', 'Progres %']
-  const rows = list.map((p) => [p.invoice_no, p.customer?.name || '', p.branch, p.about?.print_location || p.branch, p.about?.priority || 'Normal',
-    p.about?.deadline ? String(p.about.deadline).slice(0, 10) : '', (p.sub_projects || []).length, currentStage(p), progressOf(p)])
-  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
-  const csv = '\uFEFF' + [head, ...rows].map((r) => r.map(esc).join(';')).join('\r\n')
-  saveBlob(`my-project-${new Date().toISOString().slice(0, 10)}.csv`, new Blob([csv], { type: 'text/csv;charset=utf-8' }))
 }
 
 /** Kolom tabel My Project (tampilan daftar) — bisa dipilih lewat "Kolom" di toolbar. */

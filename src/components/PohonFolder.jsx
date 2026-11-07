@@ -8,10 +8,12 @@ import { labelProject } from '../lib/dokumen.js'
  * folder yang sedang ditampilkan di area utama; nama folder yang diklik baru
  * memindahkannya. Isi cabang dibuat hanya saat dibuka, jadi tetap ringan
  * walaupun folder berisi banyak berkas.
+ * Jumlah berkas/project di tiap folder hanya ditampilkan untuk peran yang
+ * memang perlu melihat perbandingan antar cabang (tampilJumlah).
  */
 export default function PohonFolder({
   cabangList, isiCabang, isiProject, buka, onToggle, aktif, onPilihCabang, onPilihProject, onPilihAkar,
-  onPilihBerkas, trashN, onPilihTrash,
+  onPilihBerkas, trashN, onPilihTrash, tampilJumlah = true,
 }) {
   const Panah = ({ terbuka, onClick, label }) => (
     <button type="button" onClick={onClick} aria-label={`${terbuka ? 'Tutup' : 'Buka'} ${label}`} aria-expanded={terbuka}
@@ -44,7 +46,7 @@ export default function PohonFolder({
                   {terbukaC ? <FolderOpen className="h-4 w-4 shrink-0 text-amber-500" /> : <Folder className="h-4 w-4 shrink-0 text-amber-500" />}
                   <span className="min-w-0 truncate">{c.nama}</span>
                 </button>
-                <span className="shrink-0 text-[10px] tabular-nums text-ink-mute">{c.n}</span>
+                {tampilJumlah && <span className="shrink-0 text-[10px] tabular-nums text-ink-mute" data-jml-cabang>{c.n}</span>}
               </div>
 
               {terbukaC && (
@@ -63,7 +65,7 @@ export default function PohonFolder({
                             {terbukaP ? <FolderOpen className="h-4 w-4 shrink-0 text-sky-500" /> : <Folder className="h-4 w-4 shrink-0 text-sky-500" />}
                             <span className="min-w-0 truncate">{labelProject(g.p)}</span>
                           </button>
-                          <span className="shrink-0 text-[10px] tabular-nums text-ink-mute">{g.n}</span>
+                          {tampilJumlah && <span className="shrink-0 text-[10px] tabular-nums text-ink-mute" data-jml-project>{g.n}</span>}
                         </div>
 
                         {terbukaP && (
@@ -99,7 +101,7 @@ export default function PohonFolder({
             aktif.jenis === 'trash' ? 'font-bold text-rose-700' : 'text-ink-soft hover:bg-slate-100')}>
           <Trash2 className="h-4 w-4 shrink-0 text-rose-500" />
           <span className="min-w-0 flex-1 truncate">Trash</span>
-          <span className="shrink-0 text-[10px] tabular-nums text-ink-mute">{trashN}</span>
+          {tampilJumlah && <span className="shrink-0 text-[10px] tabular-nums text-ink-mute" data-jml-trash>{trashN}</span>}
         </button>
       )}
     </nav>

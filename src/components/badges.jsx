@@ -66,28 +66,42 @@ export function InvoiceNo({ project, className, size = 'sm' }) {
   return <span title="Baru diinput hari ini" className={cx('inline-flex items-center whitespace-nowrap rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 px-2 py-0.5 font-extrabold text-emerald-700 ring-1 ring-emerald-300', txt, className)}>{invoiceLabel(project.invoice_no)}</span>
 }
 const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+/** Peran pelaksana yang melihat deadline internal H-1 (kecuali prioritas Sameday). */
+export const DEADLINE_H1_ROLES = ['penerjemah', 'proofreader', 'otorisator']
 /** Deadline dua baris: "7 Nov" / "3 hari lagi" · Hari ini merah, Besok oranye, terlambat merah. */
 export function DeadlineCell({ project, done, className, align = 'right' }) {
-  const iso = project?.about?.deadline
+  const { user } = useApp()
+  // Pelaksana (penerjemah/proofreader/otorisator) melihat deadline INTERNAL:
+  // H-1 dari deadline pelanggan, supaya masih ada satu hari untuk proofread,
+  // otorisasi, cetak & kirim. Khusus Sameday tidak digeser — yang ditampilkan
+  // jamnya, karena selisihnya tinggal hitungan jam.
+  const pelaksana = DEADLINE_H1_ROLES.includes(user?.role)
+  const sameday = (project?.about?.priority || 'Normal') === 'Sameday'
+  const geser = pelaksana && !sameday
+  const asli = project?.about?.deadline
+  const iso = geser && asli ? new Date(new Date(asli).getTime() - 864e5).toISOString() : asli
   if (done) return <span className={cx('block text-xs font-semibold text-emerald-600', className)}>Selesai</span>
   if (!iso) return <span className={cx('block text-xs text-ink-mute', className)}>—</span>
   const dayKeyOf = (d) => WITA_DAY(d)
   const today = new Date(`${WITA_DAY()}T12:00:00+08:00`); const dl = new Date(`${dayKeyOf(new Date(iso))}T12:00:00+08:00`)
   const d = Math.round((dl - today) / 864e5)
   const w = new Date(new Date(iso).getTime() + 8 * 3600e3)
-  const date = `${w.getUTCDate()} ${BLN[w.getUTCMonth()]}`
+  const jamDl = sameday ? (project?.about?.deadline_time || '17:00').replace(':', '.') : ''
+  const date = `${w.getUTCDate()} ${BLN[w.getUTCMonth()]}${jamDl ? ` ${jamDl}` : ''}`
+  const judul = geser ? `Deadline internal (H-1). Deadline ke pelanggan: ${new Date(asli).getDate()} ${BLN[new Date(asli).getMonth()]}`
+    : sameday ? `Sameday — harus selesai jam ${jamDl} WITA` : undefined
   const [txt, tone] = d < 0 ? [`Terlambat ${-d} hari`, 'text-rose-600'] : d === 0 ? ['Hari ini', 'text-rose-600'] : d === 1 ? ['Besok', 'text-orange-500'] : [`${d} hari lagi`, 'text-ink-mute']
   // Hari ini: seluruh teks dibungkus indikator berkedip merah agar langsung terlihat
   if (d === 0) return (
-    <span className={cx('inline-block leading-tight', align === 'right' ? 'text-right' : 'text-left', className)}>
-      <span className="inline-block rounded-lg bg-rose-50 px-2 py-0.5 text-rose-700 ring-1 ring-rose-200" title="Deadline hari ini">
+    <span className={cx('inline-block leading-tight', align === 'right' ? 'text-right' : 'text-left', className)} data-deadline={geser ? 'h1' : sameday ? 'sameday' : 'asli'}>
+      <span className="inline-block rounded-lg bg-rose-50 px-2 py-0.5 text-rose-700 ring-1 ring-rose-200" title={judul || 'Deadline hari ini'}>
         <span className="block text-xs font-bold">{date}</span>
         <span className="block whitespace-nowrap text-[11px] font-semibold">Hari ini</span>
       </span>
     </span>
   )
   return (
-    <span className={cx('block leading-tight', align === 'right' ? 'text-right' : 'text-left', className)}>
+    <span className={cx('block leading-tight', align === 'right' ? 'text-right' : 'text-left', className)} title={judul} data-deadline={geser ? 'h1' : sameday ? 'sameday' : 'asli'}>
       <span className={cx('block text-xs font-bold', d <= 1 ? tone : 'text-ink')}>{date}</span>
       <span className={cx('block whitespace-nowrap text-[11px] font-semibold', tone)}>{txt}</span>
     </span>

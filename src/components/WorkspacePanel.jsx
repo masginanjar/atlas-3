@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { StickyNote, ListTodo, AlarmClock, FilePlus2, FolderPlus, Plus, Check, Trash2 } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
+import PilihCari from './PilihCari.jsx'
 import { can, invoiceLabel} from '../config/access.js'
 import { Button, Field, Input, Select, Sheet, Textarea, cx } from './ui.jsx'
 import ProjectForm from '../pages/ProjectForm.jsx'
@@ -79,10 +80,10 @@ function LinkProject({ value, onChange }) {
   if (!user) return null
   return (
     <Field label="Hubungkan ke project (opsional)" hint="Hanya ditautkan — datanya tidak disalin.">
-      <Select value={value || ''} onChange={(e) => onChange(e.target.value || '')}>
-        <option value="">— Tidak ditautkan —</option>
-        {list.map((p) => <option key={p.id} value={p.id}>{invoiceLabel(p.invoice_no)} · {p.customer?.name || '—'}</option>)}
-      </Select>
+      <PilihCari label="Hubungkan ke project" placeholder="— Tidak ditautkan —" value={value || ''} onChange={(v) => onChange(v || '')}
+        options={[{ value: '', label: '— Tidak ditautkan —' },
+          ...list.map((p) => ({ value: p.id, label: `${invoiceLabel(p.invoice_no)} · ${p.customer?.name || '—'}`, note: p.branch }))]}
+        kosong="Project tidak ditemukan" />
     </Field>
   )
 }

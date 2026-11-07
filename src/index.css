@@ -318,6 +318,8 @@ body { background-image: none; }
 .form-rapat .gap-6 { gap: 1rem 1.5rem; }
 /* dua kolom tidak saling menarik tinggi — ini sumber ruang kosong */
 .form-rapat .grid { align-items: start; }
+/* ...tapi kotak ikon kecil tetap harus center — aturan di atas hanya untuk grid dua kolom */
+.form-rapat .grid.place-items-center { place-items: center; }
 
 /* ------------------------------------------------------------------
    Tabel kompak standar (Faktur, Pelanggan, Katalog, Vendor, Affidavit).

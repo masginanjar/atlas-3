@@ -166,18 +166,30 @@ export function cutiTerlihat(cutiRows, user) {
 /** Cuti yang sudah disetujui pada tanggal & cabang tertentu. */
 export const cutiHari = (cutiRows, iso, cabang) =>
   (cutiRows || []).filter((c) =>
-    c.status === 'disetujui' && c.cabang === cabang && iso >= c.mulai && iso <= (c.selesai || c.mulai))
+    c.status === 'disetujui' && c.cabang === cabang && tanggalCuti(c).includes(iso))
 
 /** Semua tanggal yang dicakup satu pengajuan cuti. */
 export function tanggalCuti(c) {
-  const out = []
-  const d = new Date(`${c.mulai}T00:00:00Z`)
-  const akhir = new Date(`${c.selesai || c.mulai}T00:00:00Z`)
-  while (d <= akhir && out.length < 90) {
-    out.push(d.toISOString().slice(0, 10))
-    d.setUTCDate(d.getUTCDate() + 1)
+  // Satu pengajuan boleh memuat beberapa periode libur sekaligus (periode[]).
+  // Pengajuan lama yang hanya punya mulai/selesai tetap terbaca seperti biasa.
+  const periode = (c?.periode || []).length ? c.periode : [{ mulai: c?.mulai, selesai: c?.selesai || c?.mulai }]
+  const set = new Set()
+  for (const p of periode) {
+    if (!p?.mulai) continue
+    const d = new Date(`${p.mulai}T00:00:00Z`)
+    const akhir = new Date(`${p.selesai || p.mulai}T00:00:00Z`)
+    let n = 0
+    while (d <= akhir && n < 90) { set.add(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); n++ }
   }
-  return out
+  return [...set].sort()
+}
+
+/** Ringkasan tanggal untuk ditampilkan: "3 Nov s/d 5 Nov · 10 Nov · 20–22 Nov". */
+export function ringkasCuti(c) {
+  const periode = (c?.periode || []).length ? c.periode : [{ mulai: c?.mulai, selesai: c?.selesai || c?.mulai }]
+  return periode.filter((p) => p?.mulai)
+    .map((p) => (p.selesai && p.selesai !== p.mulai ? `${p.mulai} s/d ${p.selesai}` : p.mulai))
+    .join(' · ')
 }
 
 export const lamaCuti = (c) => tanggalCuti(c).length

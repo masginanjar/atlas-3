@@ -24,7 +24,7 @@ const URL_ = import.meta.env.VITE_INSFORGE_URL
 // 'supabase' (live, Supabase) · 'live' (InsForge, lama) · 'demo' (localStorage)
 export const MODE = SUPABASE_READY ? 'supabase' : URL_ ? 'live' : 'demo'
 export const IS_LIVE = MODE !== 'demo'
-const ALL_TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings', 'notes', 'todos', 'reminders', 'messages', 'daftar_harga', 'faq', 'affidavit_stok', 'affidavit_pakai', 'affidavit_kirim', 'jadwal', 'cuti']
+const ALL_TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings', 'notes', 'todos', 'reminders', 'messages', 'daftar_harga', 'faq', 'affidavit_stok', 'affidavit_pakai', 'affidavit_kirim', 'jadwal', 'cuti', 'mitra', 'kapasitas']
 // Chat dimatikan → `messages` tidak ikut dilanggan realtime maupun disegarkan.
 export const TABLES = CHAT_ENABLED ? ALL_TABLES : ALL_TABLES.filter((t) => t !== 'messages')
 
@@ -135,6 +135,23 @@ function migrate(m) {
     let n = 0
     m.daftar_harga = baris.flatMap(([kategori, items, satuan]) =>
       items.map((layanan) => ({ id: uid(), kategori, layanan, satuan, harga_normal: null, harga_kilat: null, catatan: '', urutan: ++n })))
+    changed = true
+  }
+  // Mitra contoh — diisi manual oleh CS, jadi cukup beberapa baris untuk demo.
+  if (!(m.mitra || []).length) {
+    const CONTOH = [
+      ['Bali Visa Center', 'Travel / Visa', 'Pak Gede', '081234567801', 'gede@balivisa.id', 'Bali', 'Aktif', '10% per dokumen'],
+      ['Notaris Dewi Sartika, S.H.', 'Notaris', 'Bu Dewi', '081234567802', '', 'Bali', 'Aktif', 'Harga khusus legalisasi'],
+      ['PT Global Edu Konsultan', 'Agen', 'Sdri. Rina', '081234567803', 'rina@globaledu.co.id', 'Jakarta', 'Aktif', '12% terjemahan'],
+      ['Universitas Dharma Nusantara', 'Kampus / Sekolah', 'Bagian Akademik', '0213456789', 'akademik@udn.ac.id', 'Jakarta', 'Jeda', 'Kontrak tahunan'],
+      ['CV Mandiri Dokumen', 'Agen', 'Pak Hartono', '081234567805', '', 'Surabaya', 'Berhenti', '—'],
+    ]
+    const hariLalu = (n) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10)
+    m.mitra = CONTOH.map(([nama, jenis, pic, telepon, email, cabang, status, komisi], i) => ({
+      id: uid(), nama, jenis, pic, telepon, email, cabang, status, komisi,
+      alamat: '', catatan: '', mulai: hariLalu(40 + i * 25),
+      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+    }))
     changed = true
   }
   // Stok affidavit contoh — sengaja bercampur: ada yang cukup, rendah, habis,

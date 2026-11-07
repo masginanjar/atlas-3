@@ -31,6 +31,8 @@ export const canSeePelanggan = (u) => u?.role === 'superadmin'
 /** Katalog layanan & data vendor — pengaturan tingkat perusahaan, khusus Superadmin. */
 export const canSeeKatalog = (u) => u?.role === 'superadmin'
 export const canSeeVendor = (u) => u?.role === 'superadmin'
+// Mitra: Superadmin & Direktur semua cabang, CS hanya cabangnya sendiri.
+export const canSeeMitra = (u) => ['superadmin', 'direktur', 'cs'].includes(u?.role)
 export const canSeeKeuangan = (u) => !!u && !WORKER_ROLES.includes(u.role)
 /** Menu Faktur & badge pembayaran: pelaksana tidak perlu. */
 export const canSeeInvoices = (u) => !WORKER_ROLES.includes(u?.role)

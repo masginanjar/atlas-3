@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
   CalendarRange, ChevronLeft, ChevronRight, Download, Pencil, Check, X,
-  Plane, Clock, Users, Trash2, Info,
+  Plane, Clock, Users, Trash2, Info, Plus,
 } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { Button, Card, Input, Select, Field, Sheet, Empty, Tabs, cx } from '../components/ui.jsx'
@@ -10,7 +10,7 @@ import {
   HARI_PENDEK, bulanKunci, labelBulan, geserBulan, mingguBulan, hariKunci,
   canUbahJadwal, canLihatSemua, cabangBolehUbah, cabangBolehLihat,
   indeksJadwal, isiShift, yangLibur, labelOrang, namaPendek, jadwalSaya, jamBaris,
-  stafCabang, barisUntukCabang, cutiTerlihat, STATUS_CUTI, lamaCuti, tanggalCuti,
+  stafCabang, barisUntukCabang, cutiTerlihat, STATUS_CUTI, lamaCuti, tanggalCuti, ringkasCuti,
 } from '../lib/jadwal.js'
 import { svgJadwalCabang, svgJadwalPerusahaan, unduhPng } from '../lib/jadwalPng.js'
 import { branchesOf } from '../config/access.js'
@@ -81,7 +81,7 @@ export default function Jadwal() {
           <h1 className="flex items-center gap-2 text-lg font-bold text-ink"><CalendarRange className="h-5 w-5 text-brand" />Jadwal</h1>
           <p className="text-xs text-ink-soft">Shift harian dan hari libur tim.</p>
         </div>
-        <Button size="sm" variant="outline" onClick={() => setAjukan(true)}><Plane className="h-3.5 w-3.5" />Ajukan Cuti</Button>
+        <Button size="sm" variant="outline" onClick={() => setAjukan(true)} data-aksi="ajukan-cuti"><Plane className="h-3.5 w-3.5" />Ajukan Libur</Button>
         {tab !== 'saya' && (
           <Button size="sm" variant="outline" loading={unduh} onClick={unduhJadwal}>
             <Download className="h-3.5 w-3.5" />Unduh PNG A4
@@ -170,7 +170,7 @@ function TampilanSaya({ user, ym, rows, peta, cuti }) {
           <p className="mb-2 text-sm font-bold text-ink">Pengajuan cuti saya</p>
           {cutiSaya.map((c) => (
             <p key={c.id} className="text-xs text-ink-soft">
-              {c.mulai}{c.selesai && c.selesai !== c.mulai ? ` s/d ${c.selesai}` : ''} ({lamaCuti(c)} hari) —{' '}
+              {ringkasCuti(c)} ({lamaCuti(c)} hari) —{' '}
               <b>{STATUS_CUTI[c.status]?.label || c.status}</b>{c.alasan ? ` · ${c.alasan}` : ''}
             </p>
           ))}
@@ -395,34 +395,76 @@ function SheetEdit({ s, data, peta, nameOf, save, remove, notify, onClose }) {
 
 /* ---------------- cuti ---------------- */
 function SheetCuti({ user, save, notify, onClose }) {
-  const [mulai, setMulai] = useState(hariKunci(new Date()))
-  const [selesai, setSelesai] = useState(hariKunci(new Date()))
+  // Satu pengajuan bisa memuat beberapa periode libur sekaligus — misalnya
+  // libur 10 Nov, lalu 15–17 Nov — supaya tidak perlu mengajukan berkali-kali.
+  const hariIni = hariKunci(new Date())
+  const [periode, setPeriode] = useState([{ mulai: hariIni, selesai: hariIni }])
   const [alasan, setAlasan] = useState('')
   const [busy, setBusy] = useState(false)
 
+  const ubah = (i, patch) => setPeriode((a) => a.map((p, j) => (j === i ? { ...p, ...patch } : p)))
+  const tambah = () => setPeriode((a) => [...a, { mulai: hariIni, selesai: hariIni }])
+  const hapus = (i) => setPeriode((a) => (a.length > 1 ? a.filter((_, j) => j !== i) : a))
+
+  const bersih = periode.filter((p) => p.mulai).map((p) => ({ mulai: p.mulai, selesai: p.selesai || p.mulai }))
+  const salah = bersih.find((p) => p.selesai < p.mulai)
+  const semuaTanggal = tanggalCuti({ periode: bersih })
+
   const kirim = async () => {
-    if (selesai < mulai) { notify('Tanggal selesai tidak boleh sebelum tanggal mulai', 'err'); return }
+    if (!bersih.length) { notify('Isi minimal satu tanggal libur', 'err'); return }
+    if (salah) { notify('Tanggal selesai tidak boleh sebelum tanggal mulai', 'err'); return }
     setBusy(true)
     try {
+      const urut = [...bersih].sort((a, b) => a.mulai.localeCompare(b.mulai))
       await save('cuti', {
         user_id: user.id, nama: user.name, cabang: branchesOf(user)[0] || user.branch,
-        mulai, selesai, alasan, status: 'diajukan', at: new Date().toISOString(),
+        periode: urut,
+        // mulai/selesai tetap diisi sebagai rentang keseluruhan, supaya data lama & baru sebentuk
+        mulai: urut[0].mulai, selesai: urut[urut.length - 1].selesai,
+        alasan, status: 'diajukan', at: new Date().toISOString(),
       })
-      notify('Pengajuan cuti dikirim — hanya terlihat di cabang Anda')
+      notify(`Pengajuan ${semuaTanggal.length} hari libur dikirim — hanya terlihat di cabang Anda`)
       onClose()
     } catch (e) { notify(e.message || 'Gagal mengirim', 'err') } finally { setBusy(false) }
   }
 
   return (
-    <Sheet open onClose={onClose} title="Ajukan Cuti" subtitle="Hanya terlihat oleh tim cabang Anda"
-      footer={<><Button variant="ghost" onClick={onClose}>Batal</Button><Button loading={busy} onClick={kirim}><Plane className="h-4 w-4" />Kirim</Button></>}>
+    <Sheet open onClose={onClose} title="Ajukan Libur / Cuti" subtitle="Satu pengajuan bisa memuat beberapa tanggal"
+      footer={<><Button variant="ghost" onClick={onClose}>Batal</Button>
+        <Button loading={busy} onClick={kirim} disabled={!bersih.length || !!salah} data-aksi="kirim-cuti"><Plane className="h-4 w-4" />Kirim</Button></>}>
       <div className="space-y-3">
-        <Field label="Mulai" required><Input type="date" value={mulai} onChange={(e) => setMulai(e.target.value)} aria-label="Tanggal mulai cuti" /></Field>
-        <Field label="Sampai" required><Input type="date" value={selesai} min={mulai} onChange={(e) => setSelesai(e.target.value)} aria-label="Tanggal selesai cuti" /></Field>
-        <Field label="Alasan" hint="Opsional."><Input value={alasan} onChange={(e) => setAlasan(e.target.value)} placeholder="mis. acara keluarga" aria-label="Alasan cuti" /></Field>
-        <p className="rounded-xl bg-sky-50 p-3 text-[11px] text-sky-900 ring-1 ring-sky-200">
-          Pengajuan ini hanya muncul di cabang Anda. Cabang lain tidak melihatnya.
-          Setelah disetujui, tanggalnya otomatis ditandai libur di jadwal.
+        <div className="space-y-2" data-periode-cuti>
+          {periode.map((p, i) => (
+            <div key={i} className="rounded-xl bg-slate-50 p-2.5 ring-1 ring-slate-200" data-periode={i}>
+              <div className="mb-1.5 flex items-center gap-2">
+                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white text-[10px] font-bold text-ink-soft ring-1 ring-slate-200">{i + 1}</span>
+                <span className="mr-auto text-[11px] font-bold uppercase tracking-wide text-ink-mute">Libur ke-{i + 1}</span>
+                {periode.length > 1 && (
+                  <button type="button" onClick={() => hapus(i)} aria-label={`Hapus libur ke-${i + 1}`}
+                    className="grid h-8 w-8 place-items-center rounded-lg text-rose-600 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button>
+                )}
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Field label="Mulai" required>
+                  <Input type="date" value={p.mulai} onChange={(e) => ubah(i, { mulai: e.target.value, ...(p.selesai < e.target.value ? { selesai: e.target.value } : {}) })} aria-label={`Tanggal mulai libur ${i + 1}`} />
+                </Field>
+                <Field label="Sampai" required>
+                  <Input type="date" value={p.selesai} min={p.mulai} onChange={(e) => ubah(i, { selesai: e.target.value })} aria-label={`Tanggal selesai libur ${i + 1}`} />
+                </Field>
+              </div>
+            </div>
+          ))}
+        </div>
+        <Button variant="outline" className="w-full" onClick={tambah} data-aksi="tambah-periode"><Plus className="h-4 w-4" />Tambah tanggal libur</Button>
+
+        <Field label="Alasan" hint="Opsional — berlaku untuk seluruh tanggal di atas.">
+          <Input value={alasan} onChange={(e) => setAlasan(e.target.value)} placeholder="mis. acara keluarga" aria-label="Alasan cuti" />
+        </Field>
+        {salah && <p className="rounded-xl bg-rose-50 p-2.5 text-[11px] font-semibold text-rose-800 ring-1 ring-rose-200">Ada periode yang tanggal selesainya sebelum tanggal mulai.</p>}
+        <p className="rounded-xl bg-sky-50 p-3 text-[11px] text-sky-900 ring-1 ring-sky-200" data-ringkas-cuti>
+          Total <b>{semuaTanggal.length} hari</b> libur diajukan.
+          Pengajuan ini hanya muncul di cabang Anda — cabang lain tidak melihatnya.
+          Setelah disetujui, semua tanggalnya otomatis ditandai libur di jadwal.
         </p>
       </div>
     </Sheet>
@@ -463,8 +505,7 @@ function DaftarCuti({ cuti, user, nameOf, save, remove, notify, ask, bolehUbah }
           return (
             <div key={c.id} className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
               <p className="min-w-0 flex-1 text-xs text-ink">
-                <b>{c.nama || nameOf(c.user_id)}</b> · {c.cabang} · {c.mulai}
-                {c.selesai && c.selesai !== c.mulai ? ` s/d ${c.selesai}` : ''} ({lamaCuti(c)} hari)
+                <b>{c.nama || nameOf(c.user_id)}</b> · {c.cabang} · {ringkasCuti(c)} ({lamaCuti(c)} hari)
                 {c.alasan ? <span className="text-ink-soft"> · {c.alasan}</span> : null}
               </p>
               <span className={cx('rounded-full px-2 py-0.5 text-[11px] font-bold ring-1', TONE[st.tone])}>{st.label}</span>

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, PanelLeftClose, PanelLeftOpen, Stamp, ReceiptText, StickyNote, AlarmClock, FilePlus2, MoreHorizontal, CalendarDays, ChevronDown, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store } from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, PanelLeftClose, PanelLeftOpen, Stamp, ReceiptText, StickyNote, AlarmClock, FilePlus2, MoreHorizontal, CalendarDays, ChevronDown, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store, Handshake } from 'lucide-react'
 import { useApp } from './lib/store.jsx'
 import { MODE, storageError, db } from './lib/db.js'
 import { AlertTriangle } from 'lucide-react'
@@ -11,7 +11,7 @@ import { simpanCache, DEFAULT_LOGIN } from './config/loginTheme.js'
 import Dashboard from './pages/Dashboard.jsx'
 import Projects from './pages/Projects.jsx'
 import ProjectDetail from './pages/ProjectDetail.jsx'
-import { canSeeAllActivity, canMonitor, canSeeKeuangan, canSeeApostille, canSeeInvoices, canSeeAffidavit, canSeePelanggan, canSeePenugasan, canSeeKatalog, canSeeVendor, menuBoleh } from './config/menuAccess.js'
+import { canSeeAllActivity, canMonitor, canSeeKeuangan, canSeeApostille, canSeeInvoices, canSeeAffidavit, canSeePelanggan, canSeePenugasan, canSeeKatalog, canSeeVendor, canSeeMitra, menuBoleh } from './config/menuAccess.js'
 import { needsAction } from './lib/badges.js'
 import { ReminderWatcher } from './pages/Reminders.jsx'
 // Halaman yang tidak dibuka tiap hari dimuat saat diklik → halaman pertama jauh lebih ringan
@@ -35,6 +35,7 @@ const Jadwal = lazy(() => import('./pages/Jadwal.jsx'))
 const ProjectForm = lazy(() => import('./pages/ProjectForm.jsx'))
 const Pelanggan = lazy(() => import('./pages/Pelanggan.jsx'))
 const Dokumen = lazy(() => import('./pages/Dokumen.jsx'))
+const MitraPage = lazy(() => import('./pages/Mitra.jsx'))
 const Penugasan = lazy(() => import('./pages/Penugasan.jsx'))
 import GlobalSearch from './components/GlobalSearch.jsx'
 import NotificationBell from './components/NotificationBell.jsx'
@@ -73,6 +74,7 @@ const MENU = [
     { key: 'daftar-harga', label: 'Katalog', icon: Tags, show: canSeeKatalog },
     { key: 'pelanggan', label: 'Pelanggan', icon: Users, show: canSeePelanggan },
     { key: 'vendor', label: 'Vendor', icon: Store, show: canSeeVendor },
+    { key: 'mitra', label: 'Mitra', icon: Handshake, show: canSeeMitra },
   ] },
   { id: 'project', label: 'Project', icon: FolderKanban, children: [
     { key: 'penugasan', label: 'Penugasan', icon: Users, show: canSeePenugasan },
@@ -177,6 +179,7 @@ export default function App() {
     : page === 'pelanggan' ? <Pelanggan />
     : page === 'dokumen' ? <Dokumen />
     : page === 'vendor' ? <VendorPage />
+    : page === 'mitra' ? <MitraPage />
     : page === 'penugasan' ? <Penugasan />
     : page === 'affidavit' ? <Affidavit />
     : page === 'jadwal' ? <Jadwal />
@@ -218,7 +221,7 @@ export default function App() {
           </div>
 
           <span className="hidden flex-1 xl:block" />
-          <JamZona className="hidden shrink-0 2xl:flex" />
+          <JamZona className="hidden shrink-0 lg:flex" />
 
           {/* Cabang / organisasi aktif */}
           {branchPicker ? (
@@ -335,8 +338,10 @@ export default function App() {
         </nav>
         {/* Tombol ciutkan di bawah — menu tetap jadi yang pertama dilihat.
             Profil & akun hanya di pojok kanan atas, tidak diulang di sini. */}
-        <div className={cx('mt-auto flex items-center border-t pt-2', mini ? 'justify-center' : 'justify-end')}
+        <div className={cx('mt-auto flex items-center border-t pt-2', mini ? 'justify-center' : 'justify-between lg:justify-end')}
           style={{ borderColor: 'var(--nav-line)' }}>
+          {/* Jam WIB & WITA untuk layar tablet — di atas lg jamnya sudah ada di header */}
+          {!mini && <JamZona tema="nav" className="flex pl-1 lg:hidden" />}
           <button onClick={toggleMini} data-nav="ciut" aria-label={mini ? 'Lebarkan menu' : 'Ciutkan menu jadi ikon'} title={mini ? 'Lebarkan menu' : 'Ciutkan menu jadi ikon'} aria-expanded={!mini}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[var(--nav-mute)] transition hover:bg-[var(--nav-hover)] hover:text-[var(--nav-ink)]">
             {mini ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
@@ -394,6 +399,8 @@ export default function App() {
         </button>
       </nav>
       <Sheet open={more} onClose={() => setMore(false)} title="Menu">
+        {/* Jam WIB & WITA — di layar kecil header tidak muat, jadi ditaruh di sini */}
+        <JamZona tema="kartu" className="mb-3 flex justify-center rounded-xl bg-slate-50 py-2 ring-1 ring-slate-200" />
         <ul className="grid grid-cols-2 gap-2">
           {navItems(user).map((n) => {
             const b = n.badge ? n.badge(user, data, branchFilter, { unlinkedInvoices, chatTotals }) : 0

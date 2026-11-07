@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
-import { FolderKanban, CheckCircle2, AlarmClock, Wallet, Banknote, ArrowRight, Inbox, Stamp, ChevronDown, Hand, Upload, Loader2, FileCheck2, Send, Languages, ChevronUp, Users, Undo2, CalendarDays, X , Sunrise, Moon, Waves, Activity, Target, Sprout, Sparkles, Coffee, ReceiptText, ArrowUp, ArrowDown} from 'lucide-react'
+import { FolderKanban, CheckCircle2, AlarmClock, Wallet, Banknote, ArrowRight, Inbox, Stamp, ChevronDown, Hand, Upload, Loader2, FileCheck2, Send, Languages, ChevronUp, Users, Undo2, CalendarDays, X , Sunrise, Moon, Waves, Activity, Target, Sprout, Sparkles, Coffee, ReceiptText, ArrowUp, ArrowDown, StickyNote} from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
+import { KapasitasAcc, kapasitasHarian, KAP_DEFAULT } from '../components/Kapasitas.jsx'
 import { go } from '../lib/router.js'
 import { BRANCHES, ROLES, can, scopeByBranch, activeClaim, WORKER_ROLES, roleLabel, branchesOf, isMultiBranch, APOSTILLE_FUND, pettyLabel, pettyAccountsOf, foreignLang, coordinatorFor, placeOf, invoiceLabel} from '../config/access.js'
 import { CATEGORIES, DONE, isDone, stagesOf, stageLabel, flowOf, totalPengajuan, stafStatus, PAYMENT_TERMS, termOf, isBilled, recommendFund, VENDOR_PAID_STAGES, stageShort, stageIndex } from '../config/workflows.js'
@@ -75,6 +76,7 @@ export default function Dashboard() {
   const ops = [
     user.coordinator_lang && <CoordBoard key="coord" lang={user.coordinator_lang} />,
     ['superadmin', 'supervisor'].includes(user.role) && <TranslatorLoad key="load" range={trRange} setRange={setTrRange} />,
+    ['superadmin', 'supervisor', 'direktur'].includes(user.role) && <KapasitasAcc key="kapasitas-acc" />,
     ['superadmin', 'supervisor', 'staf_apostille'].includes(user.role) && s.staf.length > 0 && <StafBoard key="staf" rows={s.staf} />,
   ].filter(Boolean)
 
@@ -84,6 +86,7 @@ export default function Dashboard() {
       <Hero user={user} s={s} unlinked={unlinkedInvoices?.length ?? unlinkedInvoices ?? 0} petty={rupiah(accounts.reduce((a, k) => a + (pettyBalance(k) || 0), 0))}
         pettyCabang={accounts.filter((k) => k !== APOSTILLE_FUND).reduce((a, k) => a + (pettyBalance(k) || 0), 0)}
         pettyApos={accounts.includes(APOSTILLE_FUND) ? (pettyBalance(APOSTILLE_FUND) || 0) : 0} todoCount={TODO_GROUP_ROLES.includes(user.role) ? roleGroupCount(s, user, data.people) : todoTasks.length} />
+      <CatatanTersemat />
 
       {/* Kerja saya: Performa (prioritas) + To-Do List berdampingan di layar lebar */}
       <Segment title="Kerja Saya">
@@ -125,6 +128,47 @@ export default function Dashboard() {
       {ops.length > 0 && <Segment title="Operasional">{ops}</Segment>}
 
     </div>
+  )
+}
+
+/**
+ * Catatan project yang disematkan tepat di bawah cover dashboard.
+ * Satu catatan satu baris supaya tetap ringkas, dan otomatis hilang begitu
+ * projectnya selesai — jadi yang tersisa selalu catatan yang masih berlaku.
+ */
+function CatatanTersemat() {
+  const { user, data, branchFilter } = useApp()
+  const [buka, setBuka] = useState(false)
+  const rows = useMemo(() => scopeByBranch(user, data.projects, branchFilter)
+    .filter((p) => !isDone(p) && !p.cancelled && String(p.about?.notes || '').trim())
+    .map((p) => ({ p, teks: String(p.about.notes).replace(/\s*\n+\s*/g, ' · ').trim() }))
+    .sort((a, b) => String(a.p.about?.deadline || '').localeCompare(String(b.p.about?.deadline || ''))),
+  [user, data.projects, branchFilter])
+  if (!rows.length) return null
+  const tampil = buka ? rows : rows.slice(0, 5)
+
+  return (
+    <section className="rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-200" aria-label="Catatan project" data-catatan-tersemat>
+      <p className="mb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-wide text-amber-900">
+        <StickyNote className="h-3.5 w-3.5" />Catatan project <span className="font-semibold normal-case text-amber-700">({rows.length} aktif · hilang saat project selesai)</span>
+      </p>
+      <ul className="divide-y divide-amber-200/70">
+        {tampil.map(({ p, teks }) => (
+          <li key={p.id} data-catatan={p.id}>
+            <a href={`#/projects/${p.id}`} className="flex min-h-[32px] items-center gap-2 py-1 text-xs text-amber-900 hover:underline">
+              <b className="shrink-0 font-bold tabular-nums">{invoiceLabel(p.invoice_no)}</b>
+              <span className="hidden shrink-0 text-amber-700 sm:inline">{p.customer?.name || '—'}</span>
+              <span className="min-w-0 flex-1 truncate" title={teks}>{teks}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+      {rows.length > 5 && (
+        <button type="button" onClick={() => setBuka((v) => !v)} className="mt-1 text-[11px] font-bold text-amber-800 hover:underline" data-aksi="catatan-lainnya">
+          {buka ? 'Tampilkan lebih sedikit' : `Lihat ${rows.length - 5} catatan lainnya`}
+        </button>
+      )}
+    </section>
   )
 }
 
@@ -844,7 +888,6 @@ export function PettyStrip({ accounts, balance }) {
 }
 
 /** Grafik kapasitas penerjemah internal. Tanpa rentang = beban saat ini; dengan rentang tanggal = order ber-deadline di rentang itu. */
-const CAP = 4 // ≥ 4 dokumen aktif dianggap penuh
 const isoDay = (dt) => new Date(dt.getTime() - dt.getTimezoneOffset() * 6e4).toISOString().slice(0, 10)
 /** Label rentang deadline: Hari ini / Besok / tanggal / tanggal – tanggal. */
 const rangeLabel = (r) => {
@@ -853,6 +896,12 @@ const rangeLabel = (r) => {
   if (r.from === r.to) return r.from === today ? 'Hari ini' : r.from === tmr ? 'Besok' : tgl(r.from)
   return `${r.from ? tgl(r.from) : '…'} – ${r.to ? tgl(r.to) : '…'}`
 }
+/** Jumlah halaman satu sub-project — dipakai sama untuk "aktif" maupun "selesai". */
+const halamanSub = (sb, flow) => {
+  const k = kindPages(sb)
+  return flow === 'tr_nt' ? (Number(sb.pages) || 1) : ((k.reguler || 0) + (k.non_reguler || 0)) || (Number(sb.pages) || 1)
+}
+
 export function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
   const { data } = useApp()
   const [open, toggle] = useFold('load')
@@ -881,9 +930,7 @@ export function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
           ? (!range.from || hari >= range.from) && (!range.to || hari <= range.to)
           : hari.slice(0, 7) === bulanIni
         if (!masuk) continue
-        const k = kindPages(sb)
-        const n = flow === 'tr_nt' ? (Number(sb.pages) || 1) : ((k.reguler || 0) + (k.non_reguler || 0)) || (Number(sb.pages) || 1)
-        per.set(uid, (per.get(uid) || 0) + n)
+        per.set(uid, (per.get(uid) || 0) + halamanSub(sb, flow))
       }
     }
     return per
@@ -897,15 +944,23 @@ export function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
       const jobs = trSubs.filter((x) => x.data.translator === u.id)
       const act = jobs.filter((x) => x.stage === 'penerjemahan'); const done = jobs.filter((x) => x.stage !== 'penerjemahan')
       const next = act.map((x) => x.project.about?.deadline).filter(Boolean).sort()[0]
-      return { u, n: act.length, done: done.length, pages: jobs.reduce((a, x) => a + (Number(x.pages) || 1), 0), next }
-    }).sort((a, b) => a.n - b.n || a.pages - b.pages)
+      // halAktif = halaman yang SEDANG dipegang (langsung berubah begitu penerjemah dipilih)
+      const halAktif = act.reduce((a, x) => a + halamanSub(x, x.flow), 0)
+      return { u, n: act.length, done: done.length, halAktif, pages: jobs.reduce((a, x) => a + halamanSub(x, x.flow), 0), next }
+    }).sort((a, b) => a.n - b.n || a.halAktif - b.halAktif)
     const vendorJobs = subs.filter((x) => x.flow === 'tr_ext' && x.stage !== DONE && x.data?.vendor && (!ranged || inRange(x.project.about?.deadline))).length
     return { trs, vendorJobs }
   }, [data.projects, data.users, range, ranged])
-  const max = Math.max(CAP, ...rows.trs.map((r) => r.n + r.done))
-  const tone = (n) => (n === 0 ? ['bg-emerald-500', 'Kosong', 'text-emerald-700'] : n < CAP - 1 ? ['bg-brand', 'Tersedia', 'text-brand'] : n < CAP ? ['bg-amber-500', 'Hampir penuh', 'text-amber-700'] : ['bg-rose-500', 'Penuh', 'text-rose-700'])
+  // Batas dihitung dari kapasitas harian tiap orang (halaman/hari, bawaan 10),
+  // bukan satu angka untuk semua — Supervisor bisa menaikkannya lewat pengajuan.
+  const kapRows = data.kapasitas
+  const max = Math.max(KAP_DEFAULT, ...rows.trs.map((r) => Math.max(r.halAktif, kapasitasHarian(r.u, kapRows))))
+  const tone = (hal, kap) => (hal === 0 ? ['bg-emerald-500', 'Kosong', 'text-emerald-700']
+    : hal < kap * 0.7 ? ['bg-brand', 'Tersedia', 'text-brand']
+    : hal < kap ? ['bg-amber-500', 'Hampir penuh', 'text-amber-700'] : ['bg-rose-500', 'Penuh', 'text-rose-700'])
   const total = rows.trs.reduce((a, r) => a + r.n + r.done, 0)
   const totalHal = rows.trs.reduce((a, r) => a + (halSelesai.get(r.u.id) || 0), 0)
+  const totalAktif = rows.trs.reduce((a, r) => a + r.halAktif, 0)
   const chip = (on) => cx('rounded-lg px-2.5 py-1 text-xs font-semibold ring-1', on ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-ink-soft ring-slate-200 hover:ring-indigo-400')
   const today = isoDay(new Date())
   return (
@@ -914,8 +969,8 @@ export function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
         <Users className="h-4 w-4 text-indigo-600" />
         <h2 className="font-bold">Kapasitas Penerjemah</h2>
         <span className="text-xs text-ink-mute">{ranged
-          ? `${rangeLabel(range)} · ${totalHal} halaman dikerjakan`
-          : `bulan ini · ${totalHal} halaman dikerjakan · kapasitas ${CAP}/orang`}</span>
+          ? `${rangeLabel(range)} · ${totalAktif} hal berjalan · ${totalHal} hal selesai`
+          : `bulan ini · ${totalAktif} hal berjalan · ${totalHal} hal selesai · kapasitas harian masing-masing`}</span>
         <FoldBtn open={open} onClick={toggle} label="Kapasitas Penerjemah" className="ml-auto" />
       </div>
       {open && (
@@ -932,18 +987,19 @@ export function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
             </span>
           </div>
           <div className="space-y-2.5 px-4 py-4">
-            {rows.trs.map(({ u, n, done, pages, next }) => {
-              const [bar, label, txt] = tone(n)
+            {rows.trs.map(({ u, n, done, halAktif, next }) => {
+              const kap = kapasitasHarian(u, kapRows)
+              const [bar, label, txt] = tone(halAktif, kap)
               return (
                 <div key={u.id} className="grid grid-cols-[120px_1fr_auto] items-center gap-3 sm:grid-cols-[170px_1fr_320px]">
                   <p className="truncate text-sm font-semibold">{u.name} <span className="text-[11px] font-normal text-ink-mute">· {placeOf(u)}</span></p>
-                  <div className="relative flex h-3 overflow-hidden rounded-full bg-slate-100" role="img" aria-label={`${u.name}: ${n} dokumen dikerjakan${done ? `, ${done} sudah selesai diterjemahkan` : ''}`}>
-                    <div className={cx('h-3', bar)} style={{ width: `${n ? Math.max(6, (n / max) * 100) : 0}%` }} />
-                    {done > 0 && <div className="h-3 bg-slate-300" style={{ width: `${(done / max) * 100}%` }} title="Sudah selesai diterjemahkan" />}
-                    <span className="absolute inset-y-0 border-l-2 border-dashed border-slate-400/70" style={{ left: `${(CAP / max) * 100}%` }} title="Batas kapasitas" />
+                  <div className="relative flex h-3 overflow-hidden rounded-full bg-slate-100" role="img" aria-label={`${u.name}: ${halAktif} dari ${kap} halaman kapasitas harian, ${n} dokumen berjalan`}>
+                    <div className={cx('h-3', bar)} style={{ width: `${halAktif ? Math.max(6, Math.min(100, (halAktif / max) * 100)) : 0}%` }} />
+                    <span className="absolute inset-y-0 border-l-2 border-dashed border-slate-400/70" style={{ left: `${Math.min(100, (kap / max) * 100)}%` }} title={`Kapasitas harian ${kap} halaman`} />
                   </div>
                   <p className="text-right text-xs tabular-nums sm:text-left">
-                    <b>{halSelesai.get(u.id) || 0}</b> hal <span className="text-ink-mute">dikerjakan</span>
+                    <b data-hal="berjalan">{halAktif}</b><span className="text-ink-mute">/{kap}</span> hal <span className="text-ink-mute">berjalan</span>
+                    <span className="text-ink-mute"> · <span data-hal="selesai">{halSelesai.get(u.id) || 0}</span> selesai</span>
                     <span className={cx('ml-1 font-semibold', txt)}>{label}</span>
                     {next && <span className="hidden text-ink-mute sm:inline"> · DL {tgl(next)}</span>}</p>
                 </div>
@@ -952,7 +1008,8 @@ export function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
             <p className="flex flex-wrap items-center gap-x-3 pt-1 text-[11px] text-ink-mute">
               <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded bg-brand" />sedang diterjemahkan</span>
               {ranged && <span className="inline-flex items-center gap-1"><span className="h-2 w-3 rounded bg-slate-300" />sudah selesai diterjemahkan</span>}
-              <span>garis putus-putus = batas kapasitas</span>
+              <span>garis putus-putus = kapasitas harian orang itu (bawaan {KAP_DEFAULT} hal/hari)</span>
+              <span>· berjalan = halaman yang sedang dipegang, selesai = halaman yang tahap penerjemahannya sudah lewat</span>
               <span>· Vendor eksternal: {rows.vendorJobs} dokumen</span>
             </p>
           </div>

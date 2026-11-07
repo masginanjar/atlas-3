@@ -15,6 +15,8 @@ const SPV = ['superadmin', 'supervisor']
 // Menetapkan/mengganti penerjemah tidak lagi harus menunggu Supervisor —
 // CS, Admin Pusat, dan Helper cabang juga boleh.
 const PILIH_PENERJEMAH = ['superadmin', 'supervisor', 'direktur', 'admin_pusat', 'cs', 'helper']
+/** Peran yang boleh MENGGANTI penerjemah setelah tugas terkirim (wajib pakai alasan). */
+export const GANTI_PENERJEMAH = ['superadmin', 'supervisor', 'direktur', 'admin_pusat']
 const DIREKTUR = ['superadmin', 'direktur']
 const AKUNTING = ['superadmin', 'akunting']
 
@@ -144,7 +146,26 @@ const STAF_FLOW = [
   { key: 'diproses', label: 'Sedang Diproses', roles: STAF, assignee: 'staff_apostille', action: 'Selesai', showSource: true,
     hint: 'Lampirkan bukti transfer (tanpa nominal) bila ada, unggah hasil, lalu tekan Selesai.',
     fields: [
-      { key: 'proses_checklist', label: 'To-do proses', type: 'checklist', items: ['Permohonan', 'Verifikasi', 'Cetak'], required: true },
+      { key: 'proses_checklist', label: 'To-do proses', type: 'checklist', required: true,
+        items: ['Permohonan', 'Ditunda', 'Verifikasi', 'Bayar Pajak', 'Cetak', 'Scan'],
+        // Langkah yang hanya boleh dicentang peran tertentu — yang lain tidak melihatnya sama sekali.
+        itemRoles: { 'Bayar Pajak': ['superadmin', 'supervisor', 'direktur'] },
+        // Langkah yang butuh data/berkas: saat dicentang, slide isian terbuka dulu.
+        itemForm: {
+          Permohonan: [{ key: 'no_permohonan', label: 'Nomor permohonan', type: 'text' }],
+          Ditunda: [
+            { key: 'tunda_alasan', label: 'Alasan ditunda', type: 'textarea', required: true },
+            { key: 'tunda_sampai', label: 'Perkiraan dilanjutkan', type: 'date' },
+          ],
+          'Bayar Pajak': [
+            { key: 'pajak_nominal', label: 'Nominal pajak', type: 'money' },
+            { key: 'pajak_bukti', label: 'Bukti bayar pajak', type: 'file' },
+          ],
+          Scan: [{ key: 'scan_hasil', label: 'Upload hasil scan', type: 'file', required: true }],
+        },
+        // Tidak wajib dicentang untuk menyelesaikan tahap: "Ditunda" bukan langkah maju,
+        // dan "Bayar Pajak" tidak muncul di semua dokumen.
+        opsional: ['Ditunda', 'Bayar Pajak'] },
       { key: 'bukti_transfer', label: 'Upload Bukti Transfer (opsional)', type: 'file' },
       { key: 'hasil_akhir', label: 'Upload Hasil Apostille / Legalisasi', type: 'file', required: true },
     ],

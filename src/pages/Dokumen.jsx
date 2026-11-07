@@ -84,6 +84,9 @@ function MenuBerkas({ f, buka, onTutup, bisaUbah, onRename, onTrash, onPreview, 
 
 export default function Dokumen() {
   const { user, data, branchFilter, notify, save, ask } = useApp()
+  // Jumlah berkas per cabang/project hanya untuk Superadmin & Direktur —
+  // angka itu memancing perbandingan antar cabang yang tidak perlu.
+  const bolehLihatJumlah = ['superadmin', 'direktur'].includes(user?.base_role || user?.role)
 
   // Folder yang sedang dibuka: akar | cabang | project | trash
   const [aktif, setAktif] = useState({ jenis: 'akar', cabang: '', projectId: '' })
@@ -343,7 +346,7 @@ export default function Dokumen() {
               buka={buka} onToggle={toggleBuka} aktif={aktif}
               onPilihAkar={keAkar} onPilihCabang={keCabang} onPilihProject={keProject}
               onPilihBerkas={(c, id, f) => { keProject(c, id); setPreview(f) }}
-              trashN={diTrash.length} onPilihTrash={keTrashFolder}
+              trashN={diTrash.length} onPilihTrash={keTrashFolder} tampilJumlah={bolehLihatJumlah}
             />
           </Card>
         </aside>
@@ -584,7 +587,7 @@ export default function Dokumen() {
           buka={buka} onToggle={toggleBuka} aktif={aktif}
           onPilihAkar={() => { keAkar(); setPohonHp(false) }} onPilihCabang={keCabang} onPilihProject={keProject}
           onPilihBerkas={(c, id, f) => { keProject(c, id); setPreview(f) }}
-          trashN={diTrash.length} onPilihTrash={keTrashFolder}
+          trashN={diTrash.length} onPilihTrash={keTrashFolder} tampilJumlah={bolehLihatJumlah}
         />
       </Sheet>
 

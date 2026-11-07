@@ -13,8 +13,8 @@ export function CourierLogo({ c, size = 'md' }) {
   if (c?.logo) return <img src={c.logo} alt="" className={cx(box, 'shrink-0 bg-white object-contain ring-1 ring-slate-200')} />
   const Icon = COURIER_ICONS[c?.icon] ?? Package
   return (
-    <span className={cx(box, 'grid shrink-0 place-items-center text-white')} style={{ background: c?.color || '#64748b' }}>
-      <Icon className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+    <span className={cx(box, 'grid shrink-0 place-items-center text-white')} style={{ background: c?.color || '#64748b' }} data-ikon-kurir>
+      <Icon className={cx('shrink-0', size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4')} />
     </span>
   )
 }
@@ -61,7 +61,7 @@ export function CourierSelect({ value, onChange, printLocation, disabled }) {
         className={cx('flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-left transition',
           cur ? 'border-l-4 border-orange-500 bg-white ring-1 ring-orange-300 hover:ring-orange-400'
             : 'bg-amber-100 ring-2 ring-orange-500 hover:bg-amber-200', 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-600', disabled && 'opacity-60')}>
-        {cur ? <CourierLogo c={cur} /> : <span className="grid h-8 w-8 place-items-center rounded-lg bg-orange-500 text-white"><Truck className="h-4 w-4" /></span>}
+        {cur ? <CourierLogo c={cur} /> : <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-orange-500 text-white" data-ikon-kurir><Truck className="h-4 w-4 shrink-0" /></span>}
         <span className="min-w-0 flex-1">
           <span className={cx('block text-[10px] font-bold uppercase tracking-wide', cur ? 'text-amber-600' : 'text-amber-800')}>Pilih Kurir</span>
           <span className={cx('block truncate text-sm', cur ? 'font-semibold text-ink' : 'font-semibold text-amber-900')}>{cur?.name ?? 'Belum dipilih'}</span>

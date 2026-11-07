@@ -18,7 +18,7 @@ import { CATEGORIES, DONE, stageIndex, stagesOf, progressOf, flowOf, sumberLabel
 import { SumberDanaPicker } from '../components/Pengajuan.jsx'
 import { ProjectTypes, PrintBadge } from '../components/badges.jsx'
 import { SUB_TYPES, points } from '../config/subtypes.js'
-import { Button, Card, SectionCard, Empty, Field, Input, Pill, Progress, Select, Textarea, cx } from '../components/ui.jsx'
+import { Button, Card, SectionCard, Empty, Field, Input, Pill, Progress, Select, Sheet, Textarea, cx } from '../components/ui.jsx'
 import { jam, kb, rupiah, tgl, daysLeft } from '../lib/format.js'
 import ProjectForm from './ProjectForm.jsx'
 import { ProjectPayBadge } from '../components/PayBadge.jsx'
@@ -28,6 +28,7 @@ import ActivityList from '../components/ActivityList.jsx'
 import { projectActivities } from '../lib/activity.js'
 import FileManager, { collect as collectFiles, fileIdentity, fieldFiles, uploadProjectFiles } from '../components/FileManager.jsx'
 import { PengajuanSummary, DownloadBukti, accountLabel, PengajuanTracker, RevisionNote, RejectPengajuan } from '../components/Pengajuan.jsx'
+import { GantiPenerjemahBtn, TolakTugasBtn, TolakNote, GantiNote } from '../components/GantiPenerjemah.jsx'
 import VendorChat from '../components/VendorChat.jsx'
 import CustomerInfo from '../components/CustomerInfo.jsx'
 import ShareSheet from '../components/ShareSheet.jsx'
@@ -323,6 +324,7 @@ export function StagePanel({ project, sub, stage }) {
       <div className="mx-4 mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
         <Lock className="h-4 w-4 shrink-0" /><span className="min-w-0 flex-1">Menunggu <b>{who}</b> memproses tahap <b>{stage.label}</b>.</span>
         <PingButton project={project} sub={sub} stage={stage} />
+        {stage.key === 'penerjemahan' && <GantiPenerjemahBtn project={project} sub={sub} />}
         {canOverride && <Button size="sm" variant="outline" onClick={() => setOverrideMode(true)} title="Lewati menunggu role ini — wajib isi alasan & data tahap"><FastForward className="h-3.5 w-3.5" />Lanjutkan ke Tahap Berikutnya</Button>}
       </div>
     )
@@ -365,6 +367,8 @@ export function StagePanel({ project, sub, stage }) {
     <div className="mx-4 mb-3 rounded-xl ring-2 ring-brand/20">
       <div className={cx('rounded-t-xl px-3 py-2', overriding ? 'bg-amber-100' : 'bg-brand-soft')}><p className={cx('text-xs font-bold', overriding ? 'text-amber-900' : 'text-brand')}>Tahap saat ini: {stage.label}{overriding && ' · Mode lanjutkan tanpa menunggu role'}</p>{stage.hint && <p className="text-[11px] text-ink-soft">{stage.hint}</p>}</div>
       <RevisionNote sub={sub} className="mx-3 mt-3 rounded-xl" />
+      <TolakNote sub={sub} className="mx-3 mt-3 rounded-xl" />
+      <GantiNote sub={sub} className="mx-3 mt-3 rounded-xl" />
       <div className="space-y-3 p-3">
         {stage.claimable && claim && (
           <div className="flex items-center gap-2 rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-900 ring-1 ring-violet-200">
@@ -460,30 +464,9 @@ export function StagePanel({ project, sub, stage }) {
             <Input type="number" inputMode="numeric" min="0" value={v} onChange={(e) => set(e.target.value)} placeholder="0" />
           </Field>
           if (f.type === 'date') return <Field key={f.key} label={f.label} required={f.required}><Input type="date" value={v} onChange={(e) => set(e.target.value)} /></Field>
-          if (f.type === 'checklist') {
-            const cur = Array.isArray(v) ? v : []; const items = f.items || []; const doneN = items.filter((it) => cur.includes(it)).length
-            const tick = async (it) => {
-              const n = cur.includes(it) ? cur.filter((x) => x !== it) : [...cur, it]
-              set(n)
-              try { await patchSubData(project, sub.id, { [f.key]: n }, `${cur.includes(it) ? 'Batal centang' : 'Centang'} ${it} (${f.label})`) } catch (e) { notify(e.message, 'err') }
-            }
-            return (
-              <Field key={f.key} label={`${f.label} · ${doneN}/${items.length}`} required={f.required} hint={doneN < items.length ? 'Centang setiap langkah yang sudah dikerjakan — tersimpan otomatis.' : 'Semua langkah selesai ✔'}>
-                <ol className="grid gap-1.5 sm:grid-cols-3">{items.map((it, i) => {
-                  const on = cur.includes(it)
-                  return (
-                    <li key={it}>
-                      <label className={cx('flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 ring-1 transition', on ? 'bg-emerald-50 ring-emerald-300' : 'bg-white ring-slate-200 hover:ring-brand')}>
-                        <input type="checkbox" checked={on} onChange={() => tick(it)} className="h-4 w-4 rounded border-slate-300 text-brand" aria-label={it} />
-                        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-slate-100 text-[10px] font-bold text-ink-soft">{i + 1}</span>
-                        <span className={cx('text-sm font-semibold', on ? 'text-emerald-800 line-through decoration-emerald-400' : 'text-ink')}>{it}</span>
-                      </label>
-                    </li>
-                  )
-                })}</ol>
-              </Field>
-            )
-          }
+          if (f.type === 'checklist') return (
+            <ChecklistProses key={f.key} f={f} nilai={v} setNilai={set} project={project} sub={sub} user={user} />
+          )
           if (f.type === 'reg_numbers') {
             const list = docListOf(sub); const cur = Array.isArray(v) ? v : []
             return (
@@ -528,6 +511,13 @@ export function StagePanel({ project, sub, stage }) {
           </div>
         )}
         {!overriding && (stage.key === 'persetujuan' || stage.key === 'pembayaran') && <div className="flex justify-end pt-1"><RejectPengajuan project={project} sub={sub} /></div>}
+        {/* Penerjemahan: Supervisor bisa mengganti penerjemah, penerjemahnya sendiri bisa menolak — dua-duanya wajib pakai alasan */}
+        {stage.key === 'penerjemahan' && (
+          <div className="flex flex-wrap justify-end gap-2 pt-1">
+            <TolakTugasBtn project={project} sub={sub} />
+            <GantiPenerjemahBtn project={project} sub={sub} />
+          </div>
+        )}
         <div className="flex gap-2 pt-1">
           {overrideMode && <Button variant="outline" onClick={() => { setOverrideMode(false); setReason('') }}>Batal</Button>}
           {stage.fields.length > 0 && !overriding && <Button variant="outline" className="flex-1" loading={busy === 'save'} disabled={!!uploading} onClick={() => run(false)}>Simpan</Button>}
@@ -535,6 +525,104 @@ export function StagePanel({ project, sub, stage }) {
         </div>
       </div>
     </div>
+  )
+}
+
+/**
+ * Ceklist proses apostille / legalisasi.
+ * - Langkah tertentu dibatasi peran (mis. "Bayar Pajak" hanya Supervisor):
+ *   peran lain tidak melihatnya sama sekali, bukan sekadar tidak bisa klik.
+ * - Langkah yang butuh data/berkas membuka slide isian dulu, baru tercentang,
+ *   supaya ceklistnya tetap ringkas tapi datanya tetap terekam.
+ */
+function ChecklistProses({ f, nilai, setNilai, project, sub, user }) {
+  const { patchSubData, notify } = useApp()
+  const [isian, setIsian] = useState(null)
+  const [sibuk, setSibuk] = useState(false)
+  const cur = Array.isArray(nilai) ? nilai : []
+  const items = (f.items || []).filter((it) => !f.itemRoles?.[it] || f.itemRoles[it].includes(user.role))
+  const opsional = f.opsional || []
+  const wajib = items.filter((it) => !opsional.includes(it))
+  const doneN = wajib.filter((it) => cur.includes(it)).length
+
+  const simpan = async (it, patch = {}) => {
+    const n = cur.includes(it) ? cur.filter((x) => x !== it) : [...cur, it]
+    setNilai(n)
+    try { await patchSubData(project, sub.id, { [f.key]: n, ...patch }, `${cur.includes(it) ? 'Batal centang' : 'Centang'} ${it} (${f.label})`) }
+    catch (e) { notify(e.message, 'err') }
+  }
+  const tick = (it) => {
+    const form = f.itemForm?.[it]
+    if (!cur.includes(it) && form?.length) {
+      setIsian({ item: it, fields: form, vals: Object.fromEntries(form.map((x) => [x.key, sub.data?.[x.key] ?? (x.type === 'file' ? [] : '')])) })
+      return
+    }
+    simpan(it)
+  }
+  const kurang = isian?.fields.filter((x) => x.required && (x.type === 'file' ? !(isian.vals[x.key] || []).length : !String(isian.vals[x.key] ?? '').trim())) || []
+  const kirimIsian = async () => {
+    setSibuk(true)
+    try {
+      const patch = {}
+      for (const x of isian.fields) {
+        const v = isian.vals[x.key]
+        if (x.type === 'file') { patch[x.key] = (v || [])[0] || ''; patch[`${x.key}_list`] = v || [] }
+        else patch[x.key] = x.type === 'money' ? Number(v) || '' : v
+      }
+      await simpan(isian.item, patch)
+      setIsian(null)
+    } finally { setSibuk(false) }
+  }
+
+  return (
+    <Field label={`${f.label} · ${doneN}/${wajib.length}`} required={f.required}
+      hint={doneN < wajib.length ? 'Centang setiap langkah yang sudah dikerjakan — tersimpan otomatis. Langkah yang butuh berkas akan membuka isian dulu.' : 'Semua langkah selesai ✔'}>
+      <ol className="grid gap-1.5 sm:grid-cols-3" data-ceklist={f.key}>{items.map((it, i) => {
+        const on = cur.includes(it)
+        const perluIsi = !!f.itemForm?.[it]?.length
+        return (
+          <li key={it}>
+            <label className={cx('flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl px-3 py-2 ring-1 transition md:min-h-0',
+              on ? 'bg-emerald-50 ring-emerald-300' : 'bg-white ring-slate-200 hover:ring-brand')}>
+              <input type="checkbox" checked={on} onChange={() => tick(it)} className="h-4 w-4 rounded border-slate-300 text-brand" aria-label={it} data-ceklist-item={it} />
+              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-slate-100 text-[10px] font-bold text-ink-soft">{i + 1}</span>
+              <span className={cx('min-w-0 flex-1 text-sm font-semibold', on ? 'text-emerald-800 line-through decoration-emerald-400' : 'text-ink')}>{it}
+                {opsional.includes(it) && <span className="ml-1 text-[10px] font-normal text-ink-mute">(opsional)</span>}</span>
+              {perluIsi && <Upload className="h-3.5 w-3.5 shrink-0 text-ink-mute" title="Butuh isian / berkas" />}
+            </label>
+          </li>
+        )
+      })}</ol>
+
+      {isian && (
+        <Sheet open side onClose={() => setIsian(null)} title={isian.item} subtitle={`${invoiceLabel(project.invoice_no)} · ${sub.title}`}
+          footer={<>
+            <Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={() => setIsian(null)}>Batal</Button>
+            <Button className="flex-[2]" variant="dark" loading={sibuk} disabled={kurang.length > 0} onClick={kirimIsian} data-aksi="simpan-ceklist">Simpan &amp; Centang</Button>
+          </>}>
+          <div className="space-y-3" data-slide-ceklist={isian.item}>
+            {isian.fields.map((x) => {
+              const v = isian.vals[x.key]
+              const set = (nv) => setIsian((o) => ({ ...o, vals: { ...o.vals, [x.key]: nv } }))
+              if (x.type === 'file') return (
+                <Field key={x.key} label={x.label} required={x.required} hint="Bisa lebih dari satu file · otomatis masuk File Project">
+                  <StageFiles project={project} sub={sub} list={v || []} onChange={set} onBusy={() => {}} />
+                </Field>
+              )
+              if (x.type === 'money') return (
+                <Field key={x.key} label={x.label} required={x.required} hint={v ? rupiah(v) : undefined}>
+                  <Input type="number" inputMode="numeric" min="0" value={v} onChange={(e) => set(e.target.value)} placeholder="0" />
+                </Field>
+              )
+              if (x.type === 'date') return <Field key={x.key} label={x.label} required={x.required}><Input type="date" value={v} onChange={(e) => set(e.target.value)} /></Field>
+              if (x.type === 'textarea') return <Field key={x.key} label={x.label} required={x.required}><Textarea rows={3} value={v} onChange={(e) => set(e.target.value)} /></Field>
+              return <Field key={x.key} label={x.label} required={x.required}><Input value={v} onChange={(e) => set(e.target.value)} /></Field>
+            })}
+            {kurang.length > 0 && <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 ring-1 ring-amber-200">Lengkapi dulu: {kurang.map((x) => x.label).join(', ')}</p>}
+          </div>
+        </Sheet>
+      )}
+    </Field>
   )
 }
 

@@ -15,7 +15,7 @@ export const useApp = () => useContext(Ctx)
 
 export function AppProvider({ children }) {
   const [baseUser, setUser] = useState(null)
-  const [data, setData] = useState({ users: [], people: [], projects: [], petty_cash: [], couriers: [], notifications: [], requests: [], perf_daily: [], share_links: [], share_log: [], vendor_bills: [], fund_balances: [], app_settings: [], activity_log: [], pings: [], notes: [], todos: [], reminders: [], messages: [], affidavit_stok: [], affidavit_pakai: [], affidavit_kirim: [], jadwal: [], cuti: [] })
+  const [data, setData] = useState({ users: [], people: [], projects: [], petty_cash: [], couriers: [], notifications: [], requests: [], perf_daily: [], share_links: [], share_log: [], vendor_bills: [], fund_balances: [], app_settings: [], activity_log: [], pings: [], notes: [], todos: [], reminders: [], messages: [], affidavit_stok: [], affidavit_pakai: [], affidavit_kirim: [], jadwal: [], cuti: [], mitra: [], kapasitas: [] })
   // double job: user bisa berganti peran aktif (mis. Proofreader ↔ Staf Otorisasi)
   const [activeRole, setActiveRoleState] = useState(() => { try { return sessionStorage.getItem('atlas-active-role') } catch { return null } })
   const user = useMemo(() => {
@@ -239,7 +239,7 @@ export function AppProvider({ children }) {
 
     let pettyRow = null
     if (advance) {
-      const missing = stage.fields.filter((f) => f.required && (f.type === 'reg_numbers' ? !regComplete({ ...s, data: merged }) : f.type === 'checklist' ? !(f.items || []).every((it) => (merged[f.key] || []).includes(it)) : (merged[f.key] === undefined || merged[f.key] === '' || merged[f.key] === null)))
+      const missing = stage.fields.filter((f) => f.required && (f.type === 'reg_numbers' ? !regComplete({ ...s, data: merged }) : f.type === 'checklist' ? !(f.items || []).filter((it) => !(f.opsional || []).includes(it)).every((it) => (merged[f.key] || []).includes(it)) : (merged[f.key] === undefined || merged[f.key] === '' || merged[f.key] === null)))
       if (missing.length) throw new Error('Lengkapi: ' + missing.map((f) => f.label).join(', '))
       if (stage.effect === 'pettycash_out') {
         const amt = Number(merged.apostille_cost || 0)
@@ -296,6 +296,58 @@ export function AppProvider({ children }) {
     const text = `${project.invoice_no} · ${title}: Pengajuan dikembalikan oleh ${user.name} — ${why}`
     const sent = new Set()
     for (const uid of [to, project.created_by].filter(Boolean)) { if (sent.has(uid) || uid === user.id) continue; sent.add(uid); await save('notifications', { to_user: uid, kind: 'revision', text, project_id: project.id, by: user.name, read_by: [] }).catch(() => {}) }
+    return saved
+  }
+
+  /**
+   * Supervisor / Superadmin MENGGANTI penerjemah yang tugasnya sudah terkirim.
+   * Wajib pakai alasan: tercatat di riwayat dan dikirim ke kedua penerjemah.
+   */
+  const gantiPenerjemah = async (project, subId, toId, reason) => {
+    const why = String(reason || '').trim(); if (!why) throw new Error('Isi alasan penggantian penerjemah')
+    if (!toId) throw new Error('Pilih penerjemah pengganti')
+    const now = new Date().toISOString(); let title = ''; let dari = null
+    const subs = project.sub_projects.map((x) => {
+      if (x.id !== subId) return x
+      title = x.title; dari = x.data?.translator || x.translator || null
+      if (dari === toId) throw new Error('Penerjemah pengganti sama dengan yang sekarang')
+      const nDari = data.users.find((u) => u.id === dari)?.name || '—'
+      const nKe = data.users.find((u) => u.id === toId)?.name || toId
+      return { ...x, translator: toId, stage: 'penerjemahan', stage_at: now,
+        data: { ...x.data, translator: toId, ganti_note: why, ganti_by: user.id, ganti_name: user.name, ganti_at: now, ganti_dari: dari, ganti_dari_nama: nDari, penerjemahan_work_started_at: '' },
+        history: [...(x.history || []), { at: now, by: user.name, role: user.role, action: `Penerjemah diganti: ${nDari} → ${nKe} · alasan: ${why}`, reason: why }] }
+    })
+    const saved = await save('projects', { ...project, sub_projects: subs })
+    const kirim = [[toId, `Tugas terjemahan baru untuk Anda: ${project.invoice_no} · ${title}`],
+      [dari, `Tugas ${project.invoice_no} · ${title} dialihkan ke penerjemah lain — ${why}`]]
+    for (const [uid, text] of kirim) {
+      if (!uid || uid === user.id) continue
+      await save('notifications', { to_user: uid, kind: 'assign', text, project_id: project.id, by: user.name, read_by: [] }).catch(() => {})
+    }
+    return saved
+  }
+
+  /**
+   * Penerjemah MENOLAK tugas yang sudah dikirim kepadanya (mis. sedang penuh).
+   * Sub project kembali ke tahap "Pilih Penerjemah", alasan tersimpan, dan
+   * Supervisor cabang diberi tahu supaya bisa menunjuk penerjemah lain.
+   */
+  const tolakTugas = async (project, subId, reason) => {
+    const why = String(reason || '').trim(); if (!why) throw new Error('Isi alasan penolakan')
+    const now = new Date().toISOString(); let title = ''
+    const subs = project.sub_projects.map((x) => {
+      if (x.id !== subId) return x
+      title = x.title
+      return { ...x, translator: '', stage: 'pilih_penerjemah', stage_at: now,
+        data: { ...x.data, translator: '', tolak_note: why, tolak_by: user.id, tolak_name: user.name, tolak_at: now, tolak_count: (Number(x.data?.tolak_count) || 0) + 1, penerjemahan_work_started_at: '' },
+        history: [...(x.history || []), { at: now, by: user.name, role: user.role, action: `Tugas ditolak penerjemah → kembali ke Pilih Penerjemah · alasan: ${why}`, rejected: true, reason: why }] }
+    })
+    const saved = await save('projects', { ...project, sub_projects: subs })
+    const text = `${project.invoice_no} · ${title}: ${user.name} menolak tugas terjemahan — ${why}`
+    await save('notifications', { to_role: 'supervisor', to_branch: project.branch, kind: 'revision', text, project_id: project.id, by: user.name, read_by: [] }).catch(() => {})
+    if (project.created_by && project.created_by !== user.id) {
+      await save('notifications', { to_user: project.created_by, kind: 'revision', text, project_id: project.id, by: user.name, read_by: [] }).catch(() => {})
+    }
     return saved
   }
 
@@ -632,7 +684,7 @@ export function AppProvider({ children }) {
   }, [data.users, data.people, user])
 
   const value = useMemo(() => ({
-    user, setActiveRole, booting, data, refresh, signIn, signUp, signOut, MODE, save, remove, processStage, pettyBalance, claimSub, myNotifications, markRead, nameOf, patchSubData, saveBiaya, assignTranslator, returnPengajuan, myPings, sendPing, markPingRead, lastPingTo, setAvatar, updateProfile, PING_COOLDOWN_MS, PING_DAILY_MAX,
+    user, setActiveRole, booting, data, refresh, signIn, signUp, signOut, MODE, save, remove, processStage, pettyBalance, claimSub, myNotifications, markRead, nameOf, patchSubData, saveBiaya, assignTranslator, returnPengajuan, gantiPenerjemah, tolakTugas, myPings, sendPing, markPingRead, lastPingTo, setAvatar, updateProfile, PING_COOLDOWN_MS, PING_DAILY_MAX,
     notify, toast, dismissToast, branchFilter, setBranchFilter, ask, confirmState, setConfirmState, liveStatus,
     invoices, invoiceErr, refreshInvoices, unlinkedInvoices,
     chatMessages, chatUnread, chatTotals, sendMessage, sendChatPing, markChatRead, sendTyping, typing, PING_MAX_24H, PING_GAP_MS,

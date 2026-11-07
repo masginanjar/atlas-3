@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Play, Send, FolderOpen, Hand, CheckCircle2, FileText, Upload, Loader2, Circle, Inbox, Building2, Headset, Printer, Eye, Download, ChevronDown, List, Table2 } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
+import { TolakTugasBtn } from './GantiPenerjemah.jsx'
 import { can, activeClaim, placeOf, seeProofreaderIdentity, proofreaderTeamName, pickProofreader, invoiceLabel} from '../config/access.js'
 import { flowOf, stagesOf } from '../config/workflows.js'
 import { SUB_TYPES } from '../config/subtypes.js'
@@ -181,6 +182,9 @@ function WorkSheet({ project, sub, t, onClose }) {
           </section>
         )}
 
+        {/* Tidak sanggup mengerjakan? kembalikan ke Supervisor dengan alasan */}
+        <TolakTugasBtn project={project} sub={sub} blok onDone={onClose} />
+
         {/* File project lain — tersembunyi supaya tidak mengganggu */}
         <div>
           <button type="button" onClick={() => setAllFiles((v) => !v)} className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">
@@ -293,7 +297,7 @@ function TaskTr({ project, sub, alt }) {
         <PriorityBadge p={project.about?.priority} className="mt-0.5" />
       </td>
       <td data-label="Progres" className="min-w-0 max-w-full px-3 py-2.5 text-sm"><ProgresTugas t={t} /></td>
-      <td data-label="Aksi" className="min-w-0 max-w-full px-3 py-2.5 text-sm"><AksiTugas t={t} sub={sub} setOpen={setOpen} /></td>
+      <td data-label="Aksi" className="min-w-0 max-w-full px-3 py-2.5 text-sm"><AksiTugas t={t} project={project} sub={sub} setOpen={setOpen} /></td>
       {t.namerDialog}
       {open && <WorkSheet project={project} sub={sub} t={t} onClose={() => setOpen(false)} />}
     </tr>
@@ -301,7 +305,7 @@ function TaskTr({ project, sub, alt }) {
 }
 
 /** Tombol aksi tugas — dipakai tampilan List maupun Tabel, supaya persis sama. */
-function AksiTugas({ t, sub, setOpen, className }) {
+function AksiTugas({ t, project, sub, setOpen, className }) {
   return (
     <div className={cx('flex flex-wrap items-center gap-1.5', className)}>
       {!t.started
@@ -315,6 +319,7 @@ function AksiTugas({ t, sub, setOpen, className }) {
           {t.people.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
         </select>
       )}
+      <TolakTugasBtn project={project} sub={sub} className="!h-8" />
       <button type="button" onClick={() => setOpen(true)} aria-label={`Dokumen & rincian ${sub.title}`} title="Buka jendela kerja: dokumen sumber, hasil, catatan"
         className="grid h-8 w-8 place-items-center rounded-xl bg-white text-ink-soft ring-1 ring-slate-300 hover:bg-ink hover:text-white"><FolderOpen className="h-4 w-4" /></button>
       <Button size="sm" variant="dark" loading={t.busy === 'next'} onClick={() => (t.blocked ? setOpen(true) : t.next())} title={t.blocked || t.stage.action} className="whitespace-nowrap">
@@ -366,7 +371,7 @@ function TaskRow({ project, sub, alt }) {
         {/* Progres 3 langkah */}
         <ProgresTugas t={t} />
         {/* Aksi: Mulai → Upload → Kirim (tombol yang sama dengan isi pop-up) */}
-        <AksiTugas t={t} sub={sub} setOpen={setOpen} className="lg:justify-end" />
+        <AksiTugas t={t} project={project} sub={sub} setOpen={setOpen} className="lg:justify-end" />
       </div>
       {/* Daftar dokumen — tabel menyamping */}
       <div className="u-hide-compact px-4 pb-3">

@@ -70,12 +70,13 @@ export const safeName = (n = '') => n.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s
 /** Nama file otomatis dari deskripsi dokumen (ekstensi file asli dipertahankan). */
 export const docFileName = (d) => d.file_name?.trim() || `${safeName(d.desc) || (d.file?.name || 'dokumen').replace(/\.[^.]+$/, '')}${extOf(d.file?.name)}`
 
-function DocTable({ docs, onChange, invalid, simple = false, uploadLabel = 'Upload file (opsional)' }) {
+function DocTable({ docs, onChange, invalid, simple = false, uploadLabel = 'Upload file (opsional)', maks = 0 }) {
   const [focus, setFocus] = useState(null)
   const refs = useRef([])
   useEffect(() => { if (focus !== null) { refs.current[focus]?.focus(); setFocus(null) } }, [focus, docs.length])
   const upd = (i, patch) => onChange(docs.map((d, j) => (j === i ? { ...d, ...patch } : d)))
-  const add = (at = docs.length) => { const next = [...docs]; next.splice(at, 0, { desc: '', pages: 1, kind: docs[at - 1]?.kind || 'reguler' }); onChange(next); setFocus(at) }
+  const penuh = !!maks && docs.length >= maks
+  const add = (at = docs.length) => { if (penuh) return; const next = [...docs]; next.splice(at, 0, { desc: '', pages: 1, kind: docs[at - 1]?.kind || 'reguler' }); onChange(next); setFocus(at) }
   const del = (i) => onChange(docs.length > 1 ? docs.filter((_, j) => j !== i) : [{ desc: '', pages: 1 }])
   const total = docs.filter((d) => d.desc.trim()).reduce((a, d) => a + (Number(d.pages) || 0), 0)
   const count = docs.filter((d) => d.desc.trim()).length
@@ -92,7 +93,7 @@ function DocTable({ docs, onChange, invalid, simple = false, uploadLabel = 'Uplo
           <div className="min-w-0 space-y-1">
             <input ref={(el) => (refs.current[i] = el)} value={d.desc} placeholder="mis. KTP a.n. …" aria-label={`Deskripsi dokumen ${i + 1}`}
               onChange={(e) => upd(i, { desc: e.target.value, ...(d.file && !d.name_edited ? { file_name: `${safeName(e.target.value) || 'dokumen'}${extOf(d.file.name)}` } : {}) })}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); add(i + 1) } }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing && !penuh) { e.preventDefault(); add(i + 1) } }}
               className="h-9 w-full min-w-0 rounded-lg border-0 bg-white px-2.5 text-sm text-ink ring-1 ring-slate-200 placeholder:text-slate-400 hover:ring-slate-300 focus:outline-none focus:ring-2 focus:ring-brand" />
             {d.file ? (
               <div className="flex items-center gap-1.5 rounded-lg bg-emerald-50 px-2 py-1 ring-1 ring-emerald-200">
@@ -124,9 +125,15 @@ function DocTable({ docs, onChange, invalid, simple = false, uploadLabel = 'Uplo
         </div>
       ))}
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-slate-50/70 px-2 py-2">
-        <button type="button" onClick={() => add()} className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[13px] font-semibold text-brand ring-1 ring-brand/30 hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
-          <Plus className="h-4 w-4" />Tambah Dokumen
-        </button>
+        {penuh ? (
+          <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-[13px] font-semibold text-ink-mute" data-maks-dokumen={maks}>
+            Maksimal {maks} dokumen per sub project
+          </span>
+        ) : (
+          <button type="button" onClick={() => add()} className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-[13px] font-semibold text-brand ring-1 ring-brand/30 hover:bg-brand-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
+            <Plus className="h-4 w-4" />Tambah Dokumen
+          </button>
+        )}
         <span className="flex items-center gap-2 text-[13px] text-ink-soft">
           <span className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 ring-1 ring-slate-200" title="Jumlah file/dokumen"><Files className="h-3.5 w-3.5 text-emerald-600" /><b className="font-bold text-ink">{count}</b> dokumen</span>
           {!simple && <span className="inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1 ring-1 ring-slate-200" title="Total halaman"><BookOpen className="h-3.5 w-3.5 text-emerald-600" /><b className="font-bold text-ink">{total}</b> halaman{nonReg > 0 && <span className="text-violet-700"> · {nonReg} non reguler</span>}</span>}
@@ -176,7 +183,9 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
         {usesDocs(sub.type) ? (
           <div>
             <span className="mb-1.5 block text-[13px] font-semibold text-ink-soft">{sub.type === 'terjemahan' ? 'Detail Dokumen' : `Dokumen yang akan di-${sub.type === 'apostille' ? 'apostille' : 'legalisasi'}`} <span className="text-rose-500" aria-hidden>*</span></span>
-            <DocTable docs={docsOf(sub)} invalid={errOn('dokumen')} simple={sub.type !== 'terjemahan'} uploadLabel={sub.type === 'terjemahan' ? 'Upload file (opsional)' : 'Upload scan (opsional)'} onChange={(docs) => set(fromDocs(docs))} />
+            {/* Apostille & legalisasi: satu sub project = satu dokumen yang diproses. */}
+            <DocTable docs={docsOf(sub)} invalid={errOn('dokumen')} simple={sub.type !== 'terjemahan'} maks={MAKS_DOK[sub.type] || 0}
+              uploadLabel={sub.type === 'terjemahan' ? 'Upload file (opsional)' : 'Upload scan (opsional)'} onChange={(docs) => set(fromDocs(docs))} />
           </div>
         ) : (
           <>
@@ -212,27 +221,31 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
             )}
             {extra.includes('translator_nt') && (
               <Field label="Penerjemah" icon={UserPen} required hint={locked ? 'Terkunci — alur sudah berjalan' : 'Tanpa supervisor, proofreader & otorisasi'}>
-                <Select value={sub.translator || ''} disabled={locked} aria-invalid={errOn('penerjemah')} onChange={(e) => set({ translator_kind: 'translator', translator: e.target.value })}>
-                  <option value="">— Pilih penerjemah —</option>
-                  {data.users.filter((u) => u.role === 'penerjemah' && u.active !== false).map((u) => <option key={u.id} value={u.id}>{u.name} · {placeOf(u)}</option>)}
-                </Select>
+                <PilihCari label="Penerjemah" placeholder="— Pilih penerjemah —" disabled={locked} invalid={errOn('penerjemah')}
+                  value={sub.translator || ''} onChange={(v) => set({ translator_kind: 'translator', translator: v })}
+                  options={data.users.filter((u) => u.role === 'penerjemah' && u.active !== false).map((u) => ({ value: u.id, label: u.name, note: placeOf(u) }))}
+                  kosong="Penerjemah tidak ditemukan" />
               </Field>
             )}
             {extra.includes('translator') && (
               <Field label="Penerjemah" icon={UserPen} hint={locked ? 'Terkunci — alur sudah berjalan' : 'Opsional — kosong = ditentukan Supervisor'}>
-                <Select value={sub.translator ? `${sub.translator_kind || 'translator'}:${sub.translator}` : ''} disabled={locked}
-                  onChange={(e) => { const [kind, id] = e.target.value.split(':'); set({ translator_kind: kind || '', translator: id || '' }) }}>
-                  <option value="">Ditentukan Supervisor</option>
-                  <optgroup label="Penerjemah (internal)">{data.users.filter((u) => u.role === 'penerjemah' && u.active !== false).map((u) => <option key={u.id} value={`translator:${u.id}`}>{u.name} · {placeOf(u)}</option>)}</optgroup>
-                  <optgroup label="Vendor (eksternal)">{of('vendor').map((p) => <option key={p.id} value={`vendor:${p.id}`}>{p.name}</option>)}</optgroup>
-                </Select>
+                <PilihCari label="Penerjemah" placeholder="Ditentukan Supervisor" disabled={locked}
+                  value={sub.translator ? `${sub.translator_kind || 'translator'}:${sub.translator}` : ''}
+                  onChange={(v) => { const [kind, id] = String(v).split(':'); set({ translator_kind: id ? (kind || '') : '', translator: id || '' }) }}
+                  options={[
+                    { value: '', label: 'Ditentukan Supervisor', note: 'Biarkan kosong' },
+                    ...data.users.filter((u) => u.role === 'penerjemah' && u.active !== false).map((u) => ({ value: `translator:${u.id}`, label: u.name, note: `Penerjemah internal · ${placeOf(u)}` })),
+                    ...of('vendor').map((p) => ({ value: `vendor:${p.id}`, label: p.name, note: 'Vendor eksternal' })),
+                  ]}
+                  kosong="Penerjemah / vendor tidak ditemukan" />
               </Field>
             )}
           </div>
         )}
 
         {['apostille', 'legalisasi'].includes(sub.type) && (
-          <Field label="Nomor ID Pemohon / No. NIB / SK Kemenkumham Perusahaan" icon={IdCard} hint="NIK/paspor, NIB, atau nomor SK Kemenkumham">
+          <Field label="Nomor ID Pemohon / No. NIB / SK Kemenkumham Perusahaan" icon={IdCard} required
+            hint="NIK/paspor, NIB, atau nomor SK Kemenkumham · scan/file ID wajib diunggah (bebas jenis file)">
             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
               <Input value={sub.applicant_id || ''} onChange={(e) => set({ applicant_id: e.target.value })} placeholder="mis. 5171xxxxxxxxxxxx / NIB 1234567890123 / AHU-0012345.AH.01.01.2024" />
               {sub.applicant_file ? (
@@ -244,9 +257,10 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
               ) : sub.data?.dokumen_id ? (
                 <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-50 px-2.5 text-xs text-ink-mute ring-1 ring-slate-200"><Paperclip className="h-3.5 w-3.5" />{sub.data.dokumen_id.name}</span>
               ) : (
-                <label className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-brand ring-1 ring-brand/30 hover:bg-brand-soft">
-                  <Upload className="h-3.5 w-3.5" />Upload scan ID / dokumen pemohon
-                  <input type="file" className="hidden" accept="application/pdf,image/*" aria-label="File ID pemohon" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) set({ applicant_file: f }) }} />
+                <label className={cx('inline-flex min-h-[44px] cursor-pointer items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold ring-1 md:min-h-0',
+                  errOn('id / dokumen pemohon') ? 'bg-rose-50 text-rose-700 ring-rose-300' : 'bg-white text-brand ring-brand/30 hover:bg-brand-soft')} data-upload-id>
+                  <Upload className="h-3.5 w-3.5 shrink-0" />Upload scan ID / dokumen pemohon *
+                  <input type="file" className="hidden" aria-label="File ID pemohon" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) set({ applicant_file: f }) }} />
                 </label>
               )}
             </div>
@@ -302,6 +316,9 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
   )
 }
 
+/** Batas jumlah dokumen per sub project. Apostille & legalisasi: 1 dokumen saja. */
+export const MAKS_DOK = { apostille: 1, legalisasi: 1 }
+
 /** Validasi sub project sebelum disimpan. Mengembalikan pesan error atau null. */
 export function validateSub(s, i) {
   const label = `Sub ${i + 1}`
@@ -311,6 +328,10 @@ export function validateSub(s, i) {
   if (extra.includes('country') && !s.country.trim()) return `${label}: pilih tujuan negara`
   if (extra.includes('institution') && !s.institution) return `${label}: pilih lembaga`
   if (extra.includes('objek') && !s.objek) return `${label}: pilih yang diapostille (asli / terjemahan / keduanya)`
+  // Apostille & legalisasi tidak bisa jalan tanpa scan ID / dokumen pemohon.
+  if (['apostille', 'legalisasi'].includes(s.type) && !s.applicant_file && !s.data?.dokumen_id) return `${label}: upload scan ID / dokumen pemohon dulu (wajib)`
+  const maks = MAKS_DOK[s.type]
+  if (maks && points(s.description).length > maks) return `${label}: apostille/legalisasi maksimal ${maks} dokumen per sub project — pisahkan jadi sub project sendiri`
   if (extra.includes('executor') && !s.executor_id) return `${label}: pilih eksekutor`
   return null
 }
