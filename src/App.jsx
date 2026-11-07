@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, PanelLeftClose, PanelLeftOpen, Stamp, ReceiptText, StickyNote, AlarmClock, FilePlus2, MoreHorizontal, CalendarDays, ChevronDown, Tags, MessageCircle , BookOpen} from 'lucide-react'
+import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, PanelLeftClose, PanelLeftOpen, Stamp, ReceiptText, StickyNote, AlarmClock, FilePlus2, MoreHorizontal, CalendarDays, ChevronDown, Tags, MessageCircle, BookOpen, FileStack } from 'lucide-react'
 import { useApp } from './lib/store.jsx'
 import Avatar from './components/Avatar.jsx'
 import { MODE, storageError, db } from './lib/db.js'
@@ -10,7 +10,7 @@ import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Projects from './pages/Projects.jsx'
 import ProjectDetail from './pages/ProjectDetail.jsx'
-import { canSeeAllActivity, canMonitor, canSeeKeuangan, canSeeApostille, canSeeInvoices } from './config/menuAccess.js'
+import { canSeeAllActivity, canMonitor, canSeeKeuangan, canSeeApostille, canSeeInvoices, canSeeAffidavit } from './config/menuAccess.js'
 import { needsAction } from './lib/badges.js'
 import { ReminderWatcher } from './pages/Reminders.jsx'
 // Halaman yang tidak dibuka tiap hari dimuat saat diklik → halaman pertama jauh lebih ringan
@@ -29,6 +29,7 @@ const Calendar = lazy(() => import('./pages/Calendar.jsx'))
 const Pesan = lazy(() => import('./pages/Pesan.jsx'))
 const DaftarHarga = lazy(() => import('./pages/DaftarHarga.jsx'))
 const Faq = lazy(() => import('./pages/Faq.jsx'))
+const Affidavit = lazy(() => import('./pages/Affidavit.jsx'))
 import GlobalSearch from './components/GlobalSearch.jsx'
 import NotificationBell from './components/NotificationBell.jsx'
 import ThemePicker, { readTheme, applyTheme } from './components/ThemePicker.jsx'
@@ -66,6 +67,7 @@ const NAV = [
   { key: 'notes', label: 'Notes', icon: StickyNote, bar: true },
   { group: 'Manajemen' },
   { key: 'keuangan', label: 'Keuangan', icon: Wallet, badge: needsAction },
+  { key: 'affidavit', label: 'Tracking Affidavit', icon: FileStack, show: canSeeAffidavit },
   { group: 'Resources' },
   { key: 'daftar-harga', label: 'Daftar Harga', icon: Tags },
   { key: 'faq', label: 'FAQ & Panduan CS', icon: BookOpen },
@@ -119,6 +121,7 @@ export default function App() {
     : page === 'calendar' ? <Calendar />
     : page === 'daftar-harga' ? <DaftarHarga />
     : page === 'faq' ? <Faq />
+    : page === 'affidavit' ? <Affidavit />
     : page === 'pesan' && CHAT_ENABLED ? <Pesan peerParam={param} />
     : <Dashboard />
 

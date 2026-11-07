@@ -97,14 +97,20 @@ export default function NotificationBell() {
                 const sender = data.users.find((u) => u.name === n.by)
                 return (
                   <li key={n.id}>
-                    <button type="button" onClick={() => (n.project_id && canOpen(n.project_id) ? openProject(n.project_id, markRead, n) : markRead([n]))}
+                    <button type="button" onClick={() => {
+                      // peringatan stok affidavit → buka halaman Tracking Affidavit untuk Catat Pengiriman
+                      if (n.kind === 'affidavit') { markRead([n]); window.location.hash = '#/affidavit'; return }
+                      return n.project_id && canOpen(n.project_id) ? openProject(n.project_id, markRead, n) : markRead([n])
+                    }}
                       className={cx('flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-slate-50', isNew && (tab === 'pay' ? 'bg-emerald-50/70' : tab === 'tr' ? 'bg-amber-50/70' : 'bg-brand-soft/40'))}>
                       <span className="relative shrink-0">{tab === 'pay' ? <span className="grid h-9 w-9 place-items-center rounded-full bg-emerald-100 text-emerald-700 ring-2 ring-white"><Banknote className="h-4 w-4" /></span> : tab === 'tr' ? <span className="grid h-9 w-9 place-items-center rounded-full bg-amber-100 text-amber-700 ring-2 ring-white"><Languages className="h-4 w-4" /></span> : <Avatar user={sender || { name: n.by || 'Sistem' }} size={36} />}{isNew && <span className={cx('absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white', tab === 'pay' ? 'bg-emerald-500' : tab === 'tr' ? 'bg-amber-500' : 'bg-brand')} aria-hidden />}</span>
                       <span className="min-w-0 flex-1">
                         <span className={cx('block text-sm leading-snug', isNew ? 'font-semibold text-ink' : 'text-ink-soft')}>{n.text}</span>
                         <span className="mt-0.5 block text-[11px] text-ink-mute">{n.by}{sender ? ` · ${roleLabel(sender)}` : ''} · {relTime(n.created_at, now)}</span>
                       </span>
-                      {n.project_id && <ArrowRight className="mt-2 h-4 w-4 shrink-0 text-slate-300" />}
+                      {n.kind === 'affidavit'
+                        ? <span className="mt-1.5 shrink-0 rounded-lg bg-amber-100 px-2 py-1 text-[11px] font-bold text-amber-900">Catat Pengiriman</span>
+                        : n.project_id && <ArrowRight className="mt-2 h-4 w-4 shrink-0 text-slate-300" />}
                     </button>
                   </li>
                 )

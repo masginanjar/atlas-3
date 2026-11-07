@@ -12,6 +12,8 @@ import OtorisatorView from '../components/OtorisatorView.jsx'
 import WorkerView from '../components/WorkerView.jsx'
 import CopyText from '../components/CopyText.jsx'
 import { printBlob } from '../lib/printing.js'
+import AffidavitCetak from '../components/AffidavitCetak.jsx'
+import { perluAffidavit } from '../lib/affidavit.js'
 import { CATEGORIES, DONE, stageIndex, stagesOf, progressOf, flowOf, sumberLabel, isVendorFlow, recommendFund, docListOf, VENDOR_PAID_STAGES } from '../config/workflows.js'
 import { SumberDanaPicker } from '../components/Pengajuan.jsx'
 import { ProjectTypes, PrintBadge } from '../components/badges.jsx'
@@ -339,6 +341,10 @@ export function StagePanel({ project, sub, stage }) {
   const dType = deliveryType(project, data.couriers)
   const needDelivery = ['siap_kirim', 'cs_final', 'kirim'].includes(stage.key) || (stage.key === 'proses_vendor' && dType === 'vendor')
   const delivery = needDelivery ? deliveryOk(project, sub, data.couriers) : { ok: true }
+  // Lembar affidavit: untuk 4 arah tertentu, stok cabang harus dicatat dulu
+  // sebelum tahap "Siap Print" boleh dilanjutkan — kertasnya memang terpakai.
+  const perluLembar = stage.print && perluAffidavit(project, sub)
+  const lembarTercatat = perluLembar && (data.affidavit_pakai || []).some((x) => x.sub_id === sub.id)
   const printDoc = sub.data?.file_final || sub.data?.hasil_proofread || sub.data?.hasil_terjemahan
   const isPdf = printDoc && (/\.pdf$/i.test(printDoc.name) || printDoc.url?.startsWith('data:application/pdf'))
   const getBlob = async () => (printDoc.url?.startsWith('data:') ? dataUrlToBlob(printDoc.url) : drive.blob(printDoc))
@@ -384,6 +390,7 @@ export function StagePanel({ project, sub, stage }) {
               {isPdf && <Button size="sm" variant="outline" onClick={() => setPreviewFile(printDoc)}><Eye className="h-3.5 w-3.5" />Preview</Button>}
               {isPdf && <Button size="sm" variant="dark" onClick={doPrint}><Printer className="h-3.5 w-3.5" />Print</Button>}
               {previewFile && <FilePreview file={previewFile} onClose={() => setPreviewFile(null)} />}
+              <div className="basis-full"><AffidavitCetak project={project} sub={sub} /></div>
             </div>
           ) : <p className="text-xs text-ink-mute">Belum ada file dokumen final.</p>
         )}
@@ -509,6 +516,7 @@ export function StagePanel({ project, sub, stage }) {
         )}
         {needDelivery && <DeliveryChecklist project={project} sub={sub} />}
         {needDelivery && !delivery.ok && <p className="text-[11px] font-semibold text-amber-800">{delivery.reason}</p>}
+        {perluLembar && !lembarTercatat && <p className="text-[11px] font-semibold text-amber-800">Catat dulu pemakaian lembar affidavit di atas sebelum menandai sudah dicetak.</p>}
         {overriding && (
           <div className="mb-1 flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 p-2.5 text-[11px] text-ink-soft ring-1 ring-slate-200"><span className="min-w-0 flex-1">Tahap ini milik role lain — Anda bisa mengingatkan PIC-nya tanpa mengubah status.</span><PingButton project={project} sub={sub} stage={stage} /></div>
         )}
@@ -523,7 +531,7 @@ export function StagePanel({ project, sub, stage }) {
         <div className="flex gap-2 pt-1">
           {overrideMode && <Button variant="outline" onClick={() => { setOverrideMode(false); setReason('') }}>Batal</Button>}
           {stage.fields.length > 0 && !overriding && <Button variant="outline" className="flex-1" loading={busy === 'save'} disabled={!!uploading} onClick={() => run(false)}>Simpan</Button>}
-          <Button className="flex-[2]" loading={busy === 'go'} disabled={!!uploading || (needDelivery && !delivery.ok) || (overriding && !reason.trim())} onClick={() => run(true)} variant={overriding ? 'dark' : 'primary'}>{overriding ? 'Lanjutkan ke Tahap Berikutnya' : stage.action} →</Button>
+          <Button className="flex-[2]" loading={busy === 'go'} disabled={!!uploading || (needDelivery && !delivery.ok) || (perluLembar && !lembarTercatat) || (overriding && !reason.trim())} onClick={() => run(true)} variant={overriding ? 'dark' : 'primary'}>{overriding ? 'Lanjutkan ke Tahap Berikutnya' : stage.action} →</Button>
         </div>
       </div>
     </div>

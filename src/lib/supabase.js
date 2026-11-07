@@ -74,6 +74,16 @@ export const supabaseDb = {
   async cleanup() { return 0 },
   /** klaim otorisasi atomik di server */
   async claim(projectId, subId) { return unwrap(await sb().rpc('claim_sub', { p_project: projectId, p_sub: subId })) },
+  /**
+   * Pakai lembar affidavit — atomik di server:
+   * cek saldo, kurangi stok, dan catat pemakaian dalam satu transaksi.
+   * Idempoten lewat `kunci`: percobaan ulang tidak mengurangi dua kali.
+   */
+  async affidavitPakai(ref) { return unwrap(await sb().rpc('affidavit_pakai', { p_ref: ref })) },
+  /** Konfirmasi lembar diterima cabang — tambah stok & tutup pengiriman dalam satu transaksi. */
+  async affidavitTerima({ kirim_id, lembar, oleh }) {
+    return unwrap(await sb().rpc('affidavit_terima', { p_kirim: kirim_id, p_lembar: lembar, p_oleh: oleh }))
+  },
   token: async () => { const { data } = await sb().auth.getSession(); return data?.session?.access_token ?? null },
   /** Realtime: panggil cb(tabel) setiap ada perubahan dari pengguna lain. Mengembalikan fungsi berhenti. */
   /** Langganan perubahan tabel (Realtime). onStatus menerima 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED'. */

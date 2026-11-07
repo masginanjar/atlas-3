@@ -8,13 +8,14 @@ import { threadOf, myMessages, unreadByThread, pingQuota, openChatBus, PING_MAX_
 import { broadcastSignOut, markActivity, setIdleReason } from './session.js'
 import { CHAT_ENABLED } from './flags.js'
 import { DONE, stagesOf, flowOf, isBilled, regComplete, stageLabel } from '../config/workflows.js'
+import { cariStok, cariPeringatan, kunciPeringatan, teksPeringatan, sudahTercatat, arahLabel, canKelolaAffidavit, AMBANG_RENDAH } from './affidavit.js'
 
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
 
 export function AppProvider({ children }) {
   const [baseUser, setUser] = useState(null)
-  const [data, setData] = useState({ users: [], people: [], projects: [], petty_cash: [], couriers: [], notifications: [], requests: [], perf_daily: [], share_links: [], share_log: [], vendor_bills: [], fund_balances: [], app_settings: [], activity_log: [], pings: [], notes: [], todos: [], reminders: [], messages: [] })
+  const [data, setData] = useState({ users: [], people: [], projects: [], petty_cash: [], couriers: [], notifications: [], requests: [], perf_daily: [], share_links: [], share_log: [], vendor_bills: [], fund_balances: [], app_settings: [], activity_log: [], pings: [], notes: [], todos: [], reminders: [], messages: [], affidavit_stok: [], affidavit_pakai: [], affidavit_kirim: [] })
   // double job: user bisa berganti peran aktif (mis. Proofreader ↔ Staf Otorisasi)
   const [activeRole, setActiveRoleState] = useState(() => { try { return sessionStorage.getItem('atlas-active-role') } catch { return null } })
   const user = useMemo(() => {
@@ -83,6 +84,12 @@ export function AppProvider({ children }) {
     const more = await Promise.all(rest.map((t) => db.list(t).catch(() => [])))
     setData((d) => ({ ...d, ...Object.fromEntries(rest.map((t, i) => [t, more[i]])) }))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Segarkan beberapa tabel saja — dipakai setelah operasi atomik di server. */
+  const refreshTables = useCallback(async (tables) => {
+    const rows = await Promise.all(tables.map((t) => db.list(t).catch(() => null)))
+    setData((d) => ({ ...d, ...Object.fromEntries(tables.map((t, i) => [t, rows[i] ?? d[t]])) }))
+  }, [])
 
   useEffect(() => {
     db.currentUser().then(async (u) => { if (u) { setUser(u); await refresh() } }).finally(() => setBooting(false))
@@ -365,10 +372,131 @@ export function AppProvider({ children }) {
     return save('projects', { ...project, sub_projects: subs })
   }
 
+  // ---------- affidavit: stok lembar per cabang × arah ----------
+  // Pengurangan stok HARUS atomic di server: dua CS yang mencetak bersamaan
+  // tidak boleh membuat stok minus. Di live dipakai RPC `affidavit_pakai`;
+  // di demo (satu browser) cukup dihitung di sini.
+  const stokRow = (cabang, arah) => cariStok(data.affidavit_stok, cabang, arah)
+
+  /** Admin Pusat menetapkan / mengoreksi stok cabang. `sisa` null = kembalikan ke "belum diisi". */
+  const setStokAffidavit = async (cabang, arah, sisa, catatan = '') => {
+    if (!canKelolaAffidavit(user)) throw new Error('Hanya Admin Pusat yang boleh menetapkan stok affidavit')
+    const n = sisa === null || sisa === '' ? null : Math.max(0, Math.round(Number(sisa) || 0))
+    const row = stokRow(cabang, arah)
+    const saved = await save('affidavit_stok', { ...(row || {}), cabang, arah, sisa: n, catatan, oleh: user.name, at: new Date().toISOString() })
+    await syncPeringatan(cabang, arah, n)
+    return saved
+  }
+
+  /**
+   * Catat pemakaian lembar saat CS menandai dokumen sudah dicetak.
+   * `kunci` membuatnya idempoten: klik dua kali atau koneksi putus lalu dicoba
+   * lagi hanya mengurangi satu kali.
+   */
+  const pakaiAffidavit = async ({ cabang, arah, lembar, kunci, project, sub, catatan = '' }) => {
+    const n = Math.max(1, Math.round(Number(lembar) || 0))
+    if (sudahTercatat(data.affidavit_pakai, kunci)) return { sudah: true }
+
+    const ref = {
+      cabang, arah, lembar: n, kunci,
+      project_id: project?.id || null,
+      invoice_no: project?.invoice_no || '',
+      sub_id: sub?.id || null,
+      sub_title: sub?.title || '',
+      cs: user.name, cs_id: user.id,
+      at: new Date().toISOString(), catatan,
+    }
+
+    if (db.affidavitPakai) { // LIVE: kurangi stok & catat pemakaian dalam satu transaksi server
+      const out = await db.affidavitPakai(ref)
+      if (out?.sudah) return { sudah: true }
+      await refreshTables(['affidavit_stok', 'affidavit_pakai'])
+      await syncPeringatan(cabang, arah, out?.sisa)
+      return out
+    }
+
+    // DEMO: cek saldo lalu kurangi
+    const row = stokRow(cabang, arah)
+    if (!row || row.sisa == null) throw new Error(`Stok affidavit ${arahLabel(arah)} untuk cabang ${cabang} belum diisi pusat`)
+    const sisa = Number(row.sisa)
+    if (sisa < n) throw new Error(`Stok tidak cukup: tersisa ${sisa} lembar, dibutuhkan ${n}`)
+    await save('affidavit_stok', { ...row, sisa: sisa - n, at: new Date().toISOString() })
+    await save('affidavit_pakai', ref)
+    await syncPeringatan(cabang, arah, sisa - n)
+    return { sisa: sisa - n }
+  }
+
+  /** Admin Pusat mencatat pengiriman lembar ke cabang (belum menambah stok tersedia). */
+  const catatPengiriman = async ({ cabang, arah, lembar, catatan = '' }) => {
+    if (!canKelolaAffidavit(user)) throw new Error('Hanya Admin Pusat yang boleh mencatat pengiriman')
+    const n = Math.max(1, Math.round(Number(lembar) || 0))
+    const saved = await save('affidavit_kirim', {
+      cabang, arah, lembar: n, status: 'dalam_pengiriman',
+      oleh: user.name, oleh_id: user.id, at: new Date().toISOString(), catatan,
+    })
+    await save('notifications', {
+      to_role: 'cs', to_branch: cabang,
+      text: `${n} lembar affidavit ${arahLabel(arah)} dikirim ke cabang ${cabang} — konfirmasi bila sudah diterima`,
+      by: user.name, read_by: [],
+    }).catch(() => {})
+    return saved
+  }
+
+  /** Cabang mengonfirmasi lembar sudah diterima → stok tersedia bertambah. */
+  const terimaPengiriman = async (kirim, lembarDiterima) => {
+    const n = Math.max(0, Math.round(Number(lembarDiterima ?? kirim.lembar) || 0))
+    if (!n) throw new Error('Isi jumlah lembar yang diterima')
+    if (n > Number(kirim.lembar)) throw new Error(`Tidak boleh lebih dari yang dikirim (${kirim.lembar} lembar)`)
+
+    if (db.affidavitTerima) { // LIVE: tambah stok & tutup pengiriman dalam satu transaksi
+      const out = await db.affidavitTerima({ kirim_id: kirim.id, lembar: n, oleh: user.name })
+      await refreshTables(['affidavit_stok', 'affidavit_kirim'])
+      await syncPeringatan(kirim.cabang, kirim.arah, out?.sisa)
+      return out
+    }
+
+    const row = stokRow(kirim.cabang, kirim.arah)
+    const sisa = (row?.sisa == null ? 0 : Number(row.sisa)) + n
+    await save('affidavit_stok', { ...(row || {}), cabang: kirim.cabang, arah: kirim.arah, sisa, at: new Date().toISOString() })
+    await save('affidavit_kirim', {
+      ...kirim,
+      status: 'diterima', lembar_diterima: n,
+      diterima_oleh: user.name, diterima_at: new Date().toISOString(),
+    })
+    await syncPeringatan(kirim.cabang, kirim.arah, sisa)
+    return { sisa }
+  }
+
+  /**
+   * Satu peringatan AKTIF per cabang+arah: angkanya diperbarui, tidak menumpuk.
+   * Ditutup begitu stok >= AMBANG_RENDAH.
+   */
+  const syncPeringatan = async (cabang, arah, sisa) => {
+    if (sisa === undefined) return
+    const ada = cariPeringatan(data.notifications, cabang, arah)
+    const perlu = sisa != null && Number(sisa) < AMBANG_RENDAH
+    if (!perlu) {
+      if (ada) await save('notifications', { ...ada, closed: true }).catch(() => {})
+      return
+    }
+    const text = teksPeringatan(cabang, arah, sisa)
+    if (ada) {
+      if (ada.text !== text) await save('notifications', { ...ada, text, read_by: [] }).catch(() => {})
+      return
+    }
+    await save('notifications', {
+      to_role: 'admin_pusat', kind: 'affidavit',
+      aff_key: kunciPeringatan(cabang, arah), aff_cabang: cabang, aff_arah: arah,
+      text, by: 'Sistem', read_by: [],
+    }).catch(() => {})
+  }
+
   // ---------- notifikasi ----------
   const myNotifications = useMemo(() => {
     if (!user) return []
     return data.notifications
+      // peringatan yang sudah ditutup (mis. stok affidavit kembali cukup) tidak ditampilkan lagi
+      .filter((n) => !n.closed)
       .filter((n) => n.to_user ? n.to_user === user.id
         : n.to_role ? n.to_role === user.role && (!n.to_branch || branchesOf(user).includes(n.to_branch) || ['superadmin', 'admin_pusat', 'supervisor'].includes(user.role))
         : branchesOf(user).includes(n.to_branch))
@@ -503,6 +631,7 @@ export function AppProvider({ children }) {
     notify, toast, dismissToast, branchFilter, setBranchFilter, ask, confirmState, setConfirmState, liveStatus,
     invoices, invoiceErr, refreshInvoices, unlinkedInvoices,
     chatMessages, chatUnread, chatTotals, sendMessage, sendChatPing, markChatRead, sendTyping, typing, PING_MAX_24H, PING_GAP_MS,
+    setStokAffidavit, pakaiAffidavit, catatPengiriman, terimaPengiriman, refreshTables,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [user, booting, data, toast, branchFilter, pettyBalance, confirmState, myNotifications, nameOf, myPings, lastPingTo, liveStatus, invoices, invoiceErr, unlinkedInvoices, chatMessages, chatUnread, chatTotals, typing, sendTyping])
 

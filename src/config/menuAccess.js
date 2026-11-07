@@ -14,5 +14,11 @@ export const canSeeKeuangan = (u) => !!u && !WORKER_ROLES.includes(u.role)
 /** Menu Faktur & badge pembayaran: pelaksana tidak perlu. */
 export const canSeeInvoices = (u) => !WORKER_ROLES.includes(u?.role)
 export const canSeePayment = (u) => !WORKER_ROLES.includes(u?.role)
+/**
+ * Tracking Affidavit: yang mencetak (CS, Helper, cabang) dan yang memantau
+ * (pusat, Supervisor, Direktur, Akunting). Penerjemah/Proofreader/Otorisator
+ * tidak mencetak lembar, jadi menunya tidak perlu muncul.
+ */
+export const canSeeAffidavit = (u) => !!u && !WORKER_ROLES.includes(u.role)
 /** Boleh memutuskan pengajuan (ACC Direktur, transfer Akunting). */
 export const isApprover = (u) => ['direktur', 'akunting', 'superadmin'].includes(u?.role)

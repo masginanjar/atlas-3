@@ -12,6 +12,10 @@ import { applyLegacyImport } from './legacyImport.js'
 import { CHAT_ENABLED } from './flags.js'
 import { ensureDefaultCouriers } from '../config/couriers.js'
 import { FAQ_SEED } from '../config/faqSeed.js'
+import { ARAH_AFFIDAVIT } from './affidavit.js'
+import { BRANCHES as AFF_BRANCHES } from '../config/access.js'
+
+const AFF_ARAH = ARAH_AFFIDAVIT.map((a) => a.key)
 // Payload impor sistem lama hanya versi tersamar, dan hanya untuk mode demo.
 // Mode live (Supabase) tidak memuat berkas itu. Lihat vite.config.js.
 
@@ -19,7 +23,7 @@ const URL_ = import.meta.env.VITE_INSFORGE_URL
 // 'supabase' (live, Supabase) · 'live' (InsForge, lama) · 'demo' (localStorage)
 export const MODE = SUPABASE_READY ? 'supabase' : URL_ ? 'live' : 'demo'
 export const IS_LIVE = MODE !== 'demo'
-const ALL_TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings', 'notes', 'todos', 'reminders', 'messages', 'daftar_harga', 'faq']
+const ALL_TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings', 'notes', 'todos', 'reminders', 'messages', 'daftar_harga', 'faq', 'affidavit_stok', 'affidavit_pakai', 'affidavit_kirim']
 // Chat dimatikan → `messages` tidak ikut dilanggan realtime maupun disegarkan.
 export const TABLES = CHAT_ENABLED ? ALL_TABLES : ALL_TABLES.filter((t) => t !== 'messages')
 
@@ -130,6 +134,24 @@ function migrate(m) {
     let n = 0
     m.daftar_harga = baris.flatMap(([kategori, items, satuan]) =>
       items.map((layanan) => ({ id: uid(), kategori, layanan, satuan, harga_normal: null, harga_kilat: null, catatan: '', urutan: ++n })))
+    changed = true
+  }
+  // Stok affidavit contoh — sengaja bercampur: ada yang cukup, rendah, habis,
+  // dan ada yang BELUM DIISI, supaya keempat status terlihat di demo.
+  if (!(m.affidavit_stok || []).length) {
+    const CONTOH = { Bali: [51, 320, 180, 0], Jakarta: [240, 48, null, null], Surabaya: [96, 12, null, null] }
+    const now = new Date().toISOString()
+    m.affidavit_stok = []
+    for (const cabang of AFF_BRANCHES) {
+      const row = CONTOH[cabang]
+      AFF_ARAH.forEach((arah, i) => {
+        const sisa = row ? row[i] : null
+        if (sisa === null && !row) return // cabang lain: belum pernah diisi pusat
+        m.affidavit_stok.push({ id: uid(), cabang, arah, sisa, catatan: '', oleh: 'Contoh', at: now, created_at: now })
+      })
+    }
+    m.affidavit_pakai ||= []
+    m.affidavit_kirim ||= []
     changed = true
   }
   if (!m.projects.some((p) => String(p.id).startsWith('bill-'))) { m.projects.push(...billedDemo(m)); changed = true }
