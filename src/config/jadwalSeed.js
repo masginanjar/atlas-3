@@ -4,7 +4,7 @@
 //  HANYA untuk mode demo. Mode live mulai dari jadwal kosong.
 //
 //  Nama panggilan di lembar -> nama pengguna di aplikasi:
-//    Niha = Nihaya · Oca = Rosyada · Ema = Emma · Krisna = Khrisna
+//    Niha = Nihaya · Oca = Rosyada · Ema = Emma · Krisna = Khrisna · Licin = Solicin
 // ============================================================
 
 /** Nama panggilan di lembar jadwal -> potongan nama pengguna di aplikasi. */
@@ -12,7 +12,8 @@ export const PANGGILAN = {
   Niha: 'Nihaya', Sabrina: 'Sabrina', Nikita: 'Nikita', Oca: 'Rosyada',
   Destri: 'Destri', Indah: 'Indah',
   Ninda: 'Ninda', Debby: 'Debby', Ema: 'Emma',
-  Wahyu: 'Wahyu', Krisna: 'Khrisna', Rika: 'Rika', Naomi: 'Naomi',
+  Wahyu: 'Wahyu', Krisna: 'Khrisna', Rika: 'Rika', Naomi: 'Naomi', Licin: 'Solicin',
+  Santi: 'Santi', Nabila: 'Nabila',
   Rhania: 'Rhania', Aina: 'Aina', Gean: 'Gean',
 }
 
@@ -111,13 +112,25 @@ export const LIBUR_CABANG_NOV_2026 = {
     ['', '', '', '', 'Ema', '', ''],
     ['', '', '', '', 'Ema', '', ''],
   ],
+  // Minggu ke-2 & ke-3 Licin libur bersama Wahyu & Krisna di hari Sabtu,
+  // minggu lain ikut Rika & Naomi di hari Minggu — mengikuti lembar aslinya.
   Jakarta: [
-    ['', '', '', '', '', 'Wahyu,Krisna', 'Rika,Naomi'],
-    ['', '', '', '', '', 'Wahyu,Krisna', 'Rika,Naomi'],
-    ['', '', '', '', '', 'Wahyu,Krisna', 'Rika,Naomi'],
-    ['', '', '', '', '', 'Wahyu,Krisna', 'Rika,Naomi'],
-    ['', '', '', '', '', 'Wahyu,Krisna', 'Rika,Naomi'],
-    ['', '', '', '', '', 'Wahyu,Krisna', 'Rika,Naomi'],
+    ['', '', '', '', '', 'Wahyu,Krisna', 'Licin,Rika,Naomi'],
+    ['', '', '', '', '', 'Licin,Wahyu,Krisna', 'Rika,Naomi'],
+    ['', '', '', '', '', 'Licin,Wahyu,Krisna', 'Rika,Naomi'],
+    ['', '', '', '', '', 'Wahyu,Krisna', 'Licin,Rika,Naomi'],
+    ['', '', '', '', '', 'Wahyu,Krisna', 'Licin,Rika,Naomi'],
+    ['', '', '', '', '', 'Wahyu,Krisna', 'Licin,Rika,Naomi'],
+  ],
+  // Santi & Nabila bergantian: satu Sabtu, satu Minggu.
+  // Minggu ke-4 tertukar, sesuai lembar aslinya.
+  Semarang: [
+    ['', '', '', '', '', 'Santi', 'Nabila'],
+    ['', '', '', '', '', 'Santi', 'Nabila'],
+    ['', '', '', '', '', 'Santi', 'Nabila'],
+    ['', '', '', '', '', 'Nabila', 'Santi'],
+    ['', '', '', '', '', 'Santi', 'Nabila'],
+    ['', '', '', '', '', 'Santi', 'Nabila'],
   ],
   Medan: [
     ['', '', '', '', '', '', 'Rhania'],

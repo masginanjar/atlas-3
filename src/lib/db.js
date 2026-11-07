@@ -34,7 +34,7 @@ const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() +
 import { perfDemo } from './perfDemo.js'
 import { compactDemo } from './compactDemo.js'
 import { isFreelance } from '../config/access.js'
-const KEY = 'atlas-alfa-v19' // naikkan versi bila struktur data demo berubah
+const KEY = 'atlas-alfa-v20' // naikkan versi bila struktur data demo berubah
 let mem = null
 function load() {
   if (mem) return mem
