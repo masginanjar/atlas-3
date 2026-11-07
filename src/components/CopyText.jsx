@@ -26,3 +26,29 @@ export default function CopyText({ text, label, className, strong, mono }) {
     </span>
   )
 }
+
+/**
+ * Nominal untuk dibayar — tanpa tulisan "Rp" supaya tidak ikut tersalin,
+ * dengan ikon copy yang menyalin ANGKA SAJA (tanpa titik pemisah ribuan),
+ * jadi langsung bisa ditempel di aplikasi m-banking.
+ */
+export function NominalCopy({ nilai, label = 'nominal', className, besar }) {
+  const { notify } = useApp()
+  const angka = Math.round(Number(nilai) || 0)
+  const tampil = angka.toLocaleString('id-ID')
+  return (
+    <span className={cx('inline-flex max-w-full items-center gap-1', className)}>
+      <b className={cx('tabular-nums text-ink', besar ? 'text-[15px] font-extrabold' : 'text-sm font-bold')}>{tampil}</b>
+      <button type="button" title={`Salin ${label} — angka saja, siap ditempel di m-banking`}
+        aria-label={`Salin ${label} ${tampil}`}
+        onClick={async (e) => {
+          e.preventDefault(); e.stopPropagation()
+          const ok = await copyText(String(angka))
+          notify(ok ? `${tampil} disalin — angka saja` : 'Gagal menyalin — salin manual', ok ? 'ok' : 'err')
+        }}
+        className="shrink-0 rounded p-0.5 text-slate-400 transition hover:bg-brand-soft hover:text-brand active:scale-90">
+        <Copy className="h-3.5 w-3.5" />
+      </button>
+    </span>
+  )
+}

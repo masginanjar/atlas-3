@@ -1,5 +1,5 @@
 import { cx } from './ui.jsx'
-import CopyText from './CopyText.jsx'
+import CopyText, { NominalCopy } from './CopyText.jsx'
 import { rupiah } from '../lib/format.js'
 
 // ============================================================
@@ -71,11 +71,15 @@ export function FinRow({ children, className, onClick, highlight }) {
   )
 }
 
-/** Sel nominal: tebal, rata kanan di desktop, sub-teks kecil (mis. sumber dana). */
-export function FinAmount({ value, sub, className }) {
+/**
+ * Sel nominal: tebal, rata kanan di desktop, sub-teks kecil (mis. sumber dana).
+ * Tulisan "Rp" sengaja dihilangkan dan diberi ikon copy — yang tersalin hanya
+ * angkanya (tanpa titik ribuan), jadi langsung bisa ditempel di m-banking.
+ */
+export function FinAmount({ value, sub, className, label = 'nominal' }) {
   return (
     <span className={cx('flex items-baseline gap-2 lg:block lg:text-right', className)}>
-      <b className="text-[15px] font-extrabold tabular-nums text-ink">{rupiah(value)}</b>
+      <NominalCopy nilai={value} label={label} besar className="lg:justify-end" />
       {sub && <span className="text-xs font-semibold text-ink-mute lg:mt-0.5 lg:block">{sub}</span>}
     </span>
   )

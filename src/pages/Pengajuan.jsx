@@ -5,6 +5,7 @@ import { usePanel } from '../components/WorkspacePanel.jsx'
 import { RequestBoard, REQ_KINDS, REQ_STATUS, KindBadge, ReqStatus, scopeRequests } from '../components/Requests.jsx'
 import { isApprover, needsAction } from '../lib/badges.js'
 import { rupiah, tgl } from '../lib/format.js'
+import { NominalCopy } from '../components/CopyText.jsx'
 import { go } from '../lib/router.js'
 import { Button, Card, cx } from '../components/ui.jsx'
 import { invoiceLabel } from '../config/access.js'
@@ -95,7 +96,7 @@ export default function Pengajuan() {
                             {r.decided_note && <span className="truncate">· {r.decided_note}</span>}
                           </p>
                         </div>
-                        <span className="text-sm font-bold tabular-nums">{rupiah(r.amount)}</span>
+                        <NominalCopy nilai={r.amount} label={`nominal pengajuan ${r.purpose || ''}`.trim()} />
                         <ReqStatus status={r.status} />
                       </li>
                     )
