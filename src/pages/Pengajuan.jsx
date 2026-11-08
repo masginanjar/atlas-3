@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { FilePlus2, Search, Plus, ExternalLink } from 'lucide-react'
+import { Search, Plus, ExternalLink } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { usePanel } from '../components/WorkspacePanel.jsx'
 import { RequestBoard, REQ_KINDS, REQ_STATUS, KindBadge, ReqStatus, scopeRequests } from '../components/Requests.jsx'
@@ -39,15 +39,10 @@ export default function Pengajuan() {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight"><FilePlus2 className="h-5 w-5 text-ink-mute" />Pengajuan</h1>
-          <p className="text-sm text-ink-soft">Top up petty cash, refund pelanggan, dan pengajuan lain — beserta status persetujuannya.</p>
-        </div>
-        <Button size="sm" variant="dark" onClick={() => open('pengajuan')}><Plus className="h-3.5 w-3.5" />Pengajuan Baru</Button>
-      </div>
-
-      <div className="flex flex-wrap gap-1.5">
+      {/* Judul "Pengajuan" sudah jadi nama tab di halaman Keuangan, jadi tidak
+          ditulis dua kali. Tombol buat pengajuan ikut baris tab ini supaya
+          tidak ada dua tombol yang sama di satu layar. */}
+      <div className="flex flex-wrap items-center gap-1.5">
         <button type="button" onClick={() => setTab('saya')} aria-pressed={tab === 'saya'}
           className={cx('rounded-xl px-3 py-1.5 text-xs font-semibold ring-1 transition', tab === 'saya' ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand')}>
           Pengajuan Saya <span className="tabular-nums opacity-70">{mine.length}</span>
@@ -58,6 +53,7 @@ export default function Pengajuan() {
             Perlu Persetujuan {todo > 0 && <span className="ml-0.5 rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">{todo}</span>}
           </button>
         )}
+        <Button size="sm" variant="dark" className="ml-auto" onClick={() => open('pengajuan')} data-aksi="pengajuan-baru"><Plus className="h-3.5 w-3.5" />Pengajuan Baru</Button>
       </div>
 
       {tab === 'acc' && approver && <RequestBoard bare />}

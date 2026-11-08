@@ -6,6 +6,7 @@ import { allActivities, ACTIVITY_KINDS } from '../lib/activity.js'
 import { dayKey, addDays } from '../lib/performance.js'
 import ActivityList from '../components/ActivityList.jsx'
 import { Card, Empty, Input, Select, cx } from '../components/ui.jsx'
+import { PilihPeriode, FilterLainnya, ChipAktif } from '../components/ToolbarRingkas.jsx'
 
 import { canSeeAllActivity } from '../config/menuAccess.js'
 export { canSeeAllActivity }
@@ -46,30 +47,40 @@ export default function Activity() {
     <div className="space-y-4">
       <div>
         <h1 className="flex items-center gap-2 text-xl font-extrabold tracking-tight sm:text-2xl"><History className="h-6 w-6" />Riwayat Aktivitas</h1>
-        <p className="text-[13px] text-ink-mute">Semua aktivitas semua orang: project, alur kerja, file, keuangan, petty cash & pengaturan. Hanya terlihat oleh Superadmin & Direktur.</p>
+        <p className="text-[13px] text-ink-mute">Aktivitas semua orang — project, alur kerja, file, keuangan &amp; pengaturan.<span className="hidden sm:inline"> Hanya terlihat oleh Superadmin &amp; Direktur.</span></p>
       </div>
       <Card className="overflow-hidden">
         <div className="space-y-2 border-b border-slate-100 p-3">
-          <div className="-mx-3 flex items-center gap-1.5 overflow-x-auto px-3 pb-0.5 [scrollbar-width:none]">
-            <button className={chip(range.from === today && range.to === today)} onClick={() => setRange({ from: today, to: today })}>Hari ini</button>
-            <button className={chip(range.from === addDays(today, -1) && range.to === addDays(today, -1))} onClick={() => setRange({ from: addDays(today, -1), to: addDays(today, -1) })}>Kemarin</button>
-            <button className={chip(range.from === addDays(today, -6) && range.to === today)} onClick={() => setRange({ from: addDays(today, -6), to: today })}>7 hari</button>
-            <button className={chip(range.from === addDays(today, -29) && range.to === today)} onClick={() => setRange({ from: addDays(today, -29), to: today })}>30 hari</button>
-            <button className={chip(!range.from && !range.to)} onClick={() => setRange({ from: '', to: '' })}>Semua</button>
+          {/* Satu baris alat: cari · periode · filter lainnya.
+              Dulu tiga baris (5 tombol periode, 2 kolom tanggal, 5 saringan) —
+              fungsinya sama persis, hanya yang jarang dipakai dipindah ke "Filter". */}
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="relative min-w-[160px] flex-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari invoice, nama, aksi…" className="!pl-8 text-sm" aria-label="Cari aktivitas" />
+            </label>
+            <PilihPeriode range={range} setRange={setRange} today={today} />
+            <FilterLainnya aktif={[who, role, kind, branch].filter(Boolean).length}
+              onReset={() => { setWho(''); setRole(''); setKind(''); setBranch('') }}>
+              <div className="space-y-1.5 [&_select]:!py-1.5 [&_select]:text-sm">
+                <label className="block text-[11px] font-semibold text-ink-soft">Orang
+                  <Select value={who} onChange={(e) => setWho(e.target.value)} aria-label="Filter orang"><option value="">Semua orang</option>{people.map((p) => <option key={p}>{p}</option>)}</Select></label>
+                <label className="block text-[11px] font-semibold text-ink-soft">Role
+                  <Select value={role} onChange={(e) => setRole(e.target.value)} aria-label="Filter role"><option value="">Semua role</option>{Object.entries(ROLES).map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}</Select></label>
+                <label className="block text-[11px] font-semibold text-ink-soft">Jenis aktivitas
+                  <Select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Filter jenis"><option value="">Semua jenis</option>{Object.entries(ACTIVITY_KINDS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select></label>
+                <label className="block text-[11px] font-semibold text-ink-soft">Cabang
+                  <Select value={branch} onChange={(e) => setBranch(e.target.value)} aria-label="Filter cabang"><option value="">Semua cabang</option>{BRANCHES.map((b) => <option key={b}>{b}</option>)}</Select></label>
+              </div>
+            </FilterLainnya>
+            <p className="ml-auto flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-mute"><b className="text-ink">{shown.length} aktivitas</b>{byKind.filter(([, n]) => n).map(([k, n]) => <span key={k}>{ACTIVITY_KINDS[k]} {n}</span>)}</p>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Input type="date" value={range.from} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} className="min-w-0 flex-1 !py-1 text-xs sm:!w-36 sm:flex-none" aria-label="Dari tanggal" />
-            <span className="text-xs text-ink-mute">–</span>
-            <Input type="date" value={range.to} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} className="min-w-0 flex-1 !py-1 text-xs sm:!w-36 sm:flex-none" aria-label="Sampai tanggal" />
-          </div>
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-5 [&_select]:!py-1.5 [&_select]:text-xs sm:[&_select]:text-sm">
-            <label className="relative col-span-2 lg:col-span-1"><Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-ink-mute" /><Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari invoice, nama, aksi…" className="!pl-8 text-sm" aria-label="Cari aktivitas" /></label>
-            <Select value={who} onChange={(e) => setWho(e.target.value)} aria-label="Filter orang"><option value="">Semua orang</option>{people.map((p) => <option key={p}>{p}</option>)}</Select>
-            <Select value={role} onChange={(e) => setRole(e.target.value)} aria-label="Filter role"><option value="">Semua role</option>{Object.entries(ROLES).map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}</Select>
-            <Select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Filter jenis"><option value="">Semua jenis</option>{Object.entries(ACTIVITY_KINDS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</Select>
-            <Select value={branch} onChange={(e) => setBranch(e.target.value)} aria-label="Filter cabang"><option value="">Semua cabang</option>{BRANCHES.map((b) => <option key={b}>{b}</option>)}</Select>
-          </div>
-          <p className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-mute"><b className="text-ink">{shown.length} aktivitas</b>{byKind.filter(([, n]) => n).map(([k, n]) => <span key={k}>{ACTIVITY_KINDS[k]} {n}</span>)}</p>
+          <ChipAktif items={[
+            who && { label: `Orang: ${who}`, clear: () => setWho('') },
+            role && { label: `Role: ${ROLES[role]?.label || role}`, clear: () => setRole('') },
+            kind && { label: `Jenis: ${ACTIVITY_KINDS[kind] || kind}`, clear: () => setKind('') },
+            branch && { label: `Cabang: ${branch}`, clear: () => setBranch('') },
+          ]} />
         </div>
         <ActivityList items={shown} showProject pageSize={80} empty="Tidak ada aktivitas pada filter ini." />
       </Card>

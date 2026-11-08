@@ -120,7 +120,7 @@ export function RequestBoard({ bare }) {
         <FinBar
           left={TABS.map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={cx('shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-semibold sm:px-2 sm:py-0.5 sm:text-[11px]', tab === k ? 'bg-amber-500 text-white' : 'text-ink-soft hover:bg-amber-50')}>{l} {groups[k].length}</button>)}
           total={list.reduce((a, r) => a + Number(r.amount || 0), 0)}
-          right={bare && canCreate && <Button size="sm" onClick={() => setForm(true)}><Plus className="h-3.5 w-3.5" />Buat Pengajuan</Button>} />
+          right={null} />
         <FinHead />
         {list.length === 0 ? <p className="px-4 py-6 text-center text-sm text-ink-mute">Tidak ada pengajuan.</p> : (
           <ul className="divide-y divide-slate-100">

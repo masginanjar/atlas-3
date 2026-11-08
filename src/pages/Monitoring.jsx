@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from 'react'
 import { Lock, Languages, Store, Stamp, UserCog, Calculator, ChevronDown, ChevronUp, MonitorCheck, AlertTriangle } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
+import { PilihPeriode } from '../components/ToolbarRingkas.jsx'
 import { tasksOf, summarize, dayKey } from '../lib/performance.js'
 import { stageLabel, flowOf, DONE, totalPengajuan, termOf, isBilled, PAYMENT_TERMS } from '../config/workflows.js'
 import { placeOf, invoiceLabel} from '../config/access.js'
@@ -147,6 +148,19 @@ function PeopleTable({ people, projects, now, extraCols = [] }) {
   )
 }
 
+/** Pilihan periode khas Monitoring — memakai bulan, bukan 30 hari. */
+const PERIODE_MONITORING = (today) => {
+  const awalBulan = `${today.slice(0, 7)}-01`
+  const d = new Date(`${awalBulan}T12:00:00+08:00`); d.setMonth(d.getMonth() - 1)
+  const awalLalu = `${dayKey(d).slice(0, 7)}-01`
+  return [
+    ['Hari ini', { from: today, to: today }],
+    ['7 hari', { from: addDays(today, -6), to: today }],
+    ['Bulan ini', { from: awalBulan, to: today }],
+    ['Bulan lalu', { from: awalLalu, to: addDays(awalBulan, -1) }],
+  ]
+}
+
 export default function Monitoring() {
   const { user, data } = useApp()
   const [now] = useState(() => new Date())
@@ -201,13 +215,9 @@ export default function Monitoring() {
       </div>
       <Card className="flex flex-wrap items-center gap-2 px-4 py-2.5">
         <span className="text-xs font-bold uppercase tracking-wide text-ink-mute">Rekap hasil kerja</span>
-        <label className="flex items-center gap-1 text-xs text-ink-soft">Dari <Input type="date" value={range.from} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} className="!h-8 !w-[150px] !px-2 text-xs" /></label>
-        <label className="flex items-center gap-1 text-xs text-ink-soft">Sampai <Input type="date" value={range.to} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} className="!h-8 !w-[150px] !px-2 text-xs" /></label>
-        <span className="flex flex-wrap gap-1">
-          {[['Hari ini', today, today], ['7 hari', addDays(today, -6), today], ['Bulan ini', `${today.slice(0, 7)}-01`, today], ['Bulan lalu', (() => { const d = new Date(`${today.slice(0, 7)}-01T12:00:00+08:00`); d.setMonth(d.getMonth() - 1); return dayKey(d).slice(0, 7) + '-01' })(), addDays(`${today.slice(0, 7)}-01`, -1)]].map(([l, f, t]) => (
-            <button key={l} type="button" onClick={() => setRange({ from: f, to: t })} className={cx('rounded-lg px-2 py-1 text-[11px] font-semibold ring-1', range.from === f && range.to === t ? 'bg-brand text-white ring-brand' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand')}>{l}</button>
-          ))}
-        </span>
+        {/* Satu tombol periode menggantikan 2 kolom tanggal + 4 tombol cepat.
+            Pilihan cepatnya sama, tanggal bebas tetap ada di dalamnya. */}
+        <PilihPeriode range={range} setRange={setRange} today={today} pilihan={PERIODE_MONITORING(today)} />
         <span className="ml-auto text-[11px] text-ink-mute">Kolom "Dok. diterjemahkan", "Diproofread", dan "Halaman dikerjakan" mengikuti rentang ini.</span>
       </Card>
 

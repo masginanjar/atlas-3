@@ -163,9 +163,9 @@ const STAF_FLOW = [
           ],
           Scan: [{ key: 'scan_hasil', label: 'Upload hasil scan', type: 'file', required: true }],
         },
-        // Tidak wajib dicentang untuk menyelesaikan tahap: "Ditunda" bukan langkah maju,
-        // dan "Bayar Pajak" tidak muncul di semua dokumen.
-        opsional: ['Ditunda', 'Bayar Pajak'] },
+        // "Ditunda" bukan langkah maju, jadi tidak wajib. "Bayar Pajak" WAJIB:
+        // tahap tidak bisa diselesaikan sebelum Supervisor mencentangnya.
+        opsional: ['Ditunda'] },
       { key: 'bukti_transfer', label: 'Upload Bukti Transfer (opsional)', type: 'file' },
       { key: 'hasil_akhir', label: 'Upload Hasil Apostille / Legalisasi', type: 'file', required: true },
     ],

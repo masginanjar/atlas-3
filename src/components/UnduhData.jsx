@@ -99,16 +99,23 @@ function cocokProject(p, f) {
  * Tombol + popup "Unduh Data". Dipakai di toolbar My Project; bisa dipasang
  * di halaman lain dengan komponen yang sama.
  */
-export default function UnduhData({ className }) {
+export default function UnduhData({ className, barisMenu }) {
   const { data, user, notify } = useApp()
   const [buka, setBuka] = useState(false)
   if (!canUnduhData(user)) return null
   return (
     <>
-      <button type="button" onClick={() => setBuka(true)} aria-label="Unduh data" title="Unduh data (pilih data & filter)"
-        className={cx('grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand', className)}>
-        <Download className="h-4 w-4" />
-      </button>
+      {barisMenu ? (
+        <button type="button" onClick={() => setBuka(true)}
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm font-semibold text-ink hover:bg-brand-soft hover:text-brand" data-aksi="menu-unduh">
+          <Download className="h-4 w-4 shrink-0" />Unduh data…
+        </button>
+      ) : (
+        <button type="button" onClick={() => setBuka(true)} aria-label="Unduh data" title="Unduh data (pilih data & filter)"
+          className={cx('grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand', className)}>
+          <Download className="h-4 w-4" />
+        </button>
+      )}
       {buka && <DialogUnduh data={data} notify={notify} onClose={() => setBuka(false)} />}
     </>
   )

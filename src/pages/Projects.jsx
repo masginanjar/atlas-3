@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Minus, Search, FolderOpen, Banknote, CalendarClock, Layers, LayoutGrid, List, ChevronRight, ChevronDown, Sparkles, StickyNote, Printer, AlertTriangle, Eye, Columns3, Bookmark, X, Save, Rows2, Rows3, Rows4, Maximize2, Minimize2, Table2} from 'lucide-react'
+import { Plus, Minus, Search, FolderOpen, Banknote, CalendarClock, Layers, LayoutGrid, List, ChevronRight, ChevronDown, Sparkles, StickyNote, Printer, AlertTriangle, Eye, X, Save, Rows2, Rows3, Rows4, Maximize2, Minimize2, Table2, MoreHorizontal} from 'lucide-react'
 import FileManager, { fieldFiles, collect as collectFiles } from '../components/FileManager.jsx'
 import ProjectDetail from './ProjectDetail.jsx'
 import WorkerBoard, { WorkerActions, isWorkRole } from '../components/WorkerActions.jsx'
@@ -129,36 +129,17 @@ export default function Projects() {
                   className={cx('flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold', sort === k ? 'bg-ink text-white' : 'text-ink-mute hover:bg-slate-50')}><Icon className="h-3.5 w-3.5" /><span className="hidden sm:inline">{l}</span></button>
               ))}
             </div>
-            <SavedViews current={{ tab, q, status, sort, dlFilter, prFilter, bpFilter, cols: colsAktif, view }} apply={(v) => { setTab(v.tab ?? 'all'); setQ(v.q ?? ''); setStatus(v.status ?? 'aktif'); setSort(v.sort ?? 'deadline'); setDlFilter(v.dlFilter ?? null); setPrFilter(v.prFilter ?? ''); setBpFilter(v.bpFilter ?? { branch: '', print: '' }); if (v.cols) saveCols(v.cols); if (v.view) setView(v.view) }} />
-            {view === 'list' && (
-              <Popover label="Pengaturan kolom" button={({ open: o, toggle }) => (
-                <button onClick={toggle} aria-expanded={o} aria-label="Pengaturan kolom tabel" title="Pilih kolom yang ditampilkan"
-                  className={cx('grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white ring-1 ring-slate-200 hover:text-brand', o ? 'text-brand ring-brand' : 'text-ink-mute')}><Columns3 className="h-4 w-4" /></button>
-              )}>
-                {() => (
-                  <div className="space-y-1.5">
-                    <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Kolom tabel</p>
-                    {COLUMNS.filter((c) => !(worker && SEMBUNYI_LIST.includes(c.key))).map((c) => (
-                      <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-sm hover:bg-slate-50">
-                        <input type="checkbox" checked={colsAktif.includes(c.key)} disabled={c.key === 'invoice'}
-                          onChange={(e) => saveCols(e.target.checked ? ALL_COLS.filter((k) => k === c.key || colsAktif.includes(k)) : colsAktif.filter((k) => k !== c.key))}
-                          className="h-4 w-4 rounded border-slate-300 text-brand disabled:opacity-40" />
-                        {c.label}{c.key === 'invoice' && <span className="text-[11px] text-ink-mute">(wajib)</span>}
-                      </label>
-                    ))}
-                    <button type="button" onClick={() => saveCols(ALL_COLS.filter((k) => !(worker && SEMBUNYI_LIST.includes(k))))} className="mt-1 w-full rounded-lg px-1 py-1 text-left text-xs font-semibold text-brand hover:underline">Tampilkan semua kolom</button>
-                  </div>
-                )}
-              </Popover>
-            )}
-            <UnduhData />
             <div className="flex shrink-0 rounded-xl bg-white p-1 ring-1 ring-slate-200">
               {[['list', List, 'List kompak'], ['tabel', Table2, 'Tabel — 1 baris 1 data']].map(([k, Icon, l]) => (
                 <button key={k} onClick={() => setView(k)} aria-label={l} title={l}
                   className={cx('grid h-8 w-8 place-items-center rounded-lg', view === k ? 'bg-ink text-white' : 'text-ink-mute hover:bg-slate-50')}><Icon className="h-4 w-4" /></button>
               ))}
             </div>
-            <ViewTools density={density} setDensity={setDensity} zoom={zoom} setZoom={setZoom} full={full} setFull={setFull} />
+            <MenuLainnya
+              view={view} worker={worker} colsAktif={colsAktif} saveCols={saveCols}
+              density={density} setDensity={setDensity} zoom={zoom} setZoom={setZoom} full={full} setFull={setFull}
+              current={{ tab, q, status, sort, dlFilter, prFilter, bpFilter, cols: colsAktif, view }}
+              apply={(v) => { setTab(v.tab ?? 'all'); setQ(v.q ?? ''); setStatus(v.status ?? 'aktif'); setSort(v.sort ?? 'deadline'); setDlFilter(v.dlFilter ?? null); setPrFilter(v.prFilter ?? ''); setBpFilter(v.bpFilter ?? { branch: '', print: '' }); if (v.cols) saveCols(v.cols); if (v.view) setView(v.view) }} />
           </div>
 
           <FilterChips chips={[
@@ -327,7 +308,85 @@ function FilterChips({ chips, reset }) {
 }
 
 /** Tampilan tersimpan: kombinasi filter, urutan, dan kolom yang sering dipakai. */
-function SavedViews({ current, apply }) {
+// ============================================================
+//  MENU "LAINNYA" (⋯)
+//  Toolbar hanya menyisakan yang dipakai tiap hari: cari, status, urutan,
+//  dan pengalih tampilan. Sisanya — kolom, kerapatan, ukuran huruf, layar
+//  penuh, tampilan tersimpan, unduh data — masuk ke satu tombol ini,
+//  supaya mata tidak perlu memilih dari belasan tombol sekaligus.
+// ============================================================
+function MenuLainnya({ view, worker, colsAktif, saveCols, density, setDensity, zoom, setZoom, full, setFull, current, apply }) {
+  const zi = ZOOM_STEPS.indexOf(zoom) === -1 ? ZOOM_STEPS.indexOf(100) : ZOOM_STEPS.indexOf(zoom)
+  const step = (d) => setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, zi + d))])
+  const berubah = density !== 'normal' || zoom !== 100 || full
+  return (
+    <Popover label="Pengaturan tampilan lainnya" width="min-w-[270px]" button={({ open, toggle }) => (
+      <button onClick={toggle} aria-expanded={open} aria-label="Pengaturan tampilan lainnya" title="Kolom, kerapatan, ukuran huruf, layar penuh, unduh data"
+        data-menu-lainnya
+        className={cx('relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white ring-1 ring-slate-200 hover:text-brand',
+          open ? 'text-brand ring-brand' : 'text-ink-mute')}>
+        <MoreHorizontal className="h-4 w-4" />
+        {berubah && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-brand" />}
+      </button>
+    )}>
+      {({ close }) => (
+        <div className="space-y-2.5">
+          <UnduhData barisMenu />
+
+          <div className="border-t border-slate-100 pt-2">
+            <p className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Ukuran huruf</p>
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => step(-1)} disabled={zi === 0} aria-label="Perkecil huruf"
+                className="grid h-9 w-9 place-items-center rounded-lg ring-1 ring-slate-200 text-ink-mute hover:text-brand disabled:opacity-30"><Minus className="h-4 w-4" /></button>
+              <button type="button" onClick={() => setZoom(100)} aria-label={`Ukuran huruf ${zoom} persen, klik untuk normal`}
+                className="min-w-[52px] rounded-lg px-1 py-1.5 text-center text-xs font-bold tabular-nums text-ink-soft hover:text-brand">{zoom}%</button>
+              <button type="button" onClick={() => step(1)} disabled={zi === ZOOM_STEPS.length - 1} aria-label="Perbesar huruf"
+                className="grid h-9 w-9 place-items-center rounded-lg ring-1 ring-slate-200 text-ink-mute hover:text-brand disabled:opacity-30"><Plus className="h-4 w-4" /></button>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-2">
+            <p className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Kerapatan baris</p>
+            <div className="flex gap-1">
+              {DENSITIES.map(([k, l]) => (
+                <button key={k} type="button" onClick={() => setDensity(k)} aria-pressed={density === k}
+                  className={cx('flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold', density === k ? 'bg-ink text-white' : 'text-ink-mute ring-1 ring-slate-200 hover:text-brand')}>{l}</button>
+              ))}
+            </div>
+          </div>
+
+          <button type="button" onClick={() => { setFull(!full); close() }} aria-pressed={full}
+            className="flex w-full items-center gap-2 rounded-lg border-t border-slate-100 px-2 pb-1 pt-2.5 text-left text-sm font-semibold text-ink hover:text-brand">
+            {full ? <Minimize2 className="h-4 w-4 shrink-0" /> : <Maximize2 className="h-4 w-4 shrink-0" />}
+            {full ? 'Keluar dari layar penuh' : 'Layar penuh'}
+          </button>
+
+          {view === 'list' && (
+            <div className="border-t border-slate-100 pt-2">
+              <p className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Kolom tabel</p>
+              <div className="max-h-[180px] space-y-0.5 overflow-y-auto">
+                {COLUMNS.filter((c) => !(worker && SEMBUNYI_LIST.includes(c.key))).map((c) => (
+                  <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-sm hover:bg-slate-50">
+                    <input type="checkbox" checked={colsAktif.includes(c.key)} disabled={c.key === 'invoice'}
+                      onChange={(e) => saveCols(e.target.checked ? ALL_COLS.filter((k) => k === c.key || colsAktif.includes(k)) : colsAktif.filter((k) => k !== c.key))}
+                      className="h-4 w-4 rounded border-slate-300 text-brand disabled:opacity-40" />
+                    {c.label}{c.key === 'invoice' && <span className="text-[11px] text-ink-mute">(wajib)</span>}
+                  </label>
+                ))}
+              </div>
+              <button type="button" onClick={() => saveCols(ALL_COLS.filter((k) => !(worker && SEMBUNYI_LIST.includes(k))))}
+                className="mt-1 w-full rounded-lg px-1 py-1 text-left text-xs font-semibold text-brand hover:underline">Tampilkan semua kolom</button>
+            </div>
+          )}
+
+          <div className="border-t border-slate-100 pt-2"><SavedViewsPanel current={current} apply={apply} close={close} /></div>
+        </div>
+      )}
+    </Popover>
+  )
+}
+
+function SavedViewsPanel({ current, apply, close }) {
   const { notify } = useApp()
   const [views, setViews] = useState(() => { try { return JSON.parse(localStorage.getItem('atlas-views') || '[]') } catch { return [] } })
   const [name, setName] = useState('')
@@ -337,11 +396,6 @@ function SavedViews({ current, apply }) {
     persist([...views.filter((v) => v.name !== n), { name: n, ...current }]); setName(''); notify(`Tampilan "${n}" disimpan`)
   }
   return (
-    <Popover label="Tampilan tersimpan" width="min-w-[260px]" button={({ open, toggle }) => (
-      <button onClick={toggle} aria-expanded={open} aria-label="Tampilan tersimpan" title="Simpan & buka kombinasi filter yang sering dipakai"
-        className={cx('grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white ring-1 ring-slate-200 hover:text-brand', open ? 'text-brand ring-brand' : 'text-ink-mute')}><Bookmark className="h-4 w-4" /></button>
-    )}>
-      {({ close }) => (
         <div className="space-y-2">
           <p className="px-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Tampilan tersimpan</p>
           {views.length === 0 && <p className="px-1 text-xs text-ink-mute">Belum ada. Atur filter & kolom, lalu simpan di bawah.</p>}
@@ -351,13 +405,11 @@ function SavedViews({ current, apply }) {
               <button type="button" onClick={() => persist(views.filter((x) => x.name !== v.name))} aria-label={`Hapus tampilan ${v.name}`} className="rounded-lg p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600"><X className="h-3.5 w-3.5" /></button>
             </div>
           ))}
-          <div className="flex gap-1.5 border-t border-slate-100 pt-2">
+          <div className="flex gap-1.5 pt-1">
             <Input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()} placeholder="Nama tampilan baru" className="!h-9 !text-xs" aria-label="Nama tampilan" />
             <Button size="sm" onClick={save} title="Simpan filter & kolom saat ini"><Save className="h-3.5 w-3.5" />Simpan</Button>
           </div>
         </div>
-      )}
-    </Popover>
   )
 }
 
@@ -428,12 +480,22 @@ export const COLUMNS = [
     cell: (p) => <DeadlineCell project={p} done={isDone(p)} align="left" /> },
   { key: 'layanan', label: 'Layanan', w: 'minmax(0,0.9fr)', cell: (p) => <ProjectTypes project={p} /> },
   { key: 'cabang', label: 'Cabang / Print', w: 'minmax(0,1fr)', cls: 'min-w-0 pt-0.5',
-    cell: (p) => (
-      <>
-        <span className="block text-sm font-semibold text-ink">{p.branch}</span>
-        <span className={cx('mt-0.5 flex items-center gap-1 text-xs', p.about?.print_location && p.about.print_location !== p.branch ? 'font-semibold text-fuchsia-700' : 'text-ink-mute')}><Printer className="h-3.5 w-3.5 shrink-0" />{p.about?.print_location || p.branch}</span>
-      </>
-    ) },
+    // Tim minta cabang DAN lokasi print selalu terlihat, termasuk saat keduanya
+    // sama — supaya tidak perlu membuka project untuk memastikan.
+    // Yang berbeda ditandai warna supaya langsung kelihatan.
+    cell: (p) => {
+      const print = p.about?.print_location || p.branch
+      const beda = print !== p.branch
+      return (
+        <>
+          <span className="block truncate text-sm font-semibold text-ink">{p.branch}</span>
+          <span className={cx('mt-0.5 flex items-center gap-1 truncate text-xs', beda ? 'font-bold text-pop' : 'text-ink-mute')}
+            title={beda ? `Dicetak di ${print} (beda dari cabang)` : `Dicetak di ${print}`} data-print={beda ? 'beda' : 'sama'}>
+            <Printer className="h-3.5 w-3.5 shrink-0" />{print}
+          </span>
+        </>
+      )
+    } },
   { key: 'tahap', label: 'Tahap & Progres', w: 'minmax(0,1.5fr)', cls: 'min-w-0',
     cell: (p, { prog }) => <><span className="block truncate text-xs font-semibold text-brand">{currentStage(p)}</span><span className="mt-1 flex items-center gap-2"><Progress value={prog} /><span className="w-8 text-[11px] font-semibold text-ink-mute">{prog}%</span></span></> },
 ]
@@ -469,11 +531,15 @@ function ProjectList({ list: listAll, late: lateAll = [], dlFilter, setDlFilter,
               <div className="relative">
               {/* Klik baris = buka/tutup rincian sub project; ikon mata = halaman detail */}
               <div role="button" tabIndex={0} aria-expanded={open.has(p.id)} onClick={() => toggle(p.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(p.id) } }}
-                className={cx('u-row block cursor-pointer px-4 pr-[120px] lg:pr-4', open.has(p.id) ? 'pl-3' : 'hover:bg-brand-soft/40')}>
+                className={cx('u-row group block cursor-pointer px-4 pr-[120px] lg:pr-4', open.has(p.id) ? 'pl-3' : 'hover:bg-brand-soft/40')}>
                 {/* Desktop: baris tabel */}
                 <div style={{ gridTemplateColumns: gridCols }} className="hidden items-start gap-3 text-left lg:grid">
                   {COLUMNS.filter((c) => show(c.key)).map((c) => <span key={c.key} className={c.cls}>{c.cell(p, { prog })}</span>)}
-                  <span className="flex items-center justify-end gap-1">
+                  {/* Tombol baru muncul saat baris disentuh/diarahkan kursor — 3 tombol × 20 baris
+                      yang selalu terlihat membuat tabel penuh kotak tanpa guna. Di layar sentuh
+                      (tanpa hover) tombolnya tetap terlihat, begitu juga saat baris sedang dibuka. */}
+                  <span className={cx('flex items-center justify-end gap-1 transition-opacity',
+                    !open.has(p.id) && detailFor?.id !== p.id && '[@media(hover:hover)]:opacity-0 group-hover:!opacity-100 group-focus-within:!opacity-100')} data-aksi-baris>
                     <button type="button" onClick={(e) => { e.stopPropagation(); setDetailFor(p); setFilesFor(null) }} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} title="Detail project (panel kanan)"
                       className={cx('grid h-7 w-7 place-items-center rounded-lg ring-1 transition', detailFor?.id === p.id ? 'bg-brand text-white ring-brand' : 'bg-white text-brand ring-brand/30 hover:bg-brand hover:text-white')}><Eye className="h-4 w-4" /></button>
                     {/* ikon catatan: tepat setelah ikon mata, hanya muncul bila project punya catatan */}
@@ -655,13 +721,16 @@ function VendorPayments({ rows }) {
 /** Prioritas sebagai teks — "Normal" pun tetap ditampilkan. */
 function PrioritasTeks({ p }) {
   const prio = p.about?.priority || 'Normal'
-  if (prio === 'Normal') return <span className="block truncate text-sm font-semibold text-ink">Normal</span>
+  if (prio === 'Normal') return <span className="block truncate text-sm text-ink-mute" data-prio-normal>Normal</span>
   return <PriorityBadge p={prio} className="max-w-full" />
 }
 /** Jumlah sub project: teks abu-abu di bawah prioritas, tanpa lingkaran. */
 function SubText({ p }) {
   const n = p.sub_projects?.length || 0
-  return <span className="mt-0.5 block truncate text-[11px] text-ink-mute">{n} sub project</span>
+  // Hampir semua project berisi satu sub project, jadi menulisnya di setiap
+  // baris tidak menambah kabar apa pun. Yang disebut hanya yang lebih dari satu.
+  if (n <= 1) return null
+  return <span className="mt-0.5 block truncate text-[11px] text-ink-mute" data-sub-teks>{n} sub project</span>
 }
 function SubCount({ p }) {
   const n = p.sub_projects?.length || 0

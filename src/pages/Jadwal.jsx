@@ -89,14 +89,14 @@ export default function Jadwal() {
         )}
       </div>
 
-      <Tabs tabs={tabs} value={tab} onChange={setTab} />
-
-      {/* pemilih bulan + cabang */}
+      {/* Tab, pemilih bulan, dan pemilih cabang dijadikan satu baris —
+          sebelumnya tiga baris terpisah padahal ketiganya alat yang sama. */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1 rounded-xl bg-white p-1 ring-1 ring-slate-200">
+        <div className="min-w-0 flex-1"><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
+        <div className="flex shrink-0 items-center gap-1 rounded-xl bg-white p-1 ring-1 ring-slate-200">
           <button type="button" onClick={() => setYm(geserBulan(ym, -1))} aria-label="Bulan sebelumnya"
             className="inline-grid h-11 w-11 place-items-center rounded-lg text-ink-soft hover:bg-slate-100"><ChevronLeft className="h-4 w-4" /></button>
-          <span className="min-w-[140px] text-center text-sm font-bold text-ink">{labelBulan(ym)}</span>
+          <span className="min-w-[120px] text-center text-sm font-bold text-ink" data-label-bulan>{labelBulan(ym)}</span>
           <button type="button" onClick={() => setYm(geserBulan(ym, 1))} aria-label="Bulan berikutnya"
             className="inline-grid h-11 w-11 place-items-center rounded-lg text-ink-soft hover:bg-slate-100"><ChevronRight className="h-4 w-4" /></button>
         </div>

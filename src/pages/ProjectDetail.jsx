@@ -544,6 +544,11 @@ function ChecklistProses({ f, nilai, setNilai, project, sub, user }) {
   const opsional = f.opsional || []
   const wajib = items.filter((it) => !opsional.includes(it))
   const doneN = wajib.filter((it) => cur.includes(it)).length
+  // Langkah wajib yang dipegang peran lain (mis. Bayar Pajak milik Supervisor).
+  // Tidak ditampilkan di daftar, tapi tetap diberitahu supaya tidak bingung
+  // kenapa tahapnya belum bisa diselesaikan.
+  const punyaOrangLain = (f.items || []).filter((it) =>
+    f.itemRoles?.[it] && !f.itemRoles[it].includes(user.role) && !opsional.includes(it) && !cur.includes(it))
 
   const simpan = async (it, patch = {}) => {
     const n = cur.includes(it) ? cur.filter((x) => x !== it) : [...cur, it]
@@ -593,6 +598,14 @@ function ChecklistProses({ f, nilai, setNilai, project, sub, user }) {
           </li>
         )
       })}</ol>
+
+      {punyaOrangLain.length > 0 && (
+        <p className="mt-2 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-[11px] text-amber-900 ring-1 ring-amber-200" data-nunggu-peran>
+          <Lock className="mt-px h-3.5 w-3.5 shrink-0" />
+          <span><b>{punyaOrangLain.length} langkah lagi dikerjakan Supervisor</b> ({punyaOrangLain.join(', ')}).
+            Tahap ini baru bisa diselesaikan setelah itu dicentang — tidak perlu Anda kerjakan.</span>
+        </p>
+      )}
 
       {isian && (
         <Sheet open side onClose={() => setIsian(null)} title={isian.item} subtitle={`${invoiceLabel(project.invoice_no)} · ${sub.title}`}

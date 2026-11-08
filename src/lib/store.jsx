@@ -239,8 +239,20 @@ export function AppProvider({ children }) {
 
     let pettyRow = null
     if (advance) {
-      const missing = stage.fields.filter((f) => f.required && (f.type === 'reg_numbers' ? !regComplete({ ...s, data: merged }) : f.type === 'checklist' ? !(f.items || []).filter((it) => !(f.opsional || []).includes(it)).every((it) => (merged[f.key] || []).includes(it)) : (merged[f.key] === undefined || merged[f.key] === '' || merged[f.key] === null)))
-      if (missing.length) throw new Error('Lengkapi: ' + missing.map((f) => f.label).join(', '))
+      const kurangCeklist = (f) => (f.items || [])
+        .filter((it) => !(f.opsional || []).includes(it) && !(merged[f.key] || []).includes(it))
+      const missing = stage.fields.filter((f) => f.required && (f.type === 'reg_numbers' ? !regComplete({ ...s, data: merged }) : f.type === 'checklist' ? kurangCeklist(f).length > 0 : (merged[f.key] === undefined || merged[f.key] === '' || merged[f.key] === null)))
+      if (missing.length) {
+        // Kalau yang kurang hanya langkah milik peran lain (mis. Bayar Pajak milik
+        // Supervisor), sebutkan siapa yang ditunggu — bukan "lengkapi" yang
+        // membuat pelaksana mencari-cari sesuatu yang memang bukan haknya.
+        const nunggu = missing.flatMap((f) => (f.type === 'checklist' ? kurangCeklist(f) : []))
+          .filter((it) => missing.some((f) => f.itemRoles?.[it] && !f.itemRoles[it].includes(user.role)))
+        if (nunggu.length && nunggu.length === missing.flatMap((f) => (f.type === 'checklist' ? kurangCeklist(f) : [f.label])).length) {
+          throw new Error(`Menunggu Supervisor menyelesaikan: ${nunggu.join(', ')}`)
+        }
+        throw new Error('Lengkapi: ' + missing.map((f) => f.label).join(', '))
+      }
       if (stage.effect === 'pettycash_out') {
         const amt = Number(merged.apostille_cost || 0)
         const bal = pettyBalance(APOSTILLE_FUND)
