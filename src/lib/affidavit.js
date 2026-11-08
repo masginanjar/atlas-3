@@ -64,7 +64,7 @@ export const perluDiisi = (sisa) => statusStok(sisa).key !== 'cukup'
 export const canKelolaAffidavit = (u) =>
   rolesOf(u).some((r) => ['superadmin', 'admin_pusat', 'direktur'].includes(r))
 
-/** Supervisor ikut memantau (tanpa hak ubah stok). */
+/** Direktur ikut memantau (tanpa hak ubah stok). */
 export const canPantauSemua = (u) =>
   canKelolaAffidavit(u) || rolesOf(u).some((r) => ['supervisor', 'akunting'].includes(r))
 

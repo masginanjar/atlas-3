@@ -11,8 +11,8 @@
 // ============================================================
 
 const ALL = ['superadmin', 'admin_pusat', 'supervisor', 'cs']
-const SPV = ['superadmin', 'supervisor']
-// Menetapkan/mengganti penerjemah tidak lagi harus menunggu Supervisor —
+const Direktur = ['superadmin', 'supervisor']
+// Menetapkan/mengganti penerjemah tidak lagi harus menunggu Direktur —
 // CS, Admin Pusat, dan Helper cabang juga boleh.
 const PILIH_PENERJEMAH = ['superadmin', 'supervisor', 'direktur', 'admin_pusat', 'cs', 'helper']
 /** Peran yang boleh MENGGANTI penerjemah setelah tugas terkirim (wajib pakai alasan). */
@@ -134,7 +134,7 @@ export const VENDOR_STAGES = { persetujuan: 'Menunggu Persetujuan', pembayaran: 
 export const totalPengajuan = (d = {}) => Number(d.total_pengajuan) || (Number(d.vendor_cost) || 0) + (Number(d.ongkir_cost) || 0)
 
 // Alur Apostille / Legalisasi INTERNAL — dikerjakan Staf Apostille.
-// Biaya diisi terpisah oleh Supervisor/Direktur (panel Biaya), bukan oleh staf.
+// Biaya diisi terpisah oleh Direktur/Direktur (panel Biaya), bukan oleh staf.
 const STAF = ['superadmin', 'supervisor', 'staf_apostille']
 const STAF_FLOW = [
   { key: 'cs_upload', label: 'CS Upload Dokumen Sumber', roles: ALL, action: 'Kirim ke Staf Apostille',
@@ -164,7 +164,7 @@ const STAF_FLOW = [
           Scan: [{ key: 'scan_hasil', label: 'Upload hasil scan', type: 'file', required: true }],
         },
         // "Ditunda" bukan langkah maju, jadi tidak wajib. "Bayar Pajak" WAJIB:
-        // tahap tidak bisa diselesaikan sebelum Supervisor mencentangnya.
+        // tahap tidak bisa diselesaikan sebelum Direktur mencentangnya.
         opsional: ['Ditunda'] },
       { key: 'bukti_transfer', label: 'Upload Bukti Transfer (opsional)', type: 'file' },
       { key: 'hasil_akhir', label: 'Upload Hasil Apostille / Legalisasi', type: 'file', required: true },
@@ -181,7 +181,7 @@ export const CATEGORIES = {
   tr_int: {
     label: 'Penerjemah Internal', short: 'TR Internal', tone: 'blue',
     stages: [
-      { key: 'cs_input', label: 'CS Input', roles: ALL, action: 'Kirim ke Supervisor',
+      { key: 'cs_input', label: 'CS Input', roles: ALL, action: 'Kirim ke Direktur',
         hint: 'Pastikan detail dokumen, halaman, deadline & lokasi Print sudah benar, lalu unggah dokumen sumber.',
         fields: [{ key: 'dokumen_sumber', label: 'Dokumen Sumber', type: 'file', required: true }],
         notify: (p) => [{ to_role: 'supervisor', to_branch: p.branch, text: 'Project baru menunggu penetapan penerjemah' }] },

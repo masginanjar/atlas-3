@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from 'react'
+import { InvoiceNo } from '../components/badges.jsx'
 import { Lock, Languages, Store, Stamp, UserCog, Calculator, ChevronDown, ChevronUp, MonitorCheck, AlertTriangle } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { PilihPeriode } from '../components/ToolbarRingkas.jsx'
@@ -104,7 +105,7 @@ function PeopleTable({ people, projects, now, extraCols = [] }) {
           {r.s.pct !== null && (
             <p className="mt-2 flex items-center gap-2 text-xs"><span className="h-2 w-20 overflow-hidden rounded-full bg-slate-100"><span className={cx('block h-full rounded-full', r.s.pct >= 80 ? 'bg-emerald-500' : r.s.pct >= 50 ? 'bg-amber-400' : 'bg-orange-400')} style={{ width: `${r.s.pct}%` }} /></span><b className="tabular-nums">{r.s.pct}%</b><span className="text-ink-mute">{r.s.done.length}/{r.s.total} hari ini</span></p>
           )}
-          {next && <p className="mt-2 text-xs"><span className="text-ink-mute">Tugas terdekat: </span><b>{invoiceLabel(next.project.invoice_no)}</b> · {next.sub.title}<span className={cx('block', dlText(next, now).late ? 'font-semibold text-rose-600' : 'text-ink-mute')}>{dlText(next, now).txt}</span></p>}
+          {next && <p className="mt-2 text-xs"><span className="text-ink-mute">Tugas terdekat: </span><InvoiceNo project={next.project} className="!text-xs" /> · {next.sub.title}<span className={cx('block', dlText(next, now).late ? 'font-semibold text-rose-600' : 'text-ink-mute')}>{dlText(next, now).txt}</span></p>}
           {isOpen && <div className="mt-2 border-t border-slate-100 pt-2"><TaskList r={r} /></div>}
         </li>
       )
@@ -125,7 +126,7 @@ function PeopleTable({ people, projects, now, extraCols = [] }) {
               {extraCols.map((c) => <td key={c.label} className="px-2 py-2.5 text-right tabular-nums">{c.get(r)}</td>)}
               <td className="px-2 py-2.5">{r.s.pct === null ? <span className="text-xs text-ink-mute">Belum ada deadline</span> : (
                 <span className="flex items-center gap-2"><span className="h-2 w-20 overflow-hidden rounded-full bg-slate-100"><span className={cx('block h-full rounded-full', r.s.pct >= 80 ? 'bg-emerald-500' : r.s.pct >= 50 ? 'bg-amber-400' : 'bg-orange-400')} style={{ width: `${r.s.pct}%` }} /></span><b className="text-xs tabular-nums">{r.s.pct}%</b><span className="text-[11px] text-ink-mute">{r.s.done.length}/{r.s.total}</span></span>)}</td>
-              <td className="max-w-[240px] px-4 py-2.5 text-xs">{next ? <><b>{invoiceLabel(next.project.invoice_no)}</b> · {next.sub.title}<p className={cx(dlText(next, now).late ? 'font-semibold text-rose-600' : 'text-ink-mute')}>{dlText(next, now).txt}</p></> : <span className="text-ink-mute">—</span>}</td>
+              <td className="max-w-[240px] px-4 py-2.5 text-xs">{next ? <><InvoiceNo project={next.project} className="!text-xs" /> · {next.sub.title}<p className={cx(dlText(next, now).late ? 'font-semibold text-rose-600' : 'text-ink-mute')}>{dlText(next, now).txt}</p></> : <span className="text-ink-mute">—</span>}</td>
               <td className="pr-3 text-ink-mute"><ChevronDown className={cx('h-4 w-4 transition', isOpen && 'rotate-180')} /></td>
             </tr>
             {isOpen && <tr><td colSpan={7 + extraCols.length} className="bg-slate-50/60 px-4 py-2">
@@ -295,7 +296,7 @@ export default function Monitoring() {
         <PeopleTable people={ap} projects={projects} now={now} />
       </Section>
 
-      <Section id="spv" icon={UserCog} title={`Supervisor (${spv.length})`} tone="bg-sky-50"
+      <Section id="spv" icon={UserCog} title={`Direktur (${spv.length})`} tone="bg-sky-50"
         chips={[['Perlu penerjemah', needTr, needTr > 0], ['Pengajuan vendor belum diajukan', subs.filter((s) => s.flow === 'tr_ext' && s.stage === 'pengajuan').length]]}>
         <PeopleTable people={spv} projects={projects} now={now} />
       </Section>

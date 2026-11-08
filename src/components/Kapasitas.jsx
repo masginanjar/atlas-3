@@ -8,7 +8,7 @@ import TimeAgo from './TimeAgo.jsx'
 // ============================================================
 //  KAPASITAS HARIAN PENERJEMAH
 //  Semua orang mulai dengan 10 halaman/hari. Kalau sanggup lebih,
-//  penerjemah mengajukan angkanya sendiri dan Direktur / Supervisor
+//  penerjemah mengajukan angkanya sendiri dan Direktur
 //  yang menyetujui — bukan diubah diam-diam.
 // ============================================================
 
@@ -16,7 +16,7 @@ export const KAP_DEFAULT = 10
 /**
  * Kapasitas harian seseorang (halaman/hari).
  * Sumbernya pengajuan yang TERAKHIR disetujui — bukan kolom di tabel users,
- * karena Supervisor memang tidak boleh (dan tidak perlu) mengubah data user.
+ * karena Direktur memang tidak boleh (dan tidak perlu) mengubah data user.
  * Belum pernah ada yang disetujui = 10.
  */
 export function kapasitasHarian(u, rows) {
@@ -63,7 +63,7 @@ export function KapasitasSaya({ className }) {
       })
       await save('notifications', { to_role: 'supervisor', ...(branchesOf(user)[0] || user.branch ? { to_branch: branchesOf(user)[0] || user.branch } : {}),
         kind: 'kapasitas', text: `${user.name} mengajukan tambah kapasitas: ${kap} → ${ke} halaman/hari`, by: user.name, read_by: [] }).catch(() => {})
-      notify('Pengajuan dikirim — menunggu persetujuan Direktur / Supervisor')
+      notify('Pengajuan dikirim — menunggu persetujuan Direktur')
       setForm(null)
     } catch (e) { notify(e.message || 'Gagal mengirim', 'err') } finally { setSibuk(false) }
   }
@@ -85,7 +85,7 @@ export function KapasitasSaya({ className }) {
       </div>
 
       <Sheet open={!!form} onClose={() => setForm(null)} title="Ajukan Tambah Kapasitas"
-        subtitle="Disetujui dulu oleh Direktur / Supervisor"
+        subtitle="Disetujui dulu oleh Direktur"
         footer={<>
           <Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={() => setForm(null)}>Batal</Button>
           <Button className="flex-[2]" variant="dark" loading={sibuk} onClick={kirim} data-aksi="kirim-kapasitas">Kirim Pengajuan</Button>
@@ -99,7 +99,7 @@ export function KapasitasSaya({ className }) {
               <Input type="number" min={kap + 1} inputMode="numeric" value={form.ke}
                 onChange={(e) => setForm((f) => ({ ...f, ke: e.target.value }))} aria-label="Kapasitas baru" />
             </Field>
-            <Field label="Alasan" hint="Opsional — membantu Supervisor memutuskan.">
+            <Field label="Alasan" hint="Opsional — membantu Direktur memutuskan.">
               <Textarea rows={3} value={form.alasan} onChange={(e) => setForm((f) => ({ ...f, alasan: e.target.value }))}
                 placeholder="mis. dokumennya sejenis dan saya sudah terbiasa" aria-label="Alasan pengajuan kapasitas" />
             </Field>
@@ -118,7 +118,7 @@ export function KapasitasSaya({ className }) {
   )
 }
 
-/** Daftar pengajuan kapasitas untuk Direktur / Supervisor / Superadmin. */
+/** Daftar pengajuan kapasitas untuk Direktur / Superadmin. */
 export function KapasitasAcc() {
   const { user, data, save, notify, branchFilter } = useApp()
   const [catatan, setCatatan] = useState({})
@@ -127,7 +127,7 @@ export function KapasitasAcc() {
   const rows = useMemo(() => (data.kapasitas || [])
     .filter((k) => k.status === 'diajukan')
     // Penerjemah freelance tidak terikat cabang — pengajuannya terlihat oleh
-    // semua Supervisor, supaya tidak menggantung tanpa yang menyetujui.
+    // semua Direktur, supaya tidak menggantung tanpa yang menyetujui.
     .filter((k) => semuaCabang ? (branchFilter === 'Semua' || !branchFilter || !k.cabang || k.cabang === branchFilter) : (!k.cabang || milik.includes(k.cabang))),
   [data.kapasitas, semuaCabang, milik, branchFilter])
 
@@ -136,7 +136,7 @@ export function KapasitasAcc() {
   const putuskan = async (k, status) => {
     try {
       // Angka barunya cukup tersimpan di baris pengajuan ini — tidak perlu
-      // (dan tidak boleh) mengubah data user, supaya Supervisor tetap bisa ACC.
+      // (dan tidak boleh) mengubah data user, supaya Direktur tetap bisa ACC.
       await save('kapasitas', { ...k, status, catatan: catatan[k.id] || '', diputus_oleh: user.name, diputus_at: new Date().toISOString() })
       await save('notifications', { to_user: k.user_id, kind: 'kapasitas',
         text: status === 'disetujui' ? `Kapasitas harian Anda dinaikkan jadi ${k.ke} halaman/hari` : `Pengajuan tambah kapasitas (${k.ke} halaman/hari) ditolak${catatan[k.id] ? ` — ${catatan[k.id]}` : ''}`,

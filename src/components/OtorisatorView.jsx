@@ -30,7 +30,7 @@ export default function OtorisatorView({ project }) {
         <ArrowLeft className="h-5 w-5" />Kembali
       </button>
       <div>
-        <h1 className="text-2xl font-extrabold tracking-tight">{invoiceLabel(project.invoice_no)}</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight"><InvoiceNo project={project} size="base" className="!text-2xl" /></h1>
         <TimeAgo at={project.created_at} prefix="Diposting" className="!text-xs" />
         <p className={cx('mt-1 text-base', d !== null && d <= 1 ? 'font-bold text-rose-600' : 'text-ink-soft')}>Deadline: {tgl(project.about?.deadline)}</p>
       </div>

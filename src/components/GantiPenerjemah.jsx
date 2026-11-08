@@ -11,7 +11,7 @@ import { jam } from '../lib/format.js'
 //  Kenyataan di lapangan: penerjemah kadang minta diganti setelah
 //  tugasnya terlanjur dikirim. Dua jalur resmi, dua-duanya WAJIB
 //  memakai alasan supaya terekam di riwayat:
-//   1. Supervisor/Superadmin → "Ganti Penerjemah" (langsung ke orang lain)
+//   1. Direktur/Superadmin → "Ganti Penerjemah" (langsung ke orang lain)
 //   2. Penerjemah sendiri    → "Tolak Tugas" (balik ke Pilih Penerjemah)
 // ============================================================
 
@@ -45,7 +45,7 @@ export function GantiNote({ sub, className }) {
   )
 }
 
-/** Tombol + form "Ganti Penerjemah" (Supervisor / Superadmin / Direktur / Admin Pusat). */
+/** Tombol + form "Ganti Penerjemah" (Direktur / Superadmin / Direktur / Admin Pusat). */
 export function GantiPenerjemahBtn({ project, sub, size = 'sm', className }) {
   const { user, data, gantiPenerjemah, notify, nameOf } = useApp()
   const [buka, setBuka] = useState(false)
@@ -107,7 +107,7 @@ export function TolakTugasBtn({ project, sub, onDone, size = 'sm', className, bl
     setSibuk(true)
     try {
       await tolakTugas(project, sub.id, alasan)
-      notify('Tugas ditolak — Supervisor sudah diberi tahu')
+      notify('Tugas ditolak — Direktur sudah diberi tahu')
       setBuka(false); setAlasan(''); onDone?.()
     } catch (e) { notify(e.message, 'err') } finally { setSibuk(false) }
   }
@@ -115,14 +115,14 @@ export function TolakTugasBtn({ project, sub, onDone, size = 'sm', className, bl
   if (!buka) return (
     <Button size={size} variant="outline" onClick={() => setBuka(true)} data-aksi="tolak-tugas"
       className={cx('!text-rose-700 !ring-rose-300 hover:!bg-rose-50', blok && 'w-full', className)}
-      title="Tolak tugas ini — wajib isi alasan, dokumen kembali ke Supervisor">
+      title="Tolak tugas ini — wajib isi alasan, dokumen kembali ke Direktur">
       <Undo2 className="h-3.5 w-3.5" />Tolak Project
     </Button>
   )
   return (
     <div className="w-full space-y-2 rounded-xl bg-rose-50 p-3 ring-1 ring-rose-200" data-form="tolak-tugas">
       <p className="text-xs font-bold text-rose-900">Tolak Project</p>
-      <p className="text-[11px] text-rose-800">Dokumen kembali ke Supervisor untuk ditunjuk ke penerjemah lain. Alasan Anda ikut terkirim.</p>
+      <p className="text-[11px] text-rose-800">Dokumen kembali ke Direktur untuk ditunjuk ke penerjemah lain. Alasan Anda ikut terkirim.</p>
       <label className="block text-xs font-semibold text-ink-soft">Alasan <span className="text-rose-500">*</span>
         <textarea rows={2} value={alasan} onChange={(e) => setAlasan(e.target.value)} aria-label="Alasan penolakan"
           placeholder="Contoh: jadwal penuh sampai Jumat / bidangnya di luar kemampuan saya"

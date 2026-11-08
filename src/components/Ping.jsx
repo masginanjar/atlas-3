@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { InvoiceNo } from './badges.jsx'
 import { BellRing, Send, CheckCircle2, Clock3 } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { activeClaim, branchesOf, ROLES, roleLabel, printBranchOf, invoiceLabel} from '../config/access.js'
@@ -71,7 +72,7 @@ export function PingButton({ project, sub, stage, size = 'sm', className }) {
         <div className="space-y-4">
           <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
             <p className="text-[10px] font-bold uppercase tracking-wide text-ink-mute">Pekerjaan</p>
-            <p className="text-sm font-bold text-ink">{invoiceLabel(project.invoice_no)} <span className="font-normal text-ink-mute">· {project.customer?.name}</span></p>
+            <p className="text-sm font-bold text-ink"><InvoiceNo project={project} /> <span className="font-normal text-ink-mute">· {project.customer?.name}</span></p>
             <p className="text-sm text-ink-soft">{sub?.title}{stage ? <> · tahap <b>{stage.label}</b></> : null}</p>
             {project.about?.deadline && <p className={cx('mt-0.5 text-xs', d !== null && d <= 0 ? 'font-semibold text-rose-600' : 'text-ink-mute')}>Deadline {tgl(project.about.deadline)}{d === 0 ? ' · Hari ini' : d === 1 ? ' · Besok' : d < 0 ? ` · Terlambat ${-d} hr` : ''}</p>}
           </div>

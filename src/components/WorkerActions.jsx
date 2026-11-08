@@ -114,7 +114,7 @@ function useTask(project, sub, onDone) {
     return ok
   }
   const blocked = stage.fields.some((f) => f.required && f.type === 'file' && !files.length) ? 'Upload hasil dulu'
-    : pick?.required && !(teamPick ? people?.length : who) ? (teamPick ? 'Belum ada proofreader aktif — hubungi Supervisor' : `Pilih ${pick.label} dulu`) : ''
+    : pick?.required && !(teamPick ? people?.length : who) ? (teamPick ? 'Belum ada proofreader aktif — hubungi Direktur' : `Pilih ${pick.label} dulu`) : ''
   return { stage, started, claim, files, sources, pick, teamPick, people, who, setWho, noteField, note, setNote, busy, start, upload, replace, remove, next, blocked, namerDialog }
 }
 
@@ -239,7 +239,7 @@ function WorkSheet({ project, sub, t, onClose }) {
           </section>
         )}
 
-        {/* Tidak sanggup mengerjakan? kembalikan ke Supervisor dengan alasan */}
+        {/* Tidak sanggup mengerjakan? kembalikan ke Direktur dengan alasan */}
         <TolakTugasBtn project={project} sub={sub} blok onDone={onClose} />
 
       </div>

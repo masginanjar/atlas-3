@@ -62,23 +62,28 @@ export const isNewToday = (p) => !!p?.created_at && WITA_DAY(new Date(p.created_
 export const isCepat = (p) => ['Ekspres', 'Super Ekspres', 'Sameday'].includes(p?.about?.priority)
 /**
  * Nomor invoice sebagai kapsul solid (aturan 8 Nov 2026):
- *  • prioritas cepat (Ekspres/Super Ekspres/Sameday) → latar hitam, teks putih tebal
+ *  • Sameday / Super Ekspres → latar hitam; Ekspres → latar oranye (teks putih tebal)
  *  • project dibuat hari ini (created_at, zona WITA) → latar hijau, teks putih tebal
  *  • keduanya → kapsul hitam + penanda kecil hijau "Baru"
  *  • selain itu → tampilan biasa
  */
 export function InvoiceNo({ project, className, size = 'sm' }) {
   const fresh = isNewToday(project)
+  const prio = project?.about?.priority
   const cepat = isCepat(project)
   const txt = size === 'base' ? 'text-base' : 'text-sm'
   if (!fresh && !cepat) return <span className={cx('whitespace-nowrap font-bold', txt, className)}>{invoiceLabel(project.invoice_no)}</span>
   const kapsul = 'inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 font-bold text-white'
-  if (cepat) return (
-    <span className={cx('inline-flex items-center gap-1.5 whitespace-nowrap', className)}>
-      <span title={`Prioritas ${project.about.priority}`} data-invoice-badge="cepat" className={cx(kapsul, 'bg-ink', txt)}>{invoiceLabel(project.invoice_no)}</span>
-      {fresh && <span title="Baru diinput hari ini" data-invoice-badge="baru-kecil" className="inline-flex items-center rounded-full bg-emerald-600 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-white">Baru</span>}
-    </span>
-  )
+  if (cepat) {
+    // Sameday / Super Ekspres → hitam; Ekspres → oranye (aturan kapsul 9 Nov 2026)
+    const warna = prio === 'Ekspres' ? 'bg-orange-500' : 'bg-ink'
+    return (
+      <span className={cx('inline-flex items-center gap-1.5 whitespace-nowrap', className)}>
+        <span title={`Prioritas ${prio}`} data-invoice-badge={prio === 'Ekspres' ? 'ekspres' : 'cepat'} className={cx(kapsul, warna, txt)}>{invoiceLabel(project.invoice_no)}</span>
+        {fresh && <span title="Baru diinput hari ini" data-invoice-badge="baru-kecil" className="inline-flex items-center rounded-full bg-emerald-600 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-white">Baru</span>}
+      </span>
+    )
+  }
   return <span title="Baru diinput hari ini" data-invoice-badge="baru" className={cx(kapsul, 'bg-emerald-600', txt, className)}>{invoiceLabel(project.invoice_no)}</span>
 }
 const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']

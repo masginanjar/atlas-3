@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { InvoiceNo } from './badges.jsx'
 import { AlarmClock, AlertTriangle, Banknote, ChevronDown, FolderKanban, Inbox, ReceiptText, Users, Wallet } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
@@ -159,7 +160,7 @@ export function Hambatan({ s, user }) {
               <span className={cx('hidden h-2 w-2 shrink-0 rounded-full sm:block', r.jenis === 'tenggat' ? 'bg-rose-500' : r.jenis === 'prioritas' ? 'bg-amber-500' : r.jenis === 'tugas' ? 'bg-indigo-500' : 'bg-violet-500')} aria-hidden="true" />
               <span className="min-w-0 flex-1">
                 <span className="flex min-w-0 items-center gap-1.5">
-                  <a href={`#/projects/${r.id}`} className="truncate text-sm font-bold tabular-nums hover:underline">{r.inv}</a>
+                  <a href={`#/projects/${r.id}`} className="truncate text-sm font-bold tabular-nums hover:underline"><InvoiceNo project={r.p} /></a>
                   {r.prio && r.prio !== 'Normal' && <PriorityBadge p={r.prio} />}
                   <span className="hidden truncate text-xs text-ink-mute sm:inline">{r.nama}</span>
                 </span>

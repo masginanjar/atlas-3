@@ -138,7 +138,7 @@ function TampilanSaya({ user, ym, rows, peta, cuti }) {
 
   if (!saya.length) return (
     <Empty icon={CalendarRange} title="Belum ada jadwal bulan ini"
-      text="Jadwal dibuat oleh Superadmin, Supervisor, atau Direktur." />
+      text="Jadwal dibuat oleh Superadmin atau Direktur." />
   )
   return (
     <div className="space-y-2">

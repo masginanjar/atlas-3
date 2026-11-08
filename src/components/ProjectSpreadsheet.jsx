@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { InvoiceNo } from './badges.jsx'
 import { Eye, MoreHorizontal, Search, SlidersHorizontal, X, ArrowUp, ArrowDown, FolderOpen, Printer } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { Button, cx } from './ui.jsx'
@@ -156,7 +157,7 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
       </Lingkar>)
     if (key === 'invoice') return (
       <Lingkar warna={r.prioMendesak ? 'hitam' : ''} judul={r.prioMendesak ? `Prioritas ${r.prioritas}` : ''}>
-        <span className="font-semibold tabular-nums">{invoiceLabel(r.invoice)}</span>
+        <InvoiceNo project={r.p} />
       </Lingkar>)
     if (key === 'deadline') {
       const w = r.dlHariIni ? 'merah' : r.dlBesok ? 'oranye' : ''

@@ -121,14 +121,36 @@ export function QuickAcc({ branch, onAcc, onPick, busy, label = 'ACC' }) {
   return (
     <span className="inline-flex items-center gap-1.5">
       <Button size="sm" loading={busy} onClick={() => onAcc(rec)} title={`Rekomendasi ${sumberLabel(rec)} (cabang ${branch || '—'})`} className="whitespace-nowrap" data-aksi="acc-cepat"><CheckCircle2 className="h-3.5 w-3.5" />{label} dari {rec}</Button>
-      <Button size="sm" variant="outline" className="!h-11 whitespace-nowrap sm:!h-8" onClick={() => onPick(rec)} title="Pilih sumber dana lain" data-aksi="acc-ganti-dana"><Repeat2 className="h-4 w-4" />Dana lain</Button>
+      <Button size="sm" variant="outline" className="!h-11 whitespace-nowrap sm:!h-8" onClick={() => onPick(rec)} title="Pilih sumber dana lain" aria-label="Pilih sumber dana lain" data-aksi="acc-ganti-dana"><Repeat2 className="h-4 w-4" /></Button>
     </span>
   )
 }
 
-export function SumberDanaPicker({ value, onChange, className, recommended }) {
+export function SumberDanaPicker({ value, onChange, className, recommended, layout = 'grid' }) {
   const { data } = useApp()
   const sum = useMemo(() => Object.fromEntries(fundSummary(data).map((r) => [r.code, r])), [data])
+  // layout="list": satu sumber per baris (dipakai di kolom Aksi tabel yang sempit — kartu 4 kolom numpuk)
+  if (layout === 'list') return (
+    <div role="radiogroup" aria-label="Sumber dana" className={cx('overflow-hidden rounded-xl bg-white ring-1 ring-slate-300', className)} data-sumber-dana-list>
+      {SUMBER_DANA.map((d, i) => {
+        const on = value === d.code
+        const m = sum[d.code]
+        return (
+          <button key={d.code} type="button" role="radio" aria-checked={on} onClick={() => onChange(d.code)} title={d.name}
+            className={cx('flex w-full items-center gap-2 px-2.5 py-1.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand',
+              i > 0 && 'border-t border-slate-100', on ? 'bg-brand text-white' : 'hover:bg-slate-50')}>
+            <span className={cx('grid h-4 w-4 shrink-0 place-items-center rounded-full ring-1', on ? 'bg-white ring-white' : 'ring-slate-300')}>{on && <span className="h-2 w-2 rounded-full bg-brand" />}</span>
+            <span className="w-9 shrink-0 text-xs font-bold">{d.code}</span>
+            <span className={cx('min-w-0 flex-1 truncate text-[11px]', on ? 'text-white/85' : 'text-ink-mute')} title={d.name}>{d.name}</span>
+            {recommended === d.code && <span className={cx('shrink-0 rounded-full px-1.5 text-[9px] font-bold uppercase', on ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-700')}>Rek.</span>}
+            <span className={cx('shrink-0 text-[11px] font-semibold tabular-nums', on ? 'text-white' : m?.remaining < 0 ? 'text-rose-600' : 'text-ink-soft')} title={`Menunggu ${rupiah(m?.waiting || 0)}${m?.remaining != null ? ` · Sisa ${rupiah(m.remaining)}` : ''}`}>
+              {m?.remaining != null ? rupiah(m.remaining) : rupiah(m?.waiting || 0)}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
   return (
     <div role="radiogroup" aria-label="Sumber dana" className={cx('grid grid-cols-2 gap-2 sm:grid-cols-4', className)}>
       {SUMBER_DANA.map((d) => {

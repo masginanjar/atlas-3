@@ -7,7 +7,7 @@ import { ROLES, can, branchesOf, isFreelance, placeOf, invoiceLabel} from '../co
 import { stageLabel } from '../config/workflows.js'
 import { summarize, band, dayKey, clock, addDays, hasPersonalTasks, canSeeTeam } from '../lib/performance.js'
 import { PriorityBadge } from './Priority.jsx'
-import { PrintBadge } from './badges.jsx'
+import { PrintBadge, InvoiceNo } from './badges.jsx'
 import { Card, Select, cx } from './ui.jsx'
 
 // ---------- preferensi animasi ----------
@@ -92,7 +92,7 @@ const TaskRow = ({ t, late, onOpen }) => (
         <Clock className="mb-0.5 h-3.5 w-3.5" />{t.dl.time}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-1.5 text-sm font-bold">{invoiceLabel(t.project.invoice_no)}<PriorityBadge p={t.project.about?.priority} iconOnly /><PrintBadge project={t.project} />
+        <span className="flex flex-wrap items-center gap-1.5 text-sm font-bold"><InvoiceNo project={t.project} /><PriorityBadge p={t.project.about?.priority} iconOnly /><PrintBadge project={t.project} />
           {late && <span className="rounded-full bg-rose-100 px-1.5 text-[10px] font-bold text-rose-700">Lewat jam deadline</span>}</span>
         <span className="block truncate text-xs text-ink-mute">{t.sub.title} · {stageLabel(t.flow, t.sub.stage)}</span>
       </span>
@@ -202,7 +202,7 @@ export function PerformanceCard({ narrow }) {
             <div>
               <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-rose-700"><AlarmClock className="h-3.5 w-3.5" />Terlambat dari hari sebelumnya ({s.overdue.length})</p>
               <ul className="space-y-1">{s.overdue.slice(0, 4).map((t) => (
-                <li key={t.sub.id}><button type="button" onClick={() => open(t)} className="w-full truncate rounded-lg px-2 py-1 text-left text-xs hover:bg-rose-50"><b>{invoiceLabel(t.project.invoice_no)}</b> · {t.sub.title} · <span className="text-rose-600">deadline {t.dl.day.slice(8)}/{t.dl.day.slice(5, 7)} {t.dl.time}</span></button></li>
+                <li key={t.sub.id}><button type="button" onClick={() => open(t)} className="w-full truncate rounded-lg px-2 py-1 text-left text-xs hover:bg-rose-50"><InvoiceNo project={t.project} className="!text-xs" /> · {t.sub.title} · <span className="text-rose-600">deadline {t.dl.day.slice(8)}/{t.dl.day.slice(5, 7)} {t.dl.time}</span></button></li>
               ))}</ul>
             </div>
           )}
@@ -210,7 +210,7 @@ export function PerformanceCard({ narrow }) {
             <div>
               <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-ink-soft"><Hourglass className="h-3.5 w-3.5" />Menunggu persetujuan / role lain ({s.waiting.length}) <span className="font-normal text-ink-mute">— tidak mengurangi performamu</span></p>
               <ul className="space-y-1">{s.waiting.slice(0, 4).map((t) => (
-                <li key={t.sub.id} className="truncate px-2 py-1 text-xs text-ink-soft"><b>{invoiceLabel(t.project.invoice_no)}</b> · {t.sub.title} · {stageLabel(t.flow, t.sub.stage)}</li>
+                <li key={t.sub.id} className="truncate px-2 py-1 text-xs text-ink-soft"><InvoiceNo project={t.project} className="!text-xs" /> · {t.sub.title} · {stageLabel(t.flow, t.sub.stage)}</li>
               ))}</ul>
             </div>
           )}

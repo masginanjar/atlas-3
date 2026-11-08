@@ -12,7 +12,7 @@ export const FAQ_SEED = [
     panduan: 'Periksa invoice dan tahap terakhir di proyek. Sebutkan tahap yang tercatat; jangan menjanjikan waktu selesai yang belum dikonfirmasi.',
     balasan: 'Baik, Bapak/Ibu. Pesanan [nomor invoice] saat ini berada pada tahap [tahap terakhir].',
     kata_kunci: 'progres, status, sampai mana, sudah sampai mana, update',
-    eskalasi: 'Bila pelanggan mendesak tanggal pasti, teruskan ke supervisor.',
+    eskalasi: 'Bila pelanggan mendesak tanggal pasti, teruskan ke Direktur.',
     mulai_di_sini: true,
   },
   {
@@ -48,7 +48,7 @@ export const FAQ_SEED = [
     panduan: 'Periksa apakah dokumen telah diserahkan ke kurir dan resi sudah tercatat. Jika belum, jangan menyatakan dokumen sudah dikirim.',
     balasan: 'Saya cek status pengirimannya terlebih dahulu, Bapak/Ibu. Jika dokumen sudah diserahkan ke kurir, saya akan informasikan nomor resinya.',
     kata_kunci: 'resi, kirim, pengiriman, kurir, ekspedisi, tracking, lacak',
-    eskalasi: 'Paket hilang atau resi tidak bergerak lebih dari 3 hari — teruskan ke supervisor.',
+    eskalasi: 'Paket hilang atau resi tidak bergerak lebih dari 3 hari — teruskan ke Direktur.',
     mulai_di_sini: true,
   },
   {

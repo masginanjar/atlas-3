@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { InvoiceNo } from './badges.jsx'
 import { Wallet, Undo2, ShoppingCart, Plus, Upload, FileCheck2, Loader2, ChevronUp, X, Check, Inbox, Ban, Banknote } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { drive } from '../lib/integrations.js'
@@ -145,14 +146,18 @@ export function RequestBoard({ bare }) {
                   </span>
                   <FinActions>
                     {r.status === 'menunggu' && canAcc && (f.acc ? (
-                      <span className="w-full space-y-1.5 lg:w-[300px]">
-                        <SumberDanaPicker value={f.dana} onChange={(v) => set(r.id, { dana: v })} className="!grid-cols-4" recommended={recommendFund(r.branch)} />
-                        <span className="flex justify-end gap-1.5"><Button size="sm" variant="outline" onClick={() => set(r.id, { acc: false })}>Batal</Button><Button size="sm" loading={f.busy} disabled={!f.dana} onClick={() => approve(r)}><Check className="h-3.5 w-3.5" />ACC{f.dana ? ` · ${f.dana}` : ''}</Button></span>
-                      </span>
+                      <>
+                        {/* Pemilih sumber dana di dialog tengah (kolom Aksi terlalu sempit untuk 4 kartu) */}
+                        <Sheet open title="Pilih sumber dana" subtitle={`${r.title || r.kind} · ${rupiah(r.amount)} · ${r.branch || ''}`} onClose={() => set(r.id, { acc: false })}
+                          footer={<span className="flex w-full items-center gap-2"><span className="mr-auto text-xs text-ink-mute">Angka di kanan = sisa dana</span><Button variant="outline" onClick={() => set(r.id, { acc: false })}>Batal</Button><Button loading={f.busy} disabled={!f.dana} onClick={() => approve(r)} data-aksi="acc-dana"><Check className="h-4 w-4" />ACC{f.dana ? ` · ${f.dana}` : ''}</Button></span>}>
+                          <SumberDanaPicker layout="list" value={f.dana} onChange={(v) => set(r.id, { dana: v })} recommended={recommendFund(r.branch)} />
+                        </Sheet>
+                        <span className="text-xs text-ink-mute">Memilih sumber dana…</span>
+                      </>
                     ) : f.reject ? (
                       <span className="flex w-full gap-1.5 lg:w-[280px]"><Input value={f.reason} onChange={(e) => set(r.id, { reason: e.target.value })} placeholder="Alasan ditolak" className="!h-8 text-xs" aria-label="Alasan penolakan" /><Button size="sm" variant="danger" loading={f.busy} onClick={() => reject(r)}>Tolak</Button><Button size="sm" variant="ghost" onClick={() => set(r.id, { reject: false })} aria-label="Batal"><X className="h-3.5 w-3.5" /></Button></span>
                     ) : (
-                      <><QuickAcc branch={r.branch} busy={f.busy} onAcc={(d) => approve(r, d)} onPick={(d) => set(r.id, { acc: true, dana: d })} /><Button size="sm" variant="outline" className="!h-11 sm:!h-8" onClick={() => set(r.id, { reject: true })} title="Tolak pengajuan"><Ban className="h-4 w-4" />Tolak</Button></>
+                      <span className="flex flex-wrap items-center justify-end gap-1.5"><QuickAcc branch={r.branch} busy={f.busy} onAcc={(d) => approve(r, d)} onPick={(d) => set(r.id, { acc: true, dana: d })} /><Button size="sm" variant="outline" className="!h-11 sm:!h-8" onClick={() => set(r.id, { reject: true })} title="Tolak pengajuan"><Ban className="h-4 w-4" />Tolak</Button></span>
                     ))}
                     {r.status === 'disetujui' && canPay && (
                       <>
@@ -268,7 +273,7 @@ function ProjectSearch({ projects, value, onChange }) {
   const hits = (s ? projects.filter((p) => [p.invoice_no, p.customer?.name, p.branch].join(' ').toLowerCase().includes(s)) : projects).slice(0, 8)
   if (chosen && !open) return (
     <div className="flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2 ring-1 ring-emerald-200">
-      <span className="min-w-0 flex-1 text-sm"><b>{invoiceLabel(chosen.invoice_no)}</b> <span className="text-ink-soft">· {chosen.customer?.name} · {chosen.branch}</span></span>
+      <span className="min-w-0 flex-1 text-sm"><InvoiceNo project={chosen} /> <span className="text-ink-soft">· {chosen.customer?.name} · {chosen.branch}</span></span>
       <button type="button" onClick={() => { onChange(''); setQ(''); setOpen(true) }} className="text-xs font-semibold text-brand hover:underline">Ganti</button>
     </div>
   )
@@ -281,7 +286,7 @@ function ProjectSearch({ projects, value, onChange }) {
           {hits.map((p) => (
             <li key={p.id}><button type="button" role="option" aria-selected={p.id === value} onClick={() => { onChange(p.id); setOpen(false) }}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-sm hover:bg-brand-soft">
-              <b>{invoiceLabel(p.invoice_no)}</b><span className="min-w-0 flex-1 truncate text-ink-soft">{p.customer?.name}</span><span className="text-[11px] text-ink-mute">{p.branch}</span>
+              <InvoiceNo project={p} /><span className="min-w-0 flex-1 truncate text-ink-soft">{p.customer?.name}</span><span className="text-[11px] text-ink-mute">{p.branch}</span>
             </button></li>
           ))}
           {!s && projects.length > 8 && <li className="px-3 py-1 text-[11px] text-ink-mute">Menampilkan 8 terbaru — ketik untuk mencari {projects.length} project.</li>}

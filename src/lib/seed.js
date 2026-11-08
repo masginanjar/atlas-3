@@ -16,7 +16,7 @@ export function seed() {
     { id: 'u-sa', name: 'Super Admin', email: 'admin@247.id', role: 'superadmin', branch: 'Bali' },
     { id: 'u-adm', name: 'Nihaya (Admin Pusat)', email: 'nihaya@247.id', role: 'admin_pusat', branch: 'Bali' },
     { id: 'u-adm2', name: 'Sabrina (Admin Pusat)', email: 'sabrina@247.id', role: 'admin_pusat', branch: 'Bali' },
-    { id: 'u-spv', name: 'Laila (Supervisor)', email: 'laila@247.id', role: 'supervisor', branch: 'Jakarta' },
+    { id: 'u-spv', name: 'Laila (Direktur)', email: 'laila@247.id', role: 'supervisor', branch: 'Jakarta' },
     { id: 'u-cs-bali', name: 'Nikita (CS Bali)', email: 'nikita@247.id', role: 'cs', branch: 'Bali' },
     { id: 'u-cs-bali2', name: 'Indah (CS Bali)', email: 'indah@247.id', role: 'cs', branch: 'Bali' },
     { id: 'u-cs-bali3', name: 'Destri (CS Bali)', email: 'destri@247.id', role: 'cs', branch: 'Bali' },
@@ -101,12 +101,12 @@ export function seed() {
   const titip = (dari, ke, n) => projects.filter((p) => p.branch === dari && p.sub_projects.some((s) => ['siap_print', 'upload_scan'].includes(s.stage))).slice(0, n).forEach((p) => { p.about.print_location = ke })
   titip('Jakarta', 'Bali', 2); titip('Bali', 'Jakarta', 1)
 
-  const petty_cash = [{ id: id('pc'), branch: 'Apostille', type: 'in', amount: 10000000, note: 'Saldo awal petty cash apostille (Supervisor)', project_id: null, by: 'Super Admin', created_at: d(-30) },
+  const petty_cash = [{ id: id('pc'), branch: 'Apostille', type: 'in', amount: 10000000, note: 'Saldo awal petty cash apostille (Direktur)', project_id: null, by: 'Super Admin', created_at: d(-30) },
     ...BRANCHES.map((b) => ({
     id: id('pc'), branch: b, type: 'in', amount: 3000000, note: 'Saldo awal petty cash cabang', project_id: null, by: 'Super Admin', created_at: d(-30),
   }))]
-  // biaya apostille yang sudah diisi Supervisor → tercatat di petty cash
-  apCost.forEach(([p, s0]) => petty_cash.push({ id: id('pc'), branch: 'Apostille', type: 'out', amount: totalBiaya(s0.data), note: `Biaya ${s0.type} ${p.invoice_no} — ${s0.title}`, project_id: p.id, sub_id: s0.id, by: 'Laila (Supervisor)', created_at: d(-1) }))
+  // biaya apostille yang sudah diisi Direktur → tercatat di petty cash
+  apCost.forEach(([p, s0]) => petty_cash.push({ id: id('pc'), branch: 'Apostille', type: 'out', amount: totalBiaya(s0.data), note: `Biaya ${s0.type} ${p.invoice_no} — ${s0.title}`, project_id: p.id, sub_id: s0.id, by: 'Laila (Direktur)', created_at: d(-1) }))
 
 
   // Pengajuan umum (tanpa invoice) — contoh
@@ -120,7 +120,7 @@ export function seed() {
     R('topup', ['u-cs-bali', 'Nikita (CS Bali)'], 'Bali', 2000000, 'Saldo petty cash Bali menipis', 'menunggu', { fund: 'Bali' }),
     R('lain', ['u-cs-jkt', 'Rika (CS Jakarta)'], 'Jakarta', 500000, 'Token listrik kantor Jakarta', 'menunggu', { recipient: { bank: 'BCA', number: '1234567890', holder: 'PLN Prabayar (via Tokopedia)' } }),
     R('refund', ['u-cs-jkt', 'Rika (CS Jakarta)'], 'Jakarta', 350000, 'Pembatalan 1 dokumen — pelanggan tidak jadi', 'disetujui', { ...ok, project_id: refundP?.id, recipient: { bank: 'Mandiri', number: '1370012345678', holder: refundP?.customer?.name || 'Pelanggan' } }),
-    R('topup', ['u-spv', 'Laila (Supervisor)'], 'Jakarta', 5000000, 'Top up kas apostille bulan November', 'disetujui', { ...ok, fund: 'Apostille', sumber_dana: 'PAL' }),
+    R('topup', ['u-spv', 'Laila (Direktur)'], 'Jakarta', 5000000, 'Top up kas apostille bulan November', 'disetujui', { ...ok, fund: 'Apostille', sumber_dana: 'PAL' }),
     R('lain', ['u-cs-sby', 'Ninda (CS Surabaya)'], 'Surabaya', 1750000, 'Beli meja kerja CS', 'dibayar', { ...paid, ago: 4, recipient: { bank: 'BRI', number: '0021-01-998877-50-1', holder: 'Toko Mebel Jaya' } }),
     R('lain', ['u-cs-mks', 'Aina (CS Makassar)'], 'Makassar', 300000, 'Langganan internet tambahan', 'ditolak', { ago: 3, rejected_reason: 'Sudah tercakup paket kantor', rejected_name: 'Fina (Direktur)' }),
   ]

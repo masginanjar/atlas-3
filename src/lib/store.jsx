@@ -254,12 +254,12 @@ export function AppProvider({ children }) {
       const missing = stage.fields.filter((f) => f.required && (f.type === 'reg_numbers' ? !regComplete({ ...s, data: merged }) : f.type === 'checklist' ? kurangCeklist(f).length > 0 : (merged[f.key] === undefined || merged[f.key] === '' || merged[f.key] === null)))
       if (missing.length) {
         // Kalau yang kurang hanya langkah milik peran lain (mis. Bayar Pajak milik
-        // Supervisor), sebutkan siapa yang ditunggu — bukan "lengkapi" yang
+        // Direktur), sebutkan siapa yang ditunggu — bukan "lengkapi" yang
         // membuat pelaksana mencari-cari sesuatu yang memang bukan haknya.
         const nunggu = missing.flatMap((f) => (f.type === 'checklist' ? kurangCeklist(f) : []))
           .filter((it) => missing.some((f) => f.itemRoles?.[it] && !f.itemRoles[it].includes(user.role)))
         if (nunggu.length && nunggu.length === missing.flatMap((f) => (f.type === 'checklist' ? kurangCeklist(f) : [f.label])).length) {
-          throw new Error(`Menunggu Supervisor menyelesaikan: ${nunggu.join(', ')}`)
+          throw new Error(`Menunggu Direktur menyelesaikan: ${nunggu.join(', ')}`)
         }
         throw new Error('Lengkapi: ' + missing.map((f) => f.label).join(', '))
       }
@@ -331,7 +331,7 @@ export function AppProvider({ children }) {
   }
 
   /**
-   * Supervisor / Superadmin MENGGANTI penerjemah yang tugasnya sudah terkirim.
+   * Direktur / Superadmin MENGGANTI penerjemah yang tugasnya sudah terkirim.
    * Wajib pakai alasan: tercatat di riwayat dan dikirim ke kedua penerjemah.
    */
   const gantiPenerjemah = async (project, subId, toId, reason) => {
@@ -361,7 +361,7 @@ export function AppProvider({ children }) {
   /**
    * Penerjemah MENOLAK tugas yang sudah dikirim kepadanya (mis. sedang penuh).
    * Sub project kembali ke tahap "Pilih Penerjemah", alasan tersimpan, dan
-   * Supervisor cabang diberi tahu supaya bisa menunjuk penerjemah lain.
+   * Direktur cabang diberi tahu supaya bisa menunjuk penerjemah lain.
    */
   const tolakTugas = async (project, subId, reason) => {
     const why = String(reason || '').trim(); if (!why) throw new Error('Isi alasan penolakan')
@@ -391,7 +391,7 @@ export function AppProvider({ children }) {
   }
 
   /**
-   * Akses cepat Supervisor: tetapkan penerjemah internal ATAU vendor untuk sub project terjemahan.
+   * Akses cepat Direktur: tetapkan penerjemah internal ATAU vendor untuk sub project terjemahan.
    *  • internal → alur tr_int, langsung ke tahap Penerjemahan (masuk To-Do penerjemah)
    *  • vendor   → alur tr_ext; bila layanan dipilih, langsung diajukan ke Direktur
    */

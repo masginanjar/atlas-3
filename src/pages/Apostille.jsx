@@ -14,7 +14,7 @@ import { rupiah } from '../lib/format.js'
 
 // ============================================================
 //  MY APOSTILLE — pekerjaan apostille & legalisasi internal.
-//  Staf Apostille melihat tugasnya; Supervisor/Direktur/Superadmin & Admin Pusat
+//  Staf Apostille melihat tugasnya; Direktur/Direktur/Superadmin & Admin Pusat
 //  melihat seluruh pekerjaan + siapa pelaksananya. Data sama dengan My Project.
 // ============================================================
 import { canSeeApostille } from '../config/menuAccess.js'

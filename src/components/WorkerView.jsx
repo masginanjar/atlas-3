@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { InvoiceNo } from './badges.jsx'
 import { ArrowLeft, Download, Upload, Eye, CheckCircle2, Loader2, FileText, Send, UserRound, Languages, CalendarClock } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
@@ -45,7 +46,7 @@ export default function WorkerView({ project }) {
       </button>
 
       <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-        <h1 className="text-2xl font-extrabold tracking-tight">{invoiceLabel(project.invoice_no)}</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight"><InvoiceNo project={project} size="base" className="!text-2xl" /></h1>
         <TimeAgo at={project.created_at} prefix="Diposting" className="!text-xs" />
         <p className="mt-2 flex items-center gap-2 text-base font-semibold"><UserRound className="h-5 w-5 text-sky-600" />{project.customer?.name || '—'}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -143,7 +144,7 @@ function OrderCard({ project, sub, cfg }) {
   }, 'File dihapus')
   const next = () => run('next', () => {
     const target = isTr && !isNT ? (teamOnly ? pickProofreader(data.users, data.projects) : pr) : null
-    if (isTr && !isNT && !target) throw new Error('Tidak ada proofreader aktif — hubungi Supervisor')
+    if (isTr && !isNT && !target) throw new Error('Tidak ada proofreader aktif — hubungi Direktur')
     return processStage(project, sub.id, isNT ? {} : isTr ? { proofreader: target } : { catatan_proofread: note }, true)
   }, isNT ? 'Selesai — dokumen kembali ke CS' : isTr ? 'Terkirim ke Tim Proofreader' : 'Lanjut ke Otorisator')
   const canNext = isTr ? !!uploaded && (isNT || teamOnly ? proofreaders.length > 0 : !!pr) : !!uploaded

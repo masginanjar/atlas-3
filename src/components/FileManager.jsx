@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { InvoiceNo } from './badges.jsx'
 import { FileText, FileImage, Upload, Download, Trash2, Pencil, Check, X, Archive, Loader2, FolderOpen, Eye, Printer, ChevronRight } from 'lucide-react'
 import FilePreview from './FilePreview.jsx'
 import { canPreview, kindOf, printBlob } from '../lib/printing.js'
@@ -182,7 +183,7 @@ export default function FileManager({ project, readOnly }) {
           <button type="button" onClick={() => setFolder('all')}
             className={cx('rounded px-1 font-semibold', folder === 'all' ? 'text-ink' : 'text-brand hover:underline')}>File Project</button>
           <ChevronRight className="h-3 w-3 shrink-0 text-ink-mute" aria-hidden="true" />
-          <span className="min-w-0 max-w-full truncate font-semibold tabular-nums text-ink">{invoiceLabel(project.invoice_no)}</span>
+          <span className="min-w-0 max-w-full truncate font-semibold tabular-nums text-ink"><InvoiceNo project={project} /></span>
           {folder !== 'all' && (
             <>
               <ChevronRight className="h-3 w-3 shrink-0 text-ink-mute" aria-hidden="true" />

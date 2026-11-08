@@ -29,7 +29,7 @@ export default function Penugasan() {
   const [range, setRange] = useState({ from: '', to: '' })
 
   if (!canSeePenugasan(user)) {
-    return <div className="p-4"><Card><Empty icon={Lock} title="Halaman Penugasan hanya untuk Superadmin & Supervisor" /></Card></div>
+    return <div className="p-4"><Card><Empty icon={Lock} title="Halaman Penugasan hanya untuk Superadmin & Direktur" /></Card></div>
   }
 
   return (

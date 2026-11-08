@@ -64,7 +64,7 @@ export function mingguBulan(ym) {
 }
 
 // ---------------- hak akses ----------------
-/** Boleh membuat & mengubah jadwal. Supervisor hanya cabangnya sendiri. */
+/** Boleh membuat & mengubah jadwal. Direktur hanya cabangnya sendiri. */
 export const canUbahJadwal = (u) =>
   rolesOf(u).some((r) => ['superadmin', 'direktur', 'supervisor'].includes(r))
 

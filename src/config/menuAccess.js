@@ -24,7 +24,7 @@ const APOSTILLE_ROLES = ['staf_apostille', 'supervisor', 'superadmin', 'direktur
 export const canSeeApostille = (u) => APOSTILLE_ROLES.includes(u?.role) || (u?.extra_roles || []).some((r) => APOSTILLE_ROLES.includes(r))
 export const canSeeAllActivity = (u) => ['superadmin', 'direktur'].includes(u?.role)
 export const canMonitor = (u) => u?.role === 'superadmin'
-/** Penugasan (kapasitas & bagi penerjemah): Superadmin & Supervisor. */
+/** Penugasan (kapasitas & bagi penerjemah): Superadmin & Direktur. */
 export const canSeePenugasan = (u) => ['superadmin', 'supervisor'].includes(u?.role)
 /** Daftar pelanggan: hanya Superadmin. */
 export const canSeePelanggan = (u) => u?.role === 'superadmin'
@@ -39,7 +39,7 @@ export const canSeeInvoices = (u) => !WORKER_ROLES.includes(u?.role)
 export const canSeePayment = (u) => !WORKER_ROLES.includes(u?.role)
 /**
  * Tracking Affidavit: yang mencetak (CS, Helper, cabang) dan yang memantau
- * (pusat, Supervisor, Direktur, Akunting). Penerjemah/Proofreader/Otorisator
+ * (pusat, Direktur, Direktur, Akunting). Penerjemah/Proofreader/Otorisator
  * tidak mencetak lembar, jadi menunya tidak perlu muncul.
  */
 export const canSeeAffidavit = (u) => !!u && !WORKER_ROLES.includes(u.role)

@@ -5,9 +5,9 @@ export const BRANCHES = ['Bali', 'Jakarta', 'Surabaya', 'Semarang', 'Bandung', '
 
 /** Cabang yang boleh diakses user: cabang utama + cabang tambahan (CS multi cabang / backup). */
 export const branchesOf = (u) => (u?.branches?.length ? [...new Set([u.branch, ...u.branches])] : [u?.branch].filter(Boolean))
-/** Petty cash: satu kas per cabang + satu kas APOSTILLE milik Supervisor (untuk bayar apostille/legalisasi). */
+/** Petty cash: satu kas per cabang + satu kas APOSTILLE milik Direktur (untuk bayar apostille/legalisasi). */
 export const APOSTILLE_FUND = 'Apostille'
-export const pettyLabel = (k) => (k === APOSTILLE_FUND ? 'Petty Cash Apostille (Supervisor)' : `Petty Cash ${k}`)
+export const pettyLabel = (k) => (k === APOSTILLE_FUND ? 'Petty Cash Apostille (Direktur)' : `Petty Cash ${k}`)
 export function pettyAccountsOf(u) {
   if (['superadmin', 'admin_pusat', 'direktur', 'akunting'].includes(u?.role)) return [APOSTILLE_FUND, ...BRANCHES]
   if (u?.role === 'supervisor') return [APOSTILLE_FUND, ...branchesOf(u)]
@@ -29,7 +29,7 @@ export const branchLabel = (u) => (isFreelance(u) ? 'Freelance (semua lokasi)' :
 export const ROLES = {
   superadmin: { label: 'Superadmin' },
   admin_pusat: { label: 'Admin Kantor Pusat' },
-  supervisor: { label: 'Supervisor' },
+  supervisor: { label: 'Direktur' }, // label tampilan: tugas direktur dikerjakan akun supervisor (permintaan 9 Nov 2026)
   cs: { label: 'CS Cabang' },
   direktur: { label: 'Direktur' },
   akunting: { label: 'Akunting' },
@@ -112,7 +112,7 @@ export const can = {
   approveVendor: (u) => ['superadmin', 'direktur'].includes(u?.role),
   // Keuangan: sumber dana (ATS/PTI/PAL/ATI) & Tagihan Vendor hanya Superadmin, Direktur, Akunting
   seeFunding: (u) => ['superadmin', 'direktur', 'akunting'].includes(u?.role),
-  // Keuangan semua cabang; Supervisor hanya cabangnya (+ kas apostille miliknya)
+  // Keuangan semua cabang; Direktur hanya cabangnya (+ kas apostille miliknya)
   seeAllFinance: (u) => ['superadmin', 'admin_pusat', 'direktur', 'akunting'].includes(u?.role),
   // Data pelanggan & alamat pengiriman disembunyikan dari pelaksana penerjemahan (hanya nama pelanggan)
   seeCustomerDetail: (u) => !['penerjemah', 'proofreader', 'otorisator'].includes(u?.role),
@@ -138,7 +138,7 @@ export function activeClaim(sub) {
 /**
  * Boleh memproses tahap ini?
  *  • stage.roles        : role yang diizinkan
- *  • stage.assignee     : hanya user yang ditugaskan (mis. data.translator) — Superadmin/Supervisor boleh override
+ *  • stage.assignee     : hanya user yang ditugaskan (mis. data.translator) — Superadmin/Direktur boleh override
  *  • stage.printBranch  : hanya staf cabang lokasi Print
  *  • stage.claimable    : pool bersama; user lain tidak boleh bila sedang diklaim
  */

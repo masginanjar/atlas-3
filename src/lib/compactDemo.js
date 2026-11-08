@@ -26,7 +26,7 @@ export function compactDemo(m) {
   // 1) Penerjemah: tiap orang 1 order (ubah dari "pilih penerjemah" bila perlu)
   for (const u of byRole('penerjemah')) {
     take((s) => s.flow === 'tr_int' && s.stage === 'penerjemahan' && s.data?.translator === u.id)
-      || take(has('tr_int', 'pilih_penerjemah'), (s) => { Object.assign(s, { stage: 'penerjemahan', stage_at: now(), translator: u.id, translator_kind: 'translator' }); s.data = { ...s.data, translator: u.id, dokumen_sumber: s.data?.dokumen_sumber || DEMO_PDF(`${s.title}-sumber.pdf`) }; s.history = [...(s.history || []), { at: now(), by: 'Laila (Supervisor)', action: `Penerjemah ditetapkan: ${u.name} → Penerjemahan` }] })
+      || take(has('tr_int', 'pilih_penerjemah'), (s) => { Object.assign(s, { stage: 'penerjemahan', stage_at: now(), translator: u.id, translator_kind: 'translator' }); s.data = { ...s.data, translator: u.id, dokumen_sumber: s.data?.dokumen_sumber || DEMO_PDF(`${s.title}-sumber.pdf`) }; s.history = [...(s.history || []), { at: now(), by: 'Laila (Direktur)', action: `Penerjemah ditetapkan: ${u.name} → Penerjemahan` }] })
   }
   // 2) Proofreader: tiap orang 1 dokumen
   for (const u of byRole('proofreader')) {
@@ -45,7 +45,7 @@ export function compactDemo(m) {
     || take(has('tr_int', 'siap_print'), (s, p) => { p.about.print_location = p.branch === 'Jakarta' ? 'Bali' : 'Jakarta' })
   take(has('tr_int', 'siap_print')); take(has('tr_int', 'upload_scan')); take(has('tr_int', 'siap_kirim'))
   take(has('tr_int', 'cs_input')); take((s, p) => s.flow === 'tr_int' && s.stage === 'cs_input' && p.branch !== chosen[chosen.length - 1]?.branch)
-  // 5) Supervisor: perlu penerjemah
+  // 5) Direktur: perlu penerjemah
   take(has('tr_int', 'pilih_penerjemah')); take(has('tr_int', 'pilih_penerjemah'))
   // 6) Koordinator bahasa (Jepang, Jerman) & alur vendor: pengajuan → ACC Direktur → bayar Akunting → dibayar
   for (const lang of [...new Set(users.map((u) => u.coordinator_lang).filter(Boolean))]) {

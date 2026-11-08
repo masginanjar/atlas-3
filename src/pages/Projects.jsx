@@ -769,7 +769,7 @@ function VendorPayments({ rows }) {
           {list.map((r) => (
             <div key={r.id} className="flex flex-wrap items-center gap-3 p-4">
               <a href={`#/projects/${r.project.id}`} className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-bold">{invoiceLabel(r.project.invoice_no)}</span><TypeBadge type={r.type} /><PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} /></div>
+                <div className="flex flex-wrap items-center gap-2"><InvoiceNo project={r.project} /><TypeBadge type={r.type} /><PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} /></div>
                 <p className="truncate text-xs text-ink-mute">{r.title} · {vendorName(r.data?.vendor)} · {r.data?.vendor_service || '—'} · {r.project.branch}{r.data?.sumber_dana && canFund ? ` · Dana ${r.data.sumber_dana}` : ''}</p>
                 {r.data?.paid_date && <p className="text-[11px] text-emerald-600">Dibayar {tgl(r.data.paid_date)}</p>}
               </a>

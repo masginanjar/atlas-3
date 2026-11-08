@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { InvoiceNo } from '../components/badges.jsx'
 import { MessageCircle, Search, Send, Bell, ArrowLeft, RefreshCw, Volume2, Hash, AlarmClock } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { scopeByBranch, invoiceLabel} from '../config/access.js'
@@ -262,7 +263,7 @@ export default function Pesan({ peerParam }) {
                     {hint.map((p) => (
                       <li key={p.id}><button type="button" onClick={() => setText((t) => t.replace(/#([A-Za-z0-9-]*)$/, `#${invoiceLabel(p.invoice_no)} `))}
                         className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-slate-50">
-                        <Hash className="h-3 w-3 text-ink-mute" /><b>{invoiceLabel(p.invoice_no)}</b><span className="truncate text-ink-mute">{p.customer?.name}</span></button></li>
+                        <Hash className="h-3 w-3 text-ink-mute" /><InvoiceNo project={p} className="!text-xs" /><span className="truncate text-ink-mute">{p.customer?.name}</span></button></li>
                     ))}
                   </ul>
                 )}

@@ -220,7 +220,7 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
               </Field>
             )}
             {extra.includes('translator_nt') && (
-              <Field label="Penerjemah" icon={UserPen} required hint={locked ? 'Terkunci — alur sudah berjalan' : 'Tanpa supervisor, proofreader & otorisasi'}>
+              <Field label="Penerjemah" icon={UserPen} required hint={locked ? 'Terkunci — alur sudah berjalan' : 'Tanpa Direktur, proofreader & otorisasi'}>
                 <PilihCari label="Penerjemah" placeholder="— Pilih penerjemah —" disabled={locked} invalid={errOn('penerjemah')}
                   value={sub.translator || ''} onChange={(v) => set({ translator_kind: 'translator', translator: v })}
                   options={data.users.filter((u) => u.role === 'penerjemah' && u.active !== false).map((u) => ({ value: u.id, label: u.name, note: placeOf(u) }))}
@@ -228,12 +228,12 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
               </Field>
             )}
             {extra.includes('translator') && (
-              <Field label="Penerjemah" icon={UserPen} hint={locked ? 'Terkunci — alur sudah berjalan' : 'Kosong = Supervisor yang menetapkan. Bila dipilih langsung (dan dokumen diunggah), pekerjaan langsung masuk ke penerjemah.'}>
-                <PilihCari label="Penerjemah" placeholder="Ditentukan Supervisor" disabled={locked}
+              <Field label="Penerjemah" icon={UserPen} hint={locked ? 'Terkunci — alur sudah berjalan' : 'Kosong = Direktur yang menetapkan. Bila dipilih langsung (dan dokumen diunggah), pekerjaan langsung masuk ke penerjemah.'}>
+                <PilihCari label="Penerjemah" placeholder="Ditentukan Direktur" disabled={locked}
                   value={sub.translator ? `${sub.translator_kind || 'translator'}:${sub.translator}` : ''}
                   onChange={(v) => { const [kind, id] = String(v).split(':'); set({ translator_kind: id ? (kind || '') : '', translator: id || '' }) }}
                   options={[
-                    { value: '', label: 'Ditentukan Supervisor', note: 'Biarkan kosong' },
+                    { value: '', label: 'Ditentukan Direktur', note: 'Biarkan kosong' },
                     ...data.users.filter((u) => u.role === 'penerjemah' && u.active !== false).map((u) => ({ value: `translator:${u.id}`, label: u.name, note: `Penerjemah internal · ${placeOf(u)}` })),
                     ...of('vendor').map((p) => ({ value: `vendor:${p.id}`, label: p.name, note: 'Vendor eksternal' })),
                   ]}

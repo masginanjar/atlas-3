@@ -5,9 +5,11 @@ import { Popover, cx } from './ui.jsx'
 // Tema disimpan per browser: { mode: 'light' | 'dark', accent: '#rrggbb' }
 const KEY = 'atlas-theme'
 const DEFAULT = { mode: 'light', accent: '#111827', panel: 'right' } // bawaan: monokrom (hitam–putih), panel detail dari kanan
-const ACCENTS = [
-  ['#111827', 'Monokrom (bawaan)'], ['#475569', 'Abu'], ['#4f46e5', 'Ungu'], ['#2563eb', 'Biru'],
-  ['#0d9488', 'Teal'], ['#059669', 'Hijau'], ['#d97706', 'Oranye'], ['#db2777', 'Pink'],
+export const ACCENTS = [
+  ['#111827', 'Monokrom (bawaan)'], ['#475569', 'Abu'], ['#1e3a8a', 'Navy'], ['#2563eb', 'Biru'], ['#0284c7', 'Biru Langit'],
+  ['#0d9488', 'Teal'], ['#059669', 'Hijau'], ['#16a34a', 'Hijau Daun'], ['#65a30d', 'Lime'], ['#ca8a04', 'Kuning'],
+  ['#d97706', 'Oranye'], ['#ea580c', 'Oranye Tua'], ['#dc2626', 'Merah'], ['#be123c', 'Marun'], ['#db2777', 'Pink'],
+  ['#9333ea', 'Ungu'], ['#4f46e5', 'Indigo'], ['#7c2d12', 'Cokelat'], ['#0f766e', 'Hijau Laut'], ['#334155', 'Arang'],
 ]
 
 export const readTheme = () => { try { return { ...DEFAULT, ...JSON.parse(localStorage.getItem(KEY) || '{}') } } catch { return DEFAULT } }

@@ -11,7 +11,7 @@ import { isApprover } from '../config/menuAccess.js'
 
 /** Label pendek untuk tombol — dari `action` tahap yang biasanya panjang. */
 const PENDEK = {
-  'Kirim ke Supervisor': 'Kirim ke SPV',
+  'Kirim ke Direktur': 'Kirim ke Direktur',
   'Tetapkan Penerjemah': 'Tetapkan',
   'Kirim ke Staf Apostille': 'Kirim ke Staf',
   'Mulai Proses': 'Mulai',
@@ -59,7 +59,7 @@ export function penanggungJawab(x, p, ctx = {}) {
     case 'proofread': return nama(d.proofreader) || 'Proofreader'
     case 'otorisasi': return nama(activeClaim(x)?.by) || 'Otorisator'
     case 'antrian': case 'proses': return nama(d.staff_apostille) || 'Staf Apostille'
-    case 'pilih_penerjemah': return 'Supervisor'
+    case 'pilih_penerjemah': return 'Direktur'
     case 'registrasi': return 'Admin Pusat'
     case 'persetujuan': return 'Direktur'
     case 'pembayaran': return 'Akunting'
@@ -90,7 +90,7 @@ export function langkahBerikutnya(p, user, ctx = {}) {
   // 1) tahap yang bisa saya proses sendiri
   for (const x of terbuka) {
     const { st, tahap, berikut } = info(x)
-    // Tahap milik orang lain (penerjemah dsb.) tidak ditawarkan ke Superadmin/Supervisor
+    // Tahap milik orang lain (penerjemah dsb.) tidak ditawarkan ke Superadmin/Direktur
     // sebagai "Upload hasil" walau mereka boleh override — tindakan wajarnya adalah Ping.
     const milikOrangLain = st?.assignee && x.data?.[st.assignee] && x.data[st.assignee] !== user?.id
     const diklaimOrang = st?.claimable && activeClaim(x) && activeClaim(x).by !== user?.id

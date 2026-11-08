@@ -6,7 +6,7 @@ import { totalBiaya } from '../config/workflows.js'
 import { Button, Input, cx } from './ui.jsx'
 import { rupiah } from '../lib/format.js'
 
-/** Biaya Apostille/Legalisasi — hanya Supervisor/Direktur yang bisa mengisi; staf tidak melihat panel ini. */
+/** Biaya Apostille/Legalisasi — hanya Direktur/Direktur yang bisa mengisi; staf tidak melihat panel ini. */
 export default function BiayaPanel({ project, sub }) {
   const { user, saveBiaya, notify } = useApp()
   const editable = can.editBiaya(user)
@@ -32,7 +32,7 @@ export default function BiayaPanel({ project, sub }) {
     <div className="mx-4 mb-3 rounded-xl bg-amber-50/70 p-3 ring-1 ring-amber-200">
       <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-amber-900">
         <Calculator className="h-3.5 w-3.5" />Biaya {sub.type === 'legalisasi' ? 'Legalisasi' : 'Apostille'}
-        {!editable && <span className="ml-auto inline-flex items-center gap-1 normal-case tracking-normal text-ink-mute"><Lock className="h-3 w-3" />hanya Supervisor/Direktur</span>}
+        {!editable && <span className="ml-auto inline-flex items-center gap-1 normal-case tracking-normal text-ink-mute"><Lock className="h-3 w-3" />hanya Direktur/Direktur</span>}
       </p>
       <div className="space-y-2">
         <div className="grid grid-cols-[1fr_140px_32px] items-center gap-2">
@@ -53,7 +53,7 @@ export default function BiayaPanel({ project, sub }) {
           <span className={cx('text-base font-extrabold tabular-nums', dirty && 'text-amber-700')}>{rupiah(total)}</span>
         </div>
         {editable && dirty && <div className="flex justify-end"><Button size="sm" loading={busy} onClick={submit}>Simpan Biaya</Button></div>}
-        <p className="text-[11px] text-ink-mute">Total biaya tercatat otomatis sebagai pengeluaran Petty Cash Apostille (Supervisor) — terpisah dari petty cash cabang.</p>
+        <p className="text-[11px] text-ink-mute">Total biaya tercatat otomatis sebagai pengeluaran Petty Cash Apostille (Direktur) — terpisah dari petty cash cabang.</p>
       </div>
     </div>
   )

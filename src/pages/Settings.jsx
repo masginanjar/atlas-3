@@ -7,7 +7,7 @@ import { BRANCHES, PERSON_TYPES, ROLES, can, scopeByBranch, branchesOf, branchLa
 import { Button, Card, Empty, Field, Input, Pill, Select, Sheet, Tabs, Textarea, cx } from '../components/ui.jsx'
 import { UserRound, ShieldCheck, SlidersHorizontal } from 'lucide-react'
 import { go } from '../lib/router.js'
-import { readTheme, applyTheme } from '../components/ThemePicker.jsx'
+import { readTheme, applyTheme, ACCENTS } from '../components/ThemePicker.jsx'
 import { soundEnabled, setSoundEnabled, chatSoundEnabled, setChatSoundEnabled, chatVolume, setChatVolume } from '../lib/sounds.js'
 import { jam, rupiah, tgl as tglShort } from '../lib/format.js'
 import { drive } from '../lib/integrations.js'
@@ -214,7 +214,7 @@ function ProfilData() {
                   className={cx('rounded-full px-2.5 py-1 text-xs font-semibold ring-1 transition', f.languages.includes(l) ? 'bg-brand-soft text-brand ring-brand/30' : 'bg-white text-ink-mute ring-slate-200 hover:text-ink')}>{l}</button>
               ))}
             </div>
-            <p className="mt-1.5 text-[11px] text-ink-mute">Dipakai Supervisor sebagai acuan saat membagi order. Penetapan tugas tetap di tangan Supervisor.</p>
+            <p className="mt-1.5 text-[11px] text-ink-mute">Dipakai Direktur sebagai acuan saat membagi order. Penetapan tugas tetap di tangan Direktur.</p>
           </div>
         )}
         <div className="flex items-center gap-2 border-t border-slate-100 pt-4">
@@ -299,12 +299,16 @@ function Preferensi() {
         <div>
           <p className="mb-1.5 text-[13px] font-semibold text-ink-soft">Warna aksen</p>
           <div className="flex flex-wrap items-center gap-1.5">
-            {[['#111827', 'Monokrom'], ['#475569', 'Abu'], ['#4f46e5', 'Ungu'], ['#2563eb', 'Biru'], ['#0d9488', 'Teal'], ['#059669', 'Hijau'], ['#d97706', 'Oranye'], ['#db2777', 'Pink']].map(([c, n]) => (
+            {ACCENTS.map(([c, n]) => (
               <button key={c} type="button" onClick={() => setT({ accent: c })} title={n} aria-label={`Aksen ${n}`} aria-pressed={theme.accent === c}
                 className="h-7 w-7 rounded-full ring-2 ring-offset-2 ring-offset-[var(--surface)] transition hover:scale-110"
                 style={{ backgroundColor: c, '--tw-ring-color': theme.accent === c ? c : 'transparent' }} />
             ))}
           </div>
+          <label className="mt-2 flex w-fit cursor-pointer items-center gap-2 rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-ink-soft ring-1 ring-slate-200 hover:ring-brand" title="Pilih warna bebas">
+            <input type="color" value={theme.accent} onChange={(e) => setT({ accent: e.target.value })} aria-label="Warna aksen bebas" className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0" data-aksi="warna-bebas" />
+            Warna lain… <span className="font-mono text-[11px] text-ink-mute">{theme.accent}</span>
+          </label>
           <p className="mt-1.5 text-[11px] text-ink-mute">Tersimpan di perangkat ini saja — tidak mengubah tampilan pengguna lain. Pengaturan yang sama juga ada di ikon palet pada bar atas.</p>
         </div>
       </Card>

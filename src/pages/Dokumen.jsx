@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { InvoiceNo } from '../components/badges.jsx'
 import {
   FolderOpen, Folder, FileText, X, ChevronRight, Download, Eye, Upload, HardDrive,
   User2, Clock, MoreHorizontal, Pencil, Trash2, FileArchive, PanelLeft, Loader2,
@@ -470,7 +471,7 @@ export default function Dokumen() {
                       className="flex min-h-[42px] w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-slate-50">
                       <Folder className="h-4 w-4 shrink-0 text-sky-500" />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-semibold text-ink">{invoiceLabel(g.p.invoice_no)}</span>
+                        <span className="block truncate text-[13px] font-semibold text-ink"><InvoiceNo project={g.p} className="!text-[13px]" /></span>
                         <span className="block truncate text-[11px] text-ink-mute">{g.p.customer?.name}</span>
                       </span>
                       <span className="shrink-0 text-[11px] tabular-nums text-ink-mute">{g.n} berkas · {kb(g.size)}</span>

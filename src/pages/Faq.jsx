@@ -60,7 +60,7 @@ function Panduan({ r, buka, onToggle, onSalin, bolehUbah, onSunting }) {
           )}
           {r.eskalasi && (
             <p className="rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900 ring-1 ring-amber-200">
-              <b>Kapan minta bantuan supervisor:</b> {r.eskalasi}
+              <b>Kapan minta bantuan Direktur:</b> {r.eskalasi}
             </p>
           )}
           {(r.updated_at || r.editor) && (
@@ -175,7 +175,7 @@ export default function Faq() {
       <Card className="min-w-0 p-4 md:p-6">
         <h2 className="text-sm font-bold">{sedangCari ? `Hasil (${hasil.length})` : 'Semua panduan'}</h2>
         {hasil.length === 0 ? (
-          <p className="py-8 text-center text-sm text-ink-mute">Panduan tidak ditemukan. Coba kata lain atau hubungi supervisor.</p>
+          <p className="py-8 text-center text-sm text-ink-mute">Panduan tidak ditemukan. Coba kata lain atau hubungi Direktur.</p>
         ) : (
           <ul className="mt-2">
             {hasil.map((r) => (
@@ -237,7 +237,7 @@ export default function Faq() {
                     className="w-full max-w-full rounded-xl border-0 bg-white px-3 py-2.5 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-brand" />
                 </label>
                 <label className="block">
-                  <span className="mb-1 block text-xs font-bold text-ink-soft">Kapan minta bantuan supervisor <span className="font-medium text-ink-mute">(opsional)</span></span>
+                  <span className="mb-1 block text-xs font-bold text-ink-soft">Kapan minta bantuan Direktur <span className="font-medium text-ink-mute">(opsional)</span></span>
                   <input value={edit.eskalasi} onChange={(e) => setEdit({ ...edit, eskalasi: e.target.value })}
                     className="w-full max-w-full rounded-xl border-0 bg-white px-3 py-2.5 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-brand" />
                 </label>

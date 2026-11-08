@@ -264,7 +264,7 @@ function SubMeta({ sub }) {
     sub.applicant_id && `ID Pemohon / NIB / SK: ${sub.applicant_id}`,
     sub.institution && `Lembaga: ${name(sub.institution) ?? '—'}`,
     sub.executor_id && `Eksekutor: ${name(sub.executor_id) ?? '—'} (${sub.executor_kind === 'vendor' ? 'vendor' : 'staf'})`,
-    sub.type === 'terjemahan' && (sub.translator_kind === 'vendor' ? `Vendor: ${name(sub.translator) ?? '—'}` : `Penerjemah: ${name(sub.data?.translator || sub.translator) ?? 'ditentukan Supervisor'}`),
+    sub.type === 'terjemahan' && (sub.translator_kind === 'vendor' ? `Vendor: ${name(sub.translator) ?? '—'}` : `Penerjemah: ${name(sub.data?.translator || sub.translator) ?? 'ditentukan Direktur'}`),
     sub.type === 'terjemahan_nt' && `Penerjemah: ${name(sub.data?.translator || sub.translator) ?? '—'}`,
   ].filter(Boolean)
   return (
@@ -298,7 +298,7 @@ function Collected({ project, sub }) {
 function TeamPick({ label, value, onPick, users, projects, empty }) {
   useEffect(() => { if (!value && !empty) onPick(pickProofreader(users, projects)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <Field label={label} hint={empty ? 'Belum ada proofreader aktif — hubungi Supervisor' : undefined}>
+    <Field label={label} hint={empty ? 'Belum ada proofreader aktif — hubungi Direktur' : undefined}>
       <p className="rounded-xl bg-slate-50 px-3 py-2.5 text-sm ring-1 ring-slate-200">
         Dikirim ke <b>{proofreaderTeamName()}</b>{empty ? '' : ' — sistem memilihkan pemeriksa yang antreannya paling sedikit.'}
       </p>
@@ -555,7 +555,7 @@ export function StagePanel({ project, sub, stage }) {
           </div>
         )}
         {!overriding && (stage.key === 'persetujuan' || stage.key === 'pembayaran') && <div className="flex justify-end pt-1"><RejectPengajuan project={project} sub={sub} /></div>}
-        {/* Penerjemahan: Supervisor bisa mengganti penerjemah, penerjemahnya sendiri bisa menolak — dua-duanya wajib pakai alasan */}
+        {/* Penerjemahan: Direktur bisa mengganti penerjemah, penerjemahnya sendiri bisa menolak — dua-duanya wajib pakai alasan */}
         {stage.key === 'penerjemahan' && (
           <div className="flex flex-wrap justify-end gap-2 pt-1">
             <TolakTugasBtn project={project} sub={sub} />
@@ -574,7 +574,7 @@ export function StagePanel({ project, sub, stage }) {
 
 /**
  * Ceklist proses apostille / legalisasi.
- * - Langkah tertentu dibatasi peran (mis. "Bayar Pajak" hanya Supervisor):
+ * - Langkah tertentu dibatasi peran (mis. "Bayar Pajak" hanya Direktur):
  *   peran lain tidak melihatnya sama sekali, bukan sekadar tidak bisa klik.
  * - Langkah yang butuh data/berkas membuka slide isian dulu, baru tercentang,
  *   supaya ceklistnya tetap ringkas tapi datanya tetap terekam.
@@ -588,7 +588,7 @@ function ChecklistProses({ f, nilai, setNilai, project, sub, user }) {
   const opsional = f.opsional || []
   const wajib = items.filter((it) => !opsional.includes(it))
   const doneN = wajib.filter((it) => cur.includes(it)).length
-  // Langkah wajib yang dipegang peran lain (mis. Bayar Pajak milik Supervisor).
+  // Langkah wajib yang dipegang peran lain (mis. Bayar Pajak milik Direktur).
   // Tidak ditampilkan di daftar, tapi tetap diberitahu supaya tidak bingung
   // kenapa tahapnya belum bisa diselesaikan.
   const punyaOrangLain = (f.items || []).filter((it) =>
@@ -646,7 +646,7 @@ function ChecklistProses({ f, nilai, setNilai, project, sub, user }) {
       {punyaOrangLain.length > 0 && (
         <p className="mt-2 flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-[11px] text-amber-900 ring-1 ring-amber-200" data-nunggu-peran>
           <Lock className="mt-px h-3.5 w-3.5 shrink-0" />
-          <span><b>{punyaOrangLain.length} langkah lagi dikerjakan Supervisor</b> ({punyaOrangLain.join(', ')}).
+          <span><b>{punyaOrangLain.length} langkah lagi dikerjakan Direktur</b> ({punyaOrangLain.join(', ')}).
             Tahap ini baru bisa diselesaikan setelah itu dicentang — tidak perlu Anda kerjakan.</span>
         </p>
       )}

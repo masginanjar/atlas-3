@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { InvoiceNo } from './badges.jsx'
 import { Receipt, Plus, Upload, FileCheck2, Loader2, Check, X, Ban, Banknote } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { drive } from '../lib/integrations.js'
@@ -189,7 +190,7 @@ function BillForm({ vendor, orders, onClose, patchSubs }) {
           <ul className="space-y-1.5">{orders.map((o) => (
             <li key={o.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 ring-1 ring-slate-200">
               <input type="checkbox" checked={sel.includes(o.id)} onChange={() => setSel((x) => (x.includes(o.id) ? x.filter((y) => y !== o.id) : [...x, o.id]))} aria-label={`Pilih ${invoiceLabel(o.project.invoice_no)}`} />
-              <span className="min-w-0 flex-1 text-sm"><b>{invoiceLabel(o.project.invoice_no)}</b> · {o.title}<span className="block text-xs text-ink-mute">{o.data.vendor_service} · order {tgl(o.data.ordered_at)}{o.stage === DONE ? ' · hasil diterima' : ' · masih dikerjakan'}</span></span>
+              <span className="min-w-0 flex-1 text-sm"><InvoiceNo project={o.project} /> · {o.title}<span className="block text-xs text-ink-mute">{o.data.vendor_service} · order {tgl(o.data.ordered_at)}{o.stage === DONE ? ' · hasil diterima' : ' · masih dikerjakan'}</span></span>
               <Input type="number" inputMode="numeric" value={amt[o.id]} onChange={(e) => setAmt((a) => ({ ...a, [o.id]: e.target.value }))} className="!w-32 text-right" aria-label={`Nominal ${invoiceLabel(o.project.invoice_no)}`} />
             </li>
           ))}</ul>

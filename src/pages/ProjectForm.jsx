@@ -210,8 +210,8 @@ export default function ProjectForm({ onClose, project, preset, side, page, onSa
         row.files = [...(row.files || project?.files || []), ...added]
       }
       // Dokumen sudah diunggah saat project dibuat → tahap "CS Input/Upload" dianggap selesai:
-      //  • terjemahan tanpa penerjemah  → Pilih Penerjemah (Supervisor)
-      //  • terjemahan + penerjemah dipilih langsung → langsung Penerjemahan (lewati Supervisor), penerjemah diberi tahu
+      //  • terjemahan tanpa penerjemah  → Pilih Penerjemah (Direktur)
+      //  • terjemahan + penerjemah dipilih langsung → langsung Penerjemahan (lewati Direktur), penerjemah diberi tahu
       //  • apostille/legalisasi → antrean staf
       const autoNotes = []
       if (!editing) for (const sp of sub_projects) {
@@ -229,7 +229,7 @@ export default function ProjectForm({ onClose, project, preset, side, page, onSa
       }
       const saved = await save('projects', row)
       for (const n of autoNotes) await save('notifications', { ...n, project_id: saved.id, by: user.name, read_by: [] }).catch(() => {})
-      // Terjemahan yang belum punya penerjemah/vendor → otomatis minta Supervisor (tembusan Direktur & Superadmin) membagi penerjemah
+      // Terjemahan yang belum punya penerjemah/vendor → otomatis minta Direktur (tembusan Direktur & Superadmin) membagi penerjemah
       if (!editing) {
         const need = sub_projects.filter((s) => s.type === 'terjemahan' && !s.data?.translator && !s.data?.vendor && !s.translator)
         for (const s of need) {

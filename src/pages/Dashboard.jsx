@@ -8,7 +8,7 @@ import { BRANCHES, ROLES, can, scopeByBranch, activeClaim, WORKER_ROLES, roleLab
 import { CATEGORIES, DONE, isDone, stagesOf, stageLabel, flowOf, totalPengajuan, stafStatus, PAYMENT_TERMS, termOf, isBilled, recommendFund, VENDOR_PAID_STAGES, stageShort, stageIndex } from '../config/workflows.js'
 import { kindPages } from '../config/subtypes.js'
 import { PriorityBadge } from '../components/Priority.jsx'
-import { TypeBadge as TB } from '../components/badges.jsx'
+import { TypeBadge as TB, InvoiceNo } from '../components/badges.jsx'
 import { PengajuanSummary, PengajuanStatus, SumberDanaPicker, QuickAcc, PengajuanTracker, DownloadBukti, RejectPengajuan, RevisionNote } from '../components/Pengajuan.jsx'
 import { drive } from '../lib/integrations.js'
 import CopyText from '../components/CopyText.jsx'
@@ -72,7 +72,7 @@ export default function Dashboard() {
 
   // Papan khusus peran yang bukan salinan halaman lain: koordinator bahasa &
   // daftar kerja Staf Apostille. Kapasitas (→ Penugasan), Sumber Dana &
-  // Pengajuan (→ Keuangan), Apostille untuk Supervisor (→ My Apostille)
+  // Pengajuan (→ Keuangan), Apostille untuk Direktur (→ My Apostille)
   // tidak lagi diulang di sini (keputusan K1).
   const ops = [
     user.coordinator_lang && <CoordBoard key="coord" lang={user.coordinator_lang} />,
@@ -151,7 +151,7 @@ function CatatanTersemat() {
         {tampil.map(({ p, teks }) => (
           <li key={p.id} data-catatan={p.id}>
             <a href={`#/projects/${p.id}`} className="flex min-h-[32px] items-center gap-2 py-1 text-xs text-amber-900 hover:underline">
-              <b className="shrink-0 font-bold tabular-nums">{invoiceLabel(p.invoice_no)}</b>
+              <b className="shrink-0 font-bold tabular-nums"><InvoiceNo project={p} /></b>
               <span className="hidden shrink-0 text-amber-700 sm:inline">{p.customer?.name || '—'}</span>
               <span className="min-w-0 flex-1 truncate" title={teks}>{teks}</span>
             </a>
@@ -243,7 +243,7 @@ function TaskRow({ t, user }) {
     <li>
       <a href={`#/projects/${t.project.id}`} className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-50 sm:gap-3 sm:px-4">
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="whitespace-nowrap text-sm font-bold">{invoiceLabel(t.project.invoice_no)}</span><TypeBadge type={t.type} /><span className="hidden sm:inline-flex"><PrintBadge project={t.project} /></span><span className="sm:hidden"><PrintBadge project={t.project} iconOnly /></span><DemoBadge project={t.project} /></div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><InvoiceNo project={t.project} /><TypeBadge type={t.type} /><span className="hidden sm:inline-flex"><PrintBadge project={t.project} /></span><span className="sm:hidden"><PrintBadge project={t.project} iconOnly /></span><DemoBadge project={t.project} /></div>
           <p className="truncate text-xs text-ink-mute">{t.title} · {t.project.customer?.name}</p>
         </div>
         <div className="text-right">
@@ -257,7 +257,7 @@ function TaskRow({ t, user }) {
   )
 }
 
-/** Kelompok To-Do per role: Direktur, Supervisor, CS/Admin Pusat, Akunting. */
+/** Kelompok To-Do per role: Direktur, Direktur, CS/Admin Pusat, Akunting. */
 function todoGroups(s, user, people = []) {
   const byDl = (a, b) => new Date((a.project || a).about?.deadline || 0) - new Date((b.project || b).about?.deadline || 0)
   const subs = s.subs.filter((x) => x.stage !== DONE && !x.project.demo_perf)
@@ -435,7 +435,7 @@ function PengajuanBoard({ title, rows, mode, empty, bare }) {
               <li key={r.id} className={cx(expanded && 'bg-brand-soft/20')}>
                 <FinRow>
                   <span className="block min-w-0">
-                    <span className="flex min-w-0 flex-wrap items-center gap-x-2"><b className="whitespace-nowrap text-[15px]">{invoiceLabel(r.project.invoice_no)}</b><DemoBadge project={r.project} /></span>
+                    <span className="flex min-w-0 flex-wrap items-center gap-x-2"><InvoiceNo project={r.project} size="base" /><DemoBadge project={r.project} /></span>
                     <span className="mt-0.5 flex min-w-0 items-center gap-2"><TimeAgo at={(r.data?.submitted_at || stageArrivedAt(r, r.project))} prefix="Diajukan" className="!mt-0" />
                       <button type="button" onClick={() => setOpen(open === r.id ? null : r.id)} aria-expanded={open === r.id} className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-brand hover:underline">{open === r.id ? 'Tutup' : 'Rincian'}<ChevronDown className={cx('h-3 w-3 transition', open === r.id && 'rotate-180')} /></button></span>
                   </span>
@@ -650,7 +650,7 @@ function CoordBoard({ lang }) {
     const i = (v?.services || []).findIndex((x) => x.name.includes(lang) && x.name.startsWith(`Terjemahan ${r.lang_from}`))
     set(r.id, { vendor: id, svc: i >= 0 ? String(i) : (v?.services?.length ? '0' : '') })
   }
-  const TABS = [['ajukan', 'Perlu Order / Ajukan'], ['proses', 'Proses Vendor'], ['spv', 'Menunggu Supervisor'], ['selesai', 'Selesai']]
+  const TABS = [['ajukan', 'Perlu Order / Ajukan'], ['proses', 'Proses Vendor'], ['spv', 'Menunggu Direktur'], ['selesai', 'Selesai']]
   const sel = 'w-full rounded-lg border-0 bg-white px-2 py-1.5 text-xs ring-1 ring-slate-300 focus:ring-2 focus:ring-brand'
 
   return (
@@ -706,7 +706,7 @@ function CoordBoard({ lang }) {
                       </td>
                     ) : (
                       <td data-label="Rincian" className="px-2 py-2.5 text-xs">
-                        <p className="font-semibold">{v?.name || (r.flow === 'tr_int' ? 'Belum diserahkan Supervisor' : '—')}</p>
+                        <p className="font-semibold">{v?.name || (r.flow === 'tr_int' ? 'Belum diserahkan Direktur' : '—')}</p>
                         {r.data?.vendor_service && <p className="text-ink-mute">{r.data.vendor_service} · {rupiah(totalPengajuan(r.data))}</p>}
                         {r.flow === 'tr_ext' && <PengajuanStatus stage={r.stage} revision={!!r.data?.revision_note} />}
                         {r.flow === 'tr_bill' && <span className="inline-block rounded-full bg-violet-50 px-2 py-0.5 font-semibold text-violet-700 ring-1 ring-violet-200">{r.stage === 'proses_vendor' ? 'Dikerjakan vendor' : r.stage === DONE ? 'Hasil diterima' : 'Order'} · {r.data?.bill_id ? 'sudah masuk tagihan' : 'belum ditagih'}</span>}
@@ -742,7 +742,7 @@ function FoldBtn({ open, onClick, label, className }) {
   )
 }
 
-/** Saldo petty cash — di atas agar langsung terlihat. Kas Apostille (Supervisor) terpisah dari kas cabang. */
+/** Saldo petty cash — di atas agar langsung terlihat. Kas Apostille (Direktur) terpisah dari kas cabang. */
 export function PettyStrip({ accounts, balance }) {
   return (
     <div className="flex gap-3 overflow-x-auto pb-1">
@@ -824,7 +824,7 @@ export function TranslatorLoad({ range: rangeProp, setRange: setRangeProp, ringk
     return { trs, vendorJobs }
   }, [data.projects, data.users, range, ranged])
   // Batas dihitung dari kapasitas harian tiap orang (halaman/hari, bawaan 10),
-  // bukan satu angka untuk semua — Supervisor bisa menaikkannya lewat pengajuan.
+  // bukan satu angka untuk semua — Direktur bisa menaikkannya lewat pengajuan.
   const kapRows = data.kapasitas
   const max = Math.max(KAP_DEFAULT, ...rows.trs.map((r) => Math.max(r.halAktif, kapasitasHarian(r.u, kapRows))))
   const tone = (hal, kap) => (hal === 0 ? ['bg-emerald-500', 'Kosong', 'text-emerald-700']
@@ -937,7 +937,7 @@ function WorkerDesk({ user, tasks }) {
   )
 }
 
-/** Supervisor/Superadmin: tetapkan penerjemah internal / vendor langsung dari dashboard. */
+/** Direktur/Superadmin: tetapkan penerjemah internal / vendor langsung dari dashboard. */
 /** Kolom tabel Perlu Penerjemah. Deadline dirender khusus (sortir + filter rentang). */
 const KOLOM_ASSIGN = [
   { key: 'invoice', label: 'No. Invoice & Pelanggan', sort: (r) => `${r.project.invoice_no || ''} ${r.project.customer?.name || ''}`.toLowerCase() },
@@ -976,7 +976,7 @@ export function AssignTable({ rows: allRows, range = { from: '', to: '' }, setRa
   }
   const coordOf = (r) => coordinatorFor(data.users, foreignLang(r))
   // Saran penerjemah (F5): pernah mengerjakan pasangan bahasa yang sama diutamakan,
-  // lalu sisa kapasitas harian terbesar. Supervisor tetap yang memutuskan.
+  // lalu sisa kapasitas harian terbesar. Direktur tetap yang memutuskan.
   const halAktif = useMemo(() => {
     const m = {}
     data.projects.forEach((p) => (p.sub_projects || []).forEach((x) => { if (x.stage === 'penerjemahan' && x.data?.translator) m[x.data.translator] = (m[x.data.translator] || 0) + halamanSub(x, flowOf(x, p)) }))
@@ -1149,7 +1149,7 @@ function MySubmissions({ rows, bare }) {
         {rows.slice(0, 8).map((r) => (
           <FinRow key={r.id} onClick={() => go(`projects/${r.project.id}`)}>
             <span className="block min-w-0">
-              <b className="block truncate text-[15px]">{invoiceLabel(r.project.invoice_no)}</b>
+              <b className="block truncate text-[15px]"><InvoiceNo project={r.project} size="base" /></b>
               <TimeAgo at={(r.data?.submitted_at || stageArrivedAt(r, r.project))} prefix="Diajukan" className="!mt-0.5" />
             </span>
             <FinCell title={r.title} top={r.title} bottom={r.project.customer?.name || ''} />
