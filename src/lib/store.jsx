@@ -289,6 +289,15 @@ export function AppProvider({ children }) {
         await save('notifications', { ...n, text: `${project.invoice_no} · ${s.title}: ${n.text}`, project_id: project.id, by: user.name, read_by: [] }).catch(() => {})
       }
     }
+    // F8: titip print — bila tahap cetak/scan diselesaikan oleh cabang print yang BUKAN cabang
+    // pemilik project, CS asal diberi tahu otomatis (dulu harus ping manual).
+    if (advance && stage.printBranch) {
+      const printDi = project.about?.print_location || project.branch
+      const beda = printDi !== project.branch && !branchesOf(user).includes(project.branch)
+      if (beda && project.created_by && project.created_by !== user.id) {
+        await save('notifications', { to_user: project.created_by, kind: 'print', text: `${project.invoice_no} · ${s.title}: ${stage.label} selesai di cabang ${printDi} oleh ${user.name} — ${next === DONE ? 'selesai' : `lanjut ${stages[idx + 1]?.label}`}`, project_id: project.id, by: user.name, read_by: [] }).catch(() => {})
+      }
+    }
     return saved
   }
 

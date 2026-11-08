@@ -189,7 +189,7 @@ export default function LoginSettings() {
           <Field label="Judul sambutan"><Input value={t.judul} onChange={(e) => set({ judul: e.target.value })} /></Field>
           <Field label="Teks pendukung formulir"><Input value={t.sub} onChange={(e) => set({ sub: e.target.value })} /></Field>
           <Field label="Judul panel kanan"><Input value={t.panelJudul} onChange={(e) => set({ panelJudul: e.target.value })} /></Field>
-          <Field label="Pesan motivasi panel kanan"><Textarea rows={2} value={t.panelPesan} onChange={(e) => set({ panelPesan: e.target.value })} /></Field>
+          <Field label="Pesan motivasi panel kanan"><Textarea rows={3} value={t.panelPesan} onChange={(e) => set({ panelPesan: e.target.value })} /></Field>
           <Field label="Latar halaman" hint="Biru sangat muda disarankan">
             <span className="flex items-center gap-2">
               <input type="color" value={t.bg} onChange={(e) => set({ bg: e.target.value })} aria-label="Warna latar halaman" className="h-10 w-14 cursor-pointer rounded-lg ring-1 ring-slate-200" />

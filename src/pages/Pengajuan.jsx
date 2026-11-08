@@ -3,6 +3,7 @@ import { Search, Plus, ExternalLink } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { usePanel } from '../components/WorkspacePanel.jsx'
 import { RequestBoard, REQ_KINDS, REQ_STATUS, KindBadge, ReqStatus, scopeRequests } from '../components/Requests.jsx'
+import { FilterLainnya } from '../components/ToolbarRingkas.jsx'
 import { isApprover, needsAction } from '../lib/badges.js'
 import { rupiah, tgl } from '../lib/format.js'
 import { NominalCopy } from '../components/CopyText.jsx'
@@ -60,19 +61,25 @@ export default function Pengajuan() {
 
       {tab === 'saya' && (
         <>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <label className="relative min-w-[180px] flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari keperluan…" aria-label="Cari pengajuan"
-                className="w-full rounded-xl border-0 bg-white py-2.5 pl-9 pr-3 text-sm ring-1 ring-slate-200 focus:ring-2 focus:ring-brand" />
+                className="h-10 w-full rounded-xl border-0 bg-white pl-9 pr-3 text-sm ring-1 ring-slate-200 focus:ring-2 focus:ring-brand" />
             </label>
-            <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Filter jenis" className="rounded-xl border-0 bg-white py-2.5 pl-3 pr-8 text-sm font-semibold ring-1 ring-slate-200">
-              <option value="">Semua jenis</option>{Object.entries(REQ_KINDS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-            </select>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter status" className="rounded-xl border-0 bg-white py-2.5 pl-3 pr-8 text-sm font-semibold ring-1 ring-slate-200">
-              <option value="">Semua status</option>{Object.entries(REQ_STATUS).map(([k, v]) => <option key={k} value={k}>{v[0]}</option>)}
-            </select>
-            <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Filter bulan" className="rounded-xl border-0 bg-white py-2.5 px-3 text-sm font-semibold ring-1 ring-slate-200" />
+            <FilterLainnya aktif={[kind, status, month].filter(Boolean).length} onReset={() => { setKind(''); setStatus(''); setMonth('') }}>
+              <label className="block text-xs font-semibold text-ink-soft">Jenis
+                <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Filter jenis" className="mt-1 h-10 w-full rounded-xl border-0 bg-white pl-3 pr-8 text-sm font-semibold ring-1 ring-slate-200">
+                  <option value="">Semua jenis</option>{Object.entries(REQ_KINDS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                </select></label>
+              <label className="block text-xs font-semibold text-ink-soft">Status
+                <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Filter status" className="mt-1 h-10 w-full rounded-xl border-0 bg-white pl-3 pr-8 text-sm font-semibold ring-1 ring-slate-200">
+                  <option value="">Semua status</option>{Object.entries(REQ_STATUS).map(([k, v]) => <option key={k} value={k}>{v[0]}</option>)}
+                </select></label>
+              <label className="block text-xs font-semibold text-ink-soft">Bulan
+                <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Filter bulan" className="mt-1 h-10 w-full rounded-xl border-0 bg-white px-3 text-sm font-semibold ring-1 ring-slate-200" /></label>
+            </FilterLainnya>
+            <span className="text-[11px] text-ink-mute">{rows.length} pengajuan</span>
           </div>
 
           {rows.length === 0

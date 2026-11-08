@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Wallet, Lock } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { can, WORKER_ROLES, APOSTILLE_FUND, pettyAccountsOf } from '../config/access.js'
-import { useDashStats, FinanceGroup, PettyStrip, Segment } from './Dashboard.jsx'
+import { useDashStats, FinanceGroup } from './Dashboard.jsx'
+import { PettyCash } from './Settings.jsx'
 import FundSummary from '../components/FundSummary.jsx'
 import { Card, Empty, cx } from '../components/ui.jsx'
 import Pengajuan from './Pengajuan.jsx'
@@ -27,40 +28,36 @@ export default function Keuangan({ tab }) {
 
   const awal = tabs.some((t) => t.key === tab) ? tab : tabs[0]?.key
   const [aktif, setAktif] = useState(awal)
+  // Tautan dari dasbor (#/keuangan/petty dll.) harus memindahkan tab walau halaman sudah terbuka
+  useEffect(() => { if (tab && tabs.some((t) => t.key === tab)) setAktif(tab) }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
   const now = tabs.some((t) => t.key === aktif) ? aktif : tabs[0]?.key
 
   if (!tabs.length) return <Card><Empty icon={Lock} title="Halaman Keuangan tidak tersedia untuk role Anda" /></Card>
 
   return (
-    <div className="min-w-0 space-y-4">
-      <div>
-        <h1 className="mb-1 flex items-center gap-2 text-xl font-extrabold leading-tight sm:text-[26px]">
+    <div className="min-w-0 space-y-3">
+      {/* Judul + tab dalam satu baris (K4); anak judul dihapus */}
+      <div className="flex flex-wrap items-center gap-2" data-alat>
+        <h1 className="mr-1 flex items-center gap-2 text-xl font-extrabold leading-tight sm:text-2xl">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-glow"><Wallet className="h-4 w-4" /></span>Keuangan
         </h1>
-        <p className="text-[13px] text-ink-mute">Pengajuan, tagihan vendor, sumber dana, dan petty cash — sesuai hak akses Anda.</p>
+        {tabs.length > 1 && (
+          <div className="-mx-1 flex min-w-0 gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]" role="tablist" aria-label="Bagian keuangan" data-tab-keuangan>
+            {tabs.map((t) => (
+              <button key={t.key} type="button" role="tab" aria-selected={now === t.key} onClick={() => setAktif(t.key)}
+                className={cx('flex h-9 shrink-0 items-center whitespace-nowrap rounded-xl px-3 text-xs font-semibold ring-1 transition',
+                  now === t.key ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand')}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-
-      {tabs.length > 1 && (
-        <div className="-mx-1 flex min-w-0 gap-1 overflow-x-auto px-1 pb-0.5" role="tablist" aria-label="Bagian keuangan">
-          {tabs.map((t) => (
-            <button key={t.key} type="button" role="tab" aria-selected={now === t.key}
-              onClick={() => setAktif(t.key)}
-              className={cx('min-h-[44px] shrink-0 whitespace-nowrap rounded-xl px-3.5 text-sm font-semibold transition',
-                now === t.key ? 'bg-ink text-white' : 'bg-white text-ink-soft ring-1 ring-slate-200 hover:ring-brand')}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
 
       {now === 'pengajuan' && <Pengajuan />}
       {now === 'dana' && <FundSummary />}
       {now === 'tagihan' && <FinanceGroup s={s} />}
-      {now === 'petty' && (
-        <Segment title="Petty Cash" action={<a href="#/settings" className="text-xs font-semibold text-brand hover:underline">Catat pengeluaran / top up di Setting → Petty Cash →</a>}>
-          <PettyStrip accounts={accounts} balance={pettyBalance} />
-        </Segment>
-      )}
+      {now === 'petty' && <div data-petty-penuh><PettyCash /></div>}
     </div>
   )
 }

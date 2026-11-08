@@ -4,6 +4,7 @@
 //  action=exchange : tukar grant code (Self Client) menjadi refresh token → disimpan di zoho_config
 //  action=sync     : tarik invoice baru/berubah (semua organisasi) + lengkapi detail item
 //  action=status   : ringkasan kondisi
+//  action=payments : tarik ulang pembayaran pelanggan sejak since_date (atau ?since=YYYY-MM-DD)
 // ============================================================
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -127,6 +128,33 @@ async function syncHeaders(org: Org, sinceIso: string | null, sinceDate: string)
   return { invoices: n, contacts: contacts.size };
 }
 
+/** 1b) Pembayaran pelanggan: jam bayar (lunas / DP) per faktur. Satu pembayaran bisa untuk beberapa invoice. */
+async function syncPayments(org: Org, sinceIso: string | null, sinceDate: string) {
+  let page = 1, n = 0;
+  for (;;) {
+    const params: Record<string, string> = { organization_id: org.id, per_page: "200", page: String(page), sort_column: "date", sort_order: "D" };
+    if (sinceIso) params.last_modified_time = sinceIso; else params.date_start = sinceDate;
+    const j = await zget("/customerpayments", params);
+    const rows: any[] = [];
+    for (const p of j.customerpayments || []) {
+      const invs = String(p.invoice_numbers || "").split(",").map((x: string) => x.trim()).filter(Boolean);
+      for (const inv of invs) rows.push({
+        payment_id: p.payment_id, invoice_no: inv, org_id: org.id, customer_id: p.customer_id, customer_name: p.customer_name,
+        date: p.date || null, created_time: p.created_time || null, amount: p.amount ?? 0, payment_mode: p.payment_mode || "",
+        account_name: p.account_name || "", synced_at: new Date().toISOString(),
+      });
+    }
+    if (rows.length) {
+      const { error } = await sb.from("zoho_payments").upsert(rows, { onConflict: "payment_id,invoice_no" });
+      if (error) throw new Error("upsert payments: " + error.message);
+      n += rows.length;
+    }
+    if (!j.page_context?.has_more_page || page >= 25) break;
+    page++;
+  }
+  return n;
+}
+
 /** 2) Detail item: invoice yang belum punya detail, atau berubah setelah detail diambil. */
 async function syncDetails(orgs: Org[], budget: number) {
   const { data: queue, error } = await sb.rpc("zoho_detail_queue", { p_limit: budget });
@@ -166,16 +194,18 @@ async function runSync(opts: { full?: boolean; budget?: number }) {
   const last = opts.full ? null : await cfg("last_sync");
   // watermark dikurangi 2 jam supaya perubahan yang terlambat tetap tertangkap
   const sinceIso = last ? toZohoTime(new Date(new Date(last).getTime() - 2 * 3600 * 1000)) : null;
-  let inv = 0, con = 0; const notes: string[] = [];
+  let inv = 0, con = 0, pay = 0; const notes: string[] = [];
   for (const org of orgs) {
     try { const r = await syncHeaders(org, sinceIso, sinceDate); inv += r.invoices; con += r.contacts; notes.push(`${org.name}: ${r.invoices} inv`); }
     catch (e) { notes.push(`${org.name}: GAGAL ${String(e).slice(0, 120)}`); }
+    try { const np = await syncPayments(org, sinceIso, sinceDate); pay += np; }
+    catch (e) { notes.push(`${org.name} bayar: GAGAL ${String(e).slice(0, 120)}`); }
   }
   await setCfg("last_sync", started.toISOString()); // watermark disimpan dulu: bila fungsi dihentikan saat ambil detail, antrean dilanjutkan run berikutnya
   const d = await syncDetails(orgs, opts.budget ?? 40);
-  const note = `${notes.join(" · ")} · detail ${d.details}/${d.queued} · ${calls} panggilan`;
+  const note = `${notes.join(" · ")} · bayar ${pay} · detail ${d.details}/${d.queued} · ${calls} panggilan`;
   await sb.from("sync_log").insert({ source: opts.full ? "zoho:auto (penuh)" : "zoho:auto", started_at: started.toISOString(), finished_at: new Date().toISOString(), contacts: con, invoices: inv, note, ok: !notes.some((n) => n.includes("GAGAL")) });
-  return { invoices: inv, contacts: con, ...d, note };
+  return { invoices: inv, contacts: con, payments: pay, ...d, note };
 }
 const toZohoTime = (d: Date) => { // YYYY-MM-DDTHH:MM:SS+0800 (zona Zoho org = WITA/WIB; pakai UTC+8 aman karena ada selisih 2 jam)
   const t = new Date(d.getTime() + 8 * 3600 * 1000); const p = (n: number) => String(n).padStart(2, "0");
@@ -199,6 +229,13 @@ Deno.serve(async (req) => {
       const { count: total } = await sb.from("zoho_invoices").select("*", { count: "exact", head: true });
       const { count: detailed } = await sb.from("zoho_invoices").select("*", { count: "exact", head: true }).not("line_items", "is", null);
       return json({ connected: !!(await cfg("refresh_token")), dc: await cfg("dc"), last_sync: await cfg("last_sync"), total, detailed, log });
+    }
+    if (action === "payments") {
+      const orgs: Org[] = JSON.parse((await cfg("orgs")) || "[]");
+      const sinceDate = url.searchParams.get("since") || (await cfg("since_date")) || "2026-11-01";
+      const out: Record<string, number | string> = {};
+      for (const org of orgs) { try { out[org.name] = await syncPayments(org, null, sinceDate); } catch (e) { out[org.name] = "GAGAL " + String(e).slice(0, 120); } }
+      return json({ payments: out, calls });
     }
     const full = url.searchParams.get("full") === "1";
     const budget = Number(url.searchParams.get("budget") || 40);

@@ -1,4 +1,5 @@
-import { BellRing, Check, ArrowRight } from 'lucide-react'
+import { useState } from 'react'
+import { BellRing, Check, ArrowRight, ChevronDown } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { cx } from './ui.jsx'
 import { go } from '../lib/router.js'
@@ -15,6 +16,9 @@ import { tanggalJam } from '../lib/waktu.js'
 export default function PingBoard() {
   const { user, data, myPings, markPingRead } = useApp()
   const belum = myPings.filter((p) => !(p.read_by || []).includes(user.id))
+  // Bisa diciutkan jadi satu baris supaya dasbor tidak terdorong ke bawah; pilihan diingat.
+  const [buka, setBuka] = useState(() => { try { return localStorage.getItem('atlas-fold-ping') !== '0' } catch { return true } })
+  const toggle = () => setBuka((v) => { try { localStorage.setItem('atlas-fold-ping', v ? '0' : '1') } catch { /* abaikan */ } return !v })
   if (!belum.length) return null
 
   const namaPengirim = (p) => data.users.find((u) => u.id === p.from_user)?.name || p.by || 'Rekan'
@@ -22,15 +26,19 @@ export default function PingBoard() {
   return (
     <section aria-label="Ping masuk"
       className="min-w-0 overflow-hidden rounded-2xl bg-rose-50 shadow-card ring-1 ring-rose-300">
-      <div className="flex min-w-0 items-center gap-2 border-b border-rose-200 px-4 py-2.5">
+      <div className={cx('flex min-w-0 items-center gap-2 px-4 py-2', buka && 'border-b border-rose-200')} data-ping-buka={buka ? '1' : '0'}>
         <BellRing className="h-4 w-4 shrink-0 text-rose-600" aria-hidden="true" />
-        <h2 className="min-w-0 flex-1 text-sm font-bold text-rose-900">Ping untuk Anda ({belum.length})</h2>
+        <button type="button" onClick={toggle} aria-expanded={buka} className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-sm font-bold text-rose-900">
+          <span className="truncate">Ping untuk Anda ({belum.length})</span>
+          {!buka && <span className="hidden truncate text-xs font-medium text-rose-700/80 sm:inline">— {belum[0].message || 'Mohon dicek'}</span>}
+          <ChevronDown className={cx('h-4 w-4 shrink-0 transition', buka && 'rotate-180')} aria-hidden="true" />
+        </button>
         <button type="button" onClick={() => markPingRead(belum)}
           className="shrink-0 rounded-lg bg-white px-2.5 py-1.5 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-300 hover:bg-rose-100">
           Tandai semua dibaca
         </button>
       </div>
-      <ul className="divide-y divide-rose-100">
+      {buka && <ul className="divide-y divide-rose-100">
         {belum.slice(0, 6).map((p) => (
           <li key={p.id}>
             <div className="flex min-w-0 items-start gap-2 px-4 py-2.5">
@@ -54,7 +62,7 @@ export default function PingBoard() {
             </div>
           </li>
         ))}
-      </ul>
+      </ul>}
     </section>
   )
 }

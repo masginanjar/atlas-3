@@ -15,3 +15,6 @@ scripts/legacy/private/
 *.xlsx
 legacy/
 scripts/legacy/mapping-*.csv
+
+# Data faktur Zoho asli untuk demo (nama pelanggan) — jangan pernah di-commit
+src/lib/demoZohoNov.js

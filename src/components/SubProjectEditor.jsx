@@ -228,7 +228,7 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
               </Field>
             )}
             {extra.includes('translator') && (
-              <Field label="Penerjemah" icon={UserPen} hint={locked ? 'Terkunci — alur sudah berjalan' : 'Opsional — kosong = ditentukan Supervisor'}>
+              <Field label="Penerjemah" icon={UserPen} hint={locked ? 'Terkunci — alur sudah berjalan' : 'Kosong = Supervisor yang menetapkan. Bila dipilih langsung (dan dokumen diunggah), pekerjaan langsung masuk ke penerjemah.'}>
                 <PilihCari label="Penerjemah" placeholder="Ditentukan Supervisor" disabled={locked}
                   value={sub.translator ? `${sub.translator_kind || 'translator'}:${sub.translator}` : ''}
                   onChange={(v) => { const [kind, id] = String(v).split(':'); set({ translator_kind: id ? (kind || '') : '', translator: id || '' }) }}
@@ -333,5 +333,10 @@ export function validateSub(s, i) {
   const maks = MAKS_DOK[s.type]
   if (maks && points(s.description).length > maks) return `${label}: apostille/legalisasi maksimal ${maks} dokumen per sub project — pisahkan jadi sub project sendiri`
   if (extra.includes('executor') && !s.executor_id) return `${label}: pilih eksekutor`
+  // Penerjemah internal dipilih langsung → pekerjaan langsung masuk ke dia, jadi dokumen sumbernya wajib ada
+  if (s.type === 'terjemahan' && s.translator && s.translator_kind !== 'vendor' && !s.id) {
+    const adaFile = (s.docs || []).some((d) => d.file || d.existing) || s.data?.dokumen_sumber
+    if (!adaFile) return `${label}: unggah dokumen sumber dulu — wajib bila penerjemah dipilih langsung (pekerjaan langsung masuk ke penerjemah)`
+  }
   return null
 }

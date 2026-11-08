@@ -152,18 +152,18 @@ export function RequestBoard({ bare }) {
                     ) : f.reject ? (
                       <span className="flex w-full gap-1.5 lg:w-[280px]"><Input value={f.reason} onChange={(e) => set(r.id, { reason: e.target.value })} placeholder="Alasan ditolak" className="!h-8 text-xs" aria-label="Alasan penolakan" /><Button size="sm" variant="danger" loading={f.busy} onClick={() => reject(r)}>Tolak</Button><Button size="sm" variant="ghost" onClick={() => set(r.id, { reject: false })} aria-label="Batal"><X className="h-3.5 w-3.5" /></Button></span>
                     ) : (
-                      <><QuickAcc branch={r.branch} busy={f.busy} onAcc={(d) => approve(r, d)} onPick={(d) => set(r.id, { acc: true, dana: d })} /><Button size="sm" variant="outline" className="!h-11 !w-11 sm:!h-8 sm:!w-10" onClick={() => set(r.id, { reject: true })} title="Tolak pengajuan" aria-label="Tolak pengajuan"><Ban className="h-4 w-4" /></Button></>
+                      <><QuickAcc branch={r.branch} busy={f.busy} onAcc={(d) => approve(r, d)} onPick={(d) => set(r.id, { acc: true, dana: d })} /><Button size="sm" variant="outline" className="!h-11 sm:!h-8" onClick={() => set(r.id, { reject: true })} title="Tolak pengajuan"><Ban className="h-4 w-4" />Tolak</Button></>
                     ))}
                     {r.status === 'disetujui' && canPay && (
                       <>
                         <Input type="date" value={f.date} onChange={(e) => set(r.id, { date: e.target.value })} className="!h-8 !w-[116px] shrink-0 !px-1.5 text-xs" aria-label="Tanggal bayar" />
                         {f.file ? <span className="flex max-w-[110px] items-center gap-1 truncate text-xs font-semibold text-emerald-700"><FileCheck2 className="h-4 w-4 shrink-0" />{f.file.name}</span> : (
-                          <label title="Upload bukti transfer" aria-label="Upload bukti transfer" className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg bg-white text-ink-soft ring-1 ring-slate-300 hover:text-brand hover:ring-brand sm:h-8 sm:w-10">
-                            {f.up ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          <label title="Upload bukti transfer" className="inline-flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-white px-2.5 text-xs font-semibold text-ink-soft ring-1 ring-slate-300 hover:text-brand hover:ring-brand sm:h-8">
+                            {f.up ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}Bukti transfer
                             <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => upload(r, e.target.files?.[0])} aria-label={`Upload bukti pengajuan ${r.purpose}`} />
                           </label>
                         )}
-                        <Button size="sm" className="!h-11 !w-11 sm:!h-8 sm:!w-10" loading={f.busy} disabled={!f.file} onClick={() => pay(r)} title="Tandai sudah dibayar" aria-label="Tandai sudah dibayar"><Banknote className="h-4 w-4" /></Button>
+                        <Button size="sm" className="!h-11 sm:!h-8" loading={f.busy} disabled={!f.file} onClick={() => pay(r)} title="Tandai sudah dibayar"><Banknote className="h-4 w-4" />Tandai ditransfer</Button>
                       </>
                     )}
                     {r.status === 'dibayar' && <DownloadBukti file={r.bukti_transfer} />}

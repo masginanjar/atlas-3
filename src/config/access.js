@@ -64,7 +64,7 @@ export const PERSON_TYPES = {
 export const PROOFREADER_TEAM = { id: 'tim-proofreader', lead: 'Muhammad Arifin', label: 'Tim Proofreader' }
 export const proofreaderTeamName = () => `${PROOFREADER_TEAM.lead} · ${PROOFREADER_TEAM.label}`
 /** Boleh melihat nama masing-masing proofreader? */
-export const seeProofreaderIdentity = (u) => ['superadmin', 'admin_pusat', 'supervisor', 'direktur', 'akunting'].includes(u?.base_role || u?.role)
+export const seeProofreaderIdentity = (u) => ['superadmin', 'admin_pusat', 'supervisor', 'direktur', 'akunting', 'penerjemah'].includes(u?.base_role || u?.role) // penerjemah: memilih proofreader sendiri sebelum kirim (permintaan 8 Nov 2026)
 /** Nama yang boleh ditampilkan ke `viewer` untuk user `target`. */
 export function displayNameFor(viewer, target) {
   if (!target) return undefined
@@ -88,6 +88,7 @@ export function pickProofreader(users, projects = []) {
 export const BRANCH_CODES = {
   101: 'Bali', 202: 'Jakarta', 303: 'Bandung', 304: 'Yogyakarta',
   305: 'Surabaya', 306: 'Medan', 307: 'Semarang', 308: 'Makassar', 309: 'Batam',
+  209: 'Batam', // Batam juga memakai awalan 209 (Zoho "Region 4")
 }
 /** Cabang dari nomor invoice ("INV-1012611057086" → "Bali"). null bila kodenya belum dikenal. */
 export function branchOfInvoice(no) {

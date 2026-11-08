@@ -27,7 +27,7 @@ const remBucket = (r) => {
  * My Reminders — to-do pribadi + pengingat/alarm dalam satu daftar,
  * termasuk permintaan yang dikirim rekan kerja (mention) beserta statusnya.
  */
-export default function MyReminders() {
+export default function MyReminders({ embedded }) {
   const { user, data, save, remove, notify, nameOf } = useApp()
   const { open } = usePanel()
   const [view, setView] = useState('hari-ini')
@@ -126,7 +126,7 @@ export default function MyReminders() {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      {!embedded && <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight"><AlarmClock className="h-5 w-5 text-ink-mute" />Pengingat</h1>
           <p className="text-sm text-ink-soft">To-do pribadi, permintaan dari rekan, dan alarm — satu tempat. Terpisah dari tahapan project.</p>
@@ -135,7 +135,7 @@ export default function MyReminders() {
           <Button size="sm" variant="outline" onClick={() => open('todo')}><Plus className="h-3.5 w-3.5" />To-do</Button>
           <Button size="sm" variant="dark" onClick={() => open('reminder')}><Plus className="h-3.5 w-3.5" />Alarm</Button>
         </div>
-      </div>
+      </div>}
 
       <div className="flex flex-wrap gap-1.5">
         <button type="button" onClick={() => setBox('masuk')} aria-pressed={box === 'masuk'}

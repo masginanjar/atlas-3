@@ -11,7 +11,7 @@ import { WORKER_ROLES, isFreelance } from './access.js'
  * menunya dipersempit supaya tidak penuh hal yang tidak mereka pakai.
  * "settings" tetap ada karena di situ mereka mengganti profil & kata sandi.
  */
-export const MENU_PELAKSANA = ['dashboard', 'projects', 'calendar', 'reminders', 'notes', 'settings']
+export const MENU_PELAKSANA = ['dashboard', 'projects', 'agenda', 'calendar', 'reminders', 'notes', 'todo', 'settings']
 
 /** Benar bila menu orang ini dipersempit (semua perannya pelaksana lepas). */
 export const menuDipersempit = (u) => isFreelance(u)

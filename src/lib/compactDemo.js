@@ -5,7 +5,7 @@
 // ============================================================
 import { DEMO_PDF } from './seed.js'
 
-export const COMPACT_LIMIT = 30
+export const COMPACT_LIMIT = 10000 // v9: tidak dipangkas (data faktur Zoho sungguhan)
 const now = () => new Date().toISOString()
 const subsOf = (p) => p.sub_projects || []
 
@@ -76,7 +76,8 @@ export function compactDemo(m) {
   }
   // 10) Lengkapi sampai 30 dengan project aktif lain, lalu potong
   for (const p of m.projects) { if (chosen.length >= COMPACT_LIMIT) break; if (!used.has(p.id) && !p.archive && !p.cancelled && !p.demo_perf) { used.add(p.id); chosen.push(p) } }
-  m.projects = [...chosen.slice(0, COMPACT_LIMIT), ...comboProjects(m)]
+  // v9: data berasal dari faktur Zoho sungguhan — tidak dipangkas, tidak ada project gabungan karangan
+  m.projects = m.projects.filter((p) => !p.demo_perf)
   if (m.projects[0]) m.projects[0].about.notes = 'Pelanggan minta hasil dikirim ke alamat kantor, bukan rumah.'
   if (m.projects[3]) m.projects[3].about.notes = 'Nama di ijazah berbeda satu huruf dengan KTP — konfirmasi sebelum cetak.'
   const keepIds = new Set(m.projects.map((p) => p.id))
@@ -94,7 +95,7 @@ export function compactDemo(m) {
   ]
   m.app_settings = [...(m.app_settings || []).filter((r) => r.key !== 'demo'), { id: 'set-demo', key: 'demo', perf: false, created_at: now() }]
   portalDemo(m)
-  m.compact_v1 = true; m.compact_v2 = true; m.compact_v3 = true; m.compact_v4 = true; m.compact_v5 = true; m.compact_v6 = true; m.compact_v7 = true; m.compact_v8 = true
+  m.compact_v1 = true; m.compact_v2 = true; m.compact_v3 = true; m.compact_v4 = true; m.compact_v5 = true; m.compact_v6 = true; m.compact_v7 = true; m.compact_v8 = true; m.compact_v9 = true
   return m
 }
 

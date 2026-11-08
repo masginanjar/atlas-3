@@ -1,15 +1,15 @@
 import { useState } from 'react'
-import { Play, Send, FolderOpen, Hand, CheckCircle2, FileText, Upload, Loader2, Circle, Inbox, Building2, Headset, Printer, Eye, Download, ChevronDown, List, Table2 } from 'lucide-react'
+import { Play, Send, FolderOpen, Hand, CheckCircle2, FileText, Upload, Loader2, Circle, Inbox, Building2, Headset, Printer, Eye, Download, ChevronDown, ChevronRight } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { TolakTugasBtn } from './GantiPenerjemah.jsx'
-import { can, activeClaim, placeOf, seeProofreaderIdentity, proofreaderTeamName, pickProofreader, invoiceLabel} from '../config/access.js'
+import { can, activeClaim, placeOf, seeProofreaderIdentity, pickProofreader, invoiceLabel } from '../config/access.js'
 import { flowOf, stagesOf } from '../config/workflows.js'
 import { SUB_TYPES } from '../config/subtypes.js'
-import FileManager, { fieldFiles, uploadProjectFiles, collect } from './FileManager.jsx'
+import { fieldFiles, uploadProjectFiles, collect } from './FileManager.jsx'
 import FilePreview from './FilePreview.jsx'
 import { useUploadNamer } from './UploadNamer.jsx'
 import { PriorityBadge } from './Priority.jsx'
-import { DeadlineCell } from './badges.jsx'
+import { DEADLINE_H1_ROLES } from './badges.jsx'
 import CopyText from './CopyText.jsx'
 import { drive } from '../lib/integrations.js'
 import { saveBlob, dataUrlToBlob } from '../lib/download.js'
@@ -27,8 +27,18 @@ const pickFieldOf = (stage) => stage.fields.find((f) => String(f.type).startsWit
 /** Isian catatan (teks) di tahap ini. */
 const noteFieldOf = (stage) => stage.fields.find((f) => f.type === 'text')
 /** Dokumen yang perlu dibaca pelaksana di tahap ini. */
-const SOURCE_KEYS = { penerjemahan: ['dokumen_sumber'], proofread: ['dokumen_sumber', 'hasil_terjemahan'], otorisasi: ['dokumen_sumber', 'hasil_proofread', 'hasil_terjemahan'] }
-const SOURCE_LABEL = { dokumen_sumber: 'Dokumen sumber', hasil_terjemahan: 'Hasil terjemahan', hasil_proofread: 'Hasil proofread' }
+// Dokumen yang dibaca tiap tahap (alur 8 Nov 2026):
+//  penerjemah : dokumen sumber
+//  proofreader: dokumen sumber + hasil terjemahan
+//  otorisator : dokumen sumber + hasil proofreader (bila belum ada: hasil terjemahan)
+const SOURCE_KEYS = { penerjemahan: ['dokumen_sumber'], proofread: ['dokumen_sumber', 'hasil_terjemahan'], otorisasi: ['dokumen_sumber', 'hasil_proofread'] }
+const SOURCE_LABEL = { dokumen_sumber: 'Dokumen sumber', hasil_terjemahan: 'Hasil terjemahan', hasil_proofread: 'Hasil proofreader' }
+export const sumberTahap = (sub) => {
+  const keys = SOURCE_KEYS[sub.stage] || ['dokumen_sumber']
+  const out = keys.flatMap((k) => fieldFiles(sub.data, k).map((f) => ({ ...f, _label: SOURCE_LABEL[k] || k })))
+  if (sub.stage === 'otorisasi' && !fieldFiles(sub.data, 'hasil_proofread').length) out.push(...fieldFiles(sub.data, 'hasil_terjemahan').map((f) => ({ ...f, _label: 'Hasil terjemahan (proofreader tidak mengunggah file)' })))
+  return out
+}
 
 /** Sub project di satu project yang menjadi tugas user sekarang. */
 export function myWorkSubs(user, project) {
@@ -62,7 +72,7 @@ function useTask(project, sub, onDone) {
   const noteField = noteFieldOf(stage)
   const [who, setWho] = useState(() => sub.data?.[pick?.key] || '')
   const [note, setNote] = useState(() => sub.data?.[noteField?.key] || '')
-  const sources = (SOURCE_KEYS[sub.stage] || ['dokumen_sumber']).flatMap((k) => fieldFiles(sub.data, k).map((f) => ({ ...f, _label: SOURCE_LABEL[k] || k })))
+  const sources = sumberTahap(sub)
 
   const run = async (key, fn, ok) => {
     setBusy(key)
@@ -82,6 +92,20 @@ function useTask(project, sub, onDone) {
       await processStage(project, sub.id, { [fileKey]: all[0], [`${fileKey}_list`]: all }, false)
     }, 'Hasil terunggah')
   }
+  /** Ganti satu file hasil (salah upload) — file lama diganti di posisi yang sama. */
+  const replace = async (index, fileList) => {
+    const picked = await reviewNames([fileList[0]])
+    if (!picked?.length) return false
+    return run('up', async () => {
+      const added = await uploadProjectFiles(picked.map(({ file, name }) => ({ file, name, sub_id: sub.id })), { branch: project.branch, invoice: project.invoice_no, by: user.name })
+      const all = files.map((f, i) => (i === index ? added[0] : f))
+      await processStage(project, sub.id, { [fileKey]: all[0], [`${fileKey}_list`]: all }, false)
+    }, 'File hasil diganti')
+  }
+  const remove = (index) => run('up', async () => {
+    const all = files.filter((_, i) => i !== index)
+    await processStage(project, sub.id, { [fileKey]: all[0] || null, [`${fileKey}_list`]: all }, false)
+  }, 'File hasil dihapus')
   const target = () => (teamPick ? pickProofreader(data.users, data.projects) : who)
   const values = () => ({ ...(pick ? { [pick.key]: target() } : {}), ...(noteField && note ? { [noteField.key]: note } : {}) })
   const next = async () => {
@@ -91,7 +115,7 @@ function useTask(project, sub, onDone) {
   }
   const blocked = stage.fields.some((f) => f.required && f.type === 'file' && !files.length) ? 'Upload hasil dulu'
     : pick?.required && !(teamPick ? people?.length : who) ? (teamPick ? 'Belum ada proofreader aktif — hubungi Supervisor' : `Pilih ${pick.label} dulu`) : ''
-  return { stage, started, claim, files, sources, pick, teamPick, people, who, setWho, noteField, note, setNote, busy, start, upload, next, blocked, namerDialog }
+  return { stage, started, claim, files, sources, pick, teamPick, people, who, setWho, noteField, note, setNote, busy, start, upload, replace, remove, next, blocked, namerDialog }
 }
 
 /** Tombol Upload (dipakai di baris & pop-up) — selalu lewat dialog ganti nama. */
@@ -114,11 +138,33 @@ function UploadBtn({ t, label, big }) {
 function WorkSheet({ project, sub, t, onClose }) {
   const { notify } = useApp()
   const [preview, setPreview] = useState(null)
-  const [allFiles, setAllFiles] = useState(false)
   const [dl, setDl] = useState(null)
+  // hanya dokumen tahap ini (sumber + hasil tahap sebelumnya) — file sub project lain tidak ikut
+  const berkas = t.sources.map((f) => ({ ...f, _sumber: true }))
+  // Pilih dokumen tertentu untuk diunduh sekaligus; kosong = semua
+  const [pilih, setPilih] = useState(() => new Set())
+  const terpilih = pilih.size ? berkas.filter((_, i) => pilih.has(i)) : berkas
+  const semuaDipilih = pilih.size === berkas.length && berkas.length > 0
+  const togglePilih = (i) => setPilih((v) => { const n = new Set(v); n.has(i) ? n.delete(i) : n.add(i); return n })
+  const toggleSemua = () => setPilih(semuaDipilih ? new Set() : new Set(berkas.map((_, i) => i)))
   const download = async (f, i) => {
     setDl(i)
     try { await saveBlob(f.name, f.url?.startsWith('data:') ? dataUrlToBlob(f.url) : await drive.blob(f)) } catch (e) { notify(e.message, 'err') } finally { setDl(null) }
+  }
+  const unduhZip = async () => {
+    setDl('zip')
+    try {
+      const JSZip = (await import('jszip')).default; const zip = new JSZip(); const used = new Set(); let lewat = 0
+      for (const f of terpilih) {
+        let blob; try { blob = f.url?.startsWith('data:') ? dataUrlToBlob(f.url) : await drive.blob(f) } catch { lewat++; continue }
+        let path = f.name; let k = 1
+        while (used.has(path)) path = f.name.replace(/(\.[^.]+)?$/, ` (${k++})$1`)
+        used.add(path); zip.file(path, blob)
+      }
+      if (!used.size) throw new Error('Tidak ada file yang bisa dikemas')
+      await saveBlob(`${invoiceLabel(project.invoice_no)} - ${sub.title}.zip`.replace(/[\\/:*?"<>|]/g, '-'), await zip.generateAsync({ type: 'blob' }))
+      if (lewat) notify(`${lewat} file dilewati (tidak tersedia)`, 'err')
+    } catch (e) { notify(e.message, 'err') } finally { setDl(null) }
   }
   return (
     <Sheet open side onClose={onClose} title={sub.title} subtitle={`${invoiceLabel(project.invoice_no)} · ${project.customer?.name || ''} · ${t.stage.label}`}
@@ -130,14 +176,27 @@ function WorkSheet({ project, sub, t, onClose }) {
       <div className="space-y-4">
         {t.blocked && <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 ring-1 ring-amber-200">{t.blocked} sebelum menekan “{t.stage.action}”.</p>}
 
-        {/* 1. Dokumen untuk dibaca / diunduh */}
+        {/* 1. File project — satu per satu, bisa dibaca/diunduh sendiri-sendiri (file hasil tahap ini tidak ikut) */}
         <section>
-          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-mute">1. Dokumen untuk dikerjakan</p>
-          {t.sources.length === 0 ? <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-ink-mute">Belum ada dokumen sumber yang diunggah CS.</p> : (
-            <ul className="divide-y divide-slate-100 rounded-xl bg-white ring-1 ring-slate-200">
-              {t.sources.map((f, i) => (
-                <li key={i} className="flex flex-wrap items-center gap-2 px-3 py-2">
-                  <FileText className="h-4 w-4 shrink-0 text-brand" />
+          <div className="mb-1.5 flex items-center gap-2">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-ink-mute">1. Dokumen untuk dikerjakan</p>
+            {berkas.length > 1 && (
+              <div className="ml-auto flex items-center gap-2">
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-ink-soft" title="Pilih semua dokumen">
+                  <input type="checkbox" className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand" checked={semuaDipilih} onChange={toggleSemua} data-aksi="pilih-semua-dokumen" />Semua
+                </label>
+                <Button size="sm" variant="outline" loading={dl === 'zip'} onClick={unduhZip} data-aksi="unduh-zip" title={pilih.size && !semuaDipilih ? 'Unduh dokumen yang dicentang' : 'Unduh semua dokumen'}>
+                  <Download className="h-3.5 w-3.5" />{pilih.size && !semuaDipilih ? `Unduh ${pilih.size} terpilih (ZIP)` : 'Unduh semua (ZIP)'}
+                </Button>
+              </div>
+            )}
+          </div>
+          {berkas.length === 0 ? <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-ink-mute">Belum ada dokumen sumber yang diunggah CS.</p> : (
+            <ul className="divide-y divide-slate-100 rounded-xl bg-white ring-1 ring-slate-200" data-berkas-kerja>
+              {berkas.map((f, i) => (
+                <li key={f.key || i} className={cx('flex flex-wrap items-center gap-2 px-3 py-2', pilih.has(i) && 'bg-brand-soft/50')}>
+                  {berkas.length > 1 && <input type="checkbox" className="h-4 w-4 shrink-0 rounded border-slate-300 text-brand focus:ring-brand" checked={pilih.has(i)} onChange={() => togglePilih(i)} aria-label={`Pilih ${f.name}`} data-aksi="pilih-dokumen" />}
+                  <FileText className={cx('h-4 w-4 shrink-0', f._sumber ? 'text-brand' : 'text-ink-mute')} />
                   <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold text-ink">{f.name}</span><span className="text-[11px] text-ink-mute">{f._label}</span></span>
                   <Button size="sm" variant="outline" onClick={() => setPreview(f)}><Eye className="h-3.5 w-3.5" />Baca</Button>
                   <Button size="sm" variant="outline" loading={dl === i} onClick={() => download(f, i)}><Download className="h-3.5 w-3.5" />Unduh</Button>
@@ -152,28 +211,26 @@ function WorkSheet({ project, sub, t, onClose }) {
           <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-mute">2. Hasil pekerjaan Anda</p>
           {t.files.length > 0 && (
             <ul className="mb-2 divide-y divide-emerald-100 rounded-xl bg-emerald-50/60 ring-1 ring-emerald-200">
-              {t.files.map((f, i) => <li key={i} className="flex items-center gap-2 px-3 py-1.5 text-sm text-emerald-900"><CheckCircle2 className="h-4 w-4 shrink-0" /><span className="min-w-0 flex-1 truncate">{f.name}</span><button type="button" onClick={() => setPreview(f)} className="rounded p-1 text-emerald-700 hover:bg-emerald-100" aria-label={`Baca ${f.name}`}><Eye className="h-4 w-4" /></button></li>)}
+              {t.files.map((f, i) => <li key={i} className="flex items-center gap-2 px-3 py-1.5 text-sm text-emerald-900"><CheckCircle2 className="h-4 w-4 shrink-0" /><span className="min-w-0 flex-1 truncate">{f.name}</span><button type="button" onClick={() => setPreview(f)} className="rounded p-1 text-emerald-700 hover:bg-emerald-100" aria-label={`Baca ${f.name}`}><Eye className="h-4 w-4" /></button>
+                <label className="cursor-pointer rounded-lg px-2 py-1 text-[11px] font-semibold text-emerald-800 ring-1 ring-emerald-300 hover:bg-emerald-100" title="Salah upload? Ganti dengan file lain" data-aksi="ganti-file">Ganti<input type="file" className="hidden" aria-label={`Ganti ${f.name}`} onChange={(e) => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length) t.replace(i, fl) }} /></label>
+                <button type="button" onClick={() => t.remove(i)} className="rounded-lg px-2 py-1 text-[11px] font-semibold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-50" aria-label={`Hapus ${f.name}`} data-aksi="hapus-file">Hapus</button></li>)}
             </ul>
           )}
           <UploadBtn t={t} big label="Pilih file hasil (bisa beberapa)" />
         </section>
 
         {/* 3. Isian tahap (proofreader / catatan) */}
-        {(t.pick || t.noteField) && (
+        {((t.pick && !t.teamPick) || t.noteField) && (
           <section className="space-y-2">
             <p className="text-[11px] font-bold uppercase tracking-wide text-ink-mute">3. Sebelum dikirim</p>
-            {t.pick && (t.teamPick ? (
-              <p className="rounded-xl bg-white px-3 py-2.5 text-xs ring-1 ring-slate-200">
-                Dikirim ke <b className="text-ink">{proofreaderTeamName()}</b> — sistem memilihkan pemeriksa yang antreannya paling sedikit.
-              </p>
-            ) : (
+            {t.pick && !t.teamPick && (
               <label className="block text-xs font-semibold text-ink-soft">{t.pick.label}{t.pick.required && <span className="text-rose-500"> *</span>}
                 <select value={t.who} onChange={(e) => t.setWho(e.target.value)} className="mt-1 h-10 w-full rounded-xl border-0 bg-white px-3 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-brand">
                   <option value="">— Pilih {t.pick.label} —</option>
                   {t.people.map((u) => <option key={u.id} value={u.id}>{u.name} · {placeOf(u)}</option>)}
                 </select>
               </label>
-            ))}
+            )}
             {t.noteField && (
               <label className="block text-xs font-semibold text-ink-soft">{t.noteField.label}
                 <textarea rows={2} value={t.note} onChange={(e) => t.setNote(e.target.value)} className="mt-1 w-full rounded-xl border-0 p-3 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-brand" />
@@ -185,13 +242,6 @@ function WorkSheet({ project, sub, t, onClose }) {
         {/* Tidak sanggup mengerjakan? kembalikan ke Supervisor dengan alasan */}
         <TolakTugasBtn project={project} sub={sub} blok onDone={onClose} />
 
-        {/* File project lain — tersembunyi supaya tidak mengganggu */}
-        <div>
-          <button type="button" onClick={() => setAllFiles((v) => !v)} className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">
-            <ChevronDown className={cx('h-3.5 w-3.5 transition', allFiles && 'rotate-180')} />{allFiles ? 'Sembunyikan' : 'Lihat'} semua file project
-          </button>
-          {allFiles && <div className="mt-2"><FileManager project={project} readOnly /></div>}
-        </div>
       </div>
       {preview && <FilePreview file={preview} onClose={() => setPreview(null)} />}
     </Sheet>
@@ -203,202 +253,125 @@ function WorkSheet({ project, sub, t, onClose }) {
  */
 export default function WorkerBoard({ projects }) {
   const { user } = useApp()
-  // Pilihan List / Tabel, sama seperti My Project pada akun Superadmin.
-  // Disimpan terpisah supaya tidak mengubah pilihan di halaman lain.
-  const [view, setViewRaw] = useState(() => {
-    try { const v = localStorage.getItem('atlas-view-tugas'); return v === 'tabel' ? 'tabel' : 'list' } catch { return 'list' }
-  })
-  const setView = (v) => { setViewRaw(v); try { localStorage.setItem('atlas-view-tugas', v) } catch { /* abaikan */ } }
-
   const rows = (projects || []).flatMap((pr) => myWorkSubs(user, pr).map((sub) => ({ pr, sub })))
     .sort((a, b) => new Date(a.pr.about?.deadline || 0) - new Date(b.pr.about?.deadline || 0))
   if (!rows.length) return <Card><Empty icon={Inbox} title="Tidak ada tugas" text="Semua dokumen yang ditugaskan kepada Anda sudah dikerjakan. 🎉" /></Card>
   return (
     <Card className="overflow-visible" data-testid="worker-board">
-      <div className="sticky top-[var(--appbar)] z-10 flex flex-wrap items-center gap-2 rounded-t-2xl border-b border-slate-200 bg-brand-soft/90 px-4 py-2 backdrop-blur">
+      <div className="sticky top-[var(--appbar)] z-10 flex items-center gap-2 rounded-t-2xl border-b border-slate-200 bg-brand-soft/90 px-4 py-2 backdrop-blur">
         <FileText className="h-4 w-4 shrink-0 text-brand" />
         <h2 className="min-w-0 text-[15px] font-bold">Tugas Saya <span className="text-ink-mute">({rows.length})</span></h2>
-        <span className="ml-auto hidden text-[11px] text-ink-mute lg:inline">Mulai → Upload hasil → Kirim. Semua dari halaman ini.</span>
-        <div className="ml-auto flex shrink-0 rounded-xl bg-white p-1 ring-1 ring-slate-200 lg:ml-0" role="group" aria-label="Pilihan tampilan">
-          {[['list', List, 'List kompak'], ['tabel', Table2, 'Tabel — 1 baris 1 tugas']].map(([k, Icon, l]) => (
-            <button key={k} type="button" onClick={() => setView(k)} aria-label={l} aria-pressed={view === k} title={l}
-              className={cx('grid h-8 w-8 place-items-center rounded-lg', view === k ? 'bg-ink text-white' : 'text-ink-mute hover:bg-slate-50')}><Icon className="h-4 w-4" /></button>
-          ))}
-        </div>
       </div>
-      {view === 'tabel' ? (
-        <TabelTugas rows={rows} />
-      ) : (
-        <ul className="divide-y divide-slate-200/70 [&>li:last-child]:overflow-hidden [&>li:last-child]:rounded-b-2xl">
-          {rows.map(({ pr, sub }, i) => <TaskRow key={sub.id} project={pr} sub={sub} alt={i % 2 === 1} />)}
-        </ul>
-      )}
+      {/* Satu tampilan untuk semua tim produksi: list ringkas, tiap kolom maksimal 2 baris */}
+      <ul className="divide-y divide-slate-200/70 [&>li:last-child]:overflow-hidden [&>li:last-child]:rounded-b-2xl">
+        {rows.map(({ pr, sub }, i) => <TaskRow key={sub.id} project={pr} sub={sub} alt={i % 2 === 1} />)}
+      </ul>
     </Card>
   )
 }
 
-/**
- * Tampilan Tabel: satu baris satu tugas.
- * Susunan, ukuran, jarak, dan gaya tabel dibuat sama dengan My Project pada
- * role CS (lihat ProjectSpreadsheet) — yang berbeda hanya kolom & tombol aksi,
- * karena pelaksana freelance tidak punya cabang dan hanya melihat tugasnya.
- */
-const KOLOM_TUGAS = [
-  { key: 'invoice', label: 'No. Invoice', w: '132px' },
-  { key: 'pelanggan', label: 'Nama Pelanggan', w: '160px' },
-  { key: 'dokumen', label: 'Dokumen', w: '200px' },
-  { key: 'cs', label: 'CS', w: '112px' },
-  { key: 'deadline', label: 'Deadline', w: '136px' },
-  { key: 'progres', label: 'Progres', w: '156px' },
-]
+const BLN_PENDEK = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+const hariWita = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(d)
 
-function TabelTugas({ rows }) {
+/** Deadline / Jam untuk baris tugas: atas tanggal, bawah jam (+ status terlambat/hari ini). Pelaksana melihat deadline internal H-1 (kecuali Sameday). */
+function DeadlineJam({ project }) {
+  const { user } = useApp()
+  const prio = project?.about?.priority || 'Normal'
+  const sameday = prio === 'Sameday'
+  const geser = DEADLINE_H1_ROLES.includes(user?.role) && !sameday
+  const asli = project?.about?.deadline
+  if (!asli) return <div className="text-xs text-ink-mute">—</div>
+  const iso = geser ? new Date(new Date(asli).getTime() - 864e5).toISOString() : asli
+  const w = new Date(new Date(iso).getTime() + 8 * 3600e3)
+  const jam = (project?.about?.deadline_time || '17:00')
+  // Waktu deadline sebenarnya (tanggal WITA + jam) → durasi tersisa / keterlambatan
+  const [hh, mm] = jam.split(':').map(Number)
+  const batas = new Date(`${hariWita(new Date(iso))}T${String(hh).padStart(2, '0')}:${String(mm || 0).padStart(2, '0')}:00+08:00`)
+  const selisih = batas - Date.now()
+  const telat = selisih < 0
+  const abs = Math.abs(selisih)
+  const hari = Math.floor(abs / 864e5), jamSisa = Math.floor((abs % 864e5) / 3600e3), menit = Math.floor((abs % 3600e3) / 6e4)
+  const durasi = hari >= 1 ? `${hari} hari${jamSisa ? ` ${jamSisa} jam` : ''}` : jamSisa >= 1 ? `${jamSisa} jam${menit ? ` ${menit} mnt` : ''}` : `${Math.max(1, menit)} mnt`
+  const hariIni = hariWita(batas) === hariWita()
+  const ket = telat ? `Terlambat ${durasi}` : `${hariIni ? 'Hari ini · ' : ''}sisa ${durasi}`
+  const tone = telat || hariIni ? 'text-rose-600' : abs < 2 * 864e5 ? 'text-orange-500' : 'text-ink'
   return (
-    <div className="min-w-0 max-w-full overflow-x-auto rounded-b-2xl bg-white">
-      <table className="card-table w-full border-collapse text-left align-top text-sm">
-        <thead>
-          <tr>
-            {KOLOM_TUGAS.map((c) => (
-              <th key={c.key} scope="col" style={{ width: c.w, minWidth: c.w }}
-                className="sticky top-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-ink-soft">{c.label}</th>
-            ))}
-            <th scope="col" style={{ width: '220px', minWidth: '220px' }}
-              className="sticky top-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-ink-soft">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ pr, sub }, i) => <TaskTr key={sub.id} project={pr} sub={sub} alt={i % 2 === 1} />)}
-        </tbody>
-      </table>
+    <div className="min-w-0 leading-tight" title={geser ? `Deadline internal (H-1). Deadline ke pelanggan: ${new Date(asli).getDate()} ${BLN_PENDEK[new Date(asli).getMonth()]}` : undefined} data-deadline={geser ? 'h1' : sameday ? 'sameday' : 'asli'}>
+      <p className={cx('truncate text-sm font-bold', tone)}>{w.getUTCDate()} {BLN_PENDEK[w.getUTCMonth()]} · {jam.replace(':', '.')}</p>
+      <p className={cx('truncate text-xs', telat || hariIni ? cx('font-semibold', tone) : 'text-ink-mute')}>{ket}</p>
     </div>
-  )
-}
-
-function TaskTr({ project, sub, alt }) {
-  const [open, setOpen] = useState(false)
-  const t = useTask(project, sub, () => setOpen(false))
-  const docList = (sub.docs || []).filter((d) => d?.desc?.trim())
-  const pages = docList.reduce((a, d) => a + (Number(d.pages) || 0), 0) || sub.pages || 0
-  return (
-    <tr className={cx('border-b border-slate-100 align-top last:border-0 md:hover:bg-brand-soft/40', alt && 'md:bg-slate-50/60')}>
-      <td data-label="No. Invoice" className="min-w-0 max-w-full px-3 py-2.5 text-sm font-bold text-ink">
-        <CopyText text={invoiceLabel(project.invoice_no)} label="No. Invoice" strong />
-      </td>
-      <td data-label="Nama Pelanggan" className="min-w-0 max-w-full px-3 py-2.5 text-sm font-semibold text-ink-soft">{project.customer?.name || '—'}</td>
-      <td data-label="Dokumen" className="min-w-0 max-w-full px-3 py-2.5 text-sm">
-        <span className="block font-semibold text-ink">{sub.title || (SUB_TYPES[sub.type] || SUB_TYPES.jasa_lain).label}</span>
-        <span className="block text-[11px] text-ink-mute">
-          {(SUB_TYPES[sub.type] || SUB_TYPES.jasa_lain).label}{sub.lang_from ? ` · ${sub.lang_from} → ${sub.lang_to}` : ''}{pages ? ` · ${pages} hlm` : ''}
-        </span>
-      </td>
-      <td data-label="CS" className="min-w-0 max-w-full px-3 py-2.5 text-sm text-ink-soft">{csName(project) || '—'}</td>
-      <td data-label="Deadline" className="min-w-0 max-w-full px-3 py-2.5 text-sm">
-        <DeadlineCell project={project} align="left" />
-        <PriorityBadge p={project.about?.priority} className="mt-0.5" />
-      </td>
-      <td data-label="Progres" className="min-w-0 max-w-full px-3 py-2.5 text-sm"><ProgresTugas t={t} /></td>
-      <td data-label="Aksi" className="min-w-0 max-w-full px-3 py-2.5 text-sm"><AksiTugas t={t} project={project} sub={sub} setOpen={setOpen} /></td>
-      {t.namerDialog}
-      {open && <WorkSheet project={project} sub={sub} t={t} onClose={() => setOpen(false)} />}
-    </tr>
-  )
-}
-
-/** Tombol aksi tugas — dipakai tampilan List maupun Tabel, supaya persis sama. */
-function AksiTugas({ t, project, sub, setOpen, className }) {
-  return (
-    <div className={cx('flex flex-wrap items-center gap-1.5', className)}>
-      {!t.started
-        ? <Button size="sm" loading={t.busy === 'start'} title="Tandai mulai dikerjakan, lalu unduh dokumen sumber"
-            onClick={async () => { if (await t.start()) setOpen(true) }}>{t.stage.claimable ? <Hand className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}{t.stage.claimable ? 'Ambil' : 'Mulai'}</Button>
-        : <UploadBtn t={t} />}
-      {t.started && t.pick && (
-        <select value={t.who} onChange={(e) => t.setWho(e.target.value)} aria-label={t.pick.label} title={t.pick.label}
-          className="h-8 max-w-[150px] rounded-xl border-0 bg-white px-2 text-xs font-semibold ring-1 ring-slate-300 focus:ring-2 focus:ring-brand">
-          <option value="">{t.pick.label}…</option>
-          {t.people.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-        </select>
-      )}
-      <TolakTugasBtn project={project} sub={sub} className="!h-8" />
-      <button type="button" onClick={() => setOpen(true)} aria-label={`Dokumen & rincian ${sub.title}`} title="Buka jendela kerja: dokumen sumber, hasil, catatan"
-        className="grid h-8 w-8 place-items-center rounded-xl bg-white text-ink-soft ring-1 ring-slate-300 hover:bg-ink hover:text-white"><FolderOpen className="h-4 w-4" /></button>
-      <Button size="sm" variant="dark" loading={t.busy === 'next'} onClick={() => (t.blocked ? setOpen(true) : t.next())} title={t.blocked || t.stage.action} className="whitespace-nowrap">
-        <Send className="h-3.5 w-3.5" />{(t.stage.action || 'Selesai').length > 16 ? 'Kirim →' : t.stage.action}
-      </Button>
-    </div>
-  )
-}
-
-/** Progres 3 langkah, bentuk ringkas untuk tampilan Tabel. */
-function ProgresTugas({ t, ringkas }) {
-  const steps = [['Mulai', t.started], ['Upload hasil', t.files.length > 0], ['Kirim', false]]
-  return (
-    <ol className={cx('flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]', ringkas && 'gap-x-1.5')}>
-      {steps.map(([label, done], i) => (
-        <li key={label} className={cx('inline-flex items-center gap-1 font-semibold', done ? 'text-emerald-700' : 'text-ink-mute')}>
-          {done ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Circle className="h-3.5 w-3.5" />}{ringkas ? i + 1 : `${i + 1}. ${label}`}
-        </li>
-      ))}
-    </ol>
   )
 }
 
 function TaskRow({ project, sub, alt }) {
   const [open, setOpen] = useState(false)
+  const [rinci, setRinci] = useState(false)
   const t = useTask(project, sub, () => setOpen(false))
   const docList = (sub.docs || []).filter((d) => d?.desc?.trim())
-  const pages = docList.reduce((a, d) => a + (Number(d.pages) || 0), 0) || sub.pages || 0
+  const daftar = docList.length ? docList : [{ desc: sub.title, pages: sub.pages, kind: sub.kind }]
+  const pages = daftar.reduce((a, d) => a + (Number(d.pages) || 0), 0) || sub.pages || 0
+  const jenis = (SUB_TYPES[sub.type] || SUB_TYPES.jasa_lain).label
   return (
-    <li className={cx('scroll-mt-28 transition', open ? 'bg-brand-soft/70 shadow-[inset_3px_0_0_0_var(--tw-ring-color)] ring-brand' : alt ? 'bg-slate-50/80' : '')}>
-      <div className="u-row grid gap-2 px-4 lg:grid-cols-[minmax(0,1.6fr)_104px_minmax(0,1fr)_minmax(0,400px)] lg:items-start lg:gap-3">
-        {/* Judul: No. Invoice → pelanggan → layanan → cabang & CS */}
+    <li className={cx('scroll-mt-28 transition', open ? 'bg-brand-soft/70 shadow-[inset_3px_0_0_0_var(--tw-ring-color)] ring-brand' : alt ? 'bg-slate-50/80' : '')} data-tugas-baris>
+      {/* Baris ringkas, tiap kolom 2 baris (atas/bawah):
+          No. invoice / Arah bahasa · Nama / Prioritas · Deadline / Jam · ▸ rincian dokumen · aksi */}
+      <div className="grid gap-x-3 gap-y-1.5 px-4 py-2.5 lg:grid-cols-[minmax(150px,1fr)_minmax(0,1.4fr)_215px_44px_auto] lg:items-center">
         <div className="min-w-0">
-          <p className="text-sm font-bold text-ink"><CopyText text={invoiceLabel(project.invoice_no)} label="No. Invoice" strong /></p>
-          <p className="truncate text-xs font-semibold text-ink-soft">{project.customer?.name}</p>
-          <p className="truncate text-[11px] text-ink-mute">{(SUB_TYPES[sub.type] || SUB_TYPES.jasa_lain).label}{sub.lang_from ? ` · ${sub.lang_from} → ${sub.lang_to}` : ''}{pages ? ` · ${pages} hlm` : ''}</p>
-          {/* Pelaksana freelance tidak terikat cabang — yang ditampilkan hanya CS penanggung jawab. */}
-          {csName(project) && (
-            <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-ink-mute">
-              <span className="inline-flex items-center gap-1" title={`CS: ${csName(project)}`}><Headset className="h-3 w-3" />{csName(project)}</span>
-            </p>
-          )}
+          <p className="truncate text-sm font-bold text-ink"><CopyText text={invoiceLabel(project.invoice_no)} label="No. Invoice" strong /></p>
+          <p className="truncate text-xs text-ink-mute" title={jenis}>{sub.lang_from ? <>{sub.lang_from} <span aria-hidden>→</span> <span className="font-semibold text-ink-soft">{sub.lang_to}</span></> : jenis}</p>
         </div>
-        {/* Deadline & prioritas */}
-        <div className="flex items-center gap-2 lg:block">
-          <DeadlineCell project={project} align="left" />
-          <PriorityBadge p={project.about?.priority} className="lg:mt-0.5" />
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-ink">{project.customer?.name}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-mute"><PriorityBadge p={project.about?.priority} /><span className="truncate">{daftar.length} dok · {pages} hlm</span></p>
         </div>
-        {/* Progres 3 langkah */}
-        <ProgresTugas t={t} />
-        {/* Aksi: Mulai → Upload → Kirim (tombol yang sama dengan isi pop-up) */}
+        <DeadlineJam project={project} />
+        <div className="flex items-center gap-2 lg:contents">
+        <button type="button" onClick={() => setRinci((v) => !v)} aria-expanded={rinci} aria-label={rinci ? 'Tutup rincian dokumen' : 'Lihat rincian dokumen'} title="Rincian dokumen" data-aksi="rincian-dokumen"
+          className={cx('grid h-11 w-11 shrink-0 place-items-center rounded-xl ring-1 transition lg:justify-self-center', rinci ? 'bg-brand-soft text-brand ring-brand' : 'bg-white text-ink-soft ring-slate-200 hover:bg-slate-50')}>
+          <ChevronRight className={cx('h-4 w-4 transition-transform', rinci && 'rotate-90')} />
+        </button>
         <AksiTugas t={t} project={project} sub={sub} setOpen={setOpen} className="lg:justify-end" />
-      </div>
-      {/* Daftar dokumen — tabel menyamping */}
-      <div className="u-hide-compact px-4 pb-3">
-        <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-slate-200">
-          <table className="w-full min-w-[420px] border-collapse text-xs">
-            <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-ink-mute">
-              <tr><th className="w-8 px-2 py-1.5 text-center font-bold">#</th><th className="px-2 py-1.5 text-left font-bold">Dokumen</th><th className="w-14 px-2 py-1.5 text-center font-bold">Hlm</th><th className="px-2 py-1.5 text-left font-bold">Keterangan</th></tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {(docList.length ? docList : [{ desc: sub.title, pages: sub.pages }]).map((d, i) => (
-                <tr key={i}>
-                  <td className="px-2 py-1.5 text-center font-semibold text-ink-mute">{i + 1}</td>
-                  <td className="px-2 py-1.5 font-semibold text-ink">{d.desc}</td>
-                  <td className="px-2 py-1.5 text-center tabular-nums">{d.pages || 1}</td>
-                  <td className="px-2 py-1.5 text-ink-mute">
-                    {d.kind === 'non_reguler' && <span className="mr-1 rounded bg-violet-50 px-1 font-semibold text-violet-700">Non Reguler</span>}
-                    {sub.data?.reg_numbers?.[i] && <span className="font-mono text-amber-800">No. Reg {sub.data.reg_numbers[i]}</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
+      {rinci && (
+        <div className="px-4 pb-3" data-rincian-dokumen>
+          <div className="overflow-x-auto rounded-xl bg-white ring-1 ring-slate-200">
+            <table className="w-full min-w-[320px] border-collapse text-xs">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-ink-mute">
+                <tr><th className="px-3 py-1.5 text-left font-bold">Deskripsi Dokumen</th><th className="w-28 px-3 py-1.5 text-left font-bold">Dok</th><th className="w-14 px-3 py-1.5 text-center font-bold">Hal</th></tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {daftar.map((d, i) => (
+                  <tr key={i}>
+                    <td className="px-3 py-1.5 font-semibold text-ink">{d.desc}{sub.data?.reg_numbers?.[i] && <span className="ml-1.5 font-mono text-[11px] text-amber-800">No. Reg {sub.data.reg_numbers[i]}</span>}</td>
+                    <td className="px-3 py-1.5 text-ink-mute">{d.kind === 'non_reguler' ? <span className="rounded bg-violet-50 px-1 font-semibold text-violet-700">Non Reguler</span> : 'Reguler'}</td>
+                    <td className="px-3 py-1.5 text-center tabular-nums">{d.pages || 1}</td>
+                  </tr>
+                ))}
+                <tr className="bg-slate-50/60"><td className="px-3 py-1.5 text-ink-mute">{jenis}</td><td className="px-3 py-1.5 font-semibold text-ink-soft">{daftar.length} dok</td><td className="px-3 py-1.5 text-center font-semibold tabular-nums">{pages}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       {t.namerDialog}
       {open && <WorkSheet project={project} sub={sub} t={t} onClose={() => setOpen(false)} />}
     </li>
+  )
+}
+
+function AksiTugas({ t, project, sub, setOpen, className }) {
+  // Hanya dua tombol: Mulai/Lanjutkan (membuka jendela kerja: unduh dokumen → upload hasil → kirim) dan Tolak.
+  return (
+    <div className={cx('flex flex-wrap items-center gap-1.5', className)}>
+      {!t.started
+        ? <Button size="sm" loading={t.busy === 'start'} title="Tandai mulai dikerjakan dan buka jendela kerja" data-aksi="mulai-tugas"
+            onClick={async () => { if (await t.start()) setOpen(true) }}>{t.stage.claimable ? <Hand className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}{t.stage.claimable ? 'Ambil' : 'Mulai'}</Button>
+        : <Button size="sm" variant={t.files.length ? 'dark' : undefined} title="Buka jendela kerja: dokumen, upload hasil, kirim" data-aksi="lanjutkan-tugas" onClick={() => setOpen(true)}>
+            {t.files.length ? <CheckCircle2 className="h-3.5 w-3.5" /> : <FolderOpen className="h-3.5 w-3.5" />}{t.files.length ? `Lanjutkan · ${t.files.length} file` : 'Lanjutkan'}
+          </Button>}
+      <TolakTugasBtn project={project} sub={sub} className="!h-8" />
+    </div>
   )
 }
 
@@ -424,13 +397,7 @@ function WorkStrip({ project, sub }) {
         <span className="ml-1.5 text-ink-mute">{t.stage.label}{sub.lang_from ? ` · ${sub.lang_from} → ${sub.lang_to}` : ''}</span>
         {t.started && <span className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-px text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-200"><CheckCircle2 className="h-3 w-3" />Sedang dikerjakan</span>}
       </span>
-      {!t.started
-        ? <Button size="sm" loading={t.busy === 'start'} onClick={async () => { if (await t.start()) setOpen(true) }}>{t.stage.claimable ? <Hand className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}{t.stage.claimable ? 'Ambil' : 'Mulai'}</Button>
-        : <UploadBtn t={t} />}
-      <Button size="sm" variant="outline" onClick={() => setOpen(true)}><FolderOpen className="h-3.5 w-3.5" />Dokumen</Button>
-      <Button size="sm" variant="dark" loading={t.busy === 'next'} onClick={() => (t.blocked ? setOpen(true) : t.next())} title={t.blocked || t.stage.action} className="whitespace-nowrap">
-        <Send className="h-3.5 w-3.5" />{(t.stage.action || 'Selesai').length > 20 ? 'Kirim →' : t.stage.action}
-      </Button>
+      <AksiTugas t={t} project={project} sub={sub} setOpen={setOpen} />
       {t.namerDialog}
       {open && <WorkSheet project={project} sub={sub} t={t} onClose={() => setOpen(false)} />}
     </div>

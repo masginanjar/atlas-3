@@ -58,12 +58,28 @@ export function DemoBadge({ project, className }) {
 const WITA_DAY = (d = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(d)
 /** Project dibuat hari ini (zona waktu aplikasi) — berdasarkan created_at, bukan perubahan data. */
 export const isNewToday = (p) => !!p?.created_at && WITA_DAY(new Date(p.created_at)) === WITA_DAY()
-/** Nomor invoice; bila project dibuat hari ini: badge membulat latar hijau lembut (tanpa label). */
+/** Prioritas cepat (Ekspres / Super Ekspres / Sameday). */
+export const isCepat = (p) => ['Ekspres', 'Super Ekspres', 'Sameday'].includes(p?.about?.priority)
+/**
+ * Nomor invoice sebagai kapsul solid (aturan 8 Nov 2026):
+ *  • prioritas cepat (Ekspres/Super Ekspres/Sameday) → latar hitam, teks putih tebal
+ *  • project dibuat hari ini (created_at, zona WITA) → latar hijau, teks putih tebal
+ *  • keduanya → kapsul hitam + penanda kecil hijau "Baru"
+ *  • selain itu → tampilan biasa
+ */
 export function InvoiceNo({ project, className, size = 'sm' }) {
   const fresh = isNewToday(project)
+  const cepat = isCepat(project)
   const txt = size === 'base' ? 'text-base' : 'text-sm'
-  if (!fresh) return <span className={cx('whitespace-nowrap font-bold', txt, className)}>{invoiceLabel(project.invoice_no)}</span>
-  return <span title="Baru diinput hari ini" className={cx('inline-flex items-center whitespace-nowrap rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 px-2 py-0.5 font-extrabold text-emerald-700 ring-1 ring-emerald-300', txt, className)}>{invoiceLabel(project.invoice_no)}</span>
+  if (!fresh && !cepat) return <span className={cx('whitespace-nowrap font-bold', txt, className)}>{invoiceLabel(project.invoice_no)}</span>
+  const kapsul = 'inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 font-bold text-white'
+  if (cepat) return (
+    <span className={cx('inline-flex items-center gap-1.5 whitespace-nowrap', className)}>
+      <span title={`Prioritas ${project.about.priority}`} data-invoice-badge="cepat" className={cx(kapsul, 'bg-ink', txt)}>{invoiceLabel(project.invoice_no)}</span>
+      {fresh && <span title="Baru diinput hari ini" data-invoice-badge="baru-kecil" className="inline-flex items-center rounded-full bg-emerald-600 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-white">Baru</span>}
+    </span>
+  )
+  return <span title="Baru diinput hari ini" data-invoice-badge="baru" className={cx(kapsul, 'bg-emerald-600', txt, className)}>{invoiceLabel(project.invoice_no)}</span>
 }
 const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
 /** Peran pelaksana yang melihat deadline internal H-1 (kecuali prioritas Sameday). */
@@ -92,12 +108,11 @@ export function DeadlineCell({ project, done, className, align = 'right' }) {
     : sameday ? `Sameday — harus selesai jam ${jamDl} WITA` : undefined
   const [txt, tone] = d < 0 ? [`Terlambat ${-d} hari`, 'text-rose-600'] : d === 0 ? ['Hari ini', 'text-rose-600'] : d === 1 ? ['Besok', 'text-orange-500'] : [`${d} hari lagi`, 'text-ink-mute']
   // Hari ini: seluruh teks dibungkus indikator berkedip merah agar langsung terlihat
-  if (d === 0) return (
-    <span className={cx('inline-block leading-tight', align === 'right' ? 'text-right' : 'text-left', className)} data-deadline={geser ? 'h1' : sameday ? 'sameday' : 'asli'}>
-      <span className="inline-block rounded-lg bg-rose-50 px-2 py-0.5 text-rose-700 ring-1 ring-rose-200" title={judul || 'Deadline hari ini'}>
-        <span className="block text-xs font-bold">{date}</span>
-        <span className="block whitespace-nowrap text-[11px] font-semibold">Hari ini</span>
-      </span>
+  // Hari ini → kapsul merah solid; Besok → kapsul oranye solid (teks putih). Ditentukan per tanggal kalender WITA.
+  if (d === 0 || d === 1) return (
+    <span className={cx('inline-block leading-tight', align === 'right' ? 'text-right' : 'text-left', className)} data-deadline={geser ? 'h1' : sameday ? 'sameday' : 'asli'} data-deadline-badge={d === 0 ? 'hari-ini' : 'besok'}>
+      <span className={cx('inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-bold text-white', d === 0 ? 'bg-rose-600' : 'bg-orange-500')} title={judul || (d === 0 ? 'Deadline hari ini' : 'Deadline besok')}>{date}</span>
+      <span className={cx('block whitespace-nowrap text-[11px] font-semibold', tone)}>{txt}</span>
     </span>
   )
   return (

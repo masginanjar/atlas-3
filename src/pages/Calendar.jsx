@@ -33,7 +33,7 @@ export function calendarItems(user, data, branchFilter) {
   return out
 }
 
-export default function Calendar() {
+export default function Calendar({ embedded }) {
   const { user, data, branchFilter, nameOf } = useApp()
   const { open } = usePanel()
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() } })
@@ -81,10 +81,10 @@ export default function Calendar() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
+        {!embedded && <div>
           <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight"><CalendarDays className="h-5 w-5 text-ink-mute" />Linimasa</h1>
           <p className="text-sm text-ink-soft">Deadline project, to-do, dan pengingat dalam satu tampilan — sumbernya data yang sama.</p>
-        </div>
+        </div>}
         <div className="flex items-center gap-1.5">
           <button type="button" onClick={() => move(-1)} aria-label="Bulan sebelumnya" className="rounded-lg bg-white p-1.5 text-ink-soft ring-1 ring-slate-200 hover:ring-brand"><ChevronLeft className="h-4 w-4" /></button>
           <span className="min-w-[150px] text-center text-sm font-bold">{first.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</span>

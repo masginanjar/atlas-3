@@ -5,17 +5,19 @@
  * pengguna masuk) tetap bisa memakainya tanpa perlu autentikasi.
  */
 
+import { GAMBAR_LOGIN_BAWAAN } from './loginImage.js'
+
 export const DEFAULT_LOGIN = {
   key: 'login',
   judul: 'Selamat datang kembali',
   sub: 'Masuk untuk melanjutkan pekerjaan Anda.',
-  panelJudul: 'Setiap kata yang tepat membuat perbedaan.',
-  panelPesan: 'Bersama Atlas Alfa, kelola pekerjaan dengan lebih terarah dan berikan layanan terbaik.',
+  panelJudul: 'اَللّٰهُمَّ إِنِّى أَسْأَلُكَ عِلْمًا نَافِعًا وَرِزْقًا طَيِّبًا وَعَمَلاً مُتَقَبَّلاً',
+  panelPesan: 'Allāhumma innī as\'aluka \'ilman nāfi\'an, wa rizqan thayyiban, wa \'amalan mutaqabbalan.\n"Ya Allah, sesungguhnya aku memohon kepada-Mu ilmu yang bermanfaat, rezeki yang baik (halal), dan amal yang diterima."',
   bg: '#eef2ff',          // latar halaman — biru sangat muda
   panelBg: '#f1f3ff',     // latar panel kanan
-  overlay: 0,             // 0–60 (%) lapisan gelap di atas gambar agar teks terbaca
+  overlay: 45,            // 0–60 (%) lapisan gelap di atas gambar agar teks terbaca
   fit: 'cover',           // 'cover' | 'fit'
-  images: [],             // [{ id, name, src, aktif, posX, posY, zoom }]
+  images: [{ id: 'bawaan-kelingking', name: 'Kelingking, Nusa Penida', src: GAMBAR_LOGIN_BAWAAN, aktif: true, posX: 35, posY: 60, zoom: 1 }],
 }
 
 export const MAKS_GAMBAR = 6

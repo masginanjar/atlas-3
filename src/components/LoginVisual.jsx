@@ -66,7 +66,12 @@ export function IlustrasiBawaan({ className = '' }) {
  * Panel visual kanan. Dipakai halaman login dan pratinjau di Setting.
  * `gambar` = satu objek gambar terpilih (boleh null → ilustrasi bawaan).
  */
+const ARAB = /[\u0600-\u06FF]/
+const FONT_ARAB = '"Noto Naskh Arabic", "Amiri", "Scheherazade New", "Traditional Arabic", "Geeza Pro", serif'
+
 export default function LoginVisual({ tema, gambar, mini = false, onError }) {
+  const judulArab = ARAB.test(tema.panelJudul || '')
+  const barisPesan = String(tema.panelPesan || '').split('\n').filter(Boolean)
   const g = gambar && gambar.src ? gambar : null
   const posisi = `${g?.posX ?? 50}% ${g?.posY ?? 50}%`
   return (
@@ -76,22 +81,25 @@ export default function LoginVisual({ tema, gambar, mini = false, onError }) {
           className="absolute inset-0 h-full w-full"
           style={{ objectFit: tema.fit === 'fit' ? 'contain' : 'cover', objectPosition: posisi, transform: g.zoom && g.zoom !== 1 ? `scale(${g.zoom})` : undefined }} />
       ) : (
-        <div className="absolute inset-0 grid place-items-center p-6">
-          <IlustrasiBawaan className={mini ? 'h-full max-h-[150px] w-auto' : 'h-auto max-h-[62%] w-[82%]'} />
+        <div className={`absolute inset-0 grid p-6 ${judulArab ? 'place-items-start justify-items-center pt-[8%]' : 'place-items-center'}`}>
+          <IlustrasiBawaan className={mini ? 'h-full max-h-[150px] w-auto' : judulArab ? 'hidden h-auto max-h-[44%] w-[70%] lg:block' : 'h-auto max-h-[62%] w-[82%]'} />
         </div>
       )}
       {Number(tema.overlay) > 0 && (
         <div aria-hidden className="absolute inset-0" style={{ background: `linear-gradient(to top, rgba(15,23,42,${Math.min(60, Number(tema.overlay)) / 100}), rgba(15,23,42,0) 62%)` }} />
       )}
       <div className={`absolute inset-x-0 bottom-0 ${mini ? 'p-3' : 'p-7 sm:p-9'}`}>
-        <h2 className={`font-display font-extrabold tracking-tight ${mini ? 'text-[11px] leading-snug' : 'text-xl leading-snug sm:text-[26px]'}`}
-          style={{ color: Number(tema.overlay) > 18 ? '#fff' : '#1e1b4b' }}>
+        <h2 dir={judulArab ? 'rtl' : undefined} lang={judulArab ? 'ar' : undefined}
+          className={judulArab
+            ? `mx-auto max-w-[22ch] text-center font-medium ${mini ? 'text-[13px] leading-[1.9]' : 'text-[20px] leading-[1.9] sm:text-[22px] lg:text-[27px] lg:leading-[2]'}`
+            : `font-display font-extrabold tracking-tight ${mini ? 'text-[11px] leading-snug' : 'text-xl leading-snug sm:text-[26px]'}`}
+          style={{ color: Number(tema.overlay) > 18 ? '#fff' : '#1e1b4b', fontFamily: judulArab ? FONT_ARAB : undefined }}>
           {tema.panelJudul}
         </h2>
-        <p className={`${mini ? 'mt-1 text-[8px] leading-snug' : 'mt-2.5 text-[13px] leading-relaxed sm:text-sm'}`}
+        <div className={`${judulArab ? 'text-center' : ''} ${mini ? 'mt-1 text-[8px] leading-snug' : 'mt-2.5 text-[13px] leading-relaxed sm:text-sm'}`}
           style={{ color: Number(tema.overlay) > 18 ? 'rgba(255,255,255,.88)' : '#4c4b7a' }}>
-          {tema.panelPesan}
-        </p>
+          {barisPesan.map((b, i) => <p key={i} className={i === 0 && barisPesan.length > 1 ? 'italic' : 'mt-1.5'}>{b}</p>)}
+        </div>
       </div>
     </div>
   )

@@ -11,7 +11,11 @@ const legacyPayload = './src/lib/legacy/payload-2026-11-04.masked.json'
 export default defineConfig(({ mode }) => ({
   base: process.env.VITE_BASE || '/',
   plugins: [react(), ...(mode === 'single' ? [viteSingleFile()] : [])],
-  resolve: { alias: { '@legacy-payload': fileURLToPath(new URL(legacyPayload, import.meta.url)) } },
+  resolve: { alias: [
+    { find: '@legacy-payload', replacement: fileURLToPath(new URL(legacyPayload, import.meta.url)) },
+    // Build live (ATLAS_LIVE=1 → GitHub Pages, repo publik): data faktur Zoho Nov (nama pelanggan asli) diganti modul kosong.
+    ...(process.env.ATLAS_LIVE === '1' ? [{ find: /^\.\/demoZohoNov\.js$/, replacement: fileURLToPath(new URL('./src/lib/demoZohoNov.stub.js', import.meta.url)) }] : []),
+  ] },
   build: {
     chunkSizeWarningLimit: 900,
     // Pustaka pihak ketiga dipisah agar tetap tersimpan di cache browser

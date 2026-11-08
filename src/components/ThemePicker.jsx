@@ -32,6 +32,15 @@ export function applyTheme(t) {
   el.style.setProperty('--brand-soft', dark
     ? `color-mix(in srgb, ${t.accent} 30%, #1c2234)`
     : `color-mix(in srgb, ${t.accent} 8%, white)`)
+  // Header (bar atas) ikut warna aksen; warna teks/ikonnya dipilih otomatis (putih di aksen gelap, gelap di aksen terang)
+  const head = dark ? `color-mix(in srgb, ${t.accent} 55%, #0b1020)` : t.accent
+  const headTerang = !dark && lum > 0.45
+  const ink = headTerang ? '#0e1540' : '#ffffff'
+  el.style.setProperty('--head', head)
+  el.style.setProperty('--head-ink', ink)
+  el.style.setProperty('--head-mute', `color-mix(in srgb, ${ink} 68%, ${head})`)
+  el.style.setProperty('--head-line', `color-mix(in srgb, ${ink} 18%, ${head})`)
+  el.style.setProperty('--head-hover', `color-mix(in srgb, ${ink} 12%, ${head})`)
   el.dataset.panel = t.panel === 'left' ? 'left' : 'right' // sisi panel detail
 }
 /** Sisi panel detail yang dipilih pengguna (dipakai komponen Sheet). */

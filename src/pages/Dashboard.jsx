@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { FolderKanban, CheckCircle2, AlarmClock, Wallet, Banknote, ArrowRight, Inbox, Stamp, ChevronDown, Hand, Upload, Loader2, FileCheck2, Send, Languages, ChevronUp, Users, Undo2, CalendarDays, X , Sunrise, Moon, Waves, Activity, Target, Sprout, Sparkles, Coffee, ReceiptText, ArrowUp, ArrowDown, StickyNote} from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { KapasitasAcc, kapasitasHarian, KAP_DEFAULT } from '../components/Kapasitas.jsx'
+import { kapasitasHarian, KAP_DEFAULT } from '../components/Kapasitas.jsx'
+import { Sapaan, AngkaHariIni, Hambatan, RingkasanTim, RingkasanKeuangan } from '../components/DashboardRingkas.jsx'
 import { go } from '../lib/router.js'
 import { BRANCHES, ROLES, can, scopeByBranch, activeClaim, WORKER_ROLES, roleLabel, branchesOf, isMultiBranch, APOSTILLE_FUND, pettyLabel, pettyAccountsOf, foreignLang, coordinatorFor, placeOf, invoiceLabel} from '../config/access.js'
 import { CATEGORIES, DONE, isDone, stagesOf, stageLabel, flowOf, totalPengajuan, stafStatus, PAYMENT_TERMS, termOf, isBilled, recommendFund, VENDOR_PAID_STAGES, stageShort, stageIndex } from '../config/workflows.js'
@@ -60,73 +61,67 @@ export function useDashStats() {
 }
 
 export default function Dashboard() {
-  const { user, data, branchFilter, pettyBalance, unlinkedInvoices } = useApp()
+  const { user, data, unlinkedInvoices } = useApp()
   const s = useDashStats()
-  // kas yang boleh dilihat (Supervisor: cabangnya + kas apostille), ikut filter cabang di atas
-  const accounts = pettyAccountsOf(user).filter((k) => k === APOSTILLE_FUND || branchFilter === 'Semua' || k === branchFilter)
   const [todoOpen, toggleTodo] = useFold('todo')
-  // Rentang deadline bersama: dipilih dari judul kolom Deadline di "Perlu Penerjemah" → Kapasitas Penerjemah ikut tanggal yang sama
-  const [trRange, setTrRange] = useState({ from: '', to: '' })
 
   const exec = ['superadmin', 'direktur', 'akunting'].includes(user.role)
   // Admin Pusat bisa memproses banyak tahap, tetapi tugasnya hanya Nomor Registrasi; role pimpinan tidak memuat tugas tahap.
   const todoTasks = user.role === 'admin_pusat' ? s.myTasks.filter((t) => t.stage === 'registrasi') : s.myTasks
   if (['penerjemah', 'proofreader', 'otorisator'].includes(user.role)) return <WorkerDesk user={user} tasks={s.myTasks} />
 
+  // Papan khusus peran yang bukan salinan halaman lain: koordinator bahasa &
+  // daftar kerja Staf Apostille. Kapasitas (→ Penugasan), Sumber Dana &
+  // Pengajuan (→ Keuangan), Apostille untuk Supervisor (→ My Apostille)
+  // tidak lagi diulang di sini (keputusan K1).
   const ops = [
     user.coordinator_lang && <CoordBoard key="coord" lang={user.coordinator_lang} />,
-    ['superadmin', 'supervisor'].includes(user.role) && <TranslatorLoad key="load" range={trRange} setRange={setTrRange} />,
-    ['superadmin', 'supervisor', 'direktur'].includes(user.role) && <KapasitasAcc key="kapasitas-acc" />,
-    ['superadmin', 'supervisor', 'staf_apostille'].includes(user.role) && s.staf.length > 0 && <StafBoard key="staf" rows={s.staf} />,
+    user.role === 'staf_apostille' && s.staf.length > 0 && <StafBoard key="staf" rows={s.staf} />,
   ].filter(Boolean)
+  const todoCount = TODO_GROUP_ROLES.includes(user.role) ? roleGroupCount(s, user, data.people) : todoTasks.length
+  const kerjaSaya = user.role !== 'staf_apostille'
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-4">
       <PingBoard />
-      <Hero user={user} s={s} unlinked={unlinkedInvoices?.length ?? unlinkedInvoices ?? 0} petty={rupiah(accounts.reduce((a, k) => a + (pettyBalance(k) || 0), 0))}
-        pettyCabang={accounts.filter((k) => k !== APOSTILLE_FUND).reduce((a, k) => a + (pettyBalance(k) || 0), 0)}
-        pettyApos={accounts.includes(APOSTILLE_FUND) ? (pettyBalance(APOSTILLE_FUND) || 0) : 0} todoCount={TODO_GROUP_ROLES.includes(user.role) ? roleGroupCount(s, user, data.people) : todoTasks.length} />
+      <Sapaan user={user} />
+      <AngkaHariIni user={user} s={s} unlinked={WORKER_ROLES.includes(user.role) ? undefined : (unlinkedInvoices?.length ?? unlinkedInvoices ?? 0)} todoCount={todoCount} />
       <CatatanTersemat />
 
-      {/* Kerja saya: Performa (prioritas) + To-Do List berdampingan di layar lebar */}
-      <Segment title="Kerja Saya">
-        <div className={cx('grid gap-4', hasPersonalTasks(user) && user.role !== 'staf_apostille' && 'lg:grid-cols-2 lg:items-stretch')}>
-        {user.role !== 'staf_apostille' && <Card className={cx('flex min-h-0 flex-col overflow-hidden', !todoOpen && 'lg:self-start')}>
+      {/* Hambatan (kiri) + Kerja saya (kanan) — dua pertanyaan utama dalam satu layar */}
+      <div className={cx('grid gap-4', kerjaSaya && 'lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-start')}>
+        <Hambatan s={s} user={user} />
+        {kerjaSaya && <Card className={cx('flex min-h-0 flex-col overflow-hidden')} data-kerja-saya>
           <div className="card-head flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2.5">
             <span className="grid h-7 w-7 place-items-center rounded-lg bg-white ring-1 ring-slate-200"><Inbox className="h-4 w-4 text-ink-soft" /></span>
-            <h2 className="mr-auto font-bold">To-Do List{WORKER_ROLES.includes(user.role) ? ` ${roleLabel(user)}` : ''} <span className="text-ink-mute">({TODO_GROUP_ROLES.includes(user.role) ? roleGroupCount(s, user, data.people) : todoTasks.length})</span><span className="ml-2 hidden text-[11px] font-medium text-ink-mute sm:inline">{TODO_GROUP_ROLES.includes(user.role) ? 'tugas sesuai peran' : 'tugas tahap yang harus saya kerjakan'}</span></h2>
-            <FoldBtn open={todoOpen} onClick={toggleTodo} label="To-Do List" className="h-7 w-7" />
+            <h2 className="mr-auto font-bold">Kerja saya <span className="text-ink-mute">({todoCount})</span><span className="ml-2 hidden text-[11px] font-medium text-ink-mute sm:inline">{TODO_GROUP_ROLES.includes(user.role) ? 'tugas sesuai peran' : 'tahap yang harus saya kerjakan'}</span></h2>
+            <FoldBtn open={todoOpen} onClick={toggleTodo} label="Kerja saya" className="h-7 w-7" />
           </div>
           {!todoOpen ? null : (
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain lg:max-h-[520px]">
               <PengingatTodo user={user} />
               {TODO_GROUP_ROLES.includes(user.role) ? <RoleTodo s={s} user={user} />
                 : todoTasks.length === 0 ? <Empty icon={Inbox} title="Tidak ada tugas" text="Semua tahap yang menjadi bagian Anda sudah diproses." />
                 : (
-                  <ul className="divide-y divide-slate-100" aria-label="To-Do List">
+                  <ul className="divide-y divide-slate-100" aria-label="Kerja saya">
                     {todoTasks.map((t) => <TaskRow key={t.id} t={t} user={user} />)}
                   </ul>
                 )}
             </div>
           )}
         </Card>}
-          {hasPersonalTasks(user) && <PerformanceCard narrow />}
+      </div>
+
+      {/* Ringkasan — angka saja; tabel lengkap di halamannya masing-masing */}
+      {(canSeeTeam(user) || exec) && (
+        <div className={cx('grid gap-4', canSeeTeam(user) && exec && 'lg:grid-cols-2 lg:items-start')}>
+          {canSeeTeam(user) && <RingkasanTim />}
+          {exec && <RingkasanKeuangan s={s} />}
         </div>
-      <Attention s={s} />
-      </Segment>
+      )}
 
-      {/* Pimpinan: Tim → Keuangan (setelah Kerja Saya) */}
-      {exec && <Segment title="Tim"><TeamPerformance /></Segment>}
-      {exec && <Segment title="Keuangan" action={<a href="#/keuangan" className="text-xs font-semibold text-brand hover:underline">Buka halaman Keuangan →</a>}>
-        {can.seeFunding(user) && <FundSummary />}
-        <FinanceGroup s={s} />
-      </Segment>}
-
-
-      {!exec && canSeeTeam(user) && <Segment title="Tim"><TeamPerformance /></Segment>}
-
-      {ops.length > 0 && <Segment title="Operasional">{ops}</Segment>}
-
+      {hasPersonalTasks(user) && user.role !== 'staf_apostille' && <PerformanceCard narrow />}
+      {ops}
     </div>
   )
 }
@@ -227,135 +222,12 @@ function PengingatTodo({ user }) {
           )
         })}
       </ul>
-      <a href="#/reminders" className="block px-4 pb-2 text-[11px] font-semibold text-brand hover:underline">Lihat semua pengingat →</a>
+      <a href="#/agenda" className="block px-4 pb-2 text-[11px] font-semibold text-brand hover:underline">Buka Agenda →</a>
     </div>
   )
 }
 
-const PETTY_RINCI = ['superadmin', 'supervisor', 'direktur']
-function Hero({ user, s, todoCount, unlinked, petty, pettyCabang, pettyApos }) {
-  const { tema, kutipan, sumber, jenisHadis } = coverHariIni()
-  const Ikon = jenisHadis ? Moon : Sparkles
-  const act = s.active.filter((p) => !p.demo_perf)
-  const late = act.filter((p) => { const d = daysLeft(p.about?.deadline); return d !== null && d < 0 }).length
-  const today = act.filter((p) => daysLeft(p.about?.deadline) === 0).length
-  const vendor = s.subs.filter((x) => VENDOR_ORDER_STAGES.includes(x.stage) && !x.project.demo_perf).length
-  const urgent = today + late > 0
-  const tiles = [
-    { k: 'faktur', label: 'Faktur belum jadi project', value: unlinked ?? 0, sub: 'dari Zoho', icon: ReceiptText, href: '#/faktur' },
-    { k: 'todo', label: 'To-Do saya', value: todoCount, sub: 'tugas menunggu', icon: Inbox, href: '#/dashboard' },
-    { k: 'dl', label: 'Deadline hari ini', value: today + late, sub: late ? `${late} terlambat` : 'tidak ada yang terlambat', icon: AlarmClock, href: '#/projects', tone: urgent ? 'danger' : 'ok' },
-    { k: 'active', label: 'Project aktif', value: act.length, sub: `${s.done} selesai`, icon: FolderKanban, href: '#/projects' },
-    { k: 'vendor', label: 'Order vendor berjalan', value: vendor, sub: `${s.approvals.length} menunggu ACC`, icon: Banknote, href: '#/keuangan' },
-    // Supervisor, Superadmin & Direktur melihat kas cabang dan kas Apostille
-    // terpisah — keduanya memang dikelola dan dipertanggungjawabkan sendiri.
-    ...(PETTY_RINCI.includes(user.role)
-      ? [
-        { k: 'petty-cab', label: 'Petty Cash Cabang', value: rupiah(pettyCabang), sub: 'saldo tersedia', icon: Wallet, href: '#/settings/petty', uang: true },
-        { k: 'petty-apo', label: 'Petty Cash Apostille', value: rupiah(pettyApos), sub: 'kas Supervisor', icon: Stamp, href: '#/settings/petty', uang: true },
-      ]
-      : [{ k: 'petty', label: 'Petty cash', value: petty, sub: 'saldo tersedia', icon: Wallet, href: '#/settings/petty', uang: true }]),
-  ]
-  return (
-    <>
-      {/* ---------- Cover: sapaan + kutipan hari ini ---------- */}
-      <section aria-label="Sapaan hari ini"
-        style={{ backgroundImage: `linear-gradient(135deg, ${tema.warna[0]}, ${tema.warna[1]})`, color: tema.teks }}
-        className="relative min-w-0 overflow-hidden rounded-3xl px-5 py-6 shadow-card sm:px-8 sm:py-8">
-        <Ikon aria-hidden="true" className="pointer-events-none absolute -right-6 -top-6 h-40 w-40 opacity-15" />
-        <div className="relative min-w-0 max-w-2xl">
-          <p className="text-sm font-semibold opacity-80">{sapaan()},</p>
-          <h1 className="mt-0.5 text-2xl font-extrabold leading-tight sm:text-4xl">{user.display_name || user.name}</h1>
-          <p className="mt-1 text-xs font-semibold opacity-75">{roleLabel(user)}{user.branch ? ` · ${user.branch}` : ''}</p>
-          <figure className="mt-4 border-l-4 pl-3 sm:mt-5 sm:pl-4" style={{ borderColor: 'currentColor' }}>
-            <p className="text-[11px] font-bold uppercase tracking-wide opacity-70">{jenisHadis ? 'Hadis hari ini' : 'Kutipan hari ini'}</p>
-            <blockquote className="mt-1 text-sm font-semibold leading-relaxed sm:text-base">{kutipan}</blockquote>
-            {sumber && <figcaption className="mt-1 text-[11px] font-semibold opacity-75">{sumber}</figcaption>}
-          </figure>
-          <p className="mt-4 text-[11px] font-semibold opacity-70">
-            {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-          </p>
-        </div>
-      </section>
-
-      {/* ---------- Angka ringkas ---------- */}
-      <section aria-label="Angka hari ini" className="min-w-0 overflow-hidden rounded-3xl bg-white p-4 shadow-card ring-1 ring-slate-200 sm:p-5">
-        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3 xl:grid-cols-6">
-          {tiles.map(({ k, label, value, sub, icon: Icon, href, tone, uang }) => (
-            <a key={k} href={href} className="group relative min-w-0 overflow-hidden rounded-2xl bg-slate-50 p-3.5 ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:ring-brand/40">
-              <span className="absolute right-3 top-3 text-ink-mute/60 transition group-hover:text-brand"><Icon className="h-5 w-5" /></span>
-              <p className={cx('truncate font-extrabold leading-none tabular-nums', uang ? 'text-lg' : 'text-3xl',
-                tone === 'danger' ? 'text-rose-600' : tone === 'ok' ? 'text-emerald-600' : 'text-ink')}>{value}</p>
-              <p className="mt-1.5 truncate text-xs font-semibold text-ink-soft" title={label}>{label}</p>
-              <p className="truncate text-[11px] text-ink-mute">{sub}</p>
-            </a>
-          ))}
-        </div>
-      </section>
-    </>
-  )
-}
-
-/** Perlu Perhatian: 1) pelanggan prioritas, 2) deadline hari ini, 3) order ke vendor — tiga kartu berdampingan. */
-function Attention({ s }) {
-  const [open, toggle] = useFold('attention')
-  const byDl = (a, b) => new Date(a.about?.deadline || 0) - new Date(b.about?.deadline || 0)
-  const act = s.active.filter((p) => !p.demo_perf)
-  const prio = act.filter((p) => p.about?.priority && p.about.priority !== 'Normal').sort(byDl)
-  const todayDl = act.filter((p) => { const d = daysLeft(p.about?.deadline); return d !== null && d <= 0 }).sort(byDl)
-  const vendor = s.subs.filter((x) => VENDOR_ORDER_STAGES.includes(x.stage) && !x.project.demo_perf)
-    .sort((a, b) => VENDOR_ORDER_STAGES.indexOf(b.stage) - VENDOR_ORDER_STAGES.indexOf(a.stage) || byDl(a.project, b.project))
-  const total = prio.length + todayDl.length + vendor.length
-  if (!total) return null
-  const Row = ({ p, right, sub }) => (
-    <a href={`#/projects/${p.id}`} className="flex items-center justify-between gap-2 px-3 py-2 text-sm transition hover:bg-white">
-      <span className="min-w-0"><span className="block truncate font-semibold">{invoiceLabel(p.invoice_no)}</span><span className="block truncate text-[11px] text-ink-mute">{p.customer?.name}{sub ? ` · ${sub}` : ''}</span></span>
-      <span className="shrink-0 text-right text-[11px]">{right}</span>
-    </a>
-  )
-  const Group = ({ n, title, items, tone, render, href }) => items.length > 0 && (
-    <div className={cx('flex min-w-0 flex-col overflow-hidden rounded-2xl ring-1', tone.ring)}>
-      <div className={cx('flex items-center gap-2 px-3 py-2', tone.head)}>
-        <span className={cx('grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold', tone.num)}>{n}</span>
-        <p className={cx('min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-wide', tone.text)}>{title}</p>
-        <span className={cx('rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums', tone.num)}>{items.length}</span>
-      </div>
-      <div className={cx('flex-1 divide-y', tone.body)}>{items.slice(0, 5).map(render)}</div>
-      {items.length > 5 && <a href={href || '#/projects'} className={cx('block px-3 py-1.5 text-[11px] font-semibold hover:underline', tone.text)}>+{items.length - 5} lainnya →</a>}
-    </div>
-  )
-  const T = {
-    prio: { ring: 'ring-slate-200', head: 'bg-slate-50', num: 'bg-white text-ink-soft ring-1 ring-slate-300', text: 'text-ink', body: 'divide-slate-100 bg-white' },
-    dl: { ring: 'ring-rose-200', head: 'bg-rose-50', num: 'bg-white text-rose-700 ring-1 ring-rose-200', text: 'text-rose-700', body: 'divide-slate-100 bg-white' },
-    vendor: { ring: 'ring-amber-200', head: 'bg-amber-50', num: 'bg-white text-amber-700 ring-1 ring-amber-200', text: 'text-amber-700', body: 'divide-slate-100 bg-white' },
-  }
-  const cols = [prio.length, todayDl.length, vendor.length].filter(Boolean).length
-  return (
-    <Card className="overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5">
-        <span className="grid h-7 w-7 place-items-center rounded-lg bg-rose-50"><AlarmClock className="h-4 w-4 text-rose-600" /></span>
-        <h2 className="min-w-0 font-bold">Perlu Perhatian <span className="font-normal text-ink-mute">({total})</span><span className="ml-2 hidden text-[11px] font-medium text-ink-mute sm:inline">follow-up & pantauan — bukan tugas tahap</span></h2>
-        {!open && <span className="ml-1 hidden flex-wrap gap-1 text-[11px] font-semibold sm:flex">
-          {prio.length > 0 && <span className="rounded-full bg-fuchsia-50 px-2 py-0.5 text-fuchsia-700 ring-1 ring-fuchsia-200">{prio.length} prioritas</span>}
-          {todayDl.length > 0 && <span className="rounded-full bg-rose-50 px-2 py-0.5 text-rose-700 ring-1 ring-rose-200">{todayDl.length} deadline hari ini</span>}
-          {vendor.length > 0 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 ring-1 ring-amber-200">{vendor.length} order vendor</span>}
-        </span>}
-        <FoldBtn open={open} onClick={toggle} label="Perlu perhatian" className="ml-auto h-7 w-7" />
-      </div>
-      {open && (
-        <div className={cx('grid gap-3 p-3', cols >= 3 ? 'lg:grid-cols-3' : cols === 2 ? 'md:grid-cols-2' : '')}>
-          <Group n={1} title="Ekspres / Super Ekspres / Sameday" items={prio} tone={T.prio}
-            render={(p) => <Row key={p.id} p={p} right={<span className="flex flex-col items-end gap-0.5"><PriorityBadge p={p.about.priority} /><span className={cx(daysLeft(p.about?.deadline) <= 0 ? 'font-semibold text-rose-600' : 'text-ink-mute')}>{dlText(daysLeft(p.about?.deadline))}</span></span>} />} />
-          <Group n={2} title="Deadline hari ini" items={todayDl} tone={T.dl}
-            render={(p) => <Row key={p.id} p={p} right={<span className="font-semibold text-rose-600">{dlText(daysLeft(p.about?.deadline))}<span className="block font-normal text-ink-mute">{p.about?.deadline_time || tgl(p.about?.deadline)}</span></span>} />} />
-          <Group n={3} title="Order ke Vendor" items={vendor} tone={T.vendor} href="#/keuangan"
-            render={(x) => <Row key={x.id} p={x.project} sub={x.title} right={<span className="inline-block max-w-[150px] whitespace-normal font-semibold leading-tight text-amber-700">{stageShort(x.flow, x.stage)}</span>} />} />
-        </div>
-      )}
-    </Card>
-  )
-}
-
+// Hero (kutipan) dan Perlu Perhatian 3 kolom digantikan Sapaan + AngkaHariIni + Hambatan (DashboardRingkas.jsx).
 
 const TODO_GROUP_ROLES = ['direktur', 'superadmin', 'supervisor', 'akunting']
 const TR_PROGRESS = ['penerjemahan', 'proofread', 'otorisasi', 'registrasi']
@@ -902,7 +774,7 @@ const halamanSub = (sb, flow) => {
   return flow === 'tr_nt' ? (Number(sb.pages) || 1) : ((k.reguler || 0) + (k.non_reguler || 0)) || (Number(sb.pages) || 1)
 }
 
-export function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
+export function TranslatorLoad({ range: rangeProp, setRange: setRangeProp, ringkas }) {
   const { data } = useApp()
   const [open, toggle] = useFold('load')
   const [rangeLocal, setRangeLocal] = useState({ from: '', to: '' })
@@ -975,7 +847,7 @@ export function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
       </div>
       {open && (
         <>
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 px-4 py-2">
+          {!ringkas && <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 px-4 py-2">
             <button className={chip(!ranged)} onClick={() => setRange({ from: '', to: '' })}>Saat ini</button>
             <button className={chip(ranged && range.from === today && range.to === today)} onClick={() => preset(0)}>Hari ini</button>
             <button className={chip(ranged && range.from === today && range.to === isoDay(new Date(Date.now() + 864e5)))} onClick={() => preset(1)}>s/d Besok</button>
@@ -985,13 +857,13 @@ export function TranslatorLoad({ range: rangeProp, setRange: setRangeProp }) {
               <Input type="date" value={range.from} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} className="w-36 !py-1 text-xs" aria-label="Dari tanggal" />
               –<Input type="date" value={range.to} min={range.from || undefined} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} className="w-36 !py-1 text-xs" aria-label="Sampai tanggal" />
             </span>
-          </div>
+          </div>}
           <div className="space-y-2.5 px-4 py-4">
             {rows.trs.map(({ u, n, done, halAktif, next }) => {
               const kap = kapasitasHarian(u, kapRows)
               const [bar, label, txt] = tone(halAktif, kap)
               return (
-                <div key={u.id} className="grid grid-cols-[120px_1fr_auto] items-center gap-3 sm:grid-cols-[170px_1fr_320px]">
+                <div key={u.id} className={cx('grid items-center gap-3', ringkas ? 'grid-cols-[110px_1fr] sm:grid-cols-[130px_1fr_auto]' : 'grid-cols-[120px_1fr_auto] sm:grid-cols-[170px_1fr_320px]')}>
                   <p className="truncate text-sm font-semibold">{u.name} <span className="text-[11px] font-normal text-ink-mute">· {placeOf(u)}</span></p>
                   <div className="relative flex h-3 overflow-hidden rounded-full bg-slate-100" role="img" aria-label={`${u.name}: ${halAktif} dari ${kap} halaman kapasitas harian, ${n} dokumen berjalan`}>
                     <div className={cx('h-3', bar)} style={{ width: `${halAktif ? Math.max(6, Math.min(100, (halAktif / max) * 100)) : 0}%` }} />
@@ -1043,7 +915,7 @@ function WorkerDesk({ user, tasks }) {
       <a href="#/projects" className="flex items-center gap-3 rounded-2xl bg-white px-5 py-4 shadow-card ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:ring-brand/40">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand"><Inbox className="h-5 w-5" /></span>
         <span className="min-w-0 flex-1">
-          <span className="block text-base font-bold text-ink">Buka My Project — {tasks.length} tugas menunggu</span>
+          <span className="block text-base font-bold text-ink">Buka Project — {tasks.length} tugas menunggu</span>
           <span className="block text-xs text-ink-mute">Semua pekerjaan dikerjakan di sana: Mulai → Upload hasil → Kirim</span>
         </span>
         <ArrowRight className="h-5 w-5 shrink-0" />
@@ -1103,7 +975,27 @@ export function AssignTable({ rows: allRows, range = { from: '', to: '' }, setRa
     return i >= 0 ? String(i) : ''
   }
   const coordOf = (r) => coordinatorFor(data.users, foreignLang(r))
-  const pickOf = (r) => form[r.id]?.pick ?? (coordOf(r) ? `coord:${coordOf(r).id}` : '')
+  // Saran penerjemah (F5): pernah mengerjakan pasangan bahasa yang sama diutamakan,
+  // lalu sisa kapasitas harian terbesar. Supervisor tetap yang memutuskan.
+  const halAktif = useMemo(() => {
+    const m = {}
+    data.projects.forEach((p) => (p.sub_projects || []).forEach((x) => { if (x.stage === 'penerjemahan' && x.data?.translator) m[x.data.translator] = (m[x.data.translator] || 0) + halamanSub(x, flowOf(x, p)) }))
+    return m
+  }, [data.projects])
+  const pernah = useMemo(() => {
+    const m = {}
+    data.projects.forEach((p) => (p.sub_projects || []).forEach((x) => { if (x.data?.translator && x.lang_from && x.lang_to) (m[`${x.lang_from}>${x.lang_to}`] ||= new Set()).add(x.data.translator) }))
+    return m
+  }, [data.projects])
+  const sisaOf = (u) => kapasitasHarian(u, data.kapasitas) - (halAktif[u.id] || 0)
+  const saranOf = (r) => {
+    if (!translators.length) return null
+    const key = `${r.lang_from}>${r.lang_to}`; const pasangan = pernah[key] || new Set()
+    const urut = [...translators].sort((a, b) => (pasangan.has(b.id) - pasangan.has(a.id)) || (sisaOf(b) - sisaOf(a)) || a.name.localeCompare(b.name))
+    const u = urut[0]
+    return { u, sisa: sisaOf(u), alasan: pasangan.has(u.id) ? `pernah ${r.lang_from} → ${r.lang_to}` : 'sisa kapasitas terbesar' }
+  }
+  const pickOf = (r) => form[r.id]?.pick ?? (coordOf(r) ? `coord:${coordOf(r).id}` : saranOf(r) ? `internal:${saranOf(r).u.id}` : '')
   const choose = (r, val) => {
     const [kind, id] = val.split(':')
     set(r.id, { pick: val, svc: kind === 'vendor' ? guessSvc(vendors.find((v) => v.id === id), r) : '' })
@@ -1214,9 +1106,10 @@ export function AssignTable({ rows: allRows, range = { from: '', to: '' }, setRa
                         className="w-56 rounded-lg border-0 bg-white px-2.5 py-1.5 text-xs ring-1 ring-slate-300 focus:ring-2 focus:ring-brand">
                         <option value="">— Pilih —</option>
                         {co && <optgroup label={`Koordinator Bahasa ${co.coordinator_lang}`}><option value={`coord:${co.id}`}>Serahkan ke {co.name}</option></optgroup>}
-                        <optgroup label="Penerjemah (internal)">{translators.map((u) => <option key={u.id} value={`internal:${u.id}`}>{u.name} · {placeOf(u)} · {load[u.id] || 0} tugas</option>)}</optgroup>
+                        <optgroup label="Penerjemah (internal)">{translators.map((u) => <option key={u.id} value={`internal:${u.id}`}>{u.name} · {placeOf(u)} · {load[u.id] || 0} tugas · sisa {sisaOf(u)} hlm</option>)}</optgroup>
                         <optgroup label="Vendor (eksternal)">{vendors.map((p) => <option key={p.id} value={`vendor:${p.id}`}>{p.name} · {PAYMENT_TERMS[termOf(p)].short}</option>)}</optgroup>
                       </select>
+                      {!co && saranOf(r) && kind !== 'vendor' && <p className="mt-0.5 text-[11px] text-emerald-700" data-saran>Saran: <b>{saranOf(r).u.name}</b> · sisa {saranOf(r).sisa} hlm · {saranOf(r).alasan}</p>}
                       {v && (
                         <select value={f.svc} onChange={(e) => set(r.id, { svc: e.target.value })} aria-label={`Layanan vendor ${invoiceLabel(r.project.invoice_no)}`}
                           className="mt-1 block w-56 rounded-lg border-0 bg-violet-50 px-2.5 py-1.5 text-xs ring-1 ring-violet-200">

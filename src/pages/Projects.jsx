@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus, Minus, Search, FolderOpen, Banknote, CalendarClock, Layers, LayoutGrid, List, ChevronRight, ChevronDown, Sparkles, StickyNote, Printer, AlertTriangle, Eye, X, Save, Rows2, Rows3, Rows4, Maximize2, Minimize2, Table2, MoreHorizontal} from 'lucide-react'
+import { go } from '../lib/router.js'
+import { Plus, Minus, Search, FolderOpen, Banknote, CalendarClock, Layers, LayoutGrid, List, ChevronRight, ChevronDown, Sparkles, StickyNote, Printer, AlertTriangle, Eye, X, Save, Rows2, Rows3, Rows4, Maximize2, Minimize2, Table2, MoreHorizontal, Columns3, Bookmark } from 'lucide-react'
 import FileManager, { fieldFiles, collect as collectFiles } from '../components/FileManager.jsx'
 import ProjectDetail from './ProjectDetail.jsx'
 import WorkerBoard, { WorkerActions, isWorkRole } from '../components/WorkerActions.jsx'
 import { useApp } from '../lib/store.jsx'
-import { scopeByBranch, can, branchesOf, invoiceLabel} from '../config/access.js'
+import { scopeByBranch, can, branchesOf, invoiceLabel, BRANCHES } from '../config/access.js'
 import ProjectSpreadsheet from '../components/ProjectSpreadsheet.jsx'
 import UnduhData from '../components/UnduhData.jsx'
 import { KapasitasSaya } from '../components/Kapasitas.jsx'
+import Apostille from './Apostille.jsx'
+import { canSeeApostille } from '../config/menuAccess.js'
 import { DONE, isDone, progressOf, stageLabel, flowOf, totalPengajuan, stageIndex, stagesOf, VENDOR_PAID_STAGES } from '../config/workflows.js'
 import { PengajuanStatus, DownloadBukti } from '../components/Pengajuan.jsx'
 import { SUB_TYPES } from '../config/subtypes.js'
@@ -17,12 +20,15 @@ import { DENSITIES, useDensity } from '../lib/density.js'
 import { dayKey, addDays } from '../lib/performance.js'
 import { daysLeft, rupiah, tgl } from '../lib/format.js'
 import { PriorityBadge } from '../components/Priority.jsx'
+import { langkahBerikutnya } from '../lib/langkah.js'
+import { FilterLainnya } from '../components/ToolbarRingkas.jsx'
 import TimeAgo from '../components/TimeAgo.jsx'
 
-export default function Projects() {
-  const { user, data, branchFilter } = useApp()
+export default function Projects({ tabAwal }) {
+  const { user, data, branchFilter, setBranchFilter } = useApp()
   const projectOf = (id) => data.projects.find((x) => x.id === id) // versi terbaru dari store
-  const [tab, setTab] = useState('all')
+  // Staf Apostille langsung ke chip Apostille (K6: My Apostille jadi tab di Project)
+  const [tab, setTab] = useState(() => tabAwal || (user?.role === 'staf_apostille' ? 'apostille' : 'all'))
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('aktif')
   // Pencarian/filter/urutan tabel disimpan di sini, bukan di dalam tabelnya,
@@ -47,15 +53,19 @@ export default function Projects() {
     .map((s) => ({ ...s, project: p }))), [finScoped])
 
   const [prFilter, setPrFilter] = useState('') // filter prioritas (judul kolom)
+  // chip cepat: 'hambatan' = lewat tenggat / tenggat hari ini; 'saya' = project yang saya buat / CS-nya saya
+  const [cepat, setCepat] = useState('')
   const [detailFor, setDetailFor] = useState(null) // panel kanan: detail project
+  const [langkahFor, setLangkahFor] = useState(null) // slide samping: kerjakan langkah berikutnya { p, subId }
+  const bukaLangkah = (p, subId) => { setFilesFor(null); setDetailFor(null); setLangkahFor({ p, subId }) }
   const [filesFor, setFilesFor] = useState(null) // panel kanan: file project
-  const [cols, setCols] = useState(() => { try { const v = JSON.parse(localStorage.getItem('atlas-cols') || 'null'); return Array.isArray(v) && v.length ? v.filter((k) => ALL_COLS.includes(k)) : ALL_COLS } catch { return ALL_COLS } })
-  const saveCols = (next) => { setCols(next); try { localStorage.setItem('atlas-cols', JSON.stringify(next)) } catch { /* abaikan */ } }
+  const [cols, setCols] = useState(() => { try { const v = JSON.parse(localStorage.getItem('atlas-cols-v2') || 'null'); return Array.isArray(v) && v.length ? v.filter((k) => ALL_COLS.includes(k)) : ALL_COLS } catch { return ALL_COLS } })
+  const saveCols = (next) => { setCols(next); try { localStorage.setItem('atlas-cols-v2', JSON.stringify(next)) } catch { /* abaikan */ } }
   const worker = isWorkRole(user) // penerjemah / proofreader / otorisator → tampilan fokus tugas
   // Pelaksana freelance tidak terikat cabang, jadi kolom cabang/print/CS disembunyikan.
   // Selain itu tampilan List & Tabel-nya sama persis dengan My Project milik CS.
-  const SEMBUNYI_TABEL = ['cabang', 'print', 'cs']
-  const SEMBUNYI_LIST = ['cabang']
+  const SEMBUNYI_TABEL = ['cabang', 'print', 'cs', 'status', 'orang']
+  const SEMBUNYI_LIST = ['cabang', 'tahap'] // pelaksana tidak perlu kolom "Tahap → berikutnya"
   const colsAktif = worker ? cols.filter((k) => !SEMBUNYI_LIST.includes(k)) : cols
   const [fullView, setFullView] = useState(false)
   const [shownN, setShownN] = useState(36)
@@ -68,8 +78,10 @@ export default function Projects() {
       .filter((p) => !dlFilter || (p.about?.deadline && String(p.about.deadline).slice(0, 10) >= dlFilter.from && String(p.about.deadline).slice(0, 10) <= dlFilter.to))
       .filter((p) => (!bpFilter.branch || p.branch === bpFilter.branch) && (!bpFilter.print || (p.about?.print_location || p.branch) === bpFilter.print))
       .filter((p) => !prFilter || (p.about?.priority || 'Normal') === prFilter)
+      .filter((p) => cepat !== 'hambatan' || (!isDone(p) && daysLeft(p.about?.deadline) !== null && daysLeft(p.about?.deadline) <= 0))
+      .filter((p) => cepat !== 'saya' || p.created_by === user.id || (p.about?.cs_id && p.about.cs_id === user.id))
       .sort((a, b) => sort === 'baru' ? new Date(b.created_at || 0) - new Date(a.created_at || 0) : new Date(a.about?.deadline || 0) - new Date(b.about?.deadline || 0))
-  }, [scoped, tab, q, status, sort, dlFilter, bpFilter, prFilter])
+  }, [scoped, tab, q, status, sort, dlFilter, bpFilter, prFilter, cepat, user.id])
   // project lewat deadline & belum selesai — selalu dipajang di atas tabel (hilang otomatis saat selesai)
   const late = useMemo(() => list.filter((p) => !isDone(p) && daysLeft(p.about?.deadline) < 0), [list])
   const rest = useMemo(() => late.length ? list.filter((p) => !late.includes(p)) : list, [list, late])
@@ -87,6 +99,8 @@ export default function Projects() {
     return () => { window.removeEventListener('keydown', f); document.body.style.overflow = '' }
   }, [full])
 
+  const nHambatan = scoped.filter((p) => !isDone(p) && daysLeft(p.about?.deadline) !== null && daysLeft(p.about?.deadline) <= 0).length
+  const nSaya = scoped.filter((p) => !isDone(p) && (p.created_by === user.id || (p.about?.cs_id && p.about.cs_id === user.id))).length
   const tabs = [
     { value: 'all', label: 'Semua', count: scoped.length },
     ...Object.entries(SUB_TYPES).map(([k, t]) => ({ value: k, label: t.label, count: scoped.filter((p) => (p.sub_projects || []).some((x) => (x.type || 'jasa_lain') === k)).length })),
@@ -94,14 +108,90 @@ export default function Projects() {
   ]
 
   return (
-    // ruang bawah ±150px di HP supaya kartu terakhir tidak tertutup tombol + dan menu bawah
-    <div className={cx('space-y-4', !worker && 'pb-[150px] md:pb-0')}>
-      <div className="flex items-end justify-between gap-3">
-        <div><h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">My Project</h1><p className="text-sm text-ink-mute">{worker ? 'Dokumen yang ditugaskan kepada Anda' : 'Nama project = nomor invoice Zoho'}</p></div>
+    <div className="space-y-3">
+      {/* Judul + alat di satu baris; chip jenis/saringan cepat di baris berikutnya (K9) */}
+      <div className="flex flex-wrap items-center gap-2" data-alat>
+        <h1 className="mr-1 text-xl font-extrabold tracking-tight sm:text-2xl">Project{!worker && <span className="ml-2 text-sm font-semibold text-ink-mute">{list.length}{status === 'aktif' ? ' aktif' : ''}</span>}</h1>
+        {worker && <p className="text-sm text-ink-mute">Dokumen yang ditugaskan kepada Anda</p>}
+        {(!worker || fullView) && tab !== 'vendor' && !(tab === 'apostille' && canSeeApostille(user)) && (
+          <div className="flex min-w-0 basis-full flex-wrap items-center justify-end gap-1.5 sm:ml-auto sm:flex-1 sm:basis-auto sm:flex-nowrap sm:gap-2" data-toolbar-project>
+            <div className="relative min-w-0 flex-1 basis-full sm:w-[190px] sm:flex-none sm:basis-auto">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input className="!h-10 pl-9" placeholder="Cari…" title="Cari invoice, pelanggan, dokumen" value={q} onChange={(e) => setQ(e.target.value)} />
+            </div>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status project" className="h-10 min-w-0 rounded-xl border-0 bg-white px-3 text-sm font-semibold ring-1 ring-slate-200">
+              <option value="aktif">Aktif</option><option value="selesai">Selesai</option><option value="semua">Semua</option>
+            </select>
+            {/* Saklar urutan selalu terlihat (seperti sebelumnya): Deadline terdekat / Project terbaru */}
+            <div className="flex h-10 shrink-0 items-center rounded-xl bg-white p-1 ring-1 ring-slate-200" role="group" aria-label="Urutkan" data-urut>
+              {[['deadline', CalendarClock, 'Deadline', 'Deadline terdekat dulu'], ['baru', Sparkles, 'Terbaru', 'Project terbaru dulu']].map(([k, Icon, l, t]) => (
+                <button key={k} type="button" onClick={() => setSort(k)} aria-pressed={sort === k} title={t} data-urut-pilihan={k}
+                  className={cx('inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition', sort === k ? 'bg-ink text-white' : 'text-ink-soft hover:bg-slate-50')}>
+                  <Icon className="h-3.5 w-3.5" /><span className="hidden sm:inline">{l}</span>
+                </button>
+              ))}
+            </div>
+            <FilterLainnya aktif={[!!prFilter, branchFilter !== 'Semua', !!bpFilter.print, !!dlFilter].filter(Boolean).length}
+              onReset={() => { setPrFilter(''); setBranchFilter('Semua'); setBpFilter({ branch: '', print: '' }); setDlFilter(null) }}>
+              <label className="block text-xs font-semibold text-ink-soft">Prioritas
+                <select value={prFilter} onChange={(e) => setPrFilter(e.target.value)} className="mt-1 h-10 w-full rounded-xl border-0 bg-white px-3 text-sm font-semibold ring-1 ring-slate-200">
+                  <option value="">Semua prioritas</option>{['Sameday', 'Super Ekspres', 'Ekspres', 'Normal'].map((k) => <option key={k} value={k}>{k}</option>)}
+                </select></label>
+              {!worker && (can.seeAllBranches(user) || branchesOf(user).length > 1) && <label className="block text-xs font-semibold text-ink-soft">Cabang
+                <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} aria-label="Filter cabang" className="mt-1 h-10 w-full rounded-xl border-0 bg-white px-3 text-sm font-semibold ring-1 ring-slate-200">
+                  <option value="Semua">{can.seeAllBranches(user) ? 'Semua cabang' : 'Semua cabang saya'}</option>{(can.seeAllBranches(user) ? BRANCHES : branchesOf(user)).map((b) => <option key={b} value={b}>{b}</option>)}
+                </select></label>}
+              {!worker && <label className="block text-xs font-semibold text-ink-soft">Lokasi print
+                <select value={bpFilter.print} onChange={(e) => setBpFilter((f) => ({ ...f, print: e.target.value }))} className="mt-1 h-10 w-full rounded-xl border-0 bg-white px-3 text-sm font-semibold ring-1 ring-slate-200">
+                  <option value="">Semua lokasi</option>{[...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort().map((b) => <option key={b} value={b}>{b}</option>)}
+                </select></label>}
+              <div className="text-xs font-semibold text-ink-soft">Deadline
+                <div className="mt-1 grid grid-cols-2 gap-1.5">
+                  <Button variant={dlFilter?.kind === 'today' ? 'primary' : 'outline'} size="sm" onClick={() => setDlFilter({ kind: 'today', from: dayKey(), to: dayKey() })}>Hari ini</Button>
+                  <Button variant={dlFilter?.kind === 'tomorrow' ? 'primary' : 'outline'} size="sm" onClick={() => setDlFilter({ kind: 'tomorrow', from: addDays(dayKey(), 1), to: addDays(dayKey(), 1) })}>Besok</Button>
+                </div>
+                <p className="mt-1 text-[11px] font-normal text-ink-mute">Rentang tanggal lain: klik judul kolom Deadline.</p>
+              </div>
+            </FilterLainnya>
+            <div className="hidden shrink-0 rounded-xl bg-white p-1 ring-1 ring-slate-200 sm:flex">
+              {[['list', List, 'List kompak'], ['tabel', Table2, 'Tabel — 1 baris 1 data']].map(([k, Icon, l]) => (
+                <button key={k} onClick={() => setView(k)} aria-label={l} title={l}
+                  className={cx('grid h-8 w-8 place-items-center rounded-lg', view === k ? 'bg-ink text-white' : 'text-ink-mute hover:bg-slate-50')}><Icon className="h-4 w-4" /></button>
+              ))}
+            </div>
+            {/* Semua alat tampilan sejajar di toolbar (tidak lagi disembunyikan di menu ⋯) */}
+            <ViewTools density={density} setDensity={setDensity} zoom={zoom} setZoom={setZoom} full={full} setFull={setFull} />
+            <UnduhData />
+            {view === 'list' && <KolomPopover worker={worker} colsAktif={colsAktif} saveCols={saveCols} />}
+            <TersimpanPopover
+              current={{ tab, q, status, sort, dlFilter, prFilter, bpFilter, cols: colsAktif, view }}
+              apply={(v) => { setTab(v.tab ?? 'all'); setQ(v.q ?? ''); setStatus(v.status ?? 'aktif'); setSort(v.sort ?? 'deadline'); setDlFilter(v.dlFilter ?? null); setPrFilter(v.prFilter ?? ''); setBpFilter(v.bpFilter ?? { branch: '', print: '' }); if (v.cols) saveCols(v.cols); if (v.view) setView(v.view) }} />
+          </div>
+        )}
       </div>
       {worker && <KapasitasSaya />}
 
-      {!worker && <Tabs tabs={tabs} value={tab} onChange={setTab} />}
+      {!worker && (
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]" role="tablist" aria-label="Jenis project" data-chip-project data-alat>
+          {tabs.map((t) => (
+            <button key={t.value} type="button" role="tab" aria-selected={tab === t.value && !cepat} onClick={() => { setTab(t.value); setCepat('') }} data-chip={t.value}
+              className={cx('flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold ring-1 transition', tab === t.value && !cepat ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand')}>
+              {t.label}<span className={cx('tabular-nums', tab === t.value && !cepat ? 'text-white/70' : 'text-ink-mute')}>{t.count}</span>
+            </button>
+          ))}
+          <span className="mx-0.5 w-px shrink-0 self-stretch bg-slate-200" aria-hidden="true" />
+          <button type="button" onClick={() => { setCepat(cepat === 'hambatan' ? '' : 'hambatan'); setTab('all') }} aria-pressed={cepat === 'hambatan'} data-chip="hambatan"
+            className={cx('flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold ring-1 transition', cepat === 'hambatan' ? 'bg-rose-600 text-white ring-rose-600' : nHambatan ? 'bg-rose-50 text-rose-700 ring-rose-200 hover:ring-rose-400' : 'bg-white text-ink-mute ring-slate-200')}>
+            <AlertTriangle className="h-3.5 w-3.5" />Hambatan<span className="tabular-nums opacity-80">{nHambatan}</span>
+          </button>
+          {!can.seeAllBranches(user) && (
+            <button type="button" onClick={() => { setCepat(cepat === 'saya' ? '' : 'saya'); setTab('all') }} aria-pressed={cepat === 'saya'} data-chip="saya"
+              className={cx('flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold ring-1 transition', cepat === 'saya' ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand')}>
+              Saya<span className={cx('tabular-nums', cepat === 'saya' ? 'text-white/70' : 'text-ink-mute')}>{nSaya}</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {worker && (
         <>
@@ -112,56 +202,35 @@ export default function Projects() {
         </>
       )}
 
-      {worker && !fullView ? null : tab === 'vendor' ? <VendorPayments rows={vendorRows} /> : (
+      {worker && !fullView ? null : tab === 'vendor' ? <VendorPayments rows={vendorRows} /> : tab === 'apostille' && canSeeApostille(user) ? <Apostille embedded /> : (
         <>
-          {/* di HP: kolom cari satu baris penuh, tombol-tombol turun ke baris berikutnya */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative min-w-0 flex-1 basis-full sm:basis-auto">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <Input className="pl-9" placeholder="Cari invoice, pelanggan, dokumen…" value={q} onChange={(e) => setQ(e.target.value)} />
-            </div>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className="min-w-0 rounded-xl border-0 bg-white px-3 text-sm font-semibold ring-1 ring-slate-200">
-              <option value="aktif">Aktif</option><option value="selesai">Selesai</option><option value="semua">Semua</option>
-            </select>
-            <div className="flex shrink-0 rounded-xl bg-white p-1 ring-1 ring-slate-200" role="group" aria-label="Urutkan">
-              {[['deadline', CalendarClock, 'Deadline', 'Urutkan: deadline terdekat dulu'], ['baru', Sparkles, 'Terbaru', 'Urutkan: project terbaru dulu']].map(([k, Icon, l, t]) => (
-                <button key={k} onClick={() => setSort(k)} aria-pressed={sort === k} title={t}
-                  className={cx('flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold', sort === k ? 'bg-ink text-white' : 'text-ink-mute hover:bg-slate-50')}><Icon className="h-3.5 w-3.5" /><span className="hidden sm:inline">{l}</span></button>
-              ))}
-            </div>
-            <div className="flex shrink-0 rounded-xl bg-white p-1 ring-1 ring-slate-200">
-              {[['list', List, 'List kompak'], ['tabel', Table2, 'Tabel — 1 baris 1 data']].map(([k, Icon, l]) => (
-                <button key={k} onClick={() => setView(k)} aria-label={l} title={l}
-                  className={cx('grid h-8 w-8 place-items-center rounded-lg', view === k ? 'bg-ink text-white' : 'text-ink-mute hover:bg-slate-50')}><Icon className="h-4 w-4" /></button>
-              ))}
-            </div>
-            <MenuLainnya
-              view={view} worker={worker} colsAktif={colsAktif} saveCols={saveCols}
-              density={density} setDensity={setDensity} zoom={zoom} setZoom={setZoom} full={full} setFull={setFull}
-              current={{ tab, q, status, sort, dlFilter, prFilter, bpFilter, cols: colsAktif, view }}
-              apply={(v) => { setTab(v.tab ?? 'all'); setQ(v.q ?? ''); setStatus(v.status ?? 'aktif'); setSort(v.sort ?? 'deadline'); setDlFilter(v.dlFilter ?? null); setPrFilter(v.prFilter ?? ''); setBpFilter(v.bpFilter ?? { branch: '', print: '' }); if (v.cols) saveCols(v.cols); if (v.view) setView(v.view) }} />
-          </div>
-
           <FilterChips chips={[
             tab !== 'all' && { label: `Jenis: ${tabs.find((t) => t.value === tab)?.label || tab}`, clear: () => setTab('all') },
+            cepat && { label: cepat === 'hambatan' ? 'Hanya hambatan' : 'Hanya project saya', clear: () => setCepat('') },
+            sort !== 'deadline' && { label: 'Urut: terbaru', clear: () => setSort('deadline') },
             q.trim() && { label: `Cari: "${q.trim()}"`, clear: () => setQ('') },
             status !== 'aktif' && { label: `Status: ${status === 'selesai' ? 'Selesai' : 'Semua'}`, clear: () => setStatus('aktif') },
             dlFilter && { label: `Deadline: ${dlFilterLabel(dlFilter)}`, clear: () => setDlFilter(null) },
             prFilter && { label: `Prioritas: ${prFilter}`, clear: () => setPrFilter('') },
-            bpFilter.branch && { label: `Cabang: ${bpFilter.branch}`, clear: () => setBpFilter((f) => ({ ...f, branch: '' })) },
+            branchFilter !== 'Semua' && { label: `Cabang: ${branchFilter}`, clear: () => setBranchFilter('Semua') },
             bpFilter.print && { label: `Print: ${bpFilter.print}`, clear: () => setBpFilter((f) => ({ ...f, print: '' })) },
-          ].filter(Boolean)} reset={() => { setTab('all'); setQ(''); setStatus('aktif'); setDlFilter(null); setPrFilter(''); setBpFilter({ branch: '', print: '' }) }} />
+          ].filter(Boolean)} reset={() => { setTab('all'); setCepat(''); setQ(''); setStatus('aktif'); setSort('deadline'); setDlFilter(null); setPrFilter(''); setBpFilter({ branch: '', print: '' }) }} />
 
-          {list.length > shownN && <p className="text-xs text-ink-mute">Menampilkan {shownN} dari {list.length} project</p>}
           <ZoomArea zoom={zoom} full={full} onClose={() => setFull(false)} count={list.length}
-            tools={<ViewTools density={density} setDensity={setDensity} zoom={zoom} setZoom={setZoom} full={full} setFull={setFull} />}>
+            tools={full ? <ViewTools density={density} setDensity={setDensity} zoom={zoom} setZoom={setZoom} full={full} setFull={setFull} /> : null}>
           {list.length === 0 && !(view === 'list' && (dlFilter || bpFilter.branch || bpFilter.print || q || tab !== 'all')) ? (
             <Card><Empty icon={FolderOpen} title={worker ? 'Belum ada project untuk Anda' : 'Belum ada project'} text={worker ? 'Project akan muncul di sini begitu ada yang ditugaskan kepada Anda.' : 'Buat project baru dari invoice Zoho.'} action={worker ? null : <Button onClick={() => go('projects/new')}><Plus className="h-4 w-4" />Project Baru</Button>} /></Card>
-          ) : view === 'list' ? <ProjectList list={rest.slice(0, shownN)} late={late} dlFilter={dlFilter} setDlFilter={setDlFilter} prFilter={prFilter} setPrFilter={setPrFilter} cols={colsAktif} detailFor={detailFor} setDetailFor={setDetailFor} filesFor={filesFor} setFilesFor={setFilesFor} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
+          ) : view === 'list' ? <ProjectList list={rest.slice(0, shownN)} late={late} dlFilter={dlFilter} setDlFilter={setDlFilter} prFilter={prFilter} setPrFilter={setPrFilter} cols={colsAktif} detailFor={detailFor} setDetailFor={setDetailFor} filesFor={filesFor} setFilesFor={setFilesFor} onLangkah={bukaLangkah} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
             <ProjectSpreadsheet list={list} detailFor={detailFor} state={tableState} setState={setTableState} hideCols={worker ? SEMBUNYI_TABEL : []}
-              onDetail={(p) => { setDetailFor(p); setFilesFor(null) }}
+              onDetail={(p) => go(`projects/${p.id}`)}
               onFiles={(p) => setFilesFor(p)}
-              onPrint={(p) => { setFilesFor(p) }} />
+              onPrint={(p) => { setFilesFor(p) }}
+              renderAksi={(p) => { const ctx = { users: data.users, people: data.people, user, worker }; const langkah = langkahBerikutnya(p, user, ctx); return (
+                <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  {!worker && <TombolLangkah p={p} langkah={langkah} onBuka={bukaLangkah} />}
+                  <a href={`#/projects/${p.id}`} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} title="Buka halaman detail project" data-aksi="detail" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand"><Eye className="h-4 w-4" /></a>
+                  <button type="button" onClick={() => setFilesFor(p)} aria-label={`File ${invoiceLabel(p.invoice_no)}`} title="Folder file project" data-aksi="file" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand"><FolderOpen className="h-4 w-4" /></button>
+                </span>) }} />
           )}
           {view !== 'tabel' && list.length > shownN && <Button variant="outline" className="w-full" onClick={() => setShownN((n) => n + 36)}>Tampilkan 36 lagi ({list.length - shownN} tersisa)</Button>}
           </ZoomArea>
@@ -175,6 +244,13 @@ export default function Projects() {
           <FileManager project={projectOf(filesFor.id) || filesFor} />
         </Sheet>
       )}
+      {langkahFor && (
+        <Sheet open side wide onClose={() => setLangkahFor(null)} title={invoiceLabel(langkahFor.p.invoice_no)} subtitle={`${langkahFor.p.customer?.name || ''} · ${langkahFor.p.branch}`}
+          footer={<><Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={() => setLangkahFor(null)}>Tutup</Button><span className="flex-1" />
+            <a href={`#/projects/${langkahFor.p.id}${langkahFor.subId ? `/${langkahFor.subId}` : ''}`} className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline" title="Buka sebagai halaman penuh">Halaman penuh →</a></>}>
+          <div data-slide-langkah><ProjectDetail id={langkahFor.p.id} embedded focusSub={langkahFor.subId} /></div>
+        </Sheet>
+      )}
       {detailFor && (
         <Sheet open side wide onClose={() => setDetailFor(null)} title={invoiceLabel(detailFor.invoice_no)} subtitle={`${detailFor.customer?.name || ''} · ${detailFor.branch}`}
           footer={<><Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={() => setDetailFor(null)}>Tutup</Button><span className="flex-1" />
@@ -182,14 +258,7 @@ export default function Projects() {
           <ProjectDetail id={detailFor.id} embedded />
         </Sheet>
       )}
-      {!worker && (
-        // di atas menu bawah (±64px) + safe area iPhone, supaya tidak menempel di tepi layar
-        <button onClick={() => go('projects/new')} aria-label="Project baru"
-          style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
-          className="fixed right-4 z-30 grid h-14 w-14 place-items-center rounded-2xl bg-brand text-white shadow-lg shadow-brand/30 md:hidden">
-          <Plus className="h-6 w-6" />
-        </button>
-      )}
+      {/* Tombol apung + dihapus (K7): Project baru lewat tab Buat (HP) / tombol + (desktop) / Faktur */}
     </div>
   )
 }
@@ -281,6 +350,36 @@ function ProjectCard({ p, onOpen, active }) {
   )
 }
 
+/** Tombol langkah berikutnya — label & tujuan dari lib/langkah.js. */
+function TombolLangkah({ p, langkah, hp, onBuka }) {
+  const nada = { kerja: 'bg-ink text-white ring-ink hover:bg-brand hover:ring-brand', ping: 'bg-amber-50 text-amber-800 ring-amber-200 hover:bg-amber-100', acc: 'bg-violet-50 text-violet-700 ring-violet-200 hover:bg-violet-100', transfer: 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100', buka: 'bg-white text-ink-soft ring-slate-200 hover:text-brand hover:ring-brand' }
+  const tuju = () => {
+    if (langkah.jenis === 'acc' || langkah.jenis === 'transfer') return go('keuangan')
+    if (onBuka) return onBuka(p, langkah.sub?.id) // slide dari samping — tanpa pindah halaman
+    go(`projects/${p.id}${langkah.sub ? `/${langkah.sub.id}` : ''}`)
+  }
+  return (
+    <button type="button" onClick={tuju} data-aksi="langkah" data-jenis={langkah.jenis} title={`${langkah.tahap}${langkah.berikut ? ` → ${langkah.berikut}` : ''}`}
+      className={cx('shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-bold ring-1 transition', hp ? 'h-11' : 'h-8', nada[langkah.jenis] || nada.buka)}>
+      {langkah.label}
+    </button>
+  )
+}
+
+/** Menu ⋯ per baris: detail panel, folder file, rincian. */
+function AksiLainnya({ p, hp, open, toggle, detailAktif, onDetail, onFiles, fileCount }) {
+  // Ikon langsung terlihat (tanpa menu titik tiga) supaya cukup 1 klik.
+  const btn = (aktif) => cx('grid shrink-0 place-items-center rounded-lg ring-1 transition', hp ? 'h-11 w-11' : 'h-8 w-8',
+    aktif ? 'bg-brand-soft text-brand ring-brand/30' : 'bg-white text-ink-mute ring-slate-200 hover:text-brand')
+  return (
+    <span className="flex shrink-0 items-center gap-1" data-aksi="ikon-baris">
+      <a href={`#/projects/${p.id}`} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} title="Buka halaman detail project" className={btn(detailAktif)} data-aksi="detail"><Eye className="h-4 w-4" /></a>
+      <button type="button" onClick={onFiles} aria-label={`File ${invoiceLabel(p.invoice_no)}`} title={`Folder file project${fileCount ? ` (${fileCount})` : ''}`} className={cx(btn(false), 'relative')} data-aksi="file"><FolderOpen className="h-4 w-4" />{fileCount > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-brand px-1 text-[9px] font-bold leading-[14px] text-white">{fileCount}</span>}</button>
+      <button type="button" onClick={toggle} aria-expanded={open} aria-label={`Rincian ${invoiceLabel(p.invoice_no)}`} title="Buka/tutup rincian sub project" className={btn(open)} data-aksi="rincian"><ChevronDown className={cx('h-4 w-4 transition', open && 'rotate-180')} /></button>
+    </span>
+  )
+}
+
 // Tahap paling awal di antara sub project = posisi project saat ini
 function currentStage(p) {
   const open = (p.sub_projects || []).filter((s) => s.stage !== DONE)
@@ -315,73 +414,47 @@ function FilterChips({ chips, reset }) {
 //  penuh, tampilan tersimpan, unduh data — masuk ke satu tombol ini,
 //  supaya mata tidak perlu memilih dari belasan tombol sekaligus.
 // ============================================================
-function MenuLainnya({ view, worker, colsAktif, saveCols, density, setDensity, zoom, setZoom, full, setFull, current, apply }) {
-  const zi = ZOOM_STEPS.indexOf(zoom) === -1 ? ZOOM_STEPS.indexOf(100) : ZOOM_STEPS.indexOf(zoom)
-  const step = (d) => setZoom(ZOOM_STEPS[Math.min(ZOOM_STEPS.length - 1, Math.max(0, zi + d))])
-  const berubah = density !== 'normal' || zoom !== 100 || full
+function KolomPopover({ worker, colsAktif, saveCols }) {
+  const SEMBUNYI = worker ? ['cabang', 'tahap'] : []
+  const semua = ALL_COLS.filter((k) => !SEMBUNYI.includes(k))
+  const berubah = semua.some((k) => !colsAktif.includes(k))
   return (
-    <Popover label="Pengaturan tampilan lainnya" width="min-w-[270px]" button={({ open, toggle }) => (
-      <button onClick={toggle} aria-expanded={open} aria-label="Pengaturan tampilan lainnya" title="Kolom, kerapatan, ukuran huruf, layar penuh, unduh data"
-        data-menu-lainnya
-        className={cx('relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white ring-1 ring-slate-200 hover:text-brand',
-          open ? 'text-brand ring-brand' : 'text-ink-mute')}>
-        <MoreHorizontal className="h-4 w-4" />
+    <Popover label="Kolom tabel" width="min-w-[230px]" button={({ open, toggle }) => (
+      <button type="button" onClick={toggle} aria-expanded={open} aria-label="Pilih kolom" title="Pilih kolom yang ditampilkan" data-alat-kolom
+        className={cx('relative grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white ring-1 ring-slate-200 hover:text-brand', open ? 'text-brand ring-brand' : 'text-ink-mute')}>
+        <Columns3 className="h-4 w-4" />
         {berubah && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-brand" />}
       </button>
     )}>
-      {({ close }) => (
-        <div className="space-y-2.5">
-          <UnduhData barisMenu />
-
-          <div className="border-t border-slate-100 pt-2">
-            <p className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Ukuran huruf</p>
-            <div className="flex items-center gap-1">
-              <button type="button" onClick={() => step(-1)} disabled={zi === 0} aria-label="Perkecil huruf"
-                className="grid h-9 w-9 place-items-center rounded-lg ring-1 ring-slate-200 text-ink-mute hover:text-brand disabled:opacity-30"><Minus className="h-4 w-4" /></button>
-              <button type="button" onClick={() => setZoom(100)} aria-label={`Ukuran huruf ${zoom} persen, klik untuk normal`}
-                className="min-w-[52px] rounded-lg px-1 py-1.5 text-center text-xs font-bold tabular-nums text-ink-soft hover:text-brand">{zoom}%</button>
-              <button type="button" onClick={() => step(1)} disabled={zi === ZOOM_STEPS.length - 1} aria-label="Perbesar huruf"
-                className="grid h-9 w-9 place-items-center rounded-lg ring-1 ring-slate-200 text-ink-mute hover:text-brand disabled:opacity-30"><Plus className="h-4 w-4" /></button>
-            </div>
+      {() => (
+        <div>
+          <p className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Kolom tabel</p>
+          <div className="max-h-[220px] space-y-0.5 overflow-y-auto">
+            {COLUMNS.filter((c) => !SEMBUNYI.includes(c.key)).map((c) => (
+              <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-sm hover:bg-slate-50">
+                <input type="checkbox" checked={colsAktif.includes(c.key)} disabled={c.key === 'invoice'}
+                  onChange={(e) => saveCols(e.target.checked ? ALL_COLS.filter((k) => k === c.key || colsAktif.includes(k)) : colsAktif.filter((k) => k !== c.key))}
+                  className="h-4 w-4 rounded border-slate-300 text-brand disabled:opacity-40" />
+                {c.label}{c.key === 'invoice' && <span className="text-[11px] text-ink-mute">(wajib)</span>}
+              </label>
+            ))}
           </div>
-
-          <div className="border-t border-slate-100 pt-2">
-            <p className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Kerapatan baris</p>
-            <div className="flex gap-1">
-              {DENSITIES.map(([k, l]) => (
-                <button key={k} type="button" onClick={() => setDensity(k)} aria-pressed={density === k}
-                  className={cx('flex-1 rounded-lg px-2 py-1.5 text-xs font-semibold', density === k ? 'bg-ink text-white' : 'text-ink-mute ring-1 ring-slate-200 hover:text-brand')}>{l}</button>
-              ))}
-            </div>
-          </div>
-
-          <button type="button" onClick={() => { setFull(!full); close() }} aria-pressed={full}
-            className="flex w-full items-center gap-2 rounded-lg border-t border-slate-100 px-2 pb-1 pt-2.5 text-left text-sm font-semibold text-ink hover:text-brand">
-            {full ? <Minimize2 className="h-4 w-4 shrink-0" /> : <Maximize2 className="h-4 w-4 shrink-0" />}
-            {full ? 'Keluar dari layar penuh' : 'Layar penuh'}
-          </button>
-
-          {view === 'list' && (
-            <div className="border-t border-slate-100 pt-2">
-              <p className="mb-1 px-1 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Kolom tabel</p>
-              <div className="max-h-[180px] space-y-0.5 overflow-y-auto">
-                {COLUMNS.filter((c) => !(worker && SEMBUNYI_LIST.includes(c.key))).map((c) => (
-                  <label key={c.key} className="flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1 text-sm hover:bg-slate-50">
-                    <input type="checkbox" checked={colsAktif.includes(c.key)} disabled={c.key === 'invoice'}
-                      onChange={(e) => saveCols(e.target.checked ? ALL_COLS.filter((k) => k === c.key || colsAktif.includes(k)) : colsAktif.filter((k) => k !== c.key))}
-                      className="h-4 w-4 rounded border-slate-300 text-brand disabled:opacity-40" />
-                    {c.label}{c.key === 'invoice' && <span className="text-[11px] text-ink-mute">(wajib)</span>}
-                  </label>
-                ))}
-              </div>
-              <button type="button" onClick={() => saveCols(ALL_COLS.filter((k) => !(worker && SEMBUNYI_LIST.includes(k))))}
-                className="mt-1 w-full rounded-lg px-1 py-1 text-left text-xs font-semibold text-brand hover:underline">Tampilkan semua kolom</button>
-            </div>
-          )}
-
-          <div className="border-t border-slate-100 pt-2"><SavedViewsPanel current={current} apply={apply} close={close} /></div>
+          <button type="button" onClick={() => saveCols(semua)} className="mt-1 w-full rounded-lg px-1 py-1 text-left text-xs font-semibold text-brand hover:underline">Tampilkan semua kolom</button>
         </div>
       )}
+    </Popover>
+  )
+}
+
+function TersimpanPopover({ current, apply }) {
+  return (
+    <Popover label="Tampilan tersimpan" width="min-w-[260px]" button={({ open, toggle }) => (
+      <button type="button" onClick={toggle} aria-expanded={open} aria-label="Tampilan tersimpan" title="Simpan / buka tampilan (filter & kolom) tersimpan" data-alat-tersimpan
+        className={cx('grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white ring-1 ring-slate-200 hover:text-brand', open ? 'text-brand ring-brand' : 'text-ink-mute')}>
+        <Bookmark className="h-4 w-4" />
+      </button>
+    )}>
+      {({ close }) => <SavedViewsPanel current={current} apply={apply} close={close} />}
     </Popover>
   )
 }
@@ -421,6 +494,8 @@ function SavedViewsPanel({ current, apply, close }) {
  * Di bawah md, .card-table mengubah tiap baris jadi kartu (standar UI).
  */
 function ProjectTable({ list, cols, detailFor, onDetail, onFiles }) {
+  const { data, user } = useApp()
+  const ctx = { users: data.users, people: data.people, user, worker: isWorkRole(user) }
   const show = (k) => !cols || cols.includes(k)
   const kolom = COLUMNS.filter((c) => show(c.key))
   if (list.length === 0) return null
@@ -442,7 +517,7 @@ function ProjectTable({ list, cols, detailFor, onDetail, onFiles }) {
                 detailFor?.id === p.id ? 'bg-brand-soft/60' : i % 2 === 1 && 'md:bg-slate-50/60')}>
               {kolom.map((c) => (
                 <td key={c.key} data-label={c.label} className="min-w-0 max-w-full px-3 py-2.5 text-sm">
-                  {c.cell(p, { prog: progressOf(p) })}
+                  {c.cell(p, { prog: progressOf(p), ctx, langkah: langkahBerikutnya(p, user, ctx) })}
                 </td>
               ))}
               <td data-label="Aksi" className="px-3 py-2.5">
@@ -469,42 +544,56 @@ function ProjectTable({ list, cols, detailFor, onDetail, onFiles }) {
   )
 }
 
+/** Baris kedua kolom Invoice: prioritas · layanan · cabang · print (print beda = tebal). */
+function InfoBaris2({ p, ctx }) {
+  const prio = p.about?.priority || 'Normal'
+  const print = p.about?.print_location || p.branch
+  const beda = print !== p.branch
+  const n = p.sub_projects?.length || 0
+  return (
+    <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-ink-mute" data-info2>
+      {prio !== 'Normal' && <PriorityBadge p={prio} />}
+      <ProjectTypes project={p} />
+      {n > 1 && <span data-sub-teks>{n} sub</span>}
+      {!ctx?.worker && (
+        <span className="flex items-center gap-1 truncate" title={beda ? `Cabang ${p.branch}, dicetak di ${print} (beda)` : `Cabang ${p.branch}, dicetak di ${print}`} data-print={beda ? 'beda' : 'sama'}>
+          {p.branch}<span aria-hidden="true">·</span><Printer className="h-3 w-3 shrink-0" /><span className={cx(beda && 'font-bold text-pop')}>{print}</span>
+        </span>
+      )}
+    </span>
+  )
+}
+
 export const COLUMNS = [
-  { key: 'invoice', label: 'Invoice', w: 'minmax(0,1.4fr)',
-    cell: (p) => <><span className="flex items-center gap-1.5"><InvoiceNo project={p} /><DemoBadge project={p} /></span><TimeAgo at={p.created_at} prefix="Diposting" /></> },
-  { key: 'pelanggan', label: 'Pelanggan', w: 'minmax(0,1.2fr)', cls: 'min-w-0',
-    cell: (p) => <><span className="block truncate text-sm font-semibold text-ink">{p.customer?.name}</span><CsName p={p} /></> },
-  { key: 'prioritas', label: 'Prioritas', w: '118px', cls: 'min-w-0 overflow-hidden pt-0.5',
-    cell: (p) => <><PrioritasTeks p={p} /><SubText p={p} /></> },
-  { key: 'deadline', label: 'Deadline', w: 'minmax(0,1fr)',
+  // Tata letak 8 Nov 2026: tiap sel 2 baris (utama + pendukung lebih kecil), sejajar antarkolom.
+  { key: 'invoice', label: 'Invoice', w: 'minmax(160px,1.2fr)', cls: 'min-w-0 overflow-hidden',
+    cell: (p) => <><span className="flex h-6 items-center gap-1.5"><InvoiceNo project={p} /><NoteIcon note={p.about?.notes} /><DemoBadge project={p} /></span><TimeAgo at={p.created_at} prefix="Diinput" className="!mt-0.5 h-4" /></> },
+  { key: 'pelanggan', label: 'Pelanggan', w: 'minmax(110px,1.2fr)', cls: 'min-w-0',
+    cell: (p) => <><span className="block h-6 truncate text-sm font-semibold leading-6 text-ink" title={p.customer?.name}>{p.customer?.name}</span><CsName p={p} /></> },
+  { key: 'prioritas', label: 'Prioritas', w: 'minmax(112px,0.7fr)', cls: 'min-w-0 overflow-hidden',
+    cell: (p) => <span className="flex h-6 items-center">{(p.about?.priority || 'Normal') === 'Normal' ? <span className="text-sm text-ink-soft">Normal</span> : <PriorityBadge p={p.about.priority} />}</span> },
+  { key: 'deadline', label: 'Deadline', w: 'minmax(100px,0.8fr)',
     cell: (p) => <DeadlineCell project={p} done={isDone(p)} align="left" /> },
-  { key: 'layanan', label: 'Layanan', w: 'minmax(0,0.9fr)', cell: (p) => <ProjectTypes project={p} /> },
-  { key: 'cabang', label: 'Cabang / Print', w: 'minmax(0,1fr)', cls: 'min-w-0 pt-0.5',
-    // Tim minta cabang DAN lokasi print selalu terlihat, termasuk saat keduanya
-    // sama — supaya tidak perlu membuka project untuk memastikan.
-    // Yang berbeda ditandai warna supaya langsung kelihatan.
-    cell: (p) => {
-      const print = p.about?.print_location || p.branch
-      const beda = print !== p.branch
-      return (
-        <>
-          <span className="block truncate text-sm font-semibold text-ink">{p.branch}</span>
-          <span className={cx('mt-0.5 flex items-center gap-1 truncate text-xs', beda ? 'font-bold text-pop' : 'text-ink-mute')}
-            title={beda ? `Dicetak di ${print} (beda dari cabang)` : `Dicetak di ${print}`} data-print={beda ? 'beda' : 'sama'}>
-            <Printer className="h-3.5 w-3.5 shrink-0" />{print}
-          </span>
-        </>
-      )
-    } },
-  { key: 'tahap', label: 'Tahap & Progres', w: 'minmax(0,1.5fr)', cls: 'min-w-0',
-    cell: (p, { prog }) => <><span className="block truncate text-xs font-semibold text-brand">{currentStage(p)}</span><span className="mt-1 flex items-center gap-2"><Progress value={prog} /><span className="w-8 text-[11px] font-semibold text-ink-mute">{prog}%</span></span></> },
+  { key: 'layanan', label: 'Layanan', w: 'minmax(110px,1fr)', cls: 'min-w-0',
+    cell: (p) => <span className="flex min-h-6 flex-wrap items-center gap-1"><ProjectTypes project={p} />{(p.sub_projects?.length || 0) > 1 && <span className="shrink-0 text-[11px] text-ink-mute" data-sub-teks>{p.sub_projects.length} sub</span>}</span> },
+  { key: 'cabang', label: 'Cabang · Print', w: 'minmax(90px,0.7fr)', cls: 'min-w-0',
+    cell: (p) => { const print = p.about?.print_location || p.branch; const beda = print !== p.branch; return (
+      <span data-info2>
+        <span className="block h-6 truncate text-sm leading-6 text-ink">{p.branch}</span>
+        <span className="flex h-4 items-center gap-1 text-[11px] text-ink-mute" title={beda ? `Dicetak di ${print} (beda cabang)` : `Dicetak di ${print}`} data-print={beda ? 'beda' : 'sama'}><Printer className="h-3 w-3 shrink-0" /><span className={cx('truncate', beda && 'font-bold text-pop')}>{print}</span></span>
+      </span>) } },
+  { key: 'tahap', label: 'Tahap & progres', w: 'minmax(160px,1.6fr)', cls: 'min-w-0',
+    cell: (p, { prog, langkah }) => <>
+      <span className="block h-6 truncate text-sm font-semibold leading-6 text-brand" title={langkah ? `${langkah.tahap}${langkah.berikut ? ` → ${langkah.berikut}` : ''}${langkah.pic ? ` · ${langkah.pic}` : ''}` : ''}>{langkah ? langkah.tahap : currentStage(p)}{langkah?.berikut && langkah.tahap !== 'Selesai' && <span className="text-xs font-medium text-ink-mute"> ▸ {langkah.berikut}</span>}{langkah?.pic && <span className="text-xs font-medium text-ink-mute" data-pic> · {langkah.pic}</span>}</span>
+      <span className="flex h-4 items-center gap-2"><Progress value={prog} /><span className="w-9 shrink-0 text-right text-[11px] font-semibold tabular-nums text-ink-mute">{prog}%</span></span>
+    </> },
 ]
 export const ALL_COLS = COLUMNS.map((c) => c.key)
 
 const dlFilterLabel = (f) => !f ? '' : f.kind === 'today' ? 'Hari ini' : f.kind === 'tomorrow' ? 'Besok' : `${tgl(f.from)} – ${tgl(f.to)}`
 
-function ProjectList({ list: listAll, late: lateAll = [], dlFilter, setDlFilter, prFilter = '', setPrFilter = () => {}, cols, bpFilter = { branch: '', print: '' }, setBpFilter = () => {}, options = { branches: [], prints: [] }, detailFor, setDetailFor, filesFor, setFilesFor }) {
-  const { data } = useApp()
+function ProjectList({ list: listAll, late: lateAll = [], dlFilter, setDlFilter, prFilter = '', setPrFilter = () => {}, cols, bpFilter = { branch: '', print: '' }, setBpFilter = () => {}, options = { branches: [], prints: [] }, detailFor, setDetailFor, filesFor, setFilesFor, onLangkah }) {
+  const { data, user } = useApp()
   const projectOf = (id) => data.projects.find((x) => x.id === id) // versi terbaru (setelah upload/hapus di pop-up)
   const [open, setOpen] = useState(() => new Set())
   const toggle = (id) => setOpen((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -519,59 +608,55 @@ function ProjectList({ list: listAll, late: lateAll = [], dlFilter, setDlFilter,
   const prCount = (k) => [...lateAll, ...listAll].filter((p) => (p.about?.priority || 'Normal') === k).length
   const list = listAll; const late = lateAll
   const show = (k) => !cols || cols.includes(k) // kolom yang ditampilkan (Pengaturan kolom)
-  const gridCols = [...COLUMNS.filter((c) => show(c.key)).map((c) => c.w), '96px'].join(' ')
+  const gridCols = [...COLUMNS.filter((c) => show(c.key)).map((c) => c.w), '236px'].join(' ')
   const fileCount = (p) => collectFiles(p).length
   const today = dayKey()
   const [range, setRange] = useState({ from: today, to: addDays(today, 7) })
   const pick = (f) => { setDlFilter(f); setDlOpen(false) }
+  const ctx = useMemo(() => ({ users: data.users, people: data.people, user, worker: isWorkRole(user) }), [data.users, data.people, user])
   const renderRow = (p, i) => {
     const prog = progressOf(p)
+    const langkah = langkahBerikutnya(p, user, ctx)
     return (
             <li key={p.id} className={cx('scroll-mt-28 transition', detailFor?.id === p.id || filesFor?.id === p.id ? 'bg-brand-soft/60 shadow-[inset_3px_0_0_0_var(--brand)]' : open.has(p.id) ? 'border-l-4 border-brand bg-brand-soft/70' : i % 2 === 1 && 'bg-slate-50/80')}>
               <div className="relative">
               {/* Klik baris = buka/tutup rincian sub project; ikon mata = halaman detail */}
               <div role="button" tabIndex={0} aria-expanded={open.has(p.id)} onClick={() => toggle(p.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(p.id) } }}
-                className={cx('u-row group block cursor-pointer px-4 pr-[120px] lg:pr-4', open.has(p.id) ? 'pl-3' : 'hover:bg-brand-soft/40')}>
+                className={cx('u-row group block cursor-pointer px-4', open.has(p.id) ? 'pl-3' : 'hover:bg-brand-soft/40')}>
                 {/* Desktop: baris tabel */}
-                <div style={{ gridTemplateColumns: gridCols }} className="hidden items-start gap-3 text-left lg:grid">
-                  {COLUMNS.filter((c) => show(c.key)).map((c) => <span key={c.key} className={c.cls}>{c.cell(p, { prog })}</span>)}
+                <div style={{ gridTemplateColumns: gridCols }} className="hidden items-start gap-2 text-left xl:grid 2xl:gap-3">
+                  {COLUMNS.filter((c) => show(c.key)).map((c) => <span key={c.key} className={c.cls}>{c.cell(p, { prog, ctx, langkah })}</span>)}
                   {/* Tombol baru muncul saat baris disentuh/diarahkan kursor — 3 tombol × 20 baris
                       yang selalu terlihat membuat tabel penuh kotak tanpa guna. Di layar sentuh
                       (tanpa hover) tombolnya tetap terlihat, begitu juga saat baris sedang dibuka. */}
-                  <span className={cx('flex items-center justify-end gap-1 transition-opacity',
-                    !open.has(p.id) && detailFor?.id !== p.id && '[@media(hover:hover)]:opacity-0 group-hover:!opacity-100 group-focus-within:!opacity-100')} data-aksi-baris>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setDetailFor(p); setFilesFor(null) }} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} title="Detail project (panel kanan)"
-                      className={cx('grid h-7 w-7 place-items-center rounded-lg ring-1 transition', detailFor?.id === p.id ? 'bg-brand text-white ring-brand' : 'bg-white text-brand ring-brand/30 hover:bg-brand hover:text-white')}><Eye className="h-4 w-4" /></button>
-                    {/* ikon catatan: tepat setelah ikon mata, hanya muncul bila project punya catatan */}
-                    <NoteIcon note={p.about?.notes} className="shrink-0" />
-                    <button type="button" onClick={(e) => { e.stopPropagation(); setFilesFor(p) }} aria-label={`File project ${invoiceLabel(p.invoice_no)}`} title="Folder file project (preview, print, download)"
-                      className="relative grid h-7 w-7 place-items-center rounded-lg bg-white text-ink-soft ring-1 ring-slate-300 hover:bg-ink hover:text-white"><FolderOpen className="h-4 w-4" />{fileCount(p) > 0 && <span className="absolute -right-1 -top-1 grid h-3.5 min-w-[14px] place-items-center rounded-full bg-ink px-0.5 text-[9px] font-bold text-white">{fileCount(p)}</span>}</button>
-                    <button type="button" onClick={(e) => { e.stopPropagation(); toggle(p.id) }} aria-expanded={open.has(p.id)} aria-label={`${open.has(p.id) ? 'Tutup' : 'Buka'} rincian ${invoiceLabel(p.invoice_no)}`} title="Rincian sub project, data terjemahan & catatan"
-                      className={cx('grid h-7 w-7 place-items-center rounded-lg ring-1 transition', open.has(p.id) ? 'bg-brand text-white ring-brand' : 'text-ink-mute ring-slate-200 hover:bg-white hover:text-brand')}><ChevronDown className={cx('h-4 w-4 transition', open.has(p.id) && 'rotate-180')} /></button>
+                  {/* Aksi: SATU tombol langkah berikutnya (selalu terlihat) + menu ⋯ (K9) */}
+                  <span className="flex items-center justify-end gap-1" data-aksi-baris onClick={(e) => e.stopPropagation()}>
+                    <TombolLangkah p={p} langkah={langkah} onBuka={onLangkah} />
+                    <AksiLainnya p={p} open={open.has(p.id)} toggle={() => toggle(p.id)} detailAktif={detailFor?.id === p.id}
+                      onDetail={() => { setDetailFor(p); setFilesFor(null) }} onFiles={() => setFilesFor(p)} fileCount={fileCount(p)} />
                   </span>
                 </div>
-                {/* Mobile: baris ringkas */}
-                <div className="flex items-center gap-3 lg:hidden">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <InvoiceNo project={p} /><NoteIcon note={p.about?.notes} /><ProjectTypes project={p} />
-                      <PrintBadge project={p} iconOnly />
-                    </div>
-                    <TimeAgo at={p.created_at} prefix="Diposting" />
-                    <p className="truncate text-xs font-semibold text-ink">{p.customer?.name} <span className="font-normal text-ink-mute">· {p.branch}{p.about?.print_location && p.about.print_location !== p.branch ? ` · Print ${p.about.print_location}` : ''}</span></p>
-                    <SubCountPrio p={p} />
-                    <div className="mt-1.5 flex items-center gap-2"><Progress value={prog} /><span className="shrink-0 text-[11px] font-semibold text-brand">{currentStage(p)}</span></div>
+                {/* HP: kartu 3 baris — (1) invoice · layanan · tenggat, (2) pelanggan · cabang · CS, (3) tahap → berikutnya · PJ + tombol */}
+                <div className="space-y-1 xl:hidden" data-kartu-hp>
+                  <div className="flex items-start gap-2">
+                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5"><InvoiceNo project={p} /><NoteIcon note={p.about?.notes} /><ProjectTypes project={p} />{(p.about?.priority || 'Normal') !== 'Normal' && <PriorityBadge p={p.about.priority} />}</div>
+                    <div className="w-[76px] shrink-0"><DeadlineCell project={p} done={isDone(p)} /></div>
                   </div>
-                  <div className="w-[76px] shrink-0"><DeadlineCell project={p} done={isDone(p)} /></div>
+                  <p className="truncate text-xs text-ink"><span className="font-semibold">{p.customer?.name}</span>{!ctx.worker && <span className="text-ink-mute"> · {p.branch}{p.about?.print_location && p.about.print_location !== p.branch ? <> · <span className="font-bold text-pop">print {p.about.print_location}</span></> : ''}{p.about?.cs_name ? ` · CS ${String(p.about.cs_name).replace(/\s*\(.*\)\s*$/, '')}` : ''}</span>}</p>
+                  <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-semibold text-brand">{langkah.tahap}{langkah.berikut && langkah.tahap !== 'Selesai' && <span className="font-medium text-ink-mute"> ▸ {langkah.berikut}</span>}{langkah.pic && <span className="font-medium text-ink-mute"> · {langkah.pic}</span>}</p>
+                      <div className="mt-1 flex items-center gap-2"><Progress value={prog} /><span className="text-[11px] font-semibold text-ink-mute">{prog}%</span></div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                    {!ctx.worker && <span className="min-w-0 flex-1 [&>button]:w-full"><TombolLangkah p={p} langkah={langkah} hp onBuka={onLangkah} /></span>}
+                    <AksiLainnya p={p} hp open={open.has(p.id)} toggle={() => toggle(p.id)} detailAktif={detailFor?.id === p.id}
+                      onDetail={() => { setDetailFor(p); setFilesFor(null) }} onFiles={() => setFilesFor(p)} fileCount={fileCount(p)} />
+                    </div>
+                  </div>
                 </div>
               </div>
               <WorkerActions project={p} />
-              <span className="absolute right-3 top-3 flex items-center gap-1 lg:hidden">
-                <button type="button" onClick={() => { setDetailFor(p); setFilesFor(null) }} aria-label={`Detail ${invoiceLabel(p.invoice_no)} (HP)`} className="grid h-7 w-7 place-items-center rounded-lg bg-white text-brand ring-1 ring-brand/30"><Eye className="h-4 w-4" /></button>
-                <button type="button" onClick={() => setFilesFor(p)} aria-label={`File project ${invoiceLabel(p.invoice_no)} (HP)`} className="grid h-7 w-7 place-items-center rounded-lg bg-white text-ink-soft ring-1 ring-slate-300"><FolderOpen className="h-4 w-4" /></button>
-                <button type="button" onClick={() => toggle(p.id)} aria-expanded={open.has(p.id)} aria-label={`${open.has(p.id) ? 'Tutup' : 'Buka'} rincian ${invoiceLabel(p.invoice_no)} (HP)`}
-                  className={cx('grid h-7 w-7 place-items-center rounded-lg ring-1', open.has(p.id) ? 'bg-brand text-white ring-brand' : 'text-ink-mute ring-slate-200')}><ChevronDown className={cx('h-4 w-4 transition', open.has(p.id) && 'rotate-180')} /></button>
-              </span>
               </div>
               {open.has(p.id) && <ProjectExpand p={p} />}
             </li>
@@ -580,26 +665,16 @@ function ProjectList({ list: listAll, late: lateAll = [], dlFilter, setDlFilter,
   return (
     <Card className="overflow-visible">
       <div style={{ gridTemplateColumns: gridCols }}
-        className="pointer-events-none sticky top-[var(--list-top,var(--appbar))] z-10 hidden gap-3 rounded-t-2xl border-b border-slate-200 bg-slate-50/95 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-mute backdrop-blur lg:grid">
+        className="pointer-events-none sticky top-[var(--list-top,var(--appbar))] z-10 hidden gap-2 2xl:gap-3 rounded-t-2xl border-b border-slate-200 bg-slate-50/95 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-mute backdrop-blur xl:grid">
         {COLUMNS.filter((c) => show(c.key)).map((c) => {
-          if (c.key === 'prioritas') return (
-            <button key={c.key} type="button" onClick={() => setPrOpen(true)} className={cx('pointer-events-auto flex items-center gap-1 text-left uppercase hover:text-brand', prFilter && 'text-brand')} title="Filter prioritas">
-              Prioritas <ChevronDown className="h-3 w-3" />{prFilter && <span className="rounded-full bg-brand px-1.5 py-px text-[10px] normal-case tracking-normal text-white">{prFilter}</span>}
-            </button>
-          )
           if (c.key === 'deadline') return (
             <button key={c.key} type="button" onClick={() => setDlOpen(true)} className={cx('pointer-events-auto flex items-center gap-1 text-left uppercase hover:text-brand', dlFilter && 'text-brand')} title="Filter deadline">
               Deadline <ChevronDown className="h-3 w-3" />{dlFilter && <span className="rounded-full bg-brand px-1.5 py-px text-[10px] normal-case tracking-normal text-white">{dlFilterLabel(dlFilter)}</span>}
             </button>
           )
-          if (c.key === 'cabang') return (
-            <button key={c.key} type="button" onClick={() => setBpOpen(true)} className={cx('pointer-events-auto flex flex-wrap items-center gap-1 text-left uppercase hover:text-brand', bpActive && 'text-brand')} title="Filter cabang / lokasi print">
-              Cabang / Print <ChevronDown className="h-3 w-3" />{bpActive && <span className="rounded-full bg-brand px-1.5 py-px text-[10px] normal-case tracking-normal text-white">{bpLabel}</span>}
-            </button>
-          )
           return <span key={c.key}>{c.label}</span>
         })}
-        <span />
+        <span className="text-right">Aksi</span>
       </div>
       {dlFilter && <div className="flex items-center gap-2 border-b border-slate-100 bg-brand-soft/40 px-4 py-1.5 text-xs lg:hidden"><span className="font-semibold text-brand">Deadline: {dlFilterLabel(dlFilter)}</span><button type="button" onClick={() => setDlFilter(null)} className="ml-auto font-semibold text-ink-mute hover:text-rose-600">Hapus</button></div>}
       <Sheet open={dlOpen} onClose={() => setDlOpen(false)} title="Filter deadline"
@@ -638,11 +713,6 @@ function ProjectList({ list: listAll, late: lateAll = [], dlFilter, setDlFilter,
           <p className="text-[11px] text-ink-mute">Contoh: klik <b>Bali</b> → hanya project cabang Bali yang tampil. Kedua filter bisa digabung.</p>
         </div>
       </Sheet>
-      {late.length > 0 && (
-        <div className="border-b border-rose-200 bg-rose-50/95">
-          <p className="flex items-center gap-2 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wide text-rose-700"><AlertTriangle className="h-3.5 w-3.5" />Lewat deadline & belum selesai <span className="rounded-full bg-rose-600 px-1.5 text-[10px] text-white">{late.length}</span><span className="hidden font-medium normal-case tracking-normal text-rose-500 sm:inline">hilang otomatis saat project selesai</span></p>
-        </div>
-      )}
       <Sheet open={prOpen} onClose={() => setPrOpen(false)} title="Filter prioritas"
         footer={<><Button variant="outline" className="flex-1" onClick={() => { setPrFilter(''); setPrOpen(false) }}>Tampilkan semua</Button><Button className="flex-[2]" onClick={() => setPrOpen(false)}>Selesai</Button></>}>
         <div className="space-y-3">
@@ -740,7 +810,7 @@ function SubCount({ p }) {
 function CsName({ p }) {
   const cs = (p.about?.cs_name || '').replace(/\s*\(.*\)\s*$/, '')
   if (!cs) return null
-  return <span className="mt-0.5 block truncate text-[11px] text-ink-mute">CS {cs}</span>
+  return <span className="mt-0.5 block h-4 truncate text-[11px] leading-4 text-ink-mute">CS {cs}</span>
 }
 /** Baris HP: lingkaran jumlah sub + prioritas (hanya bila bukan Normal), lalu nama CS. */
 function SubCountPrio({ p }) {

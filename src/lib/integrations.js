@@ -8,6 +8,7 @@ import { branchOfInvoice, BRANCH_CODES } from '../config/access.js'
 import { supabaseDrive, sb } from './supabase.js'
 import { dataUrlToBlob } from './download.js'
 import { DEMO_CONTACTS } from './demoZoho.js'
+import { DEMO_ZOHO_NOV } from './demoZohoNov.js'
 
 // Zoho asli aktif bila mode LIVE, atau VITE_ZOHO_LIVE=true (tes Zoho sebelum InsForge siap)
 const ZOHO_LIVE = MODE === 'live' || import.meta.env.VITE_ZOHO_LIVE === 'true' // Supabase: Zoho menyusul lewat Edge Function
@@ -80,21 +81,24 @@ async function demoInvoiceList() {
     customer_id: p.customer?.zoho_id || '',
     status: DEMO_STATUSES[hash(p.invoice_no) % DEMO_STATUSES.length],
   }))
-  const extra = [
-    ...Object.entries(DEMO_INVOICES).flatMap(([cid, list]) => list.map((i) => ({
-      zoho_invoice_id: `zi-${i.invoice_no}`, invoice_no: i.invoice_no, date: i.date, created_time: `${i.date}T09:00:00.000Z`,
-      customer_name: DEMO_CONTACTS.find((c) => c.zoho_id === cid)?.name || '—', customer_id: cid, status: i.status, branch: 'Bali',
-    }))),
-    ...DEMO_EXTRA.map((e, n) => {
-      const d = new Date(Date.now() - e.days * 864e5)
-      const no = `INV-${String(nextNo + n).padStart(6, '0')}` // selalu di atas nomor project yang sudah ada → benar-benar belum masuk project
-      const branch = Object.values(BRANCH_CODES)[n % Object.keys(BRANCH_CODES).length]
-      return { zoho_invoice_id: `zi-${no}`, invoice_no: no, date: iso(d).slice(0, 10), created_time: iso(d), customer_name: e.customer, customer_id: e.customer_id, status: e.status, branch }
-    }),
-  ]
+  // Faktur contoh karangan (DEMO_INVOICES/DEMO_EXTRA) tidak lagi ditampilkan — daftar memakai salinan Zoho asli 1–5 Nov.
+  const extra = []
+  const nov = DEMO_ZOHO_NOV.map((r) => ({
+    zoho_invoice_id: r.zoho_id, invoice_no: r.invoice_no, date: r.date, created_time: `${r.date}T09:00:00.000Z`,
+    customer_name: r.customer_name || '', customer_id: r.customer_id || '', status: r.status,
+    branch: branchOfInvoice(r.invoice_no), total: Number(r.total) || 0, balance: Number(r.balance) || 0, salesperson: r.salesperson || '',
+    paid_at: r.paid_at || '', first_paid_at: r.first_paid_at || '', payments: Number(r.payments) || 0,
+  }))
   const seen = new Set()
-  return [...extra, ...fromProjects].filter((i) => !seen.has(i.invoice_no) && seen.add(i.invoice_no))
+  return [...extra, ...fromProjects, ...nov].filter((i) => !seen.has(i.invoice_no) && seen.add(i.invoice_no))
 }
+// Kontak yang diturunkan dari faktur Zoho asli (nama + HP tersamar) supaya bisa dicari di Buat Project
+const NOV_CONTACTS = (() => {
+  const m = new Map()
+  for (const r of DEMO_ZOHO_NOV) if (r.customer_id && !m.has(r.customer_id))
+    m.set(r.customer_id, { zoho_id: r.customer_id, name: r.customer_name || r.contact?.name || '—', email: r.contact?.email || '', phone: r.contact?.mobile || '', city: '', company: '', ship: { attention: r.contact?.name || '' } })
+  return [...m.values()]
+})()
 
 const statusCache = new Map()
 const rowToContact = (r) => r && ({ zoho_id: r.zoho_id, name: r.name, email: r.email || '', phone: r.phone || '', city: r.city || '', company: r.company || '', ship: r.ship || {}, synced_at: r.synced_at })
@@ -105,20 +109,23 @@ export const zoho = {
     if (MODE === 'supabase') return (must(await sb().rpc('search_contacts', { q })) || []).map(rowToContact) // salinan Zoho di database (sinkron terjadwal)
     if (!ZOHO_LIVE) {
       const s = q.toLowerCase()
-      return DEMO_CONTACTS.filter((c) => c.name.toLowerCase().includes(s) || c.email.toLowerCase().includes(s))
+      return [...DEMO_CONTACTS, ...NOV_CONTACTS].filter((c) => c.name.toLowerCase().includes(s) || c.email.toLowerCase().includes(s)).slice(0, 25)
     }
     return (await api(`/api/zoho/contacts?search=${encodeURIComponent(q)}`)).contacts
   },
   /** Detail lengkap: nama, HP, email, penerima & alamat pengiriman. */
   async contact(zohoId) {
     if (MODE === 'supabase') return rowToContact((must(await sb().from('zoho_contacts').select('*').eq('zoho_id', zohoId).limit(1)) || [])[0])
-    if (!ZOHO_LIVE) return DEMO_CONTACTS.find((c) => c.zoho_id === zohoId) ?? null
+    if (!ZOHO_LIVE) return DEMO_CONTACTS.find((c) => c.zoho_id === zohoId) ?? NOV_CONTACTS.find((c) => c.zoho_id === zohoId) ?? null
     return (await api(`/api/zoho/contact?id=${encodeURIComponent(zohoId)}`)).contact
   },
   async invoicesOf(zohoId) {
     if (MODE === 'supabase') return (must(await sb().from('zoho_invoices').select('*').eq('customer_id', zohoId).order('date', { ascending: false }).limit(30)) || [])
       .map((r) => ({ invoice_no: r.invoice_no, date: r.date, total: Number(r.total) || 0, status: r.status, balance: Number(r.balance) || 0 }))
-    if (!ZOHO_LIVE) return DEMO_INVOICES[zohoId] ?? [{ invoice_no: `INV-0003${Math.floor(Math.random() * 90 + 10)}`, date: '2026-11-03', total: 500000, status: 'draft' }]
+    if (!ZOHO_LIVE) {
+      const nov = DEMO_ZOHO_NOV.filter((r) => r.customer_id === zohoId).map((r) => ({ invoice_no: r.invoice_no, date: r.date, total: Number(r.total) || 0, status: r.status, balance: Number(r.balance) || 0 }))
+      return DEMO_INVOICES[zohoId] ?? (nov.length ? nov : [{ invoice_no: `INV-0003${Math.floor(Math.random() * 90 + 10)}`, date: '2026-11-03', total: 500000, status: 'draft' }])
+    }
     return (await api(`/api/zoho/invoices?customer_id=${encodeURIComponent(zohoId)}`)).invoices
   },
   /** Item & kontak invoice (untuk isi otomatis sub project + pengiriman). null bila tidak ada. */
@@ -129,7 +136,11 @@ export const zoho = {
       const r = (must(await sb().from('zoho_invoices').select('invoice_no,line_items,contact,customer_name').eq('invoice_no', no).limit(1)) || [])[0]
       return r?.line_items?.length ? { invoice_no: r.invoice_no, items: r.line_items, contact: r.contact || {}, customer_name: r.customer_name } : null
     }
-    if (!ZOHO_LIVE) return DEMO_INVOICE_ITEMS[no] ? { invoice_no: no, items: DEMO_INVOICE_ITEMS[no], contact: {} } : null
+    if (!ZOHO_LIVE) {
+      if (DEMO_INVOICE_ITEMS[no]) return { invoice_no: no, items: DEMO_INVOICE_ITEMS[no], contact: {} }
+      const r = DEMO_ZOHO_NOV.find((x) => x.invoice_no === no)
+      return r?.line_items?.length ? { invoice_no: no, items: r.line_items, contact: r.contact || {}, customer_name: r.customer_name } : null
+    }
     return (await api(`/api/zoho/invoice?no=${encodeURIComponent(no)}`)).invoice ?? null
   },
   /**
@@ -148,7 +159,8 @@ export const zoho = {
       const HAL = 1000
       const rows = []
       for (let awal = 0; awal < limit; awal += HAL) {
-        let q = sb().from('zoho_invoices').select('zoho_id,invoice_no,date,customer_name,customer_id,status,total,balance')
+        // view zoho_invoice_list = zoho_invoices + jam bayar (zoho_payments); RLS tabel tetap berlaku (security_invoker)
+        let q = sb().from('zoho_invoice_list').select('zoho_id,invoice_no,date,customer_name,customer_id,status,total,balance,salesperson,paid_at,first_paid_at,payments')
         if (from) q = q.gte('date', from)
         if (to) q = q.lte('date', to)
         const batch = must(await q
@@ -161,7 +173,8 @@ export const zoho = {
         zoho_invoice_id: r.zoho_id, invoice_no: r.invoice_no, date: r.date, created_time: '',
         customer_name: r.customer_name || '', customer_id: r.customer_id || '', status: r.status,
         branch: branchOfInvoice(r.invoice_no), // 3 angka di depan nomor invoice
-        total: Number(r.total) || 0, balance: Number(r.balance) || 0,
+        total: Number(r.total) || 0, balance: Number(r.balance) || 0, salesperson: r.salesperson || '',
+        paid_at: r.paid_at || '', first_paid_at: r.first_paid_at || '', payments: Number(r.payments) || 0,
       }))
     }
     if (!ZOHO_LIVE) return demoInvoiceList()

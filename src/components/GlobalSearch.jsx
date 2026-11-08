@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Search, FolderKanban, StickyNote, ListTodo, AlarmClock, FilePlus2 } from 'lucide-react'
+import { Search, FolderKanban, StickyNote, ListTodo, AlarmClock, FilePlus2, ReceiptText, Users } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { scopeByBranch } from '../config/access.js'
+import { scopeByBranch, branchesOf, can, branchOfInvoice, invoiceLabel } from '../config/access.js'
+import { canSeeInvoices } from '../config/menuAccess.js'
 import { scopeRequests, REQ_KINDS } from './Requests.jsx'
 import { myNotes } from '../lib/personal.js'
 import { myTodos } from '../pages/Todos.jsx'
@@ -10,11 +11,11 @@ import { usePanel } from './WorkspacePanel.jsx'
 import { go } from '../lib/router.js'
 import { cx } from './ui.jsx'
 
-const ICON = { project: FolderKanban, note: StickyNote, todo: ListTodo, reminder: AlarmClock, pengajuan: FilePlus2 }
-const LABEL = { project: 'Project', note: 'Catatan', todo: 'To-do', reminder: 'Pengingat', pengajuan: 'Pengajuan' }
+const ICON = { project: FolderKanban, note: StickyNote, todo: ListTodo, reminder: AlarmClock, pengajuan: FilePlus2, faktur: ReceiptText, pelanggan: Users }
+const LABEL = { project: 'Project', note: 'Catatan', todo: 'To-do', reminder: 'Pengingat', pengajuan: 'Pengajuan', faktur: 'Faktur', pelanggan: 'Pelanggan' }
 
 /** Pencarian lintas item — hanya yang boleh dilihat user ini. */
-export function searchAll(user, data, branchFilter, term) {
+export function searchAll(user, data, branchFilter, term, invoices = []) {
   const q = term.trim().toLowerCase()
   if (q.length < 2) return []
   const hit = (s) => String(s || '').toLowerCase().includes(q)
@@ -28,18 +29,40 @@ export function searchAll(user, data, branchFilter, term) {
   for (const t of myTodos(data, user)) if (hit(t.title) || hit(t.note)) out.push({ kind: 'todo', id: t.id, title: t.title, sub: t.list || 'Umum', panel: ['todo', { todo: t }] })
   for (const r of myReminders(data, user)) if (hit(r.title) || hit(r.note)) out.push({ kind: 'reminder', id: r.id, title: r.title, sub: '', panel: ['reminder', { reminder: r }] })
   for (const r of scopeRequests(user, data.requests || [], branchFilter)) if (hit(r.purpose) || hit(REQ_KINDS[r.kind]?.label)) out.push({ kind: 'pengajuan', id: r.id, title: r.purpose || REQ_KINDS[r.kind]?.label, sub: REQ_KINDS[r.kind]?.label || '', open: () => go('pengajuan') })
-  return out.slice(0, 24)
+  // F3: faktur Zoho yang belum jadi project (hak lihat sama dengan menu Faktur: cabang dari 3 angka awal)
+  if (canSeeInvoices(user) && invoices?.length) {
+    const punya = new Set(data.projects.map((p) => String(p.invoice_no || '').toUpperCase()))
+    const mine = branchesOf(user); const semua = can.seeAllBranches(user)
+    const qNum = q.replace(/^inv-?/i, '')
+    for (const i of invoices) {
+      const b = i.branch || branchOfInvoice(i.invoice_no)
+      if (!(semua ? (branchFilter === 'Semua' || b === branchFilter) : (b && mine.includes(b)))) continue
+      if (punya.has(String(i.invoice_no || '').toUpperCase())) continue
+      if (String(i.invoice_no || '').toLowerCase().includes(qNum) || hit(i.customer_name)) out.push({ kind: 'faktur', id: i.invoice_no, title: invoiceLabel(i.invoice_no), sub: `${i.customer_name || ''} · belum jadi project`, open: () => go('faktur') })
+    }
+    // pelanggan unik dari faktur yang terlihat
+    const seen = new Set()
+    for (const i of invoices) {
+      const b = i.branch || branchOfInvoice(i.invoice_no)
+      if (!(semua ? (branchFilter === 'Semua' || b === branchFilter) : (b && mine.includes(b)))) continue
+      const nama = i.customer_name || ''
+      if (!nama || seen.has(nama) || !hit(nama)) continue
+      seen.add(nama)
+      out.push({ kind: 'pelanggan', id: `c-${nama}`, title: nama, sub: 'pelanggan Zoho', open: () => go(can.seeAllBranches(user) && user.role === 'superadmin' ? 'pelanggan' : 'faktur') })
+    }
+  }
+  return out.slice(0, 30)
 }
 
 export default function GlobalSearch({ pill }) {
-  const { user, data, branchFilter } = useApp()
+  const { user, data, branchFilter, invoices } = useApp()
   const { open: openPanel } = usePanel()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const [i, setI] = useState(0)
   const input = useRef(null)
 
-  const rows = useMemo(() => (open ? searchAll(user, data, branchFilter, q) : []), [open, user, data, branchFilter, q])
+  const rows = useMemo(() => (open ? searchAll(user, data, branchFilter, q, invoices || []) : []), [open, user, data, branchFilter, q, invoices])
 
   useEffect(() => {
     const key = (e) => {
@@ -62,7 +85,7 @@ export default function GlobalSearch({ pill }) {
           className="flex h-11 w-full items-center gap-2 rounded-full border px-3 text-left text-sm transition md:h-9"
           style={{ borderColor: 'var(--head-line)', color: 'var(--head-mute)' }}>
           <Search className="h-4 w-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">Cari project, catatan, to-do…</span>
+          <span className="min-w-0 flex-1 truncate">Cari project, faktur, pelanggan…</span>
           <span className="hidden shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold sm:inline"
             style={{ background: 'var(--head-hover)' }}>Ctrl K</span>
         </button>
@@ -75,7 +98,7 @@ export default function GlobalSearch({ pill }) {
           <div role="dialog" aria-label="Pencarian" onClick={(e) => e.stopPropagation()} className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-slate-200">
             <label className="relative block border-b border-slate-100">
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
-              <input ref={input} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari project, catatan, to-do, pengingat, pengajuan…" aria-label="Kata kunci"
+              <input ref={input} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari project, faktur, pelanggan, catatan, to-do, pengajuan…" aria-label="Kata kunci"
                 onKeyDown={(e) => {
                   if (e.key === 'ArrowDown') { e.preventDefault(); setI((x) => Math.min(x + 1, rows.length - 1)) }
                   if (e.key === 'ArrowUp') { e.preventDefault(); setI((x) => Math.max(x - 1, 0)) }

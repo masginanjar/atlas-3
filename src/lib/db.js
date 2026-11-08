@@ -7,7 +7,7 @@
 // ============================================================
 import { createClient } from '@insforge/sdk'
 import { SUPABASE_READY, supabaseDb } from './supabase.js'
-import { seed, archiveProjects, billedDemo } from './seed.js'
+import { seed } from './seed.js'
 import { applyLegacyImport } from './legacyImport.js'
 import { CHAT_ENABLED } from './flags.js'
 import { ensureDefaultCouriers } from '../config/couriers.js'
@@ -41,7 +41,7 @@ function load() {
   try { mem = JSON.parse(localStorage.getItem(KEY)) } catch { mem = null }
   // Demo ringkas: 30 project yang mewakili semua role (data lama diganti sekali)
   cleanStorage()
-  if (!mem || !mem.compact_v8) { mem = seed(); migrate(mem); compactDemo(mem); save() }
+  if (!mem || !mem.compact_v9) { mem = seed(); migrate(mem); compactDemo(mem); save() }
   if (migrate(mem)) save()
   if (perfDemo(mem)) save() // tugas contoh harian (mati secara bawaan di demo ringkas)
   return mem
@@ -58,7 +58,6 @@ function migrate(m) {
   set('u-ot-lukas', { otorisator_level: 'staf' })
   set('u-pr-rina', { extra_roles: ['otorisator'], otorisator_level: 'staf' })
   if (!u('u-pr-ela')) { m.users.push({ id: 'u-pr-ela', name: 'Ela', email: 'ela@247.id', role: 'proofreader', branch: 'Bali', extra_roles: ['otorisator'], otorisator_level: 'staf', active: true, created_at: new Date().toISOString() }); changed = true }
-  if (!m.projects.some((p) => String(p.id).startsWith('arch-'))) { m.projects.push(...archiveProjects()); changed = true }
   // arsip lama tanpa rincian dokumen → isi jenis Reguler / Non Reguler (data contoh)
   for (const p of m.projects.filter((x) => String(x.id).startsWith('arch-'))) for (const sb of p.sub_projects) {
     if (sb.docs) continue
@@ -210,7 +209,6 @@ function migrate(m) {
     m.cuti ||= []
     changed = true
   }
-  if (!m.projects.some((p) => String(p.id).startsWith('bill-'))) { m.projects.push(...billedDemo(m)); changed = true }
   return changed
 }
 

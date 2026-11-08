@@ -117,7 +117,7 @@ function PeopleTable({ people, projects, now, extraCols = [] }) {
         const isOpen = openId === r.u.id; const next = r.active[0]
         return (
           <Fragment key={r.u.id}>
-            <tr className={cx('cursor-pointer align-middle hover:bg-slate-50', isOpen && 'bg-brand-soft/40')} onClick={() => setOpenId(isOpen ? null : r.u.id)}>
+            <tr className={cx('cursor-pointer align-middle hover:bg-slate-50', isOpen ? 'bg-brand-soft/40' : r.late ? 'bg-rose-50/40' : r.s.pct !== null && r.s.pct < 50 && r.active.length ? 'bg-amber-50/40' : '')} onClick={() => setOpenId(isOpen ? null : r.u.id)} data-sorot={r.late ? 'terlambat' : r.s.pct !== null && r.s.pct < 50 && r.active.length ? 'rendah' : ''}>
               <td className="px-4 py-2.5"><b>{r.u.name}</b><p className="text-[11px] text-ink-mute">{placeOf(r.u)}{r.u.active === false ? ' · nonaktif' : ''}</p></td>
               <td className="px-2 py-2.5 text-right font-bold tabular-nums">{r.active.length}</td>
               <td className={cx('px-2 py-2.5 text-right tabular-nums', r.late ? 'font-bold text-rose-600' : 'text-ink-mute')}>{r.late}</td>

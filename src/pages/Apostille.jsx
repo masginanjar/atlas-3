@@ -27,7 +27,7 @@ const TABS = [
   ['selesai', 'Selesai', CheckCircle2],
 ]
 
-export default function Apostille() {
+export default function Apostille({ embedded }) {
   const { user, data, nameOf, branchFilter } = useApp()
   const [tab, setTab] = useState('antrian')
   const [q, setQ] = useState('')
@@ -50,14 +50,13 @@ export default function Apostille() {
   const count = (k) => rows.filter((r) => inTab(r, k) && match(r)).length
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="space-y-3" data-apostille-tab>
+      {!embedded && <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-extrabold tracking-tight sm:text-2xl"><Stamp className="h-5 w-5 text-ink-soft" />My Apostille</h1>
-          <p className="text-sm text-ink-mute">{mine ? 'Pekerjaan apostille & legalisasi yang ditugaskan kepada Anda' : 'Seluruh pekerjaan apostille & legalisasi internal — data sama dengan My Project'}</p>
+          <h1 className="flex items-center gap-2 text-xl font-extrabold tracking-tight sm:text-2xl"><Stamp className="h-5 w-5 text-ink-soft" />Apostille & Legalisasi</h1>
+          <p className="text-sm text-ink-mute">{mine ? 'Pekerjaan apostille & legalisasi yang ditugaskan kepada Anda' : 'Seluruh pekerjaan apostille & legalisasi internal'}</p>
         </div>
-        <a href="#/projects" className="text-xs font-semibold text-brand hover:underline">Buka My Project →</a>
-      </div>
+      </div>}
 
       <div className="flex flex-wrap gap-1.5">
         {TABS.map(([k, label]) => (

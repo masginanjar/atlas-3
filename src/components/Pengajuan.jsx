@@ -120,8 +120,8 @@ export function QuickAcc({ branch, onAcc, onPick, busy, label = 'ACC' }) {
   const rec = recommendFund(branch)
   return (
     <span className="inline-flex items-center gap-1.5">
-      <Button size="sm" loading={busy} onClick={() => onAcc(rec)} title={`Rekomendasi ${sumberLabel(rec)} (cabang ${branch || '—'})`}><CheckCircle2 className="h-3.5 w-3.5" />{label} · {rec}</Button>
-      <Button size="sm" variant="outline" className="!h-11 !w-11 sm:!h-8 sm:!w-10" onClick={() => onPick(rec)} title="Ganti — pilih rekening lain" aria-label="Ganti rekening"><Repeat2 className="h-4 w-4" /></Button>
+      <Button size="sm" loading={busy} onClick={() => onAcc(rec)} title={`Rekomendasi ${sumberLabel(rec)} (cabang ${branch || '—'})`} className="whitespace-nowrap" data-aksi="acc-cepat"><CheckCircle2 className="h-3.5 w-3.5" />{label} dari {rec}</Button>
+      <Button size="sm" variant="outline" className="!h-11 whitespace-nowrap sm:!h-8" onClick={() => onPick(rec)} title="Pilih sumber dana lain" data-aksi="acc-ganti-dana"><Repeat2 className="h-4 w-4" />Dana lain</Button>
     </span>
   )
 }

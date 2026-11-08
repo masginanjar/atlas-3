@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, Plus, ExternalLink, AlertTriangle, Loader2, FileText } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { zoho, payStateOf } from '../lib/integrations.js'
-import { can, scopeByBranch, branchOfInvoice, invoiceCode, branchesOf, invoiceLabel} from '../config/access.js'
+import { can, scopeByBranch, branchOfInvoice, invoiceCode, branchesOf, invoiceLabel, BRANCHES } from '../config/access.js'
 import { canSeePayment } from '../config/menuAccess.js'
 import { go } from '../lib/router.js'
 import { Button, Card, cx } from '../components/ui.jsx'
 import { useTabel, Th, CariTabel } from '../components/TabelSortir.jsx'
-import { PilihPeriode, hariIni, tambahHari } from '../components/ToolbarRingkas.jsx'
+import { PilihPeriode, FilterLainnya, hariIni, tambahHari } from '../components/ToolbarRingkas.jsx'
 import CopyText from '../components/CopyText.jsx'
 import ProjectForm from './ProjectForm.jsx'
 
@@ -43,17 +43,29 @@ export const periodeFaktur = (today = hariIni()) => {
   ]
 }
 
+/** Jam pembayaran dari Zoho (pembayaran pelanggan): Lunas = pembayaran terakhir, DP = pembayaran pertama. */
+function JamBayar({ i }) {
+  const at = i.status === 'paid' ? (i.paid_at || i.first_paid_at) : i.status === 'partially_paid' ? (i.first_paid_at || i.paid_at) : ''
+  if (!at) return null
+  const d = new Date(at)
+  const teks = `${d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })} ${d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }).replace(':', '.')}`
+  const lunas = i.status === 'paid'
+  return <span className={`block whitespace-nowrap text-[11px] font-semibold ${lunas ? 'text-emerald-700' : 'text-amber-700'}`} data-jam-bayar title={lunas ? 'Jam pembayaran lunas tercatat di Zoho' : 'Jam pembayaran DP tercatat di Zoho'}>{lunas ? 'Lunas' : 'DP'} {teks}</span>
+}
+
+const hariIniKey = (d) => String(d || '').slice(0, 10) === new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date())
 /** Kolom tabel Faktur — judulnya bisa diklik untuk mengurutkan. */
 const KOLOM = [
   { key: 'tanggal', label: 'Tanggal', w: '104px', sort: (i) => String(i.date || '') },
   { key: 'invoice', label: 'No. Invoice', w: '132px', sort: (i) => String(i.invoice_no || '').toLowerCase() },
   { key: 'pelanggan', label: 'Nama Pelanggan', w: '22%', sort: (i) => String(i.customer_name || '').toLowerCase() },
   { key: 'cabang', label: 'Cabang', w: '110px', sort: (i) => String(i.branch || branchOfInvoice(i.invoice_no) || '').toLowerCase() },
-  { key: 'status', label: 'Status Invoice', w: '132px', sort: (i) => String(i.status || '').toLowerCase() },
+  { key: 'sales', label: 'CS / Sales', w: '130px', sort: (i) => String(i.salesperson || '').toLowerCase() },
+  { key: 'status', label: 'Pembayaran', w: '132px', sort: (i) => String(i.status || '').toLowerCase() },
 ]
 
 export default function Invoices() {
-  const { user, data, notify, invoices: all, invoiceErr: err, refreshInvoices, branchFilter, invoiceRange, setInvoiceRange } = useApp()
+  const { user, data, notify, invoices: all, invoiceErr: err, refreshInvoices, branchFilter, setBranchFilter, invoiceRange, setInvoiceRange } = useApp()
   // Faktur dipisah per cabang lewat 3 angka di depan nomor invoice (101 Bali, 202 Jakarta, dst.)
   const rows = useMemo(() => {
     if (!all) return all
@@ -69,9 +81,8 @@ export default function Invoices() {
     })
   }, [all, user, branchFilter, invoiceRange])
   const [busy, setBusy] = useState(false)
-  const [fCabang, setFCabang] = useState('')
   const [fStatus, setFStatus] = useState('')
-  const [tab, setTab] = useState('all') // all | unlinked | linked
+  const [tab, setTab] = useState('unlinked') // unlinked | linked | all — pekerjaan utama CS: faktur yang belum jadi project
   const [opening, setOpening] = useState('')
 
   // sumber data: satu tempat di store (dipakai juga untuk angka di menu Faktur)
@@ -108,10 +119,9 @@ export default function Invoices() {
     const p = projectOf(i)
     if (tab === 'linked' && !p) return false
     if (tab === 'unlinked' && p) return false
-    if (fCabang && cabangOf(i) !== fCabang) return false
     if (fStatus && i.status !== fStatus) return false
     return true
-  }), [rows, tab, projectOf, fCabang, fStatus, cabangOf])
+  }), [rows, tab, projectOf, fStatus, cabangOf])
   // Pencarian, filter & urutan disimpan di halaman, jadi tidak hilang saat pop-up dibuka.
   const { rows: baris, sortKey, sortDir, klikJudul, cari, setCari } = useTabel(list, KOLOM)
   const counts = useMemo(() => {
@@ -136,44 +146,39 @@ export default function Invoices() {
     go(`projects/new/${inv.zoho_invoice_id}`)
   }
 
-  const TABS = [['all', 'Semua', counts.all], ['unlinked', 'Belum masuk project', counts.unlinked], ['linked', 'Sudah masuk project', counts.linked]]
+  const TABS = [['unlinked', 'Belum jadi project', counts.unlinked], ['linked', 'Sudah jadi project', counts.linked], ['all', 'Semua', counts.all]]
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight"><FileText className="h-5 w-5 text-ink-mute" />Faktur</h1>
-          <p className="text-sm text-ink-soft">Invoice dari Zoho Books — lihat mana yang sudah dan belum dibuatkan project.</p>
+      <div className="flex flex-wrap items-center gap-2" data-alat>
+        <h1 className="mr-1 flex items-center gap-2 text-xl font-extrabold tracking-tight sm:text-2xl"><FileText className="h-5 w-5 text-ink-mute" />Faktur</h1>
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]" role="tablist" aria-label="Status project" data-tab-faktur>
+          {TABS.map(([k, label, n]) => (
+            <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} data-tab-faktur-item={k}
+              className={cx('flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold ring-1 transition', tab === k ? 'bg-ink text-white ring-ink' : k === 'unlinked' && n > 0 ? 'bg-amber-50 text-amber-800 ring-amber-200 hover:ring-amber-400' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand')}>
+              {label}<span className={cx('tabular-nums', tab === k ? 'text-white/70' : 'text-ink-mute')}>{n}</span>
+            </button>
+          ))}
         </div>
-        <Button variant="outline" size="sm" onClick={() => load(true)} disabled={busy}>
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}Segarkan
-        </Button>
-      </div>
-
-      <div className="flex flex-wrap gap-1.5">
-        {TABS.map(([k, label, n]) => (
-          <button key={k} type="button" onClick={() => setTab(k)} aria-pressed={tab === k}
-            className={cx('rounded-xl px-3 py-1.5 text-xs font-semibold ring-1 transition', tab === k ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand')}>
-            {label} <span className="tabular-nums opacity-70">{n}</span>
+        <div className="ml-auto flex min-w-0 basis-full flex-wrap items-center justify-end gap-2 sm:flex-1 sm:basis-auto sm:flex-nowrap" data-toolbar-faktur>
+          <CariTabel value={cari} onChange={setCari} label="Cari no. invoice atau nama pelanggan…" className="min-w-0 flex-1 basis-full sm:max-w-[260px] sm:basis-auto" />
+          <PilihPeriode range={invoiceRange} setRange={setInvoiceRange} pilihan={periodeFaktur()} label="Periode" />
+          <FilterLainnya aktif={[branchFilter !== 'Semua', fStatus].filter(Boolean).length} onReset={() => { setBranchFilter('Semua'); setFStatus('') }}>
+            {(can.seeAllBranches(user) || branchesOf(user).length > 1) && <label className="block text-xs font-semibold text-ink-soft">Cabang
+              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} aria-label="Filter cabang" className="mt-1 h-10 w-full rounded-xl border-0 bg-white pl-3 pr-8 text-sm font-semibold ring-1 ring-slate-200">
+                <option value="Semua">{can.seeAllBranches(user) ? 'Semua cabang' : 'Semua cabang saya'}</option>{(can.seeAllBranches(user) ? BRANCHES : branchesOf(user)).map((b) => <option key={b} value={b}>{b}</option>)}
+              </select></label>}
+            <label className="block text-xs font-semibold text-ink-soft">Status pembayaran
+              <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} aria-label="Filter status invoice" className="mt-1 h-10 w-full rounded-xl border-0 bg-white pl-3 pr-8 text-sm font-semibold ring-1 ring-slate-200">
+                <option value="">Semua status</option>{statusAda.map((x) => <option key={x} value={x}>{x}</option>)}
+              </select></label>
+          </FilterLainnya>
+          <button type="button" onClick={() => load(true)} disabled={busy} aria-label="Segarkan faktur dari Zoho" title="Segarkan sekarang (otomatis tiap 10 menit)" data-aksi="segarkan-faktur"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-ink-soft ring-1 ring-slate-200 hover:text-brand disabled:opacity-60 sm:h-10 sm:w-10">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </button>
-        ))}
-      </div>
-
-      {/* Toolbar: cari · filter cabang & status — tinggi kontrol 34px */}
-      <div className="flex flex-wrap items-center gap-2">
-        <CariTabel value={cari} onChange={setCari} label="Cari no. invoice atau nama pelanggan…" className="basis-64" />
-        <PilihPeriode range={invoiceRange} setRange={setInvoiceRange} pilihan={periodeFaktur()} label="Periode" className="!h-[34px]" />
-        <select value={fCabang} onChange={(e) => setFCabang(e.target.value)} aria-label="Filter cabang"
-          className="h-[34px] w-auto max-w-full rounded-lg border-0 bg-white pl-2.5 pr-7 text-[13px] font-semibold text-ink ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-brand">
-          <option value="">Semua cabang</option>
-          {cabangAda.map((b) => <option key={b} value={b}>{b}</option>)}
-        </select>
-        <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} aria-label="Filter status invoice"
-          className="h-[34px] w-auto max-w-full rounded-lg border-0 bg-white pl-2.5 pr-7 text-[13px] font-semibold text-ink ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-brand">
-          <option value="">Semua status</option>
-          {statusAda.map((x) => <option key={x} value={x}>{x}</option>)}
-        </select>
-        <span className="ml-auto text-[11px] text-ink-mute">{baris.length} faktur</span>
+          <span className="hidden text-[11px] text-ink-mute sm:inline">{baris.length} faktur</span>
+        </div>
       </div>
 
       {err && (
@@ -200,10 +205,11 @@ export default function Invoices() {
                       const canOpen = p && mine.has(p.id)
                       return (
                         <tr key={i.zoho_invoice_id || i.invoice_no}>
-                          <td><span className="whitespace-nowrap text-ink-soft">{tgl(i.date)}</span></td>
+                          <td>{hariIniKey(i.date) ? <span className="inline-block whitespace-nowrap rounded-full bg-emerald-600 px-2 py-0.5 text-xs font-semibold text-white" title="Faktur hari ini" data-faktur-hari-ini>{tgl(i.date)}</span> : <span className="whitespace-nowrap text-ink-soft">{tgl(i.date)}</span>}<JamBayar i={i} /></td>
                           <td><span className="font-bold"><CopyText text={invoiceLabel(i.invoice_no)} label="No. Invoice" strong /></span></td>
                           <td><span className="block max-w-[220px] truncate text-ink">{i.customer_name || '—'}</span></td>
                           <td><span className="whitespace-nowrap text-ink-soft">{i.branch || branchOfInvoice(i.invoice_no) || <span className="text-amber-700" title={`Kode ${invoiceCode(i.invoice_no)} belum terdaftar`}>Kode {invoiceCode(i.invoice_no)}</span>}</span></td>
+                          <td><span className="block max-w-[130px] truncate text-ink-soft" data-sales title={i.salesperson || ''}>{i.salesperson || '—'}</span></td>
                           <td><PayBadge status={i.status} prefix={false} /></td>
                           <td>
                             <span className="flex items-center justify-end gap-2">

@@ -13,7 +13,7 @@ export { myNotes, projectNotes }
 const TABS = [['aktif', 'Catatan saya'], ['project', 'Dari project'], ['pinned', 'Disematkan'], ['arsip', 'Arsip'], ['trash', 'Trash']]
 
 
-export default function Notes() {
+export default function Notes({ embedded }) {
   const { user, data, save, notify, branchFilter } = useApp()
   const { open } = usePanel()
   const [tab, setTab] = useState('aktif')
@@ -45,13 +45,13 @@ export default function Notes() {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      {!embedded && <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight"><StickyNote className="h-5 w-5 text-ink-mute" />Catatan</h1>
           <p className="text-sm text-ink-soft">Catatan pribadi Anda. Tidak terlihat oleh rekan lain kecuali Anda bagikan.</p>
         </div>
         <Button size="sm" variant="dark" onClick={() => open('note')}><Plus className="h-3.5 w-3.5" />Catatan Baru</Button>
-      </div>
+      </div>}
 
       <div className="flex flex-wrap gap-1.5">
         {TABS.map(([k, l]) => (

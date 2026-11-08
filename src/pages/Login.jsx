@@ -214,7 +214,7 @@ export default function Login() {
 
           {/* ================= KANAN — panel visual ================= */}
           <div className="order-1 lg:order-2">
-            <div className="h-[168px] sm:h-[210px] lg:h-[560px]">
+            <div className="h-[250px] sm:h-[270px] lg:h-[560px]">
               <LoginVisual tema={tema} gambar={gambar} onError={() => setGambar(null)} />
             </div>
           </div>

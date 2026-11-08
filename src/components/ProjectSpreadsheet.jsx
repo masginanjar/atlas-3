@@ -6,6 +6,7 @@ import { invoiceLabel } from '../config/access.js'
 import { tanggalJam, tanggal } from '../lib/waktu.js'
 import { projectRow, TABLE_COLS, sortRows, filterOptions, applyFilters, FILTER_LABEL } from '../lib/projectRow.js'
 import { stageLabel, flowOf } from '../config/workflows.js'
+import { SUB_TYPES } from '../config/subtypes.js'
 
 const PAGE = 36
 
@@ -13,10 +14,10 @@ const PAGE = 36
  *  merah = deadline hari ini, oranye = deadline besok. */
 function Lingkar({ warna, judul, children }) {
   if (!warna) return children
-  const w = { hitam: 'ring-ink text-ink', hijau: 'ring-emerald-500 text-emerald-700',
-    merah: 'ring-rose-500 text-rose-700', oranye: 'ring-orange-500 text-orange-700' }[warna]
+  // Kapsul solid (latar penuh, teks putih) — sama dengan aturan kapsul di tampilan List
+  const w = { hitam: 'bg-ink', hijau: 'bg-emerald-600', merah: 'bg-rose-600', oranye: 'bg-orange-500' }[warna]
   return (
-    <span title={judul} className={cx('inline-block max-w-full truncate rounded-full px-2 py-0.5 ring-1', w)}>{children}</span>
+    <span title={judul} data-kapsul={warna} className={cx('inline-block max-w-full truncate rounded-full px-2 py-0.5 font-semibold text-white', w)}>{children}</span>
   )
 }
 
@@ -79,7 +80,7 @@ function BarisSub({ subs, kolom }) {
       <table className="w-full border-collapse text-left text-xs">
         <thead>
           <tr className="text-ink-mute">
-            {['#', 'Judul', 'Arah Bahasa', 'Penerjemah/Vendor', 'Dok.', 'Hlm.', 'Tahap'].map((h) => (
+            {['#', 'Kategori', 'Judul', 'Arah Bahasa', 'Penerjemah/Vendor', 'Dok.', 'Hlm.', 'Tahap'].map((h) => (
               <th key={h} scope="col" className="whitespace-nowrap px-2 py-1.5 font-bold">{h}</th>
             ))}
           </tr>
@@ -88,6 +89,7 @@ function BarisSub({ subs, kolom }) {
           {subs.map((x, i) => (
             <tr key={x.id || i} className="border-t border-slate-100">
               <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-ink-mute">{i + 1}</td>
+              <td className="whitespace-nowrap px-2 py-1.5 text-ink-soft">{x.kategori || '—'}</td>
               <td className="max-w-[220px] truncate px-2 py-1.5 font-semibold" title={x.judul}>{x.judul || '—'}</td>
               <td className="whitespace-nowrap px-2 py-1.5">{x.arah || '—'}</td>
               <td className="max-w-[160px] truncate px-2 py-1.5" title={x.orang}>{x.orang || '—'}</td>
@@ -102,7 +104,7 @@ function BarisSub({ subs, kolom }) {
   )
 }
 
-export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles, onPrint, state, setState, hideCols = [] }) {
+export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles, onPrint, state, setState, hideCols = [], renderAksi }) {
   // Kolom yang disembunyikan untuk peran tertentu (mis. pelaksana freelance tidak punya cabang).
   const KOLOM = hideCols.length ? TABLE_COLS.filter((c) => !hideCols.includes(c.key)) : TABLE_COLS
   const { data } = useApp()
@@ -216,7 +218,6 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
             </div>
           )}
         </span>
-        <span className="text-xs text-ink-mute">{hasil.length} project</span>
       </div>
 
       {/* ---------- Chip filter aktif ---------- */}
@@ -253,7 +254,7 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
                     </button>
                   </th>
                 ))}
-                <th scope="col" style={{ width: '104px', minWidth: '104px' }} className="sticky top-0 z-20 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-ink-soft md:right-0">Aksi</th>
+                <th scope="col" style={{ width: renderAksi ? '250px' : '104px', minWidth: renderAksi ? '250px' : '104px' }} className="sticky top-0 z-20 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-ink-soft md:right-0">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -268,8 +269,8 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
                       {nilai(r, c.key)}
                     </td>
                   ))}
-                  <td data-label="Aksi" className="px-3 py-2.5 md:sticky md:right-0 md:z-10 md:bg-inherit">
-                    <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  <td data-label="Aksi" className="px-3 py-2.5 md:sticky md:right-0 md:z-10 md:bg-white md:shadow-[-8px_0_10px_-8px_rgba(15,23,42,.18)]">
+                    {renderAksi ? renderAksi(r.p) : <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                       <button type="button" onClick={() => onDetail(r.p)} title="Lihat detail project"
                         aria-label={`Lihat detail ${invoiceLabel(r.invoice)}`}
                         className={cx('grid h-11 w-11 place-items-center rounded-lg ring-1 transition md:h-7 md:w-7',
@@ -277,7 +278,7 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
                         <Eye className="h-4 w-4" />
                       </button>
                       <MenuAksi row={r} onFiles={onFiles} onPrint={onPrint} />
-                    </span>
+                    </span>}
                   </td>
                 </tr>
               )).flatMap((tr, idx) => {
@@ -287,7 +288,7 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
                   <tr key={`${r.id}-sub`} className="border-b border-slate-100 bg-slate-50/70">
                     <td colSpan={KOLOM.length + 1} className="p-0">
                       <BarisSub kolom={KOLOM} subs={(r.subs || []).map((x) => ({
-                        id: x.id, judul: x.title,
+                        id: x.id, judul: x.title, kategori: (SUB_TYPES[x.type] || SUB_TYPES.jasa_lain).label,
                         arah: x.lang_from && x.lang_to ? `${x.lang_from} → ${x.lang_to}` : '',
                         orang: namaUser(x.data?.translator || x.translator || x.data?.vendor || ''),
                         dok: x.docs?.length || x.file_count || 0,

@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "VITE_MASK_PII=1 vite build",
+    "build": "ATLAS_LIVE=1 VITE_MASK_PII=1 vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "build:demo": "VITE_MASK_PII=1 vite build --mode single --outDir dist-demo",
     "build:demo:public": "VITE_MASK_PII=1 vite build --mode single --outDir dist-demo",
-    "build:live": "VITE_MASK_PII=1 vite build",
+    "build:live": "ATLAS_LIVE=1 VITE_MASK_PII=1 vite build",
     "sync:portal": "sh sync-portal-fn.sh"
   },
   "dependencies": {

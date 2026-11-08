@@ -13,7 +13,7 @@ import { cx } from './ui.jsx'
 import { tgl, daysLeft } from '../lib/format.js'
 import TimeAgo from './TimeAgo.jsx'
 import { stageArrivedAt } from '../lib/format.js'
-import { placeOf, seeProofreaderIdentity, proofreaderTeamName, pickProofreader, invoiceLabel} from '../config/access.js'
+import { placeOf, seeProofreaderIdentity, pickProofreader, invoiceLabel} from '../config/access.js'
 
 /**
  * Tampilan SEDERHANA untuk Penerjemah & Proofreader:
@@ -26,7 +26,7 @@ const ROLE_CFG = {
   },
   proofreader: {
     stage: 'proofread', who: 'proofreader', fileKey: 'hasil_proofread',
-    read: 'Baca Dokumen Sumber & Hasil Terjemahan', upload: 'Upload File Setelah Diperiksa', next: 'Lanjut ke Otorisator', doneLabel: 'Sudah Anda periksa',
+    read: 'Download Dokumen Sumber & Hasil Terjemahan', upload: 'Upload Hasil Proofreader', next: 'Lanjut ke Otorisator', doneLabel: 'Sudah Anda periksa',
   },
 }
 
@@ -119,6 +119,9 @@ function OrderCard({ project, sub, cfg }) {
   const docs = sub.docs?.length ? sub.docs : [{ desc: sub.title, pages: sub.pages }]
   const many = (label, key) => { const l = fieldFiles(sub.data, key); return (l.length ? l : [null]).map((f, i) => [l.length > 1 ? `${label} ${i + 1}/${l.length}` : label, f]) }
   const sources = [...many('Dokumen Sumber', 'dokumen_sumber'), ...(isTr ? [] : many('Hasil Terjemahan', 'hasil_terjemahan'))]
+  // file project lain (upload CS, lampiran, dll.) — ditampilkan satu per satu supaya bisa diunduh yang perlu saja
+  const namaTerpakai = new Set([...sources.map(([, f]) => f?.name), ...fieldFiles(sub.data, cfg.fileKey).map((f) => f.name)].filter(Boolean))
+  const lainnya = [] // alur 8 Nov 2026: hanya dokumen tahap ini, file sub project lain tidak ditampilkan
 
   const run = async (key, fn, ok) => { setBusy(key); try { await fn(); if (ok) notify(ok) } catch (e) { notify(e.message, 'err') } finally { setBusy(null) } }
   const download = (f, key) => run(key, async () => { await saveBlob(f.name, f.url?.startsWith('data:') ? dataUrlToBlob(f.url) : await drive.blob(f)); setRead(true) })
@@ -129,12 +132,21 @@ function OrderCard({ project, sub, cfg }) {
     const list = [...(replace ? [] : upList), ...added]
     await processStage(project, sub.id, { [cfg.fileKey]: list[0], [`${cfg.fileKey}_list`]: list }, false)
   }, `${files.length} file terunggah`) }
+  const gantiSatu = async (i, fileList) => { const files = await reviewNames([fileList[0]]); return files && run('up', async () => {
+    const added = await uploadProjectFiles(files.map(({ file, name }) => ({ file, name, sub_id: sub.id })), { branch: project.branch, invoice: project.invoice_no, by: user.name })
+    const list = upList.map((f, k) => (k === i ? added[0] : f))
+    await processStage(project, sub.id, { [cfg.fileKey]: list[0], [`${cfg.fileKey}_list`]: list }, false)
+  }, 'File diganti') }
+  const hapusSatu = (i) => run('up', async () => {
+    const list = upList.filter((_, k) => k !== i)
+    await processStage(project, sub.id, { [cfg.fileKey]: list[0] || null, [`${cfg.fileKey}_list`]: list }, false)
+  }, 'File dihapus')
   const next = () => run('next', () => {
     const target = isTr && !isNT ? (teamOnly ? pickProofreader(data.users, data.projects) : pr) : null
     if (isTr && !isNT && !target) throw new Error('Tidak ada proofreader aktif — hubungi Supervisor')
     return processStage(project, sub.id, isNT ? {} : isTr ? { proofreader: target } : { catatan_proofread: note }, true)
   }, isNT ? 'Selesai — dokumen kembali ke CS' : isTr ? 'Terkirim ke Tim Proofreader' : 'Lanjut ke Otorisator')
-  const canNext = isTr ? !!uploaded && (isNT || teamOnly ? proofreaders.length > 0 : !!pr) : true
+  const canNext = isTr ? !!uploaded && (isNT || teamOnly ? proofreaders.length > 0 : !!pr) : !!uploaded
 
   return (
     <div className="space-y-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-slate-200 sm:p-5">
@@ -148,15 +160,17 @@ function OrderCard({ project, sub, cfg }) {
 
       <Step n={1} title={cfg.read} done={read || !!uploaded} active={!read && !uploaded}>
         <div className="space-y-2">
-          {sources.map(([label, f], i) => <FileRow key={label} label={label} file={f} busy={busy === `dl${i}`}
+          {[...sources, ...lainnya].map(([label, f], i) => <FileRow key={`${label}-${i}`} label={label} file={f} busy={busy === `dl${i}`}
             onPreview={() => { setPreview(f); setRead(true) }} onDownload={() => download(f, `dl${i}`)} />)}
         </div>
       </Step>
 
-      <Step n={2} title={cfg.upload + (isTr ? '' : ' (opsional)')} done={!!uploaded} active={!uploaded}>
+      <Step n={2} title={cfg.upload} done={!!uploaded} active={!uploaded}>
         {uploaded ? (
           <div className="space-y-1.5">
-            {upList.map((f, i) => <p key={i} className="flex items-center gap-2 text-base text-emerald-800"><CheckCircle2 className="h-5 w-5 shrink-0" /><span className="truncate">{f.name}</span></p>)}
+            {upList.map((f, i) => <p key={i} className="flex items-center gap-2 text-base text-emerald-800"><CheckCircle2 className="h-5 w-5 shrink-0" /><span className="min-w-0 flex-1 truncate">{f.name}</span>
+              <label className="cursor-pointer rounded-lg px-2 py-1 text-xs font-semibold text-emerald-800 ring-1 ring-emerald-300 hover:bg-emerald-50" title="Salah upload? Ganti dengan file lain" data-aksi="ganti-file">Ganti<input type="file" className="hidden" aria-label={`Ganti ${f.name}`} onChange={(e) => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length) gantiSatu(i, fl) }} /></label>
+              <button type="button" onClick={() => hapusSatu(i)} className="rounded-lg px-2 py-1 text-xs font-semibold text-rose-700 ring-1 ring-rose-200 hover:bg-rose-50" aria-label={`Hapus ${f.name}`} data-aksi="hapus-file">Hapus</button></p>)}
             <p className="flex gap-4 text-sm font-semibold text-brand">
               <label className="cursor-pointer underline">+ Tambah file<input type="file" multiple className="hidden" onChange={(e) => { const fl = [...e.target.files]; e.target.value = ''; upload(fl) }} aria-label={`Tambah ${cfg.upload}`} /></label>
               <label className="cursor-pointer underline">Ganti semua<input type="file" multiple className="hidden" onChange={(e) => { const fl = [...e.target.files]; e.target.value = ''; upload(fl, true) }} aria-label={`Ganti ${cfg.upload}`} /></label>
@@ -173,21 +187,17 @@ function OrderCard({ project, sub, cfg }) {
       </Step>
 
       <Step n={3} title={isNT ? 'Selesai → Kembali ke CS' : cfg.next} done={false} active={canNext}>
-        {isTr && !isNT && (teamOnly ? (
-          <p className="mb-3 rounded-xl bg-slate-50 px-3 py-2.5 text-sm ring-1 ring-slate-200">
-            Dikirim ke <b>{proofreaderTeamName()}</b> — sistem memilihkan pemeriksa yang antreannya paling sedikit.
-          </p>
-        ) : (
+        {isTr && !isNT && !teamOnly && (
           <select value={pr} onChange={(e) => setPr(e.target.value)} aria-label="Proofreader"
             className="mb-3 h-11 w-full rounded-xl border-0 px-3 text-sm ring-1 ring-slate-300 focus:ring-2 focus:ring-brand">
             <option value="">— Pilih proofreader —</option>
             {proofreaders.map((u) => <option key={u.id} value={u.id}>{u.name} · {placeOf(u)}</option>)}
           </select>
-        ))}
+        )}
         <Big onClick={next} disabled={!canNext || !!busy} className="bg-emerald-600 text-white hover:bg-emerald-700">
           {busy === 'next' ? <Loader2 className="h-6 w-6 animate-spin" /> : <Send className="h-6 w-6" />}{isNT ? 'Selesai → Kembali ke CS' : cfg.next}
         </Big>
-        {isTr && !uploaded && <p className="mt-2 text-center text-sm text-ink-mute">Upload hasil terjemahan dulu.</p>}
+        {!uploaded && <p className="mt-2 text-center text-sm text-ink-mute">{isTr ? 'Upload hasil terjemahan dulu.' : 'Upload hasil proofreader dulu.'}</p>}
       </Step>
 
       {preview && <FilePreview file={preview} onClose={() => setPreview(null)} />}

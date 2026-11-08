@@ -73,7 +73,8 @@ function DocCard({ project, sub }) {
   const claim = activeClaim(sub)
   const mine = claim?.by === user.id
   const other = claim && !mine
-  const docs = [['Dokumen Sumber', sub.data?.dokumen_sumber], ['Hasil Terjemahan', sub.data?.hasil_terjemahan], ['Hasil Proofread', sub.data?.hasil_proofread]].filter(([, f]) => f)
+  // Otorisator membaca dokumen sumber + hasil proofreader (hasil terjemahan hanya bila proofreader tidak mengunggah file)
+  const docs = [['Dokumen Sumber', sub.data?.dokumen_sumber], ['Hasil Proofreader', sub.data?.hasil_proofread], ...(sub.data?.hasil_proofread ? [] : [['Hasil Terjemahan', sub.data?.hasil_terjemahan]])].filter(([, f]) => f)
   const uploadedList = sub.data?.file_final_list?.length ? sub.data.file_final_list : sub.data?.file_final ? [sub.data.file_final] : []
   const uploaded = uploadedList[0] ?? null
 
@@ -111,7 +112,7 @@ function DocCard({ project, sub }) {
           <Step n={1} title="Ambil & Proses" done={mine} active={!mine}>
             {!mine && <Big onClick={take} disabled={!!busy} className="bg-brand text-white hover:bg-brand-dark">{busy === 'take' ? <Loader2 className="h-6 w-6 animate-spin" /> : <Hand className="h-6 w-6" />}Ambil & Proses</Big>}
           </Step>
-          <Step n={2} title="Download Semua Dokumen" done={mine && (downloaded || !!uploaded)} active={mine && !uploaded}>
+          <Step n={2} title="Download Dokumen Sumber & Hasil Proofreader" done={mine && (downloaded || !!uploaded)} active={mine && !uploaded}>
             {mine && (docs.length
               ? <>
                 <Big onClick={download} disabled={!!busy} className="bg-white text-ink ring-2 ring-slate-300 hover:bg-slate-50">{busy === 'dl' ? <Loader2 className="h-6 w-6 animate-spin" /> : <Archive className="h-6 w-6" />}Download Semua Dokumen (ZIP)</Big>
@@ -119,7 +120,7 @@ function DocCard({ project, sub }) {
               </>
               : <p className="text-base text-ink-mute">File dokumen belum tersedia.</p>)}
           </Step>
-          <Step n={3} title="Upload Dokumen Setelah Proses" done={!!uploaded} active={mine && !uploaded}>
+          <Step n={3} title="Upload Hasil Otorisasi" done={!!uploaded} active={mine && !uploaded}>
             {mine && <>
               {uploadedList.length > 0 && <ul className="mb-3 space-y-1.5">{uploadedList.map((f, i) => (
                 <li key={i} className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-base text-emerald-900"><CheckCircle2 className="h-5 w-5 shrink-0" /><span className="min-w-0 flex-1 truncate">{f.name}</span>
@@ -131,8 +132,8 @@ function DocCard({ project, sub }) {
               </label>
             </>}
           </Step>
-          <Step n={4} title="Otorisasi → Nomor Registrasi" done={false} active={mine && !!uploaded}>
-            {mine && <Big onClick={authorize} disabled={!uploaded || !!busy} className="bg-emerald-600 text-white hover:bg-emerald-700">{busy === 'ok' ? <Loader2 className="h-6 w-6 animate-spin" /> : <BadgeCheck className="h-6 w-6" />}Otorisasi → No. Registrasi</Big>}
+          <Step n={4} title="Lanjut ke Admin Pusat (nomor register)" done={false} active={mine && !!uploaded}>
+            {mine && <Big onClick={authorize} disabled={!uploaded || !!busy} className="bg-emerald-600 text-white hover:bg-emerald-700">{busy === 'ok' ? <Loader2 className="h-6 w-6 animate-spin" /> : <BadgeCheck className="h-6 w-6" />}Lanjut ke Admin Pusat</Big>}
           </Step>
           {mine && <button type="button" onClick={() => run('rel', () => claimSub(project, sub.id, false), 'Dokumen dilepas')} className="w-full py-2 text-center text-sm font-semibold text-ink-mute underline">Batal ambil (lepaskan dokumen)</button>}
         </>

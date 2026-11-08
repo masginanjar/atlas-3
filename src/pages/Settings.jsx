@@ -21,37 +21,67 @@ import Avatar from '../components/Avatar.jsx'
 import { useTabel, Th, CariTabel } from '../components/TabelSortir.jsx'
 import LoginSettings from '../components/LoginSettings.jsx'
 
+/** Kartu pengalih untuk bagian yang sudah pindah menu (K4) — tidak ada fungsi yang hilang, hanya satu tempat. */
+function Pindah({ ke, judul, teks, tombol }) {
+  return (
+    <Card className="p-6 text-center" data-pindah={ke}>
+      <p className="text-base font-bold text-ink">{judul}</p>
+      <p className="mx-auto mt-1 max-w-md text-sm text-ink-mute">{teks}</p>
+      <a href={ke} className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-ink px-5 text-sm font-bold text-white hover:bg-brand">{tombol} →</a>
+    </Card>
+  )
+}
+
 export default function Settings() {
   const { user } = useApp()
   const tabs = [
-    { value: 'profil', label: 'Profil' },
-    { value: 'petty', label: 'Petty Cash' },
-    can.managePeople(user) && { value: 'people', label: 'Master Data' },
-    can.manageVendors(user) && { value: 'vendor', label: 'Vendor' },
-    can.managePeople(user) && { value: 'kurir', label: 'Kurir' },
-    can.manageUsers(user) && { value: 'users', label: 'Pengguna' },
-    ['superadmin', 'admin_pusat'].includes(user.role) && { value: 'file', label: 'File' },
-    can.manageUsers(user) && { value: 'integrasi', label: 'Integrasi' },
-    user.role === 'superadmin' && { value: 'tampilan', label: 'Tampilan' },
+    { value: 'profil', label: 'Profil & kata sandi', grup: 'Saya' },
+    can.manageUsers(user) && { value: 'users', label: 'Pengguna', grup: 'Perusahaan' },
+    can.managePeople(user) && { value: 'people', label: 'Master data', grup: 'Perusahaan' },
+    can.managePeople(user) && { value: 'kurir', label: 'Kurir', grup: 'Perusahaan' },
+    ['superadmin', 'admin_pusat'].includes(user.role) && { value: 'file', label: 'File & portal', grup: 'Perusahaan' },
+    can.manageUsers(user) && { value: 'integrasi', label: 'Integrasi', grup: 'Perusahaan' },
+    user.role === 'superadmin' && { value: 'tampilan', label: 'Tampilan login', grup: 'Perusahaan' },
+    // Sudah pindah menu (K4) — tetap bisa dibuka lewat alamat lama, tampil sebagai pengalih
+    { value: 'petty', label: 'Petty Cash', grup: 'Pindah', sembunyi: true },
+    can.manageVendors(user) && { value: 'vendor', label: 'Vendor', grup: 'Pindah', sembunyi: true },
   ].filter(Boolean)
+  const grup = ['Saya', 'Perusahaan'].map((g) => [g, tabs.filter((t) => t.grup === g && !t.sembunyi)]).filter(([, l]) => l.length)
   // tab awal bisa ditentukan lewat rute, mis. #/settings/petty (dari kartu Petty Cash di dashboard)
   const fromHash = () => { const t = window.location.hash.replace(/^#\/?/, '').split('/')[1]; return tabs.some((x) => x.value === t) ? t : 'profil' }
   const [tab, setTab] = useState(fromHash)
   useEffect(() => { const f = () => setTab(fromHash()); window.addEventListener('hashchange', f); return () => window.removeEventListener('hashchange', f) }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">Setting</h1>
-      <Tabs tabs={tabs} value={tab} onChange={setTab} />
+    <div className="space-y-3">
+      <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">Pengaturan</h1>
+      <div className="grid gap-3 md:grid-cols-[200px_minmax(0,1fr)] md:items-start">
+        {/* Daftar kiri 2 kelompok (desktop) / baris chip geser (HP) */}
+        <nav aria-label="Bagian pengaturan" data-nav-pengaturan className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] md:sticky md:top-[calc(var(--appbar)+8px)] md:mx-0 md:flex-col md:gap-0 md:overflow-visible md:rounded-2xl md:bg-white md:p-2 md:ring-1 md:ring-slate-200">
+          {grup.map(([g, list]) => (
+            <div key={g} className="contents md:block">
+              <p className="hidden px-2 pb-1 pt-2 text-[10px] font-bold uppercase tracking-wide text-ink-mute md:block">{g}</p>
+              {list.map((t) => (
+                <button key={t.value} type="button" onClick={() => { setTab(t.value); window.history.replaceState(null, '', `#/settings/${t.value}`) }} aria-current={tab === t.value ? 'page' : undefined} data-tab-pengaturan={t.value}
+                  className={cx('flex h-9 shrink-0 items-center rounded-xl px-3 text-xs font-semibold ring-1 transition md:h-10 md:w-full md:rounded-lg md:text-left md:text-sm md:ring-0', tab === t.value ? 'bg-ink text-white ring-ink md:bg-brand-soft md:text-brand' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand md:text-ink md:hover:bg-slate-50')}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+        <div className="min-w-0 space-y-4">
       {tab === 'profil' && <Profile />}
-      {tab === 'petty' && <PettyCash />}
+      {tab === 'petty' && <Pindah ke="#/keuangan/petty" judul="Petty Cash sekarang ada di Keuangan" teks="Catat pengeluaran, lihat saldo, dan ajukan top up dari satu tempat: Keuangan → Petty Cash." tombol="Buka Keuangan → Petty Cash" />}
       {tab === 'people' && <People />}
       {tab === 'kurir' && <Couriers />}
-      {tab === 'vendor' && <Vendors />}
+      {tab === 'vendor' && <Pindah ke="#/vendor" judul="Data Vendor sekarang ada di Penjualan" teks="Daftar vendor, bahasa/layanan, termin, dan rekening dikelola di Penjualan → Vendor." tombol="Buka Penjualan → Vendor" />}
       {tab === 'users' && <Users />}
       {tab === 'file' && <><FileRules />{can.manageUsers(user) && <PortalSettings />}</>}
       {tab === 'integrasi' && <Integrations />}
       {tab === 'tampilan' && <LoginSettings />}
+        </div>
+      </div>
     </div>
   )
 }
@@ -118,7 +148,7 @@ function Profile() {
           <div className="mt-1 flex flex-wrap gap-1.5"><Pill className="bg-brand-soft text-brand">{roleLabel(user)}</Pill><Pill>{branchLabel(user)}</Pill></div>
         </div>
         <div className="ml-auto flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => go('projects')}>Kembali ke My Project</Button>
+          <Button variant="outline" size="sm" onClick={() => go('projects')}>Kembali ke Project</Button>
           <Button variant="outline" size="sm" onClick={signOut}>Keluar</Button>
         </div>
       </Card>
@@ -334,7 +364,7 @@ const OUT_CATS = ['ATK & Alat Kantor', 'Materai', 'Fotokopi / Print', 'Ongkir / 
 const dk = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(d)
 const shift = (key, n) => dk(new Date(new Date(`${key}T12:00:00+08:00`).getTime() + n * 864e5))
 
-function PettyCash() {
+export function PettyCash() {
   const { user, data, save, notify, pettyBalance } = useApp()
   const branches = pettyAccountsOf(user)
   const [open, setOpen] = useState(false)
@@ -475,7 +505,7 @@ function PettyCash() {
  * Pencarian, filter, dan urutan TIDAK hilang saat pop-up edit dibuka/ditutup,
  * karena keadaannya disimpan di komponen ini, bukan di dalam pop-up.
  */
-function CrudList({ table, rows, columns, empty, blank, renderForm, title, prepare, wide, kolom, filter, cariLabel }) {
+function CrudList({ table, rows, columns, empty, blank, renderForm, title, prepare, wide, kolom, filter, cariLabel, aksiBaris }) {
   const { save, remove, notify, ask } = useApp()
   const [edit, setEdit] = useState(null)
   const [pilihFilter, setPilihFilter] = useState({})
@@ -516,7 +546,7 @@ function CrudList({ table, rows, columns, empty, blank, renderForm, title, prepa
                   <thead>
                     <tr>
                       {kolom.map((c) => <Th key={c.key} kolom={c} sortKey={sortKey} sortDir={sortDir} onKlik={klikJudul} />)}
-                      <th style={{ width: '96px' }} className="text-right">Aksi</th>
+                      <th style={{ width: aksiBaris ? '190px' : '96px' }} className="text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -524,11 +554,14 @@ function CrudList({ table, rows, columns, empty, blank, renderForm, title, prepa
                       <tr key={r.id}>
                         {kolom.map((c) => <td key={c.key} className={c.num ? 'num' : undefined}>{c.sel(r)}</td>)}
                         <td>
+                          <span className="flex items-center justify-end gap-1.5">
+                          {aksiBaris && aksiBaris(r)}
                           <span className="aksi">
                             <button onClick={() => setEdit(r)} title={`Edit ${title.toLowerCase()}`} aria-label={`Edit ${r.name || r.layanan || title}`}
                               className="text-ink-mute hover:bg-slate-100 hover:text-ink"><Pencil className="h-4 w-4" /></button>
                             <button onClick={() => hapus(r)} title={`Hapus ${title.toLowerCase()}`} aria-label={`Hapus ${r.name || r.layanan || title}`}
                               className="text-rose-500 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button>
+                          </span>
                           </span>
                         </td>
                       </tr>
@@ -732,9 +765,9 @@ export function Vendors() {
 }
 
 /** Superadmin menetapkan kata sandi pengguna lain (dikerjakan di server). */
-function SandiPengguna({ e }) {
+function SandiPengguna({ e, bukaAwal = false }) {
   const { user, notify } = useApp()
-  const [buka, setBuka] = useState(false)
+  const [buka, setBuka] = useState(bukaAwal)
   const [sandi, setSandi] = useState('')
   const [lihat, setLihat] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -792,11 +825,28 @@ function SandiPengguna({ e }) {
 }
 
 function Users() {
-  const { data } = useApp()
+  const { data, user } = useApp()
+  const [sandiUntuk, setSandiUntuk] = useState(null)
+  const KOLOM_USER = [
+    { key: 'nama', label: 'Nama', sort: (r) => String(r.name || '').toLowerCase(),
+      sel: (r) => <><span className={cx('block text-sm font-semibold', r.active === false && 'text-ink-mute line-through')}>{r.name}</span><span className="block truncate text-[11px] text-ink-mute">{r.email}</span></> },
+    { key: 'role', label: 'Role', sort: (r) => roleLabel(r).toLowerCase(), sel: (r) => <span className="text-sm">{roleLabel(r)}{(r.extra_roles || []).length ? <span className="text-ink-mute"> +{r.extra_roles.length}</span> : null}</span> },
+    { key: 'cabang', label: 'Cabang', sort: (r) => String(isFreelance(r) ? 'zz' : r.branch || '').toLowerCase(), sel: (r) => <span className="text-sm">{isFreelance(r) ? 'Freelance' : [r.branch, ...(r.branches || [])].filter(Boolean).join(', ')}</span> },
+    { key: 'status', label: 'Status', sort: (r) => (r.active === false ? 1 : 0), sel: (r) => <span className={cx('rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1', r.active === false ? 'bg-slate-100 text-ink-mute ring-slate-200' : 'bg-emerald-50 text-emerald-700 ring-emerald-200')}>{r.active === false ? 'Nonaktif' : 'Aktif'}</span> },
+  ]
+  const FILTER_USER = [
+    { key: 'role', label: 'Semua role', aria: 'Filter role', opsi: (rows) => [...new Set(rows.map((r) => roleLabel(r)))].sort(), cocok: (r, v) => roleLabel(r) === v },
+    { key: 'cabang', label: 'Semua cabang', aria: 'Filter cabang', opsi: (rows) => [...new Set(rows.map((r) => (isFreelance(r) ? 'Freelance' : r.branch)).filter(Boolean))].sort(), cocok: (r, v) => (isFreelance(r) ? 'Freelance' : r.branch) === v },
+    { key: 'aktif', label: 'Aktif & nonaktif', aria: 'Filter status', opsi: () => ['Aktif', 'Nonaktif'], cocok: (r, v) => (v === 'Aktif' ? r.active !== false : r.active === false) },
+  ]
   return (
-    <CrudList table="users" rows={data.users} title="Pengguna" empty="Belum ada pengguna"
+    <>
+    <CrudList table="users" rows={data.users} title="Pengguna" empty="Belum ada pengguna" kolom={KOLOM_USER} filter={FILTER_USER} cariLabel="Cari nama / email…"
+      aksiBaris={user.role === 'superadmin' ? (r) => (
+        <button type="button" onClick={() => setSandiUntuk(r)} title="Atur kata sandi" data-aksi="atur-sandi"
+          className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[11px] font-semibold text-brand ring-1 ring-brand/30 hover:bg-brand hover:text-white"><ShieldCheck className="h-3.5 w-3.5" />Atur sandi</button>
+      ) : undefined}
       blank={() => ({ name: '', email: '', role: 'cs', branch: BRANCHES[0], active: true })}
-      columns={(r) => <><p className={cx('text-sm font-semibold', r.active === false && 'text-ink-mute line-through')}>{r.name}</p><p className="text-[11px] text-ink-mute">{r.email} · {roleLabel(r)}{r.extra_roles?.length ? ` + ${r.extra_roles.map((x) => roleLabel(r, x)).join(', ')}` : ''} · {isFreelance(r) ? 'Freelance' : r.branches?.length ? `${r.branch} + ${r.branches.filter((b) => b !== r.branch).join(', ')}` : r.branch}</p></>}
       renderForm={(e, set) => (
         <div className="space-y-3">
           <Field label="Nama" required><Input value={e.name} onChange={(x) => set({ ...e, name: x.target.value })} /></Field>
@@ -826,6 +876,10 @@ function Users() {
           <SandiPengguna e={e} />
         </div>
       )} />
+      <Sheet open={!!sandiUntuk} onClose={() => setSandiUntuk(null)} title={`Atur kata sandi — ${sandiUntuk?.name || ''}`}>
+        {sandiUntuk && <SandiPengguna e={sandiUntuk} bukaAwal />}
+      </Sheet>
+    </>
   )
 }
 

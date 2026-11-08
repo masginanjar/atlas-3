@@ -39,12 +39,30 @@ const SHARE_PORTAL_READY = import.meta.env.VITE_SHARE_PORTAL === '1'
 import { CourierSelect } from '../components/Courier.jsx'
 import { PriorityBadge } from '../components/Priority.jsx'
 import { PingButton } from '../components/Ping.jsx'
+import { MessageCircle, MapPin } from 'lucide-react'
+import { langkahBerikutnya, penanggungJawab } from '../lib/langkah.js'
 
-export default function ProjectDetail({ id, embedded }) {
+const TAB_DETAIL = [
+  ['catatan', 'Catatan & pengingat'],
+  ['file', 'File project'],
+  ['kirim', 'Pengiriman & kurir'],
+  ['portal', 'Portal pelanggan'],
+  ['riwayat', 'Riwayat'],
+]
+const digitsWa = (p) => { const d = String(p || '').replace(/\D/g, ''); return d.startsWith('0') ? `62${d.slice(1)}` : d }
+
+export default function ProjectDetail({ id, embedded, focusSub }) {
   const { user, data, remove, save, notify, ask } = useApp()
   const project = data.projects.find((p) => p.id === id)
   const [editing, setEditing] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [tab, setTab] = useState('catatan')
+  // Tautan dari daftar (#/projects/<id>/<sub>) menggulir ke kartu sub project yang dimaksud
+  useEffect(() => {
+    if (!focusSub) return
+    const t = setTimeout(() => document.querySelector(`[data-sub-card="${focusSub}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300)
+    return () => clearTimeout(t)
+  }, [focusSub, id])
 
   if (!project) return <Card><Empty title="Project tidak ditemukan" action={<Button variant="outline" onClick={() => go('projects')}>Kembali</Button>} /></Card>
   if (!scopeByBranch(user, [project]).length) return <Card><Empty icon={Lock} title="Project ini tidak termasuk akses Anda" /></Card>
@@ -56,82 +74,107 @@ export default function ProjectDetail({ id, embedded }) {
     if (!(await ask(`Hapus project ${invoiceLabel(project.invoice_no)}? Tindakan ini tidak bisa dibatalkan.`))) return
     await remove('projects', project.id); notify('Project dihapus'); go('projects')
   }
+  const lihatPelanggan = can.seeCustomerDetail(user)
+  const print = project.about?.print_location || project.branch
+  const printBeda = print !== project.branch
+  const telp = project.customer?.phone || project.customer?.ship?.phone
+  const kota = project.customer?.ship?.city
+  const kurir = data.couriers?.find((k) => k.id === project.about?.courier)?.name
+  const prog = progressOf(project)
+  const tabs = TAB_DETAIL.filter(([k]) => (k === 'portal' || k === 'kirim') ? lihatPelanggan : true)
+  const nFile = collectFiles(project).length
+  const subs = project.sub_projects || []
 
   return (
-    <div className="space-y-4">
-      {/* Di panel samping tidak perlu tombol kembali — cukup tutup panelnya */}
-      {!embedded && <button onClick={() => go('projects')} className="inline-flex items-center gap-1 text-sm font-semibold text-ink-mute hover:text-ink"><ArrowLeft className="h-4 w-4" />My Project</button>}
+    <div className="space-y-3">
+      {!embedded && <button onClick={() => go('projects')} className="inline-flex items-center gap-1 text-sm font-semibold text-ink-mute hover:text-ink"><ArrowLeft className="h-4 w-4" />Project</button>}
 
-      <Card className={embedded ? 'p-3' : 'p-4 md:p-5'}>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            {!embedded && <h1 className="truncate text-xl font-extrabold tracking-tight sm:text-2xl" title={invoiceLabel(project.invoice_no)}>{invoiceLabel(project.invoice_no)}</h1>}
-            <ProjectTypes project={project} className="mt-1" />
+      {/* ===== Kepala project — melekat di atas saat digulir (K11) ===== */}
+      <Card className={cx('p-3 sm:p-4', !embedded && 'md:sticky md:top-[calc(var(--appbar)+8px)] md:z-20 md:shadow-md')} data-kepala-project>
+        <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            {!embedded && <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl" title={invoiceLabel(project.invoice_no)}>{invoiceLabel(project.invoice_no)}</h1>}
+            <ProjectTypes project={project} />
+            <Pill title={printBeda ? `Cabang ${project.branch}, dicetak di ${print}` : `Cabang & print ${project.branch}`}>{project.branch}{printBeda ? <> · <Printer className="h-3 w-3" /><b className="text-pop">{print}</b></> : <> · <Printer className="h-3 w-3" />{print}</>}</Pill>
+            <ProjectPayBadge project={project} />
+            <PriorityBadge p={project.about?.priority} />
+            {project.about?.cs_name && <Pill>CS {String(project.about.cs_name).replace(/\s*\(.*\)\s*$/, '')}</Pill>}
           </div>
-          <div className="flex flex-wrap gap-2">
-            {SHARE_PORTAL_READY && (can.editProject(user) || user.role === 'akunting') && <Button size="sm" onClick={() => setSharing(true)}><Share2 className="h-3.5 w-3.5" />Bagikan / Kirim Notifikasi</Button>}
-            {can.editProject(user) && <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Pencil className="h-3.5 w-3.5" />Edit</Button>}
-            {can.deleteProject(user) && <Button size="sm" variant="danger" onClick={del}><Trash2 className="h-3.5 w-3.5" /></Button>}
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            {project.about?.deadline && (
+              <div className={cx('rounded-xl px-2.5 py-1 text-right ring-1', d !== null && d < 0 ? 'bg-rose-50 text-rose-700 ring-rose-200' : d === 0 ? 'bg-rose-50 text-rose-700 ring-rose-200' : d === 1 ? 'bg-amber-50 text-amber-800 ring-amber-200' : 'bg-slate-50 text-ink ring-slate-200')} data-tenggat-kepala>
+                <p className="text-[10px] font-bold uppercase tracking-wide opacity-70">Tenggat</p>
+                <p className="text-sm font-extrabold leading-tight tabular-nums">{tgl(project.about.deadline)} · {project.about.deadline_time || '17:00'}</p>
+                <p className="text-[11px] font-semibold">{d === null ? '' : d < 0 ? `Terlambat ${-d} hari` : d === 0 ? 'Hari ini' : d === 1 ? 'Besok' : `${d} hari lagi`}</p>
+              </div>
+            )}
+            {SHARE_PORTAL_READY && (can.editProject(user) || user.role === 'akunting') && <Button size="sm" onClick={() => setSharing(true)}><Share2 className="h-3.5 w-3.5" />Bagikan</Button>}
+            {can.editProject(user) && <Button size="sm" variant="outline" onClick={() => setEditing(true)} title="Ubah data project, tenggat, prioritas"><Pencil className="h-3.5 w-3.5" /><span className="hidden sm:inline">Edit</span></Button>}
+            {can.deleteProject(user) && <Button size="sm" variant="danger" onClick={del} aria-label="Hapus project"><Trash2 className="h-3.5 w-3.5" /></Button>}
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          <Pill>Cabang {project.branch}</Pill>
-          {project.about?.print_location && <Pill>Print {project.about.print_location === 'Vendor' ? 'Vendor (eksternal)' : project.about.print_location}</Pill>}
-          <PrintBadge project={project} />
-          <ProjectPayBadge project={project} />
-          {project.about?.cs_name && <Pill>CS {project.about.cs_name}</Pill>}
-          <PriorityBadge p={project.about?.priority} />
-          {project.about?.received_at && <Pill>Masuk {tgl(project.about.received_at)}</Pill>}
-          {project.about?.deadline && <Pill className={cx(d !== null && d <= 1 && 'bg-rose-50 text-rose-600')}><CalendarClock className="h-3 w-3" />Deadline {tgl(project.about.deadline)} · {project.about.deadline_time || '17:00'}</Pill>}
+        {/* Baris 2: pelanggan + telepon (WA) + kota · masuk · progres */}
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+          <span className="flex min-w-0 items-center gap-1.5 font-semibold text-ink"><UserRound className="h-4 w-4 shrink-0 text-ink-mute" /><span className="truncate">{project.customer?.name || '—'}</span></span>
+          {lihatPelanggan && telp && (
+            <span className="flex items-center gap-1.5 text-ink-soft">
+              <CopyText text={telp} label="Telepon" />
+              <a href={`https://wa.me/${digitsWa(telp)}`} target="_blank" rel="noreferrer" data-aksi="wa"
+                className="inline-flex h-7 items-center gap-1 rounded-lg bg-emerald-50 px-2 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100" title="Chat WhatsApp pelanggan"><MessageCircle className="h-3.5 w-3.5" />WA</a>
+            </span>
+          )}
+          {lihatPelanggan && kota && <button type="button" onClick={() => setTab('kirim')} className="inline-flex items-center gap-1 text-xs text-ink-mute hover:text-brand" title="Lihat alamat pengiriman"><MapPin className="h-3.5 w-3.5" />{kota}{kurir ? ` · ${kurir}` : ''}</button>}
+          {!lihatPelanggan && <span className="inline-flex items-center gap-1 text-xs text-ink-mute"><Lock className="h-3.5 w-3.5" />Kontak pelanggan disembunyikan untuk role Anda</span>}
+          {project.about?.received_at && <span className="text-xs text-ink-mute">Masuk {tgl(project.about.received_at)}</span>}
+          <span className="ml-auto flex items-center gap-2"><span className="w-24 sm:w-32"><Progress value={prog} /></span><span className="text-xs font-bold tabular-nums">{prog}%</span></span>
         </div>
-        {project.about?.notes && (
-          <div className="mt-3 flex items-start gap-2.5 rounded-xl border-l-4 border-amber-400 bg-amber-50 px-3.5 py-2.5 ring-1 ring-amber-200" role="note">
-            <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-            <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">Catatan project</p><p className="whitespace-pre-line text-sm font-medium text-amber-950">{project.about.notes}</p></div>
-          </div>
-        )}
-        <div className="mt-4 border-t border-slate-100 pt-4">
-          {!can.seeCustomerDetail(user) ? (
-            <SectionCard tone="sky" icon={UserRound} title="Pelanggan" className="!p-4">
-              <p className="text-base font-bold text-ink">{project.customer?.name || '—'}</p>
-              <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-mute"><Lock className="h-3.5 w-3.5" />Kontak & alamat pelanggan disembunyikan untuk role Anda.</p>
-            </SectionCard>
-          ) : (
+      </Card>
+
+      {project.about?.notes && (
+        <div className="flex items-start gap-2.5 rounded-xl border-l-4 border-amber-400 bg-amber-50 px-3.5 py-2.5 ring-1 ring-amber-200" role="note">
+          <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">Catatan project</p><p className="whitespace-pre-line text-sm font-medium text-amber-950">{project.about.notes}</p></div>
+        </div>
+      )}
+
+      {/* ===== Sub project — berdampingan di layar lebar bila lebih dari satu ===== */}
+      <h2 className="pt-1 font-bold">Sub Project <span className="text-ink-mute">({subs.length})</span></h2>
+      <div className={cx('grid gap-3', !embedded && subs.length > 1 && 'xl:grid-cols-2 xl:items-start')}>
+        {subs.map((sb, i) => <SubProject key={sb.id} n={i + 1} project={project} sub={sb} compact={embedded} />)}
+      </div>
+
+      {/* ===== Tab bawah — hanya yang dibuka yang dirender ===== */}
+      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pt-1 [scrollbar-width:none]" role="tablist" aria-label="Bagian lain project" data-tab-detail>
+        {tabs.map(([k, l]) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} data-tab-detail-item={k}
+            className={cx('flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold ring-1 transition', tab === k ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand')}>
+            {l}{k === 'file' && nFile > 0 && <span className={cx('tabular-nums', tab === k ? 'text-white/70' : 'text-ink-mute')}>{nFile}</span>}
+          </button>
+        ))}
+      </div>
+      <div data-isi-tab={tab}>
+        {tab === 'catatan' && <ProjectItems project={project} />}
+        {tab === 'file' && <FileManager project={project} />}
+        {tab === 'kirim' && lihatPelanggan && (
           <div className="grid gap-4 lg:grid-cols-2">
-            <SectionCard tone="sky" icon={UserRound} title="Data Pelanggan" aside="Zoho Books" className="!p-4 self-start" foldKey="customer" defaultOpen={false}
-              summary={[project.customer?.name, project.customer?.phone].filter(Boolean).join(' · ')}>
+            <SectionCard tone="sky" icon={UserRound} title="Data Pelanggan" aside="Zoho Books" className="!p-4 self-start">
               <CustomerInfo c={project.customer || {}} part="customer" />
             </SectionCard>
-            <SectionCard tone="peach" icon={Truck} title="Alamat Pengiriman & Kurir" className="!p-4 self-start" foldKey="shipping" defaultOpen={false}
-              summary={[project.customer?.ship?.attention, project.customer?.ship?.city, data.couriers?.find((k) => k.id === project.about?.courier)?.name, project.about?.resi_no && `Resi ${project.about.resi_no}`].filter(Boolean).join(' · ') || 'Belum ada alamat / kurir'}>
+            <SectionCard tone="peach" icon={Truck} title="Alamat Pengiriman & Kurir" className="!p-4 self-start">
               <div className="space-y-4">
                 <CustomerInfo c={project.customer || {}} part="shipping" />
                 <CourierSelect value={project.about?.courier} printLocation={project.about?.print_location}
-                  onChange={async (id) => { await save('projects', { ...project, about: { ...project.about, courier: id } }); notify('Kurir diperbarui') }} />
+                  onChange={async (cid) => { await save('projects', { ...project, about: { ...project.about, courier: cid } }); notify('Kurir diperbarui') }} />
                 <DeliveryRule type={deliveryType(project, data.couriers)} />
                 <ResiFields about={project.about || {}}
                   onChange={async (patch) => { await save('projects', { ...project, about: { ...project.about, ...patch } }); notify('Info resi disimpan') }} />
               </div>
             </SectionCard>
           </div>
-          )}
-          <p className="mb-1 mt-4 text-[11px] font-semibold uppercase tracking-wide text-ink-mute">Progres</p>
-          <div className="flex items-center gap-2"><Progress value={progressOf(project)} /><span className="text-xs font-bold">{progressOf(project)}%</span></div>
-        </div>
-      </Card>
-
-      <h2 className="pt-2 font-bold">Sub Project <span className="text-ink-mute">({project.sub_projects.length})</span></h2>
-      <div className="space-y-3">
-        {project.sub_projects.map((s, i) => <SubProject key={s.id} n={i + 1} project={project} sub={s} compact={embedded} />)}
+        )}
+        {tab === 'portal' && lihatPelanggan && <CustomerAccess project={project} />}
+        {tab === 'riwayat' && <ProjectActivity project={project} />}
       </div>
-
-      {can.seeCustomerDetail(user) && <CustomerAccess project={project} />}
-
-      <FileManager project={project} />
-
-      <ProjectItems project={project} />
-
-      <ProjectActivity project={project} />
 
       {editing && <ProjectForm project={project} onClose={() => setEditing(false)} />}
       {sharing && <ShareSheet project={project} open={sharing} onClose={() => setSharing(false)} />}
@@ -147,18 +190,17 @@ function SubProject({ n, project, sub, compact }) {
   const done = sub.stage === DONE
 
   return (
-    <Card className="overflow-hidden">
-      <div className="flex items-start justify-between gap-2 p-4 pb-3">
+    <Card className="overflow-hidden" data-sub-card={sub.id}>
+      <div className="flex items-start justify-between gap-2 p-4 pb-2">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold text-ink-mute">SUB {n}</p>
           <p className="font-bold">{sub.title}</p>
           <SubMeta sub={sub} />
         </div>
-        {done ? <Pill className="bg-emerald-50 text-emerald-700"><Check className="h-3 w-3" />Selesai</Pill> : <Pill className="bg-brand-soft text-brand">{stages[idx]?.label}</Pill>}
+        {done ? <Pill className="bg-emerald-50 text-emerald-700"><Check className="h-3 w-3" />Selesai</Pill> : <Pill className="bg-brand-soft text-brand">{stages[idx]?.short || stages[idx]?.label}</Pill>}
       </div>
 
-      {/* Alur tahap — mendatar di halaman penuh, menurun saat di panel samping agar muat */}
-      <p className="px-4 pb-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink-mute">Alur: {CATEGORIES[flow]?.label}</p>
+      {/* Alur tahap: titik-titik dengan label hanya pada tahap aktif (K11); di panel samping tetap daftar menurun */}
       {compact ? (
         <ol className="space-y-1 px-4 pb-3">
           {stages.map((st, i) => (
@@ -173,19 +215,17 @@ function SubProject({ n, project, sub, compact }) {
           ))}
         </ol>
       ) : (
-        <div className="overflow-x-auto px-4 pb-3">
-          <ol className="flex w-max min-w-full items-center gap-1">
-            {stages.map((st, i) => (
-              <li key={st.key} className="flex items-center gap-1">
-                <span className={cx('flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold',
-                  i < idx ? 'bg-emerald-50 text-emerald-700' : i === idx ? 'bg-ink text-white' : 'bg-slate-100 text-ink-mute')}>
-                  {i < idx ? <Check className="h-3 w-3" /> : <span>{i + 1}</span>}{st.short || st.label}
-                </span>
-                {i < stages.length - 1 && <span className={cx('h-px w-3', i < idx ? 'bg-emerald-300' : 'bg-slate-200')} />}
-              </li>
-            ))}
-          </ol>
-        </div>
+        <ol className="flex flex-wrap items-center gap-1 px-4 pb-3" aria-label={`Alur ${CATEGORIES[flow]?.label}: tahap ${idx + 1} dari ${stages.length}`} data-alur-titik>
+          {stages.map((st, i) => (
+            <li key={st.key} className="flex items-center gap-1" title={`${i + 1}. ${st.label}`}>
+              {i === idx && !done
+                ? <span className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-ink px-2.5 py-0.5 text-[11px] font-semibold text-white"><span>{i + 1}</span>{st.short || st.label}</span>
+                : <span className={cx('block h-2.5 w-2.5 rounded-full', i < idx || done ? 'bg-emerald-500' : 'bg-slate-200')} />}
+              {i < stages.length - 1 && <span className={cx('h-px w-2.5', i < idx || done ? 'bg-emerald-300' : 'bg-slate-200')} />}
+            </li>
+          ))}
+          <li className="ml-1 text-[10px] text-ink-mute">{CATEGORIES[flow]?.label}</li>
+        </ol>
       )}
 
       {(isVendorFlow(flow) || flow === 'tr_bill') && (sub.stage !== 'pengajuan' || sub.data?.vendor || sub.translator_kind === 'vendor') && (
@@ -320,12 +360,16 @@ export function StagePanel({ project, sub, stage }) {
       : stage.assignee && sub.data?.[stage.assignee] ? nameOf(sub.data[stage.assignee])
       : stage.printBranch ? `staf cabang ${project.about?.print_location || project.branch}`
       : stage.roles.filter((r) => r !== 'superadmin').map((r) => ROLES[r].label).join(' / ')
+    const stagesAll = stagesOf(flowOf(sub, project)); const iNow = stagesAll.findIndex((x) => x.key === stage.key); const nx = stagesAll[iNow + 1]
     return (
-      <div className="mx-4 mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
-        <Lock className="h-4 w-4 shrink-0" /><span className="min-w-0 flex-1">Menunggu <b>{who}</b> memproses tahap <b>{stage.label}</b>.</span>
-        <PingButton project={project} sub={sub} stage={stage} />
-        {stage.key === 'penerjemahan' && <GantiPenerjemahBtn project={project} sub={sub} />}
-        {canOverride && <Button size="sm" variant="outline" onClick={() => setOverrideMode(true)} title="Lewati menunggu role ini — wajib isi alasan & data tahap"><FastForward className="h-3.5 w-3.5" />Lanjutkan ke Tahap Berikutnya</Button>}
+      <div className="mx-4 mb-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-900 ring-1 ring-amber-200" data-kotak-berikutnya="menunggu">
+        <p className="flex items-center gap-1.5"><Lock className="h-3.5 w-3.5 shrink-0" /><span><b>Sekarang:</b> {stage.label} oleh <b>{who}</b>{nx ? <span className="text-amber-700"> · berikutnya {nx.short || nx.label}</span> : ''}</span></p>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 font-bold">Langkah berikutnya (Anda):</span>
+          <PingButton project={project} sub={sub} stage={stage} />
+          {stage.key === 'penerjemahan' && <GantiPenerjemahBtn project={project} sub={sub} />}
+          {canOverride && <Button size="sm" variant="outline" onClick={() => setOverrideMode(true)} title="Lewati menunggu role ini — wajib isi alasan & data tahap"><FastForward className="h-3.5 w-3.5" />Lanjutkan sendiri</Button>}
+        </div>
       </div>
     )
   }
@@ -364,8 +408,8 @@ export function StagePanel({ project, sub, stage }) {
   }
 
   return (
-    <div className="mx-4 mb-3 rounded-xl ring-2 ring-brand/20">
-      <div className={cx('rounded-t-xl px-3 py-2', overriding ? 'bg-amber-100' : 'bg-brand-soft')}><p className={cx('text-xs font-bold', overriding ? 'text-amber-900' : 'text-brand')}>Tahap saat ini: {stage.label}{overriding && ' · Mode lanjutkan tanpa menunggu role'}</p>{stage.hint && <p className="text-[11px] text-ink-soft">{stage.hint}</p>}</div>
+    <div className="mx-4 mb-3 rounded-xl ring-2 ring-brand/20" data-kotak-berikutnya="kerja">
+      <div className={cx('rounded-t-xl px-3 py-2', overriding ? 'bg-amber-100' : 'bg-brand-soft')}><p className={cx('text-xs font-bold', overriding ? 'text-amber-900' : 'text-brand')}><span className="font-semibold opacity-70">Sekarang:</span> {stage.label}{overriding && ' · Mode lanjutkan tanpa menunggu role'}<span className="ml-2 font-semibold opacity-70">Langkah berikutnya (Anda):</span> {stage.action || 'Simpan'}</p>{stage.hint && <p className="text-[11px] text-ink-soft">{stage.hint}</p>}</div>
       <RevisionNote sub={sub} className="mx-3 mt-3 rounded-xl" />
       <TolakNote sub={sub} className="mx-3 mt-3 rounded-xl" />
       <GantiNote sub={sub} className="mx-3 mt-3 rounded-xl" />

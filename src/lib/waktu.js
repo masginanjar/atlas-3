@@ -45,3 +45,12 @@ export function jamDi(tz, v = new Date()) {
 
 /** [{kode:'WIB', jam:'21.46'}, {kode:'WITA', jam:'22.46'}] */
 export const jamDuaZona = (v = new Date()) => ZONA.map(({ kode, tz }) => ({ kode, jam: jamDi(tz, v) }))
+
+/** Deadline otomatis: Sameday = hari masuk; Super Ekspres +1; Ekspres +2; Normal +3 (lewati Minggu). */
+export function autoDeadline(received, priority) {
+  if (!received) return ''
+  const add = { Sameday: 0, 'Super Ekspres': 1, Ekspres: 2 }[priority] ?? 3
+  const d = new Date(`${String(received).slice(0, 10)}T12:00:00+08:00`)
+  for (let i = 0; i < add; i++) { d.setUTCDate(d.getUTCDate() + 1); if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() + 1) }
+  return d.toISOString().slice(0, 10)
+}
