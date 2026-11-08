@@ -13,6 +13,12 @@ import { cariStok, cariPeringatan, kunciPeringatan, teksPeringatan, sudahTercata
 const Ctx = createContext(null)
 export const useApp = () => useContext(Ctx)
 
+/** Tanggal 1 bulan lalu (YYYY-MM-DD) — batas bawaan pemuatan faktur Zoho. */
+export const awalBulanLalu = () => {
+  const d = new Date()
+  return `${new Date(d.getFullYear(), d.getMonth() - 1, 1).toLocaleDateString('sv-SE')}`
+}
+
 export function AppProvider({ children }) {
   const [baseUser, setUser] = useState(null)
   const [data, setData] = useState({ users: [], people: [], projects: [], petty_cash: [], couriers: [], notifications: [], requests: [], perf_daily: [], share_links: [], share_log: [], vendor_bills: [], fund_balances: [], app_settings: [], activity_log: [], pings: [], notes: [], todos: [], reminders: [], messages: [], affidavit_stok: [], affidavit_pakai: [], affidavit_kirim: [], jadwal: [], cuti: [], mitra: [], kapasitas: [] })
@@ -134,19 +140,23 @@ export function AppProvider({ children }) {
   // ---------- faktur Zoho (menu Faktur & badge "belum dibuat project") ----------
   const [invoices, setInvoices] = useState(null) // null = belum dimuat
   const [invoiceErr, setInvoiceErr] = useState('')
-  const refreshInvoices = useCallback(async () => {
+  // Periode faktur yang sedang dimuat. Bawaannya bulan ini + bulan lalu supaya
+  // faktur bulan sebelumnya tetap terbawa, bukan hanya bulan terbaru.
+  const [invoiceRange, setInvoiceRange] = useState(() => ({ from: awalBulanLalu(), to: '' }))
+  const refreshInvoices = useCallback(async (r) => {
+    const rng = r && typeof r === 'object' ? r : invoiceRange
     try {
-      const list = await zoho.recentInvoices()
+      const list = await zoho.recentInvoices({ from: rng.from || '', to: rng.to || '' })
       setInvoices(list.slice().sort((a, b) => `${b.date || ''} ${b.created_time || ''}`.localeCompare(`${a.date || ''} ${a.created_time || ''}`)))
       setInvoiceErr(''); return true
     } catch (e) { setInvoiceErr(e.message || 'Gagal mengambil data Zoho'); return false }
-  }, [])
+  }, [invoiceRange])
   useEffect(() => {
     if (!baseUser || WORKER_ROLES.includes(baseUser.role)) return
     refreshInvoices()
     const t = setInterval(refreshInvoices, 10 * 60000) // segarkan berkala; tidak membuat data ganda
     return () => clearInterval(t)
-  }, [baseUser?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [baseUser?.id, invoiceRange.from, invoiceRange.to]) // eslint-disable-line react-hooks/exhaustive-deps
   /** Invoice yang belum punya project (dipakai untuk angka di menu Faktur). */
   const unlinkedInvoices = useMemo(() => {
     if (!invoices || !user) return 0
@@ -698,11 +708,11 @@ export function AppProvider({ children }) {
   const value = useMemo(() => ({
     user, setActiveRole, booting, data, refresh, signIn, signUp, signOut, MODE, save, remove, processStage, pettyBalance, claimSub, myNotifications, markRead, nameOf, patchSubData, saveBiaya, assignTranslator, returnPengajuan, gantiPenerjemah, tolakTugas, myPings, sendPing, markPingRead, lastPingTo, setAvatar, updateProfile, PING_COOLDOWN_MS, PING_DAILY_MAX,
     notify, toast, dismissToast, branchFilter, setBranchFilter, ask, confirmState, setConfirmState, liveStatus,
-    invoices, invoiceErr, refreshInvoices, unlinkedInvoices,
+    invoices, invoiceErr, refreshInvoices, unlinkedInvoices, invoiceRange, setInvoiceRange,
     chatMessages, chatUnread, chatTotals, sendMessage, sendChatPing, markChatRead, sendTyping, typing, PING_MAX_24H, PING_GAP_MS,
     setStokAffidavit, pakaiAffidavit, catatPengiriman, terimaPengiriman, refreshTables,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [user, booting, data, toast, branchFilter, pettyBalance, confirmState, myNotifications, nameOf, myPings, lastPingTo, liveStatus, invoices, invoiceErr, unlinkedInvoices, chatMessages, chatUnread, chatTotals, typing, sendTyping])
+  }), [user, booting, data, toast, branchFilter, pettyBalance, confirmState, myNotifications, nameOf, myPings, lastPingTo, liveStatus, invoices, invoiceErr, unlinkedInvoices, invoiceRange, refreshInvoices, chatMessages, chatUnread, chatTotals, typing, sendTyping])
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

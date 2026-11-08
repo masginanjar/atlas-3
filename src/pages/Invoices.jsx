@@ -7,6 +7,7 @@ import { canSeePayment } from '../config/menuAccess.js'
 import { go } from '../lib/router.js'
 import { Button, Card, cx } from '../components/ui.jsx'
 import { useTabel, Th, CariTabel } from '../components/TabelSortir.jsx'
+import { PilihPeriode, hariIni, tambahHari } from '../components/ToolbarRingkas.jsx'
 import CopyText from '../components/CopyText.jsx'
 import ProjectForm from './ProjectForm.jsx'
 
@@ -16,6 +17,31 @@ import { PayBadge } from '../components/PayBadge.jsx'
 
 
 const tgl = (d) => (d ? new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')
+
+/**
+ * Periode faktur. Faktur diambil dari salinan Zoho per rentang tanggal, jadi
+ * pilihannya per bulan — tanpa ini, bulan terbaru bisa menghabiskan batas baris
+ * sehingga bulan sebelumnya tidak pernah muncul.
+ */
+export const periodeFaktur = (today = hariIni()) => {
+  const bln = (geser) => {
+    const d = new Date(`${today.slice(0, 7)}-01T00:00:00Z`)
+    d.setUTCMonth(d.getUTCMonth() + geser)
+    const awal = d.toISOString().slice(0, 10)
+    d.setUTCMonth(d.getUTCMonth() + 1)
+    return { from: awal, to: tambahHari(d.toISOString().slice(0, 10), -1) }
+  }
+  const namaBln = (r) => new Date(`${r.from}T00:00:00Z`).toLocaleDateString('id-ID', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+  const ini = bln(0); const lalu = bln(-1); const lalu2 = bln(-2)
+  return [
+    ['30 hari', { from: tambahHari(today, -29), to: today }],
+    ['Bulan ini & lalu', { from: lalu.from, to: '' }],
+    [namaBln(ini), { from: ini.from, to: ini.to }],
+    [namaBln(lalu), lalu],
+    [namaBln(lalu2), lalu2],
+    ['Semua', { from: '', to: '' }],
+  ]
+}
 
 /** Kolom tabel Faktur — judulnya bisa diklik untuk mengurutkan. */
 const KOLOM = [
@@ -27,17 +53,21 @@ const KOLOM = [
 ]
 
 export default function Invoices() {
-  const { user, data, notify, invoices: all, invoiceErr: err, refreshInvoices, branchFilter } = useApp()
+  const { user, data, notify, invoices: all, invoiceErr: err, refreshInvoices, branchFilter, invoiceRange, setInvoiceRange } = useApp()
   // Faktur dipisah per cabang lewat 3 angka di depan nomor invoice (101 Bali, 202 Jakarta, dst.)
   const rows = useMemo(() => {
     if (!all) return all
     const mine = branchesOf(user)
+    const { from, to } = invoiceRange || {}
     return all.filter((i) => {
+      const d = String(i.date || '').slice(0, 10)
+      if (from && d < from) return false
+      if (to && d > to) return false
       const b = i.branch || branchOfInvoice(i.invoice_no)
       if (can.seeAllBranches(user)) return branchFilter === 'Semua' || b === branchFilter
       return b && mine.includes(b)
     })
-  }, [all, user, branchFilter])
+  }, [all, user, branchFilter, invoiceRange])
   const [busy, setBusy] = useState(false)
   const [fCabang, setFCabang] = useState('')
   const [fStatus, setFStatus] = useState('')
@@ -132,6 +162,7 @@ export default function Invoices() {
       {/* Toolbar: cari · filter cabang & status — tinggi kontrol 34px */}
       <div className="flex flex-wrap items-center gap-2">
         <CariTabel value={cari} onChange={setCari} label="Cari no. invoice atau nama pelanggan…" className="basis-64" />
+        <PilihPeriode range={invoiceRange} setRange={setInvoiceRange} pilihan={periodeFaktur()} label="Periode" className="!h-[34px]" />
         <select value={fCabang} onChange={(e) => setFCabang(e.target.value)} aria-label="Filter cabang"
           className="h-[34px] w-auto max-w-full rounded-lg border-0 bg-white pl-2.5 pr-7 text-[13px] font-semibold text-ink ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-brand">
           <option value="">Semua cabang</option>

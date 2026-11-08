@@ -135,12 +135,28 @@ export const zoho = {
   /**
    * Daftar invoice terbaru lintas pelanggan — untuk menu Faktur.
    * Urut tanggal terbaru dulu; waktu pembuatan jadi pembeda bila tanggalnya sama.
+   *
+   * `from`/`to` (YYYY-MM-DD, boleh kosong) disaring langsung di database.
+   * Ini penting: tanpa saringan tanggal, batas baris bisa habis dipakai bulan
+   * terbaru saja sehingga bulan sebelumnya tidak pernah ikut terbawa.
    */
-  async recentInvoices({ limit = 200 } = {}) {
+  async recentInvoices({ limit = 3000, from = '', to = '' } = {}) {
     if (MODE === 'supabase') {
-      // salinan Zoho di Supabase: kolomnya zoho_id (bukan zoho_invoice_id) dan tanpa created_time
-      const rows = must(await sb().from('zoho_invoices').select('zoho_id,invoice_no,date,customer_name,customer_id,status,total,balance')
-        .order('date', { ascending: false }).order('invoice_no', { ascending: false }).limit(limit)) || []
+      // salinan Zoho di Supabase: kolomnya zoho_id (bukan zoho_invoice_id) dan tanpa created_time.
+      // Server memotong satu permintaan di 1.000 baris, jadi diambil bertahap
+      // (halaman 1.000 baris) sampai periodenya habis — bukan hanya 1.000 teratas.
+      const HAL = 1000
+      const rows = []
+      for (let awal = 0; awal < limit; awal += HAL) {
+        let q = sb().from('zoho_invoices').select('zoho_id,invoice_no,date,customer_name,customer_id,status,total,balance')
+        if (from) q = q.gte('date', from)
+        if (to) q = q.lte('date', to)
+        const batch = must(await q
+          .order('date', { ascending: false }).order('invoice_no', { ascending: false })
+          .range(awal, Math.min(awal + HAL, limit) - 1)) || []
+        rows.push(...batch)
+        if (batch.length < HAL) break
+      }
       return rows.map((r) => ({
         zoho_invoice_id: r.zoho_id, invoice_no: r.invoice_no, date: r.date, created_time: '',
         customer_name: r.customer_name || '', customer_id: r.customer_id || '', status: r.status,
@@ -149,7 +165,7 @@ export const zoho = {
       }))
     }
     if (!ZOHO_LIVE) return demoInvoiceList()
-    return (await api(`/api/zoho/invoices?recent=1&limit=${limit}`)).invoices || []
+    return (await api(`/api/zoho/invoices?recent=1&limit=${limit}&from=${from}&to=${to}`)).invoices || []
   },
   /**
    * Status satu invoice (untuk badge Pembayaran). null = tidak ditemukan / belum tersedia.
