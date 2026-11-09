@@ -34,7 +34,7 @@ const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() +
 import { perfDemo } from './perfDemo.js'
 import { compactDemo } from './compactDemo.js'
 import { isFreelance } from '../config/access.js'
-const KEY = 'atlas-alfa-v20' // naikkan versi bila struktur data demo berubah
+const KEY = 'atlas-alfa-v22' // naikkan versi bila struktur data demo berubah
 let mem = null
 function load() {
   if (mem) return mem
@@ -323,6 +323,10 @@ const demo = {
   async reload() { mem = null; load() },
   async cleanup() { const f = cleanStorage(); shrink(load()); save(); return f },
   token: async () => null,
+  // nomor registrasi (demo): dihitung di registrasi.js dari data lokal
+  async regNext() { throw new Error('demo') },
+  async regInsert(rows) { const arr = (load().registrations ||= []); for (const r of rows || []) { if (arr.some((x) => x.reg_no === r.reg_no)) throw new Error(`Nomor ${r.reg_no} sudah dipakai`); arr.push({ ...r, created_at: new Date().toISOString() }) } save(); return rows },
+  async regList({ project_id, invoice_no } = {}) { return structuredClone((load().registrations || []).filter((r) => (project_id && r.project_id === project_id) || (invoice_no && r.invoice_no === invoice_no))) },
 }
 
 // ---------------- LIVE (InsForge) ----------------

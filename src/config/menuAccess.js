@@ -45,3 +45,5 @@ export const canSeePayment = (u) => !WORKER_ROLES.includes(u?.role)
 export const canSeeAffidavit = (u) => !!u && !WORKER_ROLES.includes(u.role)
 /** Boleh memutuskan pengajuan (ACC Direktur, transfer Akunting). */
 export const isApprover = (u) => ['direktur', 'akunting', 'superadmin'].includes(u?.role)
+/** Beranda (info ringan): semua staf kantor; Penerjemah, Proofreader, Otorisator tidak. */
+export const canSeeBeranda = (u) => !!u && !['penerjemah', 'proofreader', 'otorisator'].includes(u.role)

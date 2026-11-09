@@ -98,7 +98,7 @@ export default function VendorBills() {
         })} />
       <FinHead cols={['Vendor', 'Rincian Tagihan', 'Nominal', 'Rekening Vendor', 'Status', 'Aksi']} />
       {bills.length === 0 ? <p className="px-4 py-6 text-center text-sm text-ink-mute">Belum ada tagihan vendor.</p> : (
-        <ul className="divide-y divide-slate-100">{bills.map((b) => {
+        <ul className="lg:divide-y lg:divide-slate-100">{bills.map((b) => {
           const f = get(b.id); const v = vendors.find((x) => x.id === b.vendor_id); const acc = v?.accounts?.[0]
           return (
             <FinRow key={b.id}>

@@ -99,6 +99,20 @@ export const supabaseDb = {
    * Idempoten lewat `kunci`: percobaan ulang tidak mengurangi dua kali.
    */
   async affidavitPakai(ref) { return unwrap(await sb().rpc('affidavit_pakai', { p_ref: ref })) },
+  /** Jabatan tersembunyi: nyalakan persona (id) atau matikan (null). Server memeriksa act_as. */
+  async personaSet(id) { return unwrap(await sb().rpc('persona_set', { p_id: id || null })) },
+  /** Nomor registrasi berikutnya (dihitung di server, hitungan global per bulan). */
+  async regNext(kode) { return unwrap(await sb().rpc('next_reg_no', { p_lang_code: String(kode) })) },
+  /** Simpan baris registrasi (tabel kolom biasa, bukan doc). Nomor kembar ditolak database. */
+  async regInsert(rows) { if (!rows?.length) return []; return unwrap(await sb().from('registrations').insert(rows).select('reg_no')) || [] },
+  /** Daftar registrasi untuk satu project / invoice. */
+  async regList({ project_id, invoice_no } = {}) {
+    let q = sb().from('registrations').select('*').order('reg_no')
+    if (project_id && invoice_no) q = q.or(`project_id.eq.${project_id},invoice_no.eq.${invoice_no}`)
+    else if (project_id) q = q.eq('project_id', project_id)
+    else if (invoice_no) q = q.eq('invoice_no', invoice_no)
+    return unwrap(await q) || []
+  },
   /** Konfirmasi lembar diterima cabang — tambah stok & tutup pengiriman dalam satu transaksi. */
   async affidavitTerima({ kirim_id, lembar, oleh }) {
     return unwrap(await sb().rpc('affidavit_terima', { p_kirim: kirim_id, p_lembar: lembar, p_oleh: oleh }))

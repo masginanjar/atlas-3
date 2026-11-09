@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Plus, Trash2, Pencil, Store, Phone, MapPin, Landmark, Tags, StickyNote, ArrowDownLeft, ArrowUpRight, CheckCircle2, CircleDashed, RotateCcw, Eye, EyeOff } from 'lucide-react'
 import { PAYMENT_TERMS, termOf, SUMBER_DANA, sumberLabel } from '../config/workflows.js'
 import { useApp } from '../lib/store.jsx'
+import { SubTabs, SubTabBtn } from '../components/SubTab.jsx'
 import { db, MODE, storageUsage } from '../lib/db.js'
 import { BRANCHES, PERSON_TYPES, ROLES, can, scopeByBranch, branchesOf, branchLabel, roleLabel, APOSTILLE_FUND, pettyLabel, pettyAccountsOf, isFreelance } from '../config/access.js'
 import { Button, Card, Empty, Field, Input, Pill, Select, Sheet, Tabs, Textarea, cx } from '../components/ui.jsx'
@@ -20,6 +21,7 @@ import AvatarEditor from '../components/AvatarEditor.jsx'
 import Avatar from '../components/Avatar.jsx'
 import { useTabel, Th, CariTabel } from '../components/TabelSortir.jsx'
 import LoginSettings from '../components/LoginSettings.jsx'
+import SlideBerandaSettings from '../components/SlideBerandaSettings.jsx'
 
 /** Kartu pengalih untuk bagian yang sudah pindah menu (K4) — tidak ada fungsi yang hilang, hanya satu tempat. */
 function Pindah({ ke, judul, teks, tombol }) {
@@ -42,6 +44,7 @@ export default function Settings() {
     ['superadmin', 'admin_pusat'].includes(user.role) && { value: 'file', label: 'File & portal', grup: 'Perusahaan' },
     can.manageUsers(user) && { value: 'integrasi', label: 'Integrasi', grup: 'Perusahaan' },
     user.role === 'superadmin' && { value: 'tampilan', label: 'Tampilan login', grup: 'Perusahaan' },
+    user.role === 'superadmin' && { value: 'beranda', label: 'Slide Beranda', grup: 'Perusahaan' },
     // Sudah pindah menu (K4) — tetap bisa dibuka lewat alamat lama, tampil sebagai pengalih
     { value: 'petty', label: 'Petty Cash', grup: 'Pindah', sembunyi: true },
     can.manageVendors(user) && { value: 'vendor', label: 'Vendor', grup: 'Pindah', sembunyi: true },
@@ -80,6 +83,7 @@ export default function Settings() {
       {tab === 'file' && <><FileRules />{can.manageUsers(user) && <PortalSettings />}</>}
       {tab === 'integrasi' && <Integrations />}
       {tab === 'tampilan' && <LoginSettings />}
+      {tab === 'beranda' && <SlideBerandaSettings />}
         </div>
       </div>
     </div>
@@ -368,7 +372,7 @@ const OUT_CATS = ['ATK & Alat Kantor', 'Materai', 'Fotokopi / Print', 'Ongkir / 
 const dk = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(d)
 const shift = (key, n) => dk(new Date(new Date(`${key}T12:00:00+08:00`).getTime() + n * 864e5))
 
-export function PettyCash() {
+export function PettyCash({ intent, onIntentDone }) {
   const { user, data, save, notify, pettyBalance } = useApp()
   const branches = pettyAccountsOf(user)
   const [open, setOpen] = useState(false)
@@ -408,31 +412,69 @@ export function PettyCash() {
     notify(`Pengeluaran tercatat — sisa ${rupiah(pettyBalance(out.branch) - amt)}`); setOut(null)
   }
   const sisaSetelah = out ? pettyBalance(out.branch) - (Number(out.amount) || 0) : 0
+  // Dibuka dari tombol + / "Top up" di Ringkasan: langsung buka formulirnya
+  useEffect(() => {
+    if (!intent) return
+    if (intent.jenis === 'in') { setOpen(true); setForm((f) => ({ ...f, branch: intent.kas || f.branch, amount: intent.nominal ? String(intent.nominal) : f.amount, note: intent.kas ? `Top up ${pettyLabel(intent.kas)}` : f.note })) }
+    else if (intent.jenis === 'out') openOut()
+    onIntentDone?.()
+  }, [intent]) // eslint-disable-line react-hooks/exhaustive-deps
+  const kasUrut = [...branches].map((b) => ({ b, saldo: pettyBalance(b), batas: b === APOSTILLE_FUND ? 7_000_000 : 1_500_000, min: b === APOSTILLE_FUND ? 2_000_000 : 500_000 }))
+    .sort((a, c) => ((a.saldo < a.min) - (c.saldo < c.min)) * -1 || (a.saldo / a.batas) - (c.saldo / c.batas))
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {branches.map((b) => (
-          <button key={b} onClick={() => setAcc(acc === b ? 'Semua' : b)} className={cx('rounded-2xl p-4 text-left shadow-sm ring-1 transition', b === APOSTILLE_FUND ? 'bg-emerald-50 ring-emerald-200' : 'bg-white ring-slate-200', acc === b && 'ring-2 ring-brand')}>
-            <p className="text-xs text-ink-mute">{pettyLabel(b)}</p><p className={cx('text-lg font-extrabold', pettyBalance(b) < 500000 && 'text-rose-600')}>{rupiah(pettyBalance(b))}</p>
-          </button>
-        ))}
-      </div>
-      {branches.length > 0 && <div className="flex flex-wrap gap-2">
-        <Button onClick={openOut} className="!bg-rose-600 hover:!bg-rose-700"><ArrowUpRight className="h-4 w-4" />Catat Pengeluaran / Dana Keluar</Button>
-        {can.topUpPettyCash(user) && <Button onClick={() => setOpen(true)} className="!bg-emerald-600 hover:!bg-emerald-700"><ArrowDownLeft className="h-4 w-4" />Top Up / Dana Masuk</Button>}
-      </div>}
+      <SubTabs>
+        <div className="-mx-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">
+          <SubTabBtn on={range.from === `${today.slice(0, 8)}01` && range.to === today} onClick={() => setRange({ from: `${today.slice(0, 8)}01`, to: today })}>Bulan ini</SubTabBtn>
+          <SubTabBtn on={range.from === shift(today, -6) && range.to === today} onClick={() => setRange({ from: shift(today, -6), to: today })}>7 hari</SubTabBtn>
+          <SubTabBtn on={range.from === today && range.to === today} onClick={() => setRange({ from: today, to: today })}>Hari ini</SubTabBtn>
+          <SubTabBtn on={!range.from && !range.to} onClick={() => setRange({ from: '', to: '' })}>Semua</SubTabBtn>
+        </div>
+        <span className="hidden items-center gap-1.5 text-xs text-ink-mute sm:flex">
+          <Input type="date" value={range.from} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} className="!h-9 !w-36 !py-1 text-xs" aria-label="Dari tanggal" />–
+          <Input type="date" value={range.to} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} className="!h-9 !w-36 !py-1 text-xs" aria-label="Sampai tanggal" />
+        </span>
+        <span className="inline-block w-auto"><Select value={acc} onChange={(e) => setAcc(e.target.value)} aria-label="Pilih kas" className="!h-9 !w-auto !py-0 text-xs">
+          <option value="Semua">Semua kas</option>{branches.map((b) => <option key={b} value={b}>{pettyLabel(b)}</option>)}
+        </Select></span>
+      </SubTabs>
+
+      {/* Saldo per kas sebagai bar terhadap batas (cabang 1,5 jt · Apostille 7 jt); yang menipis naik ke atas */}
+      <Card className="overflow-hidden p-0" data-saldo-kas>
+        <div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
+          <h2 className="flex-1 text-[13px] font-extrabold">Saldo per kas</h2>
+          <span className="text-xs font-semibold text-ink-mute">urut: terendah</span>
+        </div>
+        <ul>
+          {kasUrut.map(({ b, saldo, batas, min }, i) => {
+            const menipis = saldo < min
+            return (
+              <li key={b}>
+                <button type="button" onClick={() => setAcc(acc === b ? 'Semua' : b)} aria-pressed={acc === b} data-kas={b}
+                  className={cx('flex min-h-[52px] w-full items-center gap-3 px-3 py-2 text-left', i > 0 && 'border-t border-slate-100', menipis ? 'bg-rose-50' : i % 2 ? 'bg-slate-50/70' : 'bg-white', acc === b && 'shadow-[inset_3px_0_0_theme(colors.brand.DEFAULT)]')}>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 text-[13px] font-bold">{b === APOSTILLE_FUND ? 'Apostille (Direktur)' : b}{menipis && <span className="rounded-md bg-rose-100 px-1.5 py-px text-[9.5px] font-bold text-rose-700 ring-1 ring-rose-200">menipis</span>}</span>
+                    <span className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-slate-200"><span className={cx('block h-full rounded-full', menipis ? 'bg-rose-500' : saldo < batas * 0.7 ? 'bg-amber-500' : 'bg-emerald-500')} style={{ width: `${Math.min(100, (saldo / batas) * 100)}%` }} /></span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className={cx('block text-[13px] font-extrabold tabular-nums', menipis && 'text-rose-700')}>{rupiah(saldo)}</span>
+                    <span className="block text-[10px] font-semibold text-ink-mute">{menipis ? `batas ${rupiah(min)}` : `dari ${rupiah(batas)}`}</span>
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </Card>
 
       {branches.length > 0 && <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-1.5 border-b border-slate-100 px-4 py-2.5">
           <p className="mr-1 text-sm font-bold">{acc === 'Semua' ? 'Semua kas' : pettyLabel(acc)}</p>
-          <button className={chip(range.from === today && range.to === today)} onClick={() => setRange({ from: today, to: today })}>Hari ini</button>
-          <button className={chip(range.from === shift(today, -6) && range.to === today)} onClick={() => setRange({ from: shift(today, -6), to: today })}>7 hari</button>
-          <button className={chip(range.from === `${today.slice(0, 8)}01` && range.to === today)} onClick={() => setRange({ from: `${today.slice(0, 8)}01`, to: today })}>Bulan ini</button>
-          <button className={chip(!range.from && !range.to)} onClick={() => setRange({ from: '', to: '' })}>Semua</button>
-          <span className="flex items-center gap-1.5 text-xs text-ink-mute">
-            <Input type="date" value={range.from} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} className="!w-36 !py-1 text-xs" aria-label="Dari tanggal" />–
-            <Input type="date" value={range.to} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} className="!w-36 !py-1 text-xs" aria-label="Sampai tanggal" />
+          <span className="text-xs text-ink-mute">{range.from || range.to ? `${range.from || '…'} – ${range.to || '…'}` : 'semua waktu'}</span>
+          <span className="flex items-center gap-1.5 text-xs text-ink-mute sm:hidden">
+            <Input type="date" value={range.from} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} className="!h-9 !w-32 !py-1 text-xs" aria-label="Dari tanggal" />–
+            <Input type="date" value={range.to} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} className="!h-9 !w-32 !py-1 text-xs" aria-label="Sampai tanggal" />
           </span>
         </div>
         <div className="grid grid-cols-3 divide-x divide-slate-100 text-center">
@@ -446,9 +488,9 @@ export function PettyCash() {
         </div>}
       </Card>}
 
-      <Card className="divide-y divide-slate-100">
-        {rows.length === 0 ? <Empty title="Belum ada mutasi pada rentang ini" /> : rows.map((r) => (
-          <div key={r.id} className="flex items-center gap-3 px-4 py-3">
+      <Card className="overflow-hidden p-0 lg:divide-y lg:divide-slate-100">
+        {rows.length === 0 ? <Empty title="Belum ada mutasi pada rentang ini" /> : rows.map((r, i) => (
+          <div key={r.id} className={cx('flex items-center gap-3 px-3 py-2.5 lg:px-4 lg:py-3', 'max-lg:mx-2.5 max-lg:my-2 max-lg:rounded-2xl max-lg:ring-1 max-lg:ring-slate-300', i % 2 ? 'bg-slate-100 lg:bg-slate-50/70' : 'bg-white')}>
             <div className={cx('rounded-xl p-2', r.type === 'in' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600')}>{r.type === 'in' ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}</div>
             <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{r.note}{r.category && <span className="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-ink-soft">{r.category}</span>}</p><p className="text-[11px] text-ink-mute">{pettyLabel(r.branch)} · {r.by} · {r.date ? tglShort(r.date) : jam(r.created_at)}</p></div>
             {r.nota && <DownloadBukti file={r.nota} label="Nota" />}
@@ -877,6 +919,21 @@ function Users() {
             </Field>
           )}
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={e.active !== false} onChange={(x) => set({ ...e, active: x.target.checked })} />Aktif</label>
+          {user.role === 'superadmin' && (
+            <Field label="Jabatan tersembunyi — boleh bertindak sebagai" hint="Hanya Superadmin yang melihat pengaturan ini. Saat dipilih lewat 'Ganti peran', semua riwayat, ping, dan klaim tercatat atas nama akun persona itu — tim tidak melihat siapa yang sebenarnya login. Perpindahannya tercatat di log audit (Superadmin saja).">
+              <div className="flex flex-wrap gap-1.5">
+                {data.users.filter((u) => u.id !== e.id && u.active !== false && ['supervisor', 'direktur', 'admin_pusat', 'akunting'].includes(u.role)).map((u) => {
+                  const on = (e.act_as || []).includes(u.id)
+                  return (
+                    <label key={u.id} className={cx('cursor-pointer rounded-lg px-2.5 py-1 text-xs font-semibold ring-1', on ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-300 hover:ring-brand')}>
+                      <input type="checkbox" className="sr-only" checked={on} onChange={() => set({ ...e, act_as: on ? (e.act_as || []).filter((x) => x !== u.id) : [...(e.act_as || []), u.id] })} />{u.name} · {roleLabel(u)}
+                    </label>
+                  )
+                })}
+              </div>
+              <label className="mt-2 flex items-center gap-2 text-xs text-ink-soft"><input type="checkbox" checked={!!e.persona} onChange={(x) => set({ ...e, persona: x.target.checked })} />Akun ini adalah <b>persona</b> (nama jabatan tanpa login sendiri)</label>
+            </Field>
+          )}
           <SandiPengguna e={e} />
         </div>
       )} />

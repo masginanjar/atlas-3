@@ -14,6 +14,7 @@ import CopyText from '../components/CopyText.jsx'
 import { printBlob } from '../lib/printing.js'
 import AffidavitCetak from '../components/AffidavitCetak.jsx'
 import { perluAffidavit } from '../lib/affidavit.js'
+import { ambilNomor, kodeArah } from '../lib/registrasi.js'
 import { CATEGORIES, DONE, stageIndex, stagesOf, progressOf, flowOf, sumberLabel, isVendorFlow, recommendFund, docListOf, VENDOR_PAID_STAGES } from '../config/workflows.js'
 import { SumberDanaPicker } from '../components/Pengajuan.jsx'
 import { ProjectTypes, PrintBadge } from '../components/badges.jsx'
@@ -338,6 +339,7 @@ export function StagePanel({ project, sub, stage }) {
     const init = Object.fromEntries(stage.fields.map((f) => [f.key, sub.data?.[f.key] ?? (f.type === 'date' ? new Date().toISOString().slice(0, 10) : '')]))
     stage.fields.filter((f) => f.type === 'file').forEach((f) => { init[`${f.key}_list`] = fieldFiles(sub.data, f.key) })
     stage.fields.filter((f) => f.type === 'sumber_dana' && !init[f.key]).forEach((f) => { init[f.key] = recommendFund(project.branch) })
+    if (stage.fields.some((f) => f.type === 'reg_numbers')) init.reg_names = sub.data?.reg_names || []
     if (stage.fields.some((f) => f.type === 'vendor_service')) init.vendor_cost = sub.data?.vendor_cost ?? ''
     if (stage.fields.some((f) => f.type === 'vendor_account')) init.rekening = sub.data?.rekening || data.people.find((p) => p.id === sub.data?.vendor)?.accounts?.[0] || ''
     setVals(init)
@@ -512,18 +514,7 @@ export function StagePanel({ project, sub, stage }) {
             <ChecklistProses key={f.key} f={f} nilai={v} setNilai={set} project={project} sub={sub} user={user} />
           )
           if (f.type === 'reg_numbers') {
-            const list = docListOf(sub); const cur = Array.isArray(v) ? v : []
-            return (
-              <Field key={f.key} label={f.label} required={f.required} hint="Nomor ini tampil di daftar dokumen sub project sebagai acuan penulisan pada hasil cetak.">
-                <ol className="space-y-1.5">{list.map((name, i) => (
-                  <li key={i} className="flex items-center gap-2 rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200">
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-soft text-[11px] font-bold text-brand">{i + 1}</span>
-                    <span className="min-w-0 flex-1 truncate text-sm" title={name}>{name}</span>
-                    <Input value={cur[i] || ''} onChange={(e) => { const n = [...cur]; n[i] = e.target.value; set(n) }} placeholder="No. registrasi" className="!w-40 !py-1.5 font-mono text-sm" aria-label={`Nomor registrasi dokumen ${i + 1}`} />
-                  </li>
-                ))}</ol>
-              </Field>
-            )
+            return <RegNumbersField key={f.key} f={f} sub={sub} project={project} vals={vals} setVals={setVals} projects={data.projects} />
           }
           if (f.type === 'file') return (
             <Field key={f.key} label={f.label} required={f.required} hint="Bisa lebih dari satu file · otomatis masuk File Project (tanpa ganda)">
@@ -761,4 +752,50 @@ function ProjectActivity({ project }) {
 function RegNo({ n, block }) {
   if (!n) return null
   return <span className={cx('rounded-md bg-amber-50 px-1.5 py-px font-mono text-[11px] font-bold text-amber-800 ring-1 ring-amber-200', block ? 'mt-1.5 inline-block' : 'ml-1.5')} title="Nomor registrasi">No. Reg {n}</span>
+}
+
+
+/**
+ * Isian tahap Nomor Registrasi: nomor diambil otomatis (berurutan, satu per
+ * dokumen) dari server, bisa diganti manual; nama dalam dokumen diisi tangan.
+ */
+function RegNumbersField({ f, sub, project, vals, setVals, projects }) {
+  const list = docListOf(sub)
+  const cur = Array.isArray(vals.reg_numbers) ? vals.reg_numbers : []
+  const names = Array.isArray(vals.reg_names) ? vals.reg_names : []
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const kode = kodeArah(sub)
+  const ambil = async () => {
+    setBusy(true); setErr('')
+    try { const n = await ambilNomor(sub, list.length, projects); setVals((o) => ({ ...o, reg_numbers: n })) }
+    catch (e) { setErr(e.message) }
+    finally { setBusy(false) }
+  }
+  // otomatis ambil saat form dibuka dan belum ada nomor
+  useEffect(() => { if (kode && !cur.some(Boolean)) ambil() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const setNo = (i, v) => setVals((o) => { const n = [...(Array.isArray(o.reg_numbers) ? o.reg_numbers : [])]; n[i] = v.replace(/\D/g, '').slice(0, 14); return { ...o, reg_numbers: n } })
+  const setNama = (i, v) => setVals((o) => { const n = [...(Array.isArray(o.reg_names) ? o.reg_names : [])]; n[i] = v; return { ...o, reg_names: n } })
+  return (
+    <Field label={f.label} required={f.required} hint={kode ? `Arah ${sub.lang_from} → ${sub.lang_to} · kode ${kode} · nomor urut lanjut sebulan untuk semua arah` : 'Arah bahasa ini tidak memakai nomor registrasi otomatis — isi manual bila perlu.'}>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="secondary" onClick={ambil} disabled={busy || !kode} data-aksi="ambil-nomor-registrasi">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}{cur.some(Boolean) ? 'Ambil nomor ulang' : 'Ambil nomor'}</Button>
+        {err && <span className="text-xs text-rose-700">{err}</span>}
+      </div>
+      <ol className="space-y-2">{list.map((name, i) => (
+        <li key={i} className="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200" data-registrasi-dok>
+          <div className="flex items-center gap-2">
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-soft text-[11px] font-bold text-brand">{i + 1}</span>
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold" title={name}>{name}</span>
+          </div>
+          <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
+            <label className="block"><span className="text-[11px] text-ink-mute">No. registrasi</span>
+              <Input value={cur[i] || ''} onChange={(e) => setNo(i, e.target.value)} inputMode="numeric" placeholder="14 angka" className="!py-1.5 font-mono text-sm tracking-wide" aria-label={`Nomor registrasi dokumen ${i + 1}`} /></label>
+            <label className="block"><span className="text-[11px] text-ink-mute">Nama dalam dokumen</span>
+              <Input value={names[i] ?? ''} onChange={(e) => setNama(i, e.target.value)} placeholder={project.customer?.name || 'Nama pada dokumen'} className="!py-1.5 text-sm" aria-label={`Nama dalam dokumen ${i + 1}`} /></label>
+          </div>
+        </li>
+      ))}</ol>
+    </Field>
+  )
 }

@@ -91,8 +91,8 @@ export function projectRow(p, namaUser = (x) => x) {
 
 /** Kolom tabel: urutan & judul persis seperti yang diminta. */
 export const TABLE_COLS = [
-  { key: 'timestamp', label: 'Timestamp', w: '122px', sort: (r) => r.timestamp },
   { key: 'invoice', label: 'No. Invoice', w: '132px', sort: (r) => r.invoice, sticky: true },
+  { key: 'timestamp', label: 'Timestamp', w: '122px', sort: (r) => r.timestamp },
   { key: 'pelanggan', label: 'Nama Pelanggan', w: '160px', sort: (r) => r.pelanggan.toLowerCase() },
   { key: 'prioritas', label: 'Prioritas', w: '108px', sort: (r) => r.prioRank },
   { key: 'deadline', label: 'Deadline', w: '116px', sort: (r) => r.deadline },
@@ -102,8 +102,8 @@ export const TABLE_COLS = [
   { key: 'cs', label: 'CS', w: '112px', sort: (r) => r.cs.toLowerCase() },
   { key: 'arah', label: 'Arah Bahasa', w: '164px', sort: (r) => (r.arahAll[0] || '').toLowerCase() },
   { key: 'orang', label: 'Penerjemah/Vendor', w: '156px', sort: (r) => (r.orangAll[0] || '').toLowerCase() },
-  { key: 'jmlDok', label: 'Jumlah Dok.', w: '96px', num: true, sort: (r) => r.jmlDok },
-  { key: 'jmlHal', label: 'Jumlah Halaman', w: '112px', num: true, sort: (r) => r.jmlHal },
+  { key: 'jmlDok', label: 'Dok', w: '72px', num: true, sort: (r) => r.jmlDok },
+  { key: 'jmlHal', label: 'Hal', w: '72px', num: true, sort: (r) => r.jmlHal },
   { key: 'layanan', label: 'Detail Layanan', w: '180px', sort: (r) => (r.layananAll[0] || '').toLowerCase() },
 ]
 

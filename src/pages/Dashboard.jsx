@@ -23,9 +23,12 @@ import { useTabel, Th } from '../components/TabelSortir.jsx'
 import { useEffect, useState } from 'react'
 import { coverHariIni, sapaan } from '../lib/cover.js'
 import { myReminders, nextAt } from './Reminders.jsx'
-import PingBoard from '../components/PingBoard.jsx'
+import { KepalaDasbor, PingStrip, AngkaPeran, PetaKerja, AgendaHariIni } from '../components/DasborBaru.jsx'
+import WorkerBoard from '../components/WorkerActions.jsx'
+import { KapasitasSaya } from '../components/Kapasitas.jsx'
 import { TypeBadge, PrintBadge, DemoBadge } from '../components/badges.jsx'
 import { Card, Empty, Input, Sheet, cx } from '../components/ui.jsx'
+import { SubTabs, SubTabBtn } from '../components/SubTab.jsx'
 import { daysLeft, rupiah, tgl, jam, stageArrivedAt } from '../lib/format.js'
 import TimeAgo from '../components/TimeAgo.jsx'
 import { FinHead, FinBar, FinRow, FinAmount, FinActions, Rek, DanaChip, FinCell } from '../components/FinLayout.jsx'
@@ -61,67 +64,89 @@ export function useDashStats() {
 }
 
 export default function Dashboard() {
-  const { user, data, unlinkedInvoices } = useApp()
+  const { user, data, unlinkedInvoices, branchFilter, pettyBalance } = useApp()
   const s = useDashStats()
-  const [todoOpen, toggleTodo] = useFold('todo')
-
+  const [tab, setTab] = useState(() => (user.role === 'staf_apostille' ? 'staf' : 'kerja'))
+  const worker = ['penerjemah', 'proofreader', 'otorisator'].includes(user.role)
   const exec = ['superadmin', 'direktur', 'akunting'].includes(user.role)
-  // Admin Pusat bisa memproses banyak tahap, tetapi tugasnya hanya Nomor Registrasi; role pimpinan tidak memuat tugas tahap.
+  const pimpinan = ['superadmin', 'direktur', 'supervisor'].includes(user.role)
   const todoTasks = user.role === 'admin_pusat' ? s.myTasks.filter((t) => t.stage === 'registrasi') : s.myTasks
-  if (['penerjemah', 'proofreader', 'otorisator'].includes(user.role)) return <WorkerDesk user={user} tasks={s.myTasks} />
-
-  // Papan khusus peran yang bukan salinan halaman lain: koordinator bahasa &
-  // daftar kerja Staf Apostille. Kapasitas (→ Penugasan), Sumber Dana &
-  // Pengajuan (→ Keuangan), Apostille untuk Direktur (→ My Apostille)
-  // tidak lagi diulang di sini (keputusan K1).
-  const ops = [
-    user.coordinator_lang && <CoordBoard key="coord" lang={user.coordinator_lang} />,
-    user.role === 'staf_apostille' && s.staf.length > 0 && <StafBoard key="staf" rows={s.staf} />,
-  ].filter(Boolean)
   const todoCount = TODO_GROUP_ROLES.includes(user.role) ? roleGroupCount(s, user, data.people) : todoTasks.length
-  const kerjaSaya = user.role !== 'staf_apostille'
+  const { pil, strip } = PingStrip()
+
+  // ---------- angka ----------
+  const act = s.active.filter((p) => !p.demo_perf)
+  const late = act.filter((p) => { const d = daysLeft(p.about?.deadline); return d !== null && d < 0 }).length
+  const today = act.filter((p) => daysLeft(p.about?.deadline) === 0).length
+  const vendor = s.subs.filter((x) => VENDOR_ORDER_STAGES.includes(x.stage) && !x.project.demo_perf).length
+  const unlinked = WORKER_ROLES.includes(user.role) ? undefined : (unlinkedInvoices?.length ?? unlinkedInvoices ?? 0)
+  const accounts = pettyAccountsOf(user).filter((k) => k === APOSTILLE_FUND || branchFilter === 'Semua' || k === branchFilter)
+  const pettyTotal = accounts.reduce((a, k) => a + (pettyBalance(k) || 0), 0)
+  const kasMenipis = accounts.filter((k) => (pettyBalance(k) || 0) < (k === APOSTILLE_FUND ? 2_000_000 : 500_000)).length
+  const reqMenunggu = (data.requests || []).filter((r) => r.status === 'menunggu').length
+  const perluKeputusan = s.needTr.length + s.approvals.length + reqMenunggu + kasMenipis
+  const bulan = new Date().toISOString().slice(0, 7)
+  const selesaiBulanIni = s.subs.filter((x) => x.data?.translator === user.id && x.data?.translated_at && String(x.data.translated_at).startsWith(bulan)).length
+  const perbaikan = s.myTasks.filter((t) => t.data?.perbaikan_note).length
+  const sayaAmbil = s.myTasks.filter((t) => activeClaim(t)?.by === user.id).length
+  const regMenunggu = s.subs.filter((x) => x.stage === 'registrasi' && !x.project.demo_perf).length
+  const keTab = (k) => () => { setTab(k); document.querySelector('[data-peta-kerja]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
+  const T = {
+    dl: { k: 'dl', label: 'Tenggat hari ini', value: today, sub: late ? `${late} sudah terlambat` : 'tidak ada yang terlambat', tone: today + late ? 'danger' : 'ok', onClick: keTab('tenggat') },
+    late: { k: 'late', label: 'Terlambat', value: late, sub: 'belum selesai', tone: late ? 'danger' : 'ok', onClick: keTab('hambatan') },
+    todo: { k: 'todo', label: 'Kerja saya', value: todoCount, sub: 'menunggu saya', onClick: keTab('kerja') },
+    faktur: { k: 'faktur', label: 'Faktur belum jadi project', value: unlinked ?? 0, sub: 'dari Zoho', tone: unlinked ? 'warn' : undefined, href: '#/faktur' },
+    active: { k: 'active', label: 'Project aktif', value: act.length, sub: `${s.done} selesai`, href: '#/projects' },
+    vendor: { k: 'vendor', label: 'Order vendor', value: vendor, sub: `${s.approvals.length} menunggu ACC`, href: '#/keuangan/tagihan' },
+    petty: { k: 'petty', label: 'Petty cash', value: rupiah(pettyTotal), sub: kasMenipis ? `${kasMenipis} kas menipis` : `${accounts.length} kas`, uang: true, href: '#/keuangan', tone: kasMenipis ? 'danger' : undefined },
+    keputusan: { k: 'keputusan', label: 'Perlu keputusan', value: perluKeputusan, sub: [s.needTr.length && `${s.needTr.length} penerjemah`, (s.approvals.length + reqMenunggu) && `${s.approvals.length + reqMenunggu} ACC`, kasMenipis && `${kasMenipis} kas`].filter(Boolean).join(' · ') || 'tidak ada', tone: perluKeputusan ? 'warn' : 'ok', onClick: keTab('kerja') },
+    tugas: { k: 'tugas', label: user.role === 'proofreader' ? 'Perlu diperiksa' : user.role === 'otorisator' ? 'Menunggu otorisasi' : 'Tugas aktif', value: s.myTasks.length, sub: late ? `${late} terlambat` : 'tidak ada yang terlambat', tone: s.myTasks.length ? 'danger' : 'ok', onClick: keTab('kerja') },
+    perbaikan: { k: 'perbaikan', label: 'Perbaikan diminta', value: perbaikan, sub: 'dari proofreader', tone: perbaikan ? 'warn' : undefined, onClick: keTab('kerja') },
+    selesai: { k: 'selesai', label: 'Selesai bulan ini', value: selesaiBulanIni, sub: 'dokumen diterjemahkan', href: '#/projects' },
+    ambil: { k: 'ambil', label: 'Saya ambil', value: sayaAmbil, sub: 'sedang diproses', onClick: keTab('kerja') },
+    reg: { k: 'reg', label: 'Perlu nomor registrasi', value: regMenunggu, sub: 'setelah ACC', tone: regMenunggu ? 'warn' : undefined, href: '#/projects' },
+  }
+  const tiles = user.role === 'penerjemah' ? [T.tugas, { ...T.dl, k: 'dl' }, T.perbaikan, T.selesai]
+    : user.role === 'proofreader' ? [T.tugas, { ...T.dl }, T.late, T.selesai]
+    : user.role === 'otorisator' ? [T.tugas, T.ambil, T.reg, T.late]
+    : user.role === 'admin_pusat' ? [T.reg, T.dl, T.todo, T.late, T.faktur, T.active, T.vendor]
+    : user.role === 'akunting' ? [T.todo, T.vendor, T.petty, T.dl, T.active, T.faktur]
+    : pimpinan ? [T.dl, T.keputusan, T.todo, T.faktur, T.active, T.vendor, T.petty]
+    : [T.dl, T.todo, T.faktur, T.late, T.active, T.vendor, T.petty]
+
+  // ---------- isi tab Kerja saya ----------
+  const kerja = worker ? { polos: true, isi: <div data-kerja-saya><WorkerBoard projects={scopeByBranch(user, data.projects, branchFilter)} /></div> } : (
+    <div data-kerja-saya>
+      <PengingatTodo user={user} />
+      {TODO_GROUP_ROLES.includes(user.role) ? <div className="p-3"><RoleTodo s={s} user={user} /></div>
+        : todoTasks.length === 0 ? <Empty icon={Inbox} title="Tidak ada tugas" text="Semua tahap yang menjadi bagian Anda sudah diproses." />
+        : <ul className="divide-y divide-slate-100" aria-label="Kerja saya">{todoTasks.map((t) => <TaskRow key={t.id} t={t} user={user} />)}</ul>}
+    </div>
+  )
+  const tabsExtra = [
+    user.coordinator_lang && { key: 'coord', label: `Order ${user.coordinator_lang}`, n: 0, polos: true, isi: <div className="[&>*]:shadow-none [&>*]:ring-0"><CoordBoard lang={user.coordinator_lang} /></div> },
+    user.role === 'staf_apostille' && { key: 'staf', label: 'Antrean instansi', n: s.staf.length, polos: true, isi: <div className="[&>*]:shadow-none [&>*]:ring-0"><StafBoard rows={s.staf} /></div> },
+  ].filter(Boolean)
 
   return (
-    <div className="space-y-4">
-      <PingBoard />
-      <Sapaan user={user} />
-      <AngkaHariIni user={user} s={s} unlinked={WORKER_ROLES.includes(user.role) ? undefined : (unlinkedInvoices?.length ?? unlinkedInvoices ?? 0)} todoCount={todoCount} />
-      <CatatanTersemat />
+    <div className="space-y-3">
+      <KepalaDasbor user={user} ping={pil} />
+      {strip}
+      <AngkaPeran tiles={tiles} aktif={{ tenggat: 'dl', hambatan: 'late', kerja: 'todo' }[tab]} />
+      {user.role === 'penerjemah' && <KapasitasSaya />}
 
-      {/* Hambatan (kiri) + Kerja saya (kanan) — dua pertanyaan utama dalam satu layar */}
-      <div className={cx('grid gap-4', kerjaSaya && 'lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-start')}>
-        <Hambatan s={s} user={user} />
-        {kerjaSaya && <Card className={cx('flex min-h-0 flex-col overflow-hidden')} data-kerja-saya>
-          <div className="card-head flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-4 py-2.5">
-            <span className="grid h-7 w-7 place-items-center rounded-lg bg-white ring-1 ring-slate-200"><Inbox className="h-4 w-4 text-ink-soft" /></span>
-            <h2 className="mr-auto font-bold">Kerja saya <span className="text-ink-mute">({todoCount})</span><span className="ml-2 hidden text-[11px] font-medium text-ink-mute sm:inline">{TODO_GROUP_ROLES.includes(user.role) ? 'tugas sesuai peran' : 'tahap yang harus saya kerjakan'}</span></h2>
-            <FoldBtn open={todoOpen} onClick={toggleTodo} label="Kerja saya" className="h-7 w-7" />
-          </div>
-          {!todoOpen ? null : (
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain lg:max-h-[520px]">
-              <PengingatTodo user={user} />
-              {TODO_GROUP_ROLES.includes(user.role) ? <RoleTodo s={s} user={user} />
-                : todoTasks.length === 0 ? <Empty icon={Inbox} title="Tidak ada tugas" text="Semua tahap yang menjadi bagian Anda sudah diproses." />
-                : (
-                  <ul className="divide-y divide-slate-100" aria-label="Kerja saya">
-                    {todoTasks.map((t) => <TaskRow key={t.id} t={t} user={user} />)}
-                  </ul>
-                )}
-            </div>
-          )}
-        </Card>}
-      </div>
-
-      {/* Ringkasan — angka saja; tabel lengkap di halamannya masing-masing */}
-      {(canSeeTeam(user) || exec) && (
-        <div className={cx('grid gap-4', canSeeTeam(user) && exec && 'lg:grid-cols-2 lg:items-start')}>
+      <div className={cx('grid gap-3 lg:items-start', (canSeeTeam(user) || exec || !worker) && 'lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]')}>
+        <PetaKerja user={user} s={s} nKerja={todoCount} kerja={kerja} tab={tab} setTab={setTab} tabsExtra={tabsExtra} sembunyi={user.role === 'staf_apostille' ? ['kerja'] : []} />
+        <div className="min-w-0 space-y-3">
           {canSeeTeam(user) && <RingkasanTim />}
           {exec && <RingkasanKeuangan s={s} />}
+          <AgendaHariIni />
+          {hasPersonalTasks(user) && user.role !== 'staf_apostille' && <PerformanceCard narrow />}
+          {user.role === 'penerjemah' && <TranslatorStats narrow />}
+          {user.role === 'proofreader' && <ProofreaderStats narrow />}
+          {user.role === 'otorisator' && <AuthStats narrow />}
         </div>
-      )}
-
-      {hasPersonalTasks(user) && user.role !== 'staf_apostille' && <PerformanceCard narrow />}
-      {ops}
+      </div>
     </div>
   )
 }
@@ -565,7 +590,7 @@ function PayTable({ rows, paid, bare }) {
 }
 
 /** Satu grup Keuangan & Pengajuan: vendor (ACC / bayar / milik saya) + pengajuan umum, dalam tab. */
-export function FinanceGroup({ s }) {
+export function FinanceGroup({ s, subtab }) {
   const { user, data, branchFilter } = useApp()
   const [open, toggle] = useFold('finance')
   const req = scopeRequests(user, data.requests || [], branchFilter)
@@ -575,12 +600,25 @@ export function FinanceGroup({ s }) {
     can.approveVendor(user) && { k: 'acc', label: 'Menunggu ACC', n: s.approvals.length, el: <PengajuanBoard bare rows={s.approvals} mode="acc" empty="Tidak ada pengajuan vendor yang menunggu persetujuan." /> },
     ['superadmin', 'akunting'].includes(user.role) && { k: 'pay', label: 'Perlu Dibayar', n: s.payments.length + s.paidRows.length, el: <PayTable bare rows={s.payments} paid={s.paidRows} /> },
     !['direktur', 'akunting'].includes(user.role) && { k: 'mine', label: 'Pengajuan Saya', n: s.mine.filter((x) => x.stage !== DONE).length, el: <MySubmissions bare rows={s.mine} /> },
-    { k: 'umum', label: 'Pengajuan Umum', n: reqActive, el: <RequestBoard bare /> },
+    !subtab && { k: 'umum', label: 'Pengajuan Umum', n: reqActive, el: <RequestBoard bare /> },
     (can.seeFunding(user) || user.coordinator_lang) && { k: 'bill', label: can.seeFunding(user) ? 'Tagihan Vendor' : 'Tagihan Vendor Saya', n: billBadgeCount(user, data.vendor_bills || [], unbilled.length), el: <VendorBills /> },
   ].filter(Boolean)
   const [tab, setTab] = useState(() => (tabs.find((t) => t.n > 0) ?? tabs[0]).k)
   const cur = tabs.find((t) => t.k === tab) ?? tabs[0]
   const total = tabs.reduce((a, t) => a + t.n, 0)
+  if (subtab) {
+    // Di halaman Keuangan: tab-tab ini jadi sub-tab di panel "map", tanpa kepala kartu
+    return (
+      <Card className="overflow-hidden p-0">
+        <SubTabs>
+          <div className="-mx-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">
+            {tabs.map((t) => <SubTabBtn key={t.k} on={t.k === cur.k} onClick={() => setTab(t.k)} n={t.n} data-subtab={t.k}>{t.label}</SubTabBtn>)}
+          </div>
+        </SubTabs>
+        {cur.el}
+      </Card>
+    )
+  }
   return (
     <Card className="overflow-hidden">
       <div className="card-head flex flex-wrap items-center gap-2 bg-gradient-to-r from-amber-50 to-orange-50/40 px-4 py-2">
@@ -769,7 +807,7 @@ const rangeLabel = (r) => {
   return `${r.from ? tgl(r.from) : '…'} – ${r.to ? tgl(r.to) : '…'}`
 }
 /** Jumlah halaman satu sub-project — dipakai sama untuk "aktif" maupun "selesai". */
-const halamanSub = (sb, flow) => {
+export const halamanSub = (sb, flow) => {
   const k = kindPages(sb)
   return flow === 'tr_nt' ? (Number(sb.pages) || 1) : ((k.reguler || 0) + (k.non_reguler || 0)) || (Number(sb.pages) || 1)
 }

@@ -21,7 +21,7 @@ const TONE = {
   rose: 'bg-rose-50 text-rose-800 ring-rose-200',
 }
 
-export default function Jadwal() {
+export default function Jadwal({ embedded }) {
   const { user, data, nameOf, notify, save, remove, ask } = useApp()
   const [ym, setYm] = useState(() => bulanKunci(new Date()))
   const bolehUbah = canUbahJadwal(user)
@@ -75,11 +75,13 @@ export default function Jadwal() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
+    <div className={embedded ? 'space-y-3' : 'mx-auto w-full max-w-6xl space-y-4 p-4'}>
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="flex items-center gap-2 text-lg font-bold text-ink"><CalendarRange className="h-5 w-5 text-brand" />Jadwal</h1>
-          <p className="text-xs text-ink-soft">Shift harian dan hari libur tim.</p>
+          {embedded
+            ? <p className="text-xs text-ink-soft">Shift harian dan hari libur tim.</p>
+            : <><h1 className="flex items-center gap-2 text-lg font-bold text-ink"><CalendarRange className="h-5 w-5 text-brand" />Jadwal</h1>
+              <p className="text-xs text-ink-soft">Shift harian dan hari libur tim.</p></>}
         </div>
         <Button size="sm" variant="outline" onClick={() => setAjukan(true)} data-aksi="ajukan-cuti"><Plane className="h-3.5 w-3.5" />Ajukan Libur</Button>
         {tab !== 'saya' && (

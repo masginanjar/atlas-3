@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, Stamp, ReceiptText, StickyNote, AlarmClock, CalendarDays, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store, Handshake, Minimize2, Maximize2 } from 'lucide-react'
+import { Home, LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, Stamp, ReceiptText, StickyNote, AlarmClock, CalendarDays, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store, Handshake, Minimize2, Maximize2 } from 'lucide-react'
 import { useApp } from './lib/store.jsx'
 import { MODE, storageError, db } from './lib/db.js'
 import { AlertTriangle } from 'lucide-react'
@@ -11,11 +11,12 @@ import { simpanCache, DEFAULT_LOGIN } from './config/loginTheme.js'
 import Dashboard from './pages/Dashboard.jsx'
 import Projects from './pages/Projects.jsx'
 import ProjectDetail from './pages/ProjectDetail.jsx'
-import { canSeeAllActivity, canMonitor, canSeeKeuangan, canSeeApostille, canSeeInvoices, canSeeAffidavit, canSeePelanggan, canSeePenugasan, canSeeKatalog, canSeeVendor, canSeeMitra, menuBoleh } from './config/menuAccess.js'
+import { canSeeAllActivity, canMonitor, canSeeKeuangan, canSeeApostille, canSeeInvoices, canSeeAffidavit, canSeePelanggan, canSeePenugasan, canSeeKatalog, canSeeVendor, canSeeMitra, canSeeBeranda, menuBoleh } from './config/menuAccess.js'
 import { needsAction } from './lib/badges.js'
 import { ReminderWatcher } from './pages/Reminders.jsx'
 // Halaman yang tidak dibuka tiap hari dimuat saat diklik → halaman pertama jauh lebih ringan
 const Settings = lazy(() => import('./pages/Settings.jsx'))
+const Beranda = lazy(() => import('./pages/Beranda.jsx'))
 const Portal = lazy(() => import('./pages/Portal.jsx'))
 const PortalCek = lazy(() => import('./pages/PortalCek.jsx'))
 const Activity = lazy(() => import('./pages/Activity.jsx'))
@@ -67,6 +68,8 @@ function useRoute() {
 //  panel Lainnya; hak akses per item lewat show/menuBoleh.
 // ============================================================
 const MENU = [
+  // Beranda: info ringan (sapaan, sholat, ayat, fakta) — bukan untuk pelaksana lepas
+  { key: 'beranda', label: 'Beranda', icon: Home, show: canSeeBeranda },
   { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, bar: true },
   { id: 'penjualan', label: 'Penjualan', icon: ReceiptText, children: [
     { key: 'faktur', label: 'Faktur', icon: ReceiptText, show: canSeeInvoices, badge: (u, d, bf, extra) => extra.unlinkedInvoices },
@@ -106,7 +109,7 @@ const menuTerlihat = (user) => MENU
 const navItems = (user) => menuTerlihat(user).flatMap((n) => (n.children ? n.children : [n]))
 
 export default function App() {
-  const { user, data, setActiveRole, booting, signOut, toast, dismissToast, notify, branchFilter, setBranchFilter, confirmState, setConfirmState, unlinkedInvoices, chatTotals } = useApp()
+  const { user, data, setActiveRole, personaList, booting, signOut, toast, dismissToast, notify, branchFilter, setBranchFilter, confirmState, setConfirmState, unlinkedInvoices, chatTotals } = useApp()
   const [rawPage, param, param2] = useRoute()
   useEffect(() => { applyTheme(readTheme()) }, []) // tema tersimpan diterapkan saat aplikasi dibuka
   // Salin pengaturan Halaman Login ke perangkat ini, supaya halaman login
@@ -131,6 +134,23 @@ export default function App() {
   const page = menuBoleh(user, rawPage) ? rawPage : 'dashboard'
   // Halaman Project & Faktur punya pencarian + filter cabang sendiri → alat header disembunyikan agar tidak dobel (Ctrl K tetap jalan)
   const alatSendiri = ['projects', 'faktur', 'apostille'].includes(page) && !param
+  // Ganti peran / persona (jabatan tersembunyi). Di PC tampil di bar atas, di HP di baris kedua.
+  const gantiPeran = (mode) => {
+    if (!user || !(rolesOf(user).length > 1 || personaList.length > 0 || user._actor)) return null
+    const asli = user._actor ? data.users.find((u) => u.id === user._actor) : user
+    const peranAsli = rolesOf(asli)
+    const daftarPersona = user._actor ? (asli?.act_as || []).map((id) => data.users.find((u) => u.id === id)).filter(Boolean) : personaList
+    const nilai = user._actor ? `as:${user.id}` : user.role
+    return (
+      <select value={nilai} onChange={(e) => { setActiveRole(e.target.value); window.location.hash = '/dashboard' }} aria-label="Ganti peran" title="Ganti peran" data-ganti-peran={mode}
+        className={cx('min-w-0 cursor-pointer truncate rounded-lg border-0 pl-3 pr-8 text-sm font-bold ring-1 focus:ring-2 focus:ring-brand',
+          mode === 'pc' ? 'hidden h-9 max-w-[220px] xl:block' : 'h-11 flex-1',
+          user._actor ? 'bg-amber-400 text-ink ring-amber-400' : mode === 'pc' ? 'bg-white/10 text-white ring-white/20 [&>option]:text-ink' : 'bg-violet-50 text-violet-800 ring-violet-200')}>
+        {peranAsli.map((r) => <option key={r} value={r}>Peran: {roleLabel(asli, r)}</option>)}
+        {daftarPersona.map((p) => <option key={p.id} value={`as:${p.id}`}>Sebagai: {p.name} · {roleLabel(p)}</option>)}
+      </select>
+    )
+  }
   // Project Baru dari Faktur: isiannya dititipkan halaman Faktur lewat
   // sessionStorage, karena alamat hanya memuat nomor invoicenya.
   const presetBaru = (() => {
@@ -142,6 +162,7 @@ export default function App() {
     : page === 'projects' && param ? <ProjectDetail id={param} focusSub={param2} />
     : page === 'projects' ? <Projects />
     : page === 'apostille' ? <Projects tabAwal="apostille" />
+    : page === 'beranda' && canSeeBeranda(user) ? <Beranda />
     : page === 'settings' ? <Settings />
     : page === 'aktivitas' ? <Activity />
     : page === 'monitoring' ? <Monitoring />
@@ -207,6 +228,7 @@ export default function App() {
           ) : (
             <span className="hidden shrink-0 px-2 text-sm font-semibold xl:inline" style={{ color: 'var(--head-ink)' }}>{placeOf(user)}</span>
           )}
+          {gantiPeran('pc')}
 
           <span className="hidden h-6 w-px shrink-0 xl:block" style={{ background: 'var(--head-line)' }} />
 
@@ -231,7 +253,7 @@ export default function App() {
       <div className="min-w-0 flex-1">
         {/* Top bar */}
         {/* Baris kedua (di bawah lg): filter cabang & peran */}
-        {((branchPicker && !alatSendiri) || rolesOf(user).length > 1) && (
+        {((branchPicker && !alatSendiri) || rolesOf(user).length > 1 || personaList.length > 0 || user._actor) && (
           <div className="flex min-w-0 items-center gap-2 px-3 pt-2 xl:hidden md:px-4">
             {branchPicker && !alatSendiri && (
               <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} aria-label="Filter cabang"
@@ -239,12 +261,7 @@ export default function App() {
                 {branchOptions.map((b) => <option key={b} value={b}>{b === 'Semua' ? (can.seeAllBranches(user) ? 'Semua Cabang' : 'Semua cabang saya') : b}</option>)}
               </select>
             )}
-            {rolesOf(user).length > 1 && (
-              <select value={user.role} onChange={(e) => { setActiveRole(e.target.value); window.location.hash = '/dashboard' }} aria-label="Ganti peran"
-                className="h-11 min-w-0 flex-1 truncate rounded-lg border-0 bg-violet-50 pl-3 pr-8 text-sm font-bold text-violet-800 ring-1 ring-violet-200 focus:ring-2 focus:ring-brand">
-                {rolesOf(user).map((r) => <option key={r} value={r}>Peran: {roleLabel(user, r)}</option>)}
-              </select>
-            )}
+            {gantiPeran('hp')}
           </div>
         )}
         {storeErr && <div role="alert" className="flex flex-wrap items-center gap-2 bg-rose-600 px-4 py-2 text-xs font-semibold text-white md:px-8"><AlertTriangle className="h-4 w-4 shrink-0" />

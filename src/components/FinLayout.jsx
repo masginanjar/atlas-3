@@ -65,7 +65,8 @@ export function FinBar({ left, total, right, note }) {
 export function FinRow({ children, className, onClick, highlight }) {
   return (
     // [&>*]:block — di HP tiap sel turun ke barisnya sendiri (span inline bisa saling tumpuk)
-    <li className={cx('px-4 py-3.5 text-sm [&>*]:block sm:px-5', FIN_GRID, FIN_CLAMP, 'space-y-2 lg:space-y-0', highlight, onClick && 'cursor-pointer hover:bg-slate-50/70', className)} onClick={onClick}>
+    // HP: tiap baris jadi kartu berjarak & bergaris, selang-seling putih/abu (pola yang sama dengan halaman Project)
+    <li className={cx('px-4 py-3.5 text-sm [&>*]:block sm:px-5', FIN_GRID, FIN_CLAMP, 'space-y-2 lg:space-y-0', 'max-lg:mx-2.5 max-lg:my-2 max-lg:rounded-2xl max-lg:bg-white max-lg:ring-1 max-lg:ring-slate-300 max-lg:odd:bg-slate-100', highlight, onClick && 'cursor-pointer hover:bg-slate-50/70', className)} onClick={onClick}>
       {children}
     </li>
   )

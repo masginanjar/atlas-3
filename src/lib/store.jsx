@@ -8,6 +8,7 @@ import { threadOf, myMessages, unreadByThread, pingQuota, openChatBus, PING_MAX_
 import { broadcastSignOut, markActivity, setIdleReason, simpanTujuan, ambilTujuan } from './session.js'
 import { CHAT_ENABLED } from './flags.js'
 import { DONE, stagesOf, flowOf, isBilled, regComplete, stageLabel } from '../config/workflows.js'
+import { barisRegistrasi } from './registrasi.js'
 import { cariStok, cariPeringatan, kunciPeringatan, teksPeringatan, sudahTercatat, arahLabel, canKelolaAffidavit, AMBANG_RENDAH } from './affidavit.js'
 
 const Ctx = createContext(null)
@@ -30,9 +31,35 @@ export function AppProvider({ children }) {
     // foto profil selalu diambil dari tabel users terkini (bisa diganti di Pengaturan → Profil)
     const live = data.users.find((u) => u.id === baseUser.id)
     const base = live && live.avatar !== baseUser.avatar ? { ...baseUser, avatar: live.avatar } : baseUser
+    // Jabatan tersembunyi: akun ini boleh bertindak SEBAGAI pengguna lain (persona), mis. staf
+    // yang merangkap Supervisor atas nama "Laila Fina". Selama aktif, seluruh aplikasi memakai
+    // identitas persona (nama, id, peran) — riwayat, ping, klaim tercatat atas nama persona.
+    // Siapa aktor aslinya hanya ada di memori (_actor) dan tidak pernah ikut tersimpan ke data.
+    if (String(activeRole || '').startsWith('as:')) {
+      const pid = activeRole.slice(3)
+      const boleh = (live?.act_as || baseUser.act_as || []).includes(pid)
+      const persona = data.users.find((u) => u.id === pid)
+      if (boleh && persona) return { ...persona, _actor: baseUser.id, _actor_name: baseUser.name }
+    }
     return roles.includes(activeRole) && activeRole !== baseUser.role ? { ...base, role: activeRole, base_role: baseUser.role } : base
   }, [baseUser, activeRole, data.users])
-  const setActiveRole = (r) => { try { sessionStorage.setItem('atlas-active-role', r) } catch { /* abaikan */ } setActiveRoleState(r) }
+  /** Persona yang boleh dipakai akun ini (jabatan tersembunyi). */
+  const personaList = useMemo(() => {
+    if (!baseUser) return []
+    const live = data.users.find((u) => u.id === baseUser.id)
+    return (live?.act_as || baseUser.act_as || []).map((id) => data.users.find((u) => u.id === id)).filter(Boolean)
+  }, [baseUser, data.users])
+  const setActiveRole = (r) => {
+    try { sessionStorage.setItem('atlas-active-role', r) } catch { /* abaikan */ }
+    // Catatan audit perpindahan persona — hanya terbaca Superadmin (RLS), bukan tim.
+    if (baseUser && (String(r).startsWith('as:') || String(activeRole || '').startsWith('as:'))) {
+      db.insert?.('activity_log', { table: 'users', action: String(r).startsWith('as:') ? 'persona_on' : 'persona_off', by: baseUser.name, by_id: baseUser.id, role: baseUser.role, persona: String(r).startsWith('as:') ? r.slice(3) : String(activeRole).slice(3) }).catch?.(() => {})
+    }
+    setActiveRoleState(r)
+    // Mode live: beri tahu server persona mana yang aktif supaya RLS ikut (bukan hanya tampilan)
+    const pid = String(r || '').startsWith('as:') ? r.slice(3) : null
+    if (db.personaSet) db.personaSet(pid).then(() => refresh()).catch((e) => { console.warn('persona', e); if (pid) { setActiveRoleState(baseUser?.role || ''); notify?.('Persona tidak bisa diaktifkan', 'err') } })
+  }
   const [booting, setBooting] = useState(true)
   const [toast, setToast] = useState(null)
   const [branchFilter, setBranchFilter] = useState('Semua')
@@ -98,7 +125,14 @@ export function AppProvider({ children }) {
   }, [])
 
   useEffect(() => {
-    db.currentUser().then(async (u) => { if (u) { setUser(u); await refresh() } }).finally(() => setBooting(false))
+    db.currentUser().then(async (u) => {
+      if (u) {
+        // Samakan persona di server dengan sesi ini (tab baru / muat ulang)
+        const ar = (() => { try { return sessionStorage.getItem('atlas-active-role') || '' } catch { return '' } })()
+        if (db.personaSet) await db.personaSet(ar.startsWith('as:') ? ar.slice(3) : null).catch(() => {})
+        setUser(u); await refresh()
+      }
+    }).finally(() => setBooting(false))
   }, [refresh])
 
   // Setelah masuk: kembali ke halaman terakhir yang diizinkan, selain itu ke My Project.
@@ -203,6 +237,7 @@ export function AppProvider({ children }) {
   const signOut = useCallback(async (reason) => {
     if (reason === 'idle') { setIdleReason(); simpanTujuan() }
     try { if (baseUser) await db.update('users', baseUser.id, { online_until: null }) } catch { /* abaikan */ }
+    if (db.personaSet) await db.personaSet(null).catch(() => {})
     await db.signOut(); broadcastSignOut(); setUser(null); setActiveRole('')
   }, [baseUser?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -281,6 +316,13 @@ export function AppProvider({ children }) {
     s.history = [...(s.history || []), { at: new Date().toISOString(), by: user.name, role: user.role, action: advance ? (override ? `${stage.label} → ${nextLabel} · dilanjutkan tanpa menunggu ${stage.roles.filter((r) => r !== 'superadmin').map((r) => ROLES[r]?.label || r).join('/')} oleh ${roleLabel(user)} · alasan: ${override}` : `${stage.label} → ${nextLabel}`) : `Update ${stage.label}`, ...(override ? { override: true, reason: override, from: stage.key, to: next } : {}) }]
     s.stage = next
     if (advance) s.stage_at = new Date().toISOString()
+    // Tahap registrasi: nomor dicatat ke tabel registrations DULU — nomor kembar
+    // ditolak database, jadi tahap tidak maju dengan nomor yang salah.
+    if (advance && stage.key === 'registrasi') {
+      const rows = barisRegistrasi(project, s, user)
+      if (rows.length !== (merged.reg_numbers || []).filter(Boolean).length) throw new Error('Ada nomor registrasi yang formatnya salah (harus 14 angka, diawali 41–44).')
+      try { await db.regInsert(rows) } catch (e) { throw new Error(/duplicate|sudah dipakai/i.test(e.message) ? 'Nomor registrasi sudah dipakai dokumen lain — tekan "Ambil nomor" lagi.' : e.message) }
+    }
     const saved = await save('projects', { ...project, sub_projects: subs })
     if (pettyRow) await save('petty_cash', pettyRow)
     // Notifikasi in-app (tujuan: user / role / cabang)
@@ -312,6 +354,23 @@ export function AppProvider({ children }) {
    * Tolak / kembalikan pengajuan vendor untuk diperbaiki (Direktur saat persetujuan, Akunting saat pembayaran).
    * Sub project kembali ke tahap "Pengajuan Vendor"; alasan tersimpan & pengaju diberi notifikasi.
    */
+  /** Proofreader/Otorisator mengembalikan dokumen ke penerjemah untuk diperbaiki (tahap mundur ke Penerjemahan). */
+  const kembalikanKePenerjemah = async (project, subId, reason) => {
+    const why = String(reason || '').trim(); if (!why) throw new Error('Tulis apa yang perlu diperbaiki')
+    const now = new Date().toISOString(); let title = ''; let to = null
+    const subs = project.sub_projects.map((x) => {
+      if (x.id !== subId) return x
+      title = x.title; to = x.data?.translator || x.translator
+      const fromLabel = stageLabel(flowOf(x, project), x.stage)
+      return { ...x, stage: 'penerjemahan', stage_at: now,
+        data: { ...x.data, perbaikan_note: why, perbaikan_by: user.id, perbaikan_name: user.name, perbaikan_at: now, perbaikan_from: x.stage, perbaikan_count: (Number(x.data?.perbaikan_count) || 0) + 1, claim: null },
+        history: [...(x.history || []), { at: now, by: user.name, role: user.role, action: `${fromLabel} → Penerjemahan · dikembalikan ke penerjemah · catatan: ${why}`, rejected: true, reason: why }] }
+    })
+    const saved = await save('projects', { ...project, sub_projects: subs })
+    if (to && to !== user.id) await save('notifications', { to_user: to, kind: 'revision', text: `${project.invoice_no} · ${title}: dikembalikan oleh ${user.name} untuk diperbaiki — ${why}`, project_id: project.id, by: user.name, read_by: [] }).catch(() => {})
+    return saved
+  }
+
   const returnPengajuan = async (project, subId, reason) => {
     const why = String(reason || '').trim(); if (!why) throw new Error('Isi alasan penolakan / perbaikan')
     const now = new Date().toISOString(); let title = ''; let to = null
@@ -715,7 +774,7 @@ export function AppProvider({ children }) {
   }, [data.users, data.people, user])
 
   const value = useMemo(() => ({
-    user, setActiveRole, booting, data, refresh, signIn, signUp, signOut, MODE, save, remove, processStage, pettyBalance, claimSub, myNotifications, markRead, nameOf, patchSubData, saveBiaya, assignTranslator, returnPengajuan, gantiPenerjemah, tolakTugas, myPings, sendPing, markPingRead, lastPingTo, setAvatar, updateProfile, PING_COOLDOWN_MS, PING_DAILY_MAX,
+    user, setActiveRole, personaList, booting, data, refresh, signIn, signUp, signOut, MODE, save, remove, processStage, pettyBalance, claimSub, myNotifications, markRead, nameOf, patchSubData, saveBiaya, assignTranslator, returnPengajuan, kembalikanKePenerjemah, gantiPenerjemah, tolakTugas, myPings, sendPing, markPingRead, lastPingTo, setAvatar, updateProfile, PING_COOLDOWN_MS, PING_DAILY_MAX,
     notify, toast, dismissToast, branchFilter, setBranchFilter, ask, confirmState, setConfirmState, liveStatus,
     invoices, invoiceErr, refreshInvoices, unlinkedInvoices, invoiceRange, setInvoiceRange,
     chatMessages, chatUnread, chatTotals, sendMessage, sendChatPing, markChatRead, sendTyping, typing, PING_MAX_24H, PING_GAP_MS,

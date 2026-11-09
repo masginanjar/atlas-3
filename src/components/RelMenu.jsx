@@ -16,7 +16,7 @@ import { usePanel, PANELS, PANEL_ORDER } from './WorkspacePanel.jsx'
 // ============================================================
 
 /** Halaman utama di rel, urut. Yang tidak boleh dibuka role ini otomatis dilewati. */
-export const RAIL_KEYS = ['dashboard', 'projects', 'faktur', 'keuangan', 'agenda']
+export const RAIL_KEYS = ['beranda', 'dashboard', 'projects', 'faktur', 'keuangan', 'agenda']
 const RAIL_LABEL = { dashboard: 'Dasbor', projects: 'Project', faktur: 'Faktur', keuangan: 'Keuangan', agenda: 'Agenda', settings: 'Pengaturan' }
 
 const badgeOf = (n, ctx) => (n.badge ? n.badge(ctx.user, ctx.data, ctx.branchFilter, ctx.extra) : 0)

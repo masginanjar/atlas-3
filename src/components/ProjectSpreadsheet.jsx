@@ -7,6 +7,9 @@ import { invoiceLabel } from '../config/access.js'
 import { tanggalJam, tanggal } from '../lib/waktu.js'
 import { projectRow, TABLE_COLS, sortRows, filterOptions, applyFilters, FILTER_LABEL } from '../lib/projectRow.js'
 import { stageLabel, flowOf } from '../config/workflows.js'
+import { grupOf, garisUrgensi, sisaWaktu, kelasGrup, labelGrup } from '../lib/urgensi.js'
+import { Stepper } from '../pages/Projects.jsx'
+import { progressOf } from '../config/workflows.js'
 import { SUB_TYPES } from '../config/subtypes.js'
 
 const PAGE = 36
@@ -18,7 +21,7 @@ function Lingkar({ warna, judul, children }) {
   // Kapsul solid (latar penuh, teks putih) — sama dengan aturan kapsul di tampilan List
   const w = { hitam: 'bg-ink', hijau: 'bg-emerald-600', merah: 'bg-rose-600', oranye: 'bg-orange-500' }[warna]
   return (
-    <span title={judul} data-kapsul={warna} className={cx('inline-block max-w-full truncate rounded-full px-2 py-0.5 font-semibold text-white', w)}>{children}</span>
+    <span title={judul} data-kapsul={warna} className={cx('inline-block max-w-full truncate whitespace-nowrap rounded-full px-2 py-0.5 font-semibold text-white', w)}>{children}</span>
   )
 }
 
@@ -105,9 +108,23 @@ function BarisSub({ subs, kolom }) {
   )
 }
 
-export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles, onPrint, state, setState, hideCols = [], renderAksi }) {
-  // Kolom yang disembunyikan untuk peran tertentu (mis. pelaksana freelance tidak punya cabang).
-  const KOLOM = hideCols.length ? TABLE_COLS.filter((c) => !hideCols.includes(c.key)) : TABLE_COLS
+export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles, onPrint, state, setState, hideCols = [], renderAksi, pref = {} }) {
+  // Kolom yang disembunyikan untuk peran tertentu (mis. pelaksana freelance tidak punya cabang),
+  // lalu pilihan pengguna (Tampilan › Kolom tabel).
+  const KOLOM = TABLE_COLS.filter((c) => !hideCols.includes(c.key)).filter((c) => !pref.tabelCols || c.key === 'invoice' || pref.tabelCols.includes(c.key))
+  // Lebar kolom bisa ditarik dari batas judul; disimpan per perangkat.
+  const [lebar, setLebar] = useState(() => { try { return JSON.parse(localStorage.getItem('atlas-tabel-lebar') || '{}') } catch { return {} } })
+  const simpanLebar = (next) => { setLebar(next); try { localStorage.setItem('atlas-tabel-lebar', JSON.stringify(next)) } catch { /* abaikan */ } }
+  const mulaiTarik = (e, key, awal) => {
+    e.preventDefault(); e.stopPropagation()
+    const x0 = e.clientX; const w0 = parseInt(lebar[key] || awal, 10) || 120
+    const gerak = (ev) => setLebar((l) => ({ ...l, [key]: `${Math.max(64, w0 + ev.clientX - x0)}px` }))
+    const lepas = (ev) => { window.removeEventListener('pointermove', gerak); window.removeEventListener('pointerup', lepas); simpanLebar({ ...lebar, [key]: `${Math.max(64, w0 + ev.clientX - x0)}px` }) }
+    window.addEventListener('pointermove', gerak); window.addEventListener('pointerup', lepas)
+  }
+  const [lipat, setLipat] = useState(() => new Set())
+  // HP: saat tabel digulir ke samping, kolom invoice yang menempel ikut mengecil supaya ruang baca lebih lega
+  const [digulir, setDigulir] = useState(false)
   const { data } = useApp()
   const namaUser = useMemo(() => {
     const peta = new Map()
@@ -151,20 +168,27 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
   }
 
   const nilai = (r, key) => {
-    if (key === 'timestamp') return (
-      <Lingkar warna={r.dibuatHariIni ? 'hijau' : ''} judul={r.dibuatHariIni ? 'Diinput hari ini' : tanggalJam(r.timestamp)}>
-        <span className="tabular-nums">{tanggalJam(r.timestamp)}</span>
-      </Lingkar>)
+    if (key === 'timestamp') {
+      // Tanggal & jam dipisah supaya proporsional: kapsul hanya pada tanggal, jam di bawahnya.
+      const [tgl, jam] = String(tanggalJam(r.timestamp) || '').split(/\s(?=\d{1,2}[.:]\d{2}$)/)
+      return (
+        <span className="block whitespace-nowrap leading-tight">
+          <Lingkar warna={r.dibuatHariIni ? 'hijau' : ''} judul={r.dibuatHariIni ? 'Diinput hari ini' : tanggalJam(r.timestamp)}>
+            <span className="tabular-nums text-xs">{tgl}</span>
+          </Lingkar>
+          {jam && <span className="mt-0.5 block text-[11px] tabular-nums text-ink-mute">{jam}</span>}
+        </span>)
+    }
     if (key === 'invoice') return (
       <Lingkar warna={r.prioMendesak ? 'hitam' : ''} judul={r.prioMendesak ? `Prioritas ${r.prioritas}` : ''}>
         <InvoiceNo project={r.p} />
       </Lingkar>)
     if (key === 'deadline') {
       const w = r.dlHariIni ? 'merah' : r.dlBesok ? 'oranye' : ''
-      return (
+      return (<>
         <Lingkar warna={w} judul={r.dlHariIni ? 'Deadline hari ini' : r.dlBesok ? 'Deadline besok' : tanggal(r.deadline)}>
           <span className="tabular-nums">{r.deadline ? tanggal(r.deadline) : '—'}</span>
-        </Lingkar>)
+        </Lingkar>{pref.urgensi && sisaWaktu(r.p) && <span className={cx('block text-[10.5px] font-bold', grupOf(r.p) === 'terlambat' ? 'text-rose-600' : 'text-orange-600')}>{sisaWaktu(r.p)}</span>}</>)
     }
     if (key === 'arah') return <SelGanda ringkas={r.arah} semua={r.arahAll} />
     if (key === 'orang') return <SelGanda ringkas={r.orang} semua={r.orangAll} />
@@ -172,15 +196,15 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
     if (key === 'jmlDok' || key === 'jmlHal') return <span className="block tabular-nums md:text-right">{r[key] || 0}</span>
     if (key === 'prioritas') return <span className={cx('inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold',
       r.prioritas === 'Normal' ? 'bg-slate-100 text-ink-soft' : 'bg-rose-50 text-rose-700 ring-1 ring-rose-200')}>{r.prioritas}</span>
-    if (key === 'status') return <span className="block truncate text-xs font-semibold text-brand" title={r.status}>{r.status}</span>
+    if (key === 'status') return <span className="block min-w-0"><span className="block truncate text-xs font-semibold text-brand" title={r.status}>{r.status}</span>{pref.stepper && <span className="mt-1 block w-24"><Stepper p={r.p} prog={progressOf(r.p)} kecil /></span>}</span>
     const v = r[key]
     return <span className="block truncate" title={v}>{v || '—'}</span>
   }
 
   return (
     <div className="min-w-0 space-y-3">
-      {/* ---------- Pencarian & filter ---------- */}
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
+      {/* ---------- Pencarian & filter (di HP pakai pencarian/filter halaman, supaya tidak dobel) ---------- */}
+      <div className="hidden min-w-0 flex-wrap items-center gap-2 md:flex">
         <label className="relative block min-w-0 flex-1 basis-full sm:basis-60">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" aria-hidden="true" />
           <input value={q} onChange={(e) => set({ q: e.target.value, shownN: PAGE })}
@@ -239,14 +263,17 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
       {hasil.length === 0 ? (
         <p className="rounded-2xl bg-white px-4 py-10 text-center text-sm text-ink-mute ring-1 ring-slate-200">Tidak ada project yang cocok.</p>
       ) : (
-        <div className="min-w-0 max-w-full overflow-x-auto rounded-2xl bg-white ring-1 ring-slate-200">
-          <table className="card-table w-full border-collapse text-left align-top text-sm">
+        <div className={cx('min-w-0 max-w-full overflow-x-auto rounded-2xl bg-white ring-1 ring-slate-200', digulir && 'tabel-digulir')} data-digulir={digulir ? '1' : '0'}
+          onScroll={(e) => { const g = e.currentTarget.scrollLeft > 12; if (g !== digulir) setDigulir(g) }}>
+          <table className={cx('w-max min-w-full border-collapse text-left align-top text-sm md:w-full', pref.ukuranTabel === 'kecil' && 'tabel-kecil', pref.ukuranTabel === 'besar' && 'tabel-besar')} data-tabel-hp="gulir" data-ukuran={pref.ukuranTabel || 'normal'}>
             <thead>
               <tr>
                 {KOLOM.map((c) => (
-                  <th key={c.key} scope="col" style={{ width: c.w, minWidth: c.w }}
-                    className={cx('sticky top-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-ink-soft',
-                      c.sticky && 'md:left-0 md:z-20')}>
+                  <th key={c.key} scope="col" style={{ width: lebar[c.key] || c.w, minWidth: lebar[c.key] || c.w }}
+                    className={cx('relative sticky top-0 z-10 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-ink-soft',
+                      c.sticky && 'left-0 z-20 shadow-[6px_0_8px_-6px_rgba(15,23,42,.25)] md:shadow-none')}>
+                    <span onPointerDown={(e) => mulaiTarik(e, c.key, c.w)} onDoubleClick={() => simpanLebar({ ...lebar, [c.key]: undefined })} title="Tarik untuk mengubah lebar · klik dua kali untuk kembali"
+                      className="absolute right-0 top-0 hidden h-full w-2 cursor-col-resize select-none md:block hover:bg-brand/30" aria-hidden="true" data-tarik-kolom />
                     <button type="button" onClick={() => klikJudul(c.key)}
                       title={`Urutkan menurut ${c.label}`} aria-label={`Urutkan menurut ${c.label}`}
                       className={cx('inline-flex items-center gap-1 hover:text-ink', c.num && 'md:w-full md:justify-end')}>
@@ -260,13 +287,13 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
             </thead>
             <tbody>
               {tampil.map((r, i) => (
-                <tr key={r.id} onClick={() => toggleBaris(r.id)} aria-expanded={buka.has(r.id)}
+                <tr key={r.id} onClick={() => toggleBaris(r.id)} aria-expanded={buka.has(r.id)} data-grup={grupOf(r.p)}
                   title="Klik untuk melihat sub project"
                   className={cx('cursor-pointer border-b border-slate-100 align-top last:border-0 md:hover:bg-brand-soft/40',
-                    detailFor?.id === r.id ? 'bg-brand-soft/60' : buka.has(r.id) ? 'bg-brand-soft/40' : i % 2 === 1 && 'md:bg-slate-50/60')}>
+                    detailFor?.id === r.id ? 'bg-brand-soft/60' : buka.has(r.id) ? 'bg-brand-soft/40' : i % 2 === 1 ? 'bg-slate-100 md:bg-slate-50/60' : 'bg-white')}>
                   {KOLOM.map((c) => (
                     <td key={c.key} data-label={c.label}
-                      className={cx('min-w-0 max-w-full px-3 py-2.5', c.sticky && 'md:sticky md:left-0 md:bg-inherit')}>
+                      className={cx('min-w-0 max-w-full whitespace-nowrap px-3 py-2.5 md:whitespace-normal', c.sticky && cx('sticky left-0 z-[1] shadow-[6px_0_8px_-6px_rgba(15,23,42,.25)] md:shadow-none', detailFor?.id === r.id || buka.has(r.id) ? 'bg-[#eef4fb]' : i % 2 === 1 ? 'bg-slate-100 md:bg-slate-50' : 'bg-white'), c.sticky && pref.urgensi && cx('border-l-[3px]', garisUrgensi(r.p)))}>
                       {nilai(r, c.key)}
                     </td>
                   ))}
@@ -284,8 +311,22 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
                 </tr>
               )).flatMap((tr, idx) => {
                 const r = tampil[idx]
-                if (!buka.has(r.id)) return [tr]
-                return [tr, (
+                const out = []
+                // Baris judul grup tenggat (hanya bila urutan menurut deadline, supaya grupnya runtut)
+                if (pref.grup && sortKey === 'deadline') {
+                  const g = grupOf(r.p); const sebelum = idx > 0 ? grupOf(tampil[idx - 1].p) : null
+                  if (g !== sebelum) out.push(
+                    <tr key={`g-${g}-${idx}`} data-grup-tenggat={g}>
+                      <td colSpan={KOLOM.length + 1} className={cx('sticky left-0 border-y px-3 py-1 text-[11.5px] font-extrabold', kelasGrup(g))}>
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setLipat((v) => { const n = new Set(v); n.has(g) ? n.delete(g) : n.add(g); return n }) }} className="flex w-full items-center gap-2 text-left">
+                          {lipat.has(g) ? '▸' : '▾'} {labelGrup(g)}<span className="font-semibold opacity-70">· {hasil.filter((x) => grupOf(x.p) === g).length}</span>
+                        </button>
+                      </td>
+                    </tr>)
+                  if (lipat.has(g)) return out
+                }
+                if (!buka.has(r.id)) return [...out, tr]
+                return [...out, tr, (
                   <tr key={`${r.id}-sub`} className="border-b border-slate-100 bg-slate-50/70">
                     <td colSpan={KOLOM.length + 1} className="p-0">
                       <BarisSub kolom={KOLOM} subs={(r.subs || []).map((x) => ({
@@ -306,6 +347,15 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
         </div>
       )}
 
+      {hasil.length > 0 && (
+        <p className="flex flex-wrap items-center gap-x-3 px-1 text-[11px] text-ink-mute" data-ringkas-tabel>
+          <span><b className="text-ink">{hasil.length}</b> project</span>
+          <span><b className="text-rose-600">{hasil.filter((r) => grupOf(r.p) === 'terlambat').length}</b> terlambat</span>
+          <span><b className="text-orange-600">{hasil.filter((r) => grupOf(r.p) === 'hariini').length}</b> hari ini</span>
+          <span><b className="text-ink">{hasil.reduce((a, r) => a + (r.jmlHal || 0), 0)}</b> hlm</span>
+          {pref.grup && sortKey !== 'deadline' && <span className="ml-auto">grup tenggat tampil saat diurutkan menurut Deadline</span>}
+        </p>
+      )}
       {hasil.length > shownN && (
         <Button variant="outline" className="w-full" onClick={() => set({ shownN: shownN + PAGE })}>
           Tampilkan {PAGE} lagi ({hasil.length - shownN} tersisa)

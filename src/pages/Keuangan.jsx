@@ -1,63 +1,120 @@
 import { useEffect, useState } from 'react'
-import { Wallet, Lock } from 'lucide-react'
+import { Wallet, Lock, Plus, ArrowUpRight, ArrowDownLeft, FilePlus2, ChevronDown } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { can, WORKER_ROLES, APOSTILLE_FUND, pettyAccountsOf } from '../config/access.js'
+import { can, APOSTILLE_FUND, pettyAccountsOf } from '../config/access.js'
 import { useDashStats, FinanceGroup } from './Dashboard.jsx'
 import { PettyCash } from './Settings.jsx'
 import FundSummary from '../components/FundSummary.jsx'
-import { Card, Empty, cx } from '../components/ui.jsx'
+import KeuanganRingkas from '../components/KeuanganRingkas.jsx'
+import { Card, Empty, Button, Sheet, Popover, cx } from '../components/ui.jsx'
+import { usePanel } from '../components/WorkspacePanel.jsx'
+import { MapTabs, SubTabProvider, useSubTabHost } from '../components/SubTab.jsx'
+import { needsAction } from '../lib/badges.js'
 import Pengajuan from './Pengajuan.jsx'
 
 import { canSeeKeuangan } from '../config/menuAccess.js'
 export { canSeeKeuangan }
 
-/** Halaman Keuangan: sumber dana, pengajuan & tagihan, petty cash — satu tempat untuk semua urusan uang. */
+/**
+ * Halaman Keuangan — tampilan awal Ringkasan (apa yang perlu diputuskan +
+ * saldo kas vs batas), lalu tab rincian. Tab memakai pola "map bertingkat":
+ * saringan milik tab aktif tampil di panel yang menyatu dengan tabnya.
+ */
 export default function Keuangan({ tab }) {
-  const { user, pettyBalance, branchFilter } = useApp()
+  const { user, data, branchFilter } = useApp()
+  const { open } = usePanel()
   const s = useDashStats()
   const accounts = pettyAccountsOf(user).filter((k) => k === APOSTILLE_FUND || branchFilter === 'Semua' || k === branchFilter)
+  const host = useSubTabHost()
+  const [sheet, setSheet] = useState(false)
+  const [sub, setSub] = useState(null)        // sub-tab awal yang diminta (mis. dari Perlu Anda)
+  const [intent, setIntent] = useState(null)  // { jenis: 'in'|'out', kas, nominal } → dibuka PettyCash
 
-  // Satu menu, beberapa tab. Tab yang tidak berhak TIDAK DITAMPILKAN sama
-  // sekali — hak aksesnya persis seperti saat menunya masih terpisah.
+  const nPengajuan = needsAction(user, data, branchFilter)
+  const nTagihan = (can.approveVendor(user) ? s.approvals.length : 0) + (['superadmin', 'akunting'].includes(user.role) ? s.payments.length : 0)
   const tabs = [
-    { key: 'pengajuan', label: 'Pengajuan', boleh: true },
-    { key: 'dana', label: 'Sumber Dana', boleh: can.seeFunding(user) },
-    { key: 'tagihan', label: 'Tagihan Vendor', boleh: canSeeKeuangan(user) },
+    { key: 'ringkasan', label: 'Ringkasan', boleh: true },
+    { key: 'pengajuan', label: 'Pengajuan', boleh: true, n: nPengajuan },
     { key: 'petty', label: 'Petty Cash', boleh: canSeeKeuangan(user) && accounts.length > 0 },
+    { key: 'tagihan', label: 'Tagihan Vendor', boleh: canSeeKeuangan(user), n: nTagihan },
+    { key: 'dana', label: 'Sumber Dana', boleh: can.seeFunding(user) },
   ].filter((t) => t.boleh)
 
-  const awal = tabs.some((t) => t.key === tab) ? tab : tabs[0]?.key
+  const awal = tabs.some((t) => t.key === tab) ? tab : 'ringkasan'
   const [aktif, setAktif] = useState(awal)
-  // Tautan dari dasbor (#/keuangan/petty dll.) harus memindahkan tab walau halaman sudah terbuka
   useEffect(() => { if (tab && tabs.some((t) => t.key === tab)) setAktif(tab) }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
-  const now = tabs.some((t) => t.key === aktif) ? aktif : tabs[0]?.key
+  const now = tabs.some((t) => t.key === aktif) ? aktif : 'ringkasan'
+  const pilih = (k, subAwal = null) => { setSub(subAwal); setAktif(k); if (window.location.hash !== `#/keuangan/${k}`) window.history.replaceState(null, '', `#/keuangan/${k}`) }
+
+  const bisaCatat = canSeeKeuangan(user) && accounts.length > 0
+  const bisaTopUp = bisaCatat && can.topUpPettyCash(user)
+  const bisaAjukan = !['penerjemah', 'proofreader', 'otorisator', 'staf_apostille'].includes(user.role)
+  const buka = (jenis, kas, nominal) => {
+    setSheet(false)
+    if (jenis === 'ajukan') return open('pengajuan')
+    setIntent({ jenis, kas, nominal, t: Date.now() }); pilih('petty')
+  }
+  const opsi = [
+    bisaCatat && ['out', 'Pengeluaran / dana keluar', 'Biaya project, operasional, kurir…', ArrowUpRight, 'bg-rose-50 text-rose-700'],
+    bisaTopUp && ['in', 'Top up / dana masuk', 'Isi saldo petty cash dari PT', ArrowDownLeft, 'bg-emerald-50 text-emerald-700'],
+    bisaAjukan && ['ajukan', 'Pengajuan baru', 'Minta ACC Direktur: top up, refund, biaya lain', FilePlus2, 'bg-amber-50 text-amber-800'],
+  ].filter(Boolean)
 
   if (!tabs.length) return <Card><Empty icon={Lock} title="Halaman Keuangan tidak tersedia untuk role Anda" /></Card>
 
+  const tombolTambah = opsi.length > 0 && (
+    <>
+      <button type="button" onClick={() => setSheet(true)} aria-label="Catat / ajukan" data-aksi="tambah-keuangan"
+        className="grid h-11 w-11 place-items-center rounded-xl bg-ink text-white shadow-sm sm:hidden"><Plus className="h-5 w-5" /></button>
+      <div className="hidden sm:block">
+        <Popover label="Catat / ajukan" width="min-w-[280px]" button={({ toggle, open: o }) => (
+          <Button size="sm" variant="dark" onClick={toggle} aria-expanded={o} data-aksi="tambah-keuangan"><Plus className="h-3.5 w-3.5" />Catat / Ajukan<ChevronDown className="h-3.5 w-3.5 opacity-70" /></Button>
+        )}>
+          {({ close }) => <MenuCatat opsi={opsi} onPilih={(j) => { close(); buka(j) }} />}
+        </Popover>
+      </div>
+    </>
+  )
+
   return (
     <div className="min-w-0 space-y-3">
-      {/* Judul + tab dalam satu baris (K4); anak judul dihapus */}
-      <div className="flex flex-wrap items-center gap-2" data-alat>
-        <h1 className="mr-1 flex items-center gap-2 text-xl font-extrabold leading-tight sm:text-2xl">
+      <div className="flex items-center gap-2" data-alat>
+        <h1 className="flex items-center gap-2 text-xl font-extrabold leading-tight sm:text-2xl">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-glow"><Wallet className="h-4 w-4" /></span>Keuangan
         </h1>
-        {tabs.length > 1 && (
-          <div className="-mx-1 flex min-w-0 gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]" role="tablist" aria-label="Bagian keuangan" data-tab-keuangan>
-            {tabs.map((t) => (
-              <button key={t.key} type="button" role="tab" aria-selected={now === t.key} onClick={() => setAktif(t.key)}
-                className={cx('flex h-9 shrink-0 items-center whitespace-nowrap rounded-xl px-3 text-xs font-semibold ring-1 transition',
-                  now === t.key ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand')}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="ml-auto flex items-center gap-1.5">{tombolTambah}</div>
       </div>
 
-      {now === 'pengajuan' && <Pengajuan />}
-      {now === 'dana' && <FundSummary />}
-      {now === 'tagihan' && <FinanceGroup s={s} />}
-      {now === 'petty' && <div data-petty-penuh><PettyCash /></div>}
+      <SubTabProvider value={host.ctx}>
+        <MapTabs tabs={tabs} aktif={now} onPilih={pilih} ada={host.ada} setPanelEl={host.setEl} label="Bagian keuangan" />
+        <div data-isi-keuangan={now}>
+          {now === 'ringkasan' && <KeuanganRingkas s={s} pilihTab={pilih} bukaTopUp={bisaTopUp ? (kas, nominal) => buka('in', kas, nominal) : null} />}
+          {now === 'pengajuan' && <Pengajuan subAwal={sub} />}
+          {now === 'dana' && <FundSummary />}
+          {now === 'tagihan' && <FinanceGroup s={s} subtab />}
+          {now === 'petty' && <div data-petty-penuh><PettyCash intent={intent} onIntentDone={() => setIntent(null)} /></div>}
+        </div>
+      </SubTabProvider>
+
+      <Sheet open={sheet} onClose={() => setSheet(false)} title="Catat / ajukan">
+        <MenuCatat opsi={opsi} onPilih={buka} besar />
+      </Sheet>
     </div>
+  )
+}
+
+function MenuCatat({ opsi, onPilih, besar }) {
+  return (
+    <ul className={cx('space-y-1.5', besar && 'pb-2')}>
+      {opsi.map(([k, l, ket, Icon, tone]) => (
+        <li key={k}>
+          <button type="button" onClick={() => onPilih(k)} data-catat={k}
+            className={cx('flex w-full items-center gap-3 rounded-xl px-3 text-left ring-1 ring-slate-200 hover:ring-brand', besar ? 'min-h-[56px] py-2' : 'min-h-[44px] py-1.5')}>
+            <span className={cx('grid h-9 w-9 shrink-0 place-items-center rounded-lg', tone)}><Icon className="h-4 w-4" /></span>
+            <span className="min-w-0 flex-1"><span className="block text-sm font-bold text-ink">{l}</span><span className="block text-xs text-ink-mute">{ket}</span></span>
+          </button>
+        </li>
+      ))}
+    </ul>
   )
 }

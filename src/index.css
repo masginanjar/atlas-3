@@ -360,3 +360,30 @@ body { background-image: none; }
 .tbl-rapat tbody td button:not(.aksi > button),
 .tbl-rapat tbody td a:not(.aksi > a) { min-height: 0; }
 .tbl-rapat tbody td > span > button { height: 28px; padding-top: 0; padding-bottom: 0; }
+
+/* ---- Preferensi tampilan halaman Project (menu Tampilan ▾) ---- */
+.tanpa-zebra li, .tanpa-zebra tr, .tanpa-zebra td, .tanpa-zebra [data-kartu] { background-color: #fff !important; }
+.tanpa-garis li, .tanpa-garis tr, .tanpa-garis td, .tanpa-garis th { border-color: transparent !important; }
+.tanpa-garis [class*="ring-1"]:not(button):not(a):not(select):not(input) { --tw-ring-color: transparent; }
+.tanpa-garis [class*="divide-y"] > * { border-color: transparent !important; }
+.lipat-teks .truncate, .lipat-teks td.whitespace-nowrap, .lipat-teks [class*="line-clamp"] { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; -webkit-line-clamp: unset !important; }
+.tanpa-sticky-kiri td.sticky, .tanpa-sticky-kiri th.left-0 { position: static !important; box-shadow: none !important; }
+.tanpa-sticky-atas thead th, .tanpa-sticky-atas [data-kepala-daftar] { position: static !important; }
+.tabel-rata table { table-layout: fixed; width: 100%; }
+/* Ukuran tabel Project (Tampilan › Tabel › Ukuran tabel) */
+table.tabel-kecil { font-size: 11.5px; }
+table.tabel-kecil th, table.tabel-kecil td { padding-top: .3rem !important; padding-bottom: .3rem !important; padding-left: .5rem !important; padding-right: .5rem !important; }
+table.tabel-kecil [data-kapsul], table.tabel-kecil [data-invoice-badge] { font-size: 10.5px; padding-top: 1px; padding-bottom: 1px; }
+table.tabel-besar { font-size: 15px; }
+table.tabel-besar th, table.tabel-besar td { padding-top: .85rem !important; padding-bottom: .85rem !important; padding-left: 1rem !important; padding-right: 1rem !important; }
+table.tabel-besar .text-xs { font-size: 13px; }
+/* Tabel Project digulir ke samping → kolom invoice yang menempel mengecil (HP & PC) */
+.tabel-digulir th.left-0, .tabel-digulir td.sticky.left-0 { width: 128px !important; min-width: 128px !important; max-width: 128px !important; padding-left: .5rem !important; padding-right: .5rem !important; transition: width .15s, min-width .15s, max-width .15s; }
+.tabel-digulir td.sticky.left-0 [data-invoice-badge], .tabel-digulir td.sticky.left-0 [class*="rounded-full"] { font-size: 11px !important; padding-left: .4rem !important; padding-right: .4rem !important; letter-spacing: -.02em; }
+.tabel-digulir td.sticky.left-0 > * { max-width: 100%; overflow: hidden; }
+.tabel-digulir th.left-0 button { font-size: 11px; }
+@media (max-width: 767px) {
+  .tabel-digulir th.left-0, .tabel-digulir td.sticky.left-0 { width: 104px !important; min-width: 104px !important; max-width: 104px !important; padding-left: .4rem !important; padding-right: .4rem !important; }
+  .tabel-digulir td.sticky.left-0 [data-invoice-badge], .tabel-digulir td.sticky.left-0 [class*="rounded-full"] { font-size: 10px !important; padding-left: .3rem !important; padding-right: .3rem !important; }
+  .tabel-digulir th.left-0 button { font-size: 10px; }
+}

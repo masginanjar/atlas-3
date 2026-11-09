@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { InvoiceNo } from './badges.jsx'
 import { Wallet, Undo2, ShoppingCart, Plus, Upload, FileCheck2, Loader2, ChevronUp, X, Check, Inbox, Ban, Banknote } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
+import { SubTabs, SubTabBtn } from './SubTab.jsx'
 import { drive } from '../lib/integrations.js'
 import { BRANCHES, can, branchesOf, pettyAccountsOf, pettyLabel, APOSTILLE_FUND, scopeByBranch, invoiceLabel} from '../config/access.js'
 import { sumberLabel } from '../config/workflows.js'
@@ -41,10 +42,12 @@ export function scopeRequests(user, all = [], branchFilter = 'Semua') {
 }
 
 /** Tabel kontrol pengajuan umum di dashboard. bare = tanpa kartu/judul (di dalam grup Keuangan). */
-export function RequestBoard({ bare }) {
+export function RequestBoard({ bare, tab: tabProp, onTab, subtab, kanan }) {
   const { user, data, save, notify, branchFilter, nameOf } = useApp()
   const defTab = user.role === 'direktur' ? 'menunggu' : user.role === 'akunting' ? 'disetujui' : 'aktif'
-  const [tab, setTab] = useState(defTab)
+  const [tabLocal, setTabLocal] = useState(defTab)
+  const tab = tabProp ?? tabLocal
+  const setTab = (k) => { setTabLocal(k); onTab?.(k) }
   const [open, setOpen] = useState(() => { try { return localStorage.getItem('atlas-fold-req') !== '0' } catch { return true } })
   const [form, setForm] = useState(false)
   const [row, setRow] = useState({}) // per id: { acc, dana, reject, reason, file, date, busy, up }
@@ -55,6 +58,7 @@ export function RequestBoard({ bare }) {
   const scoped = useMemo(() => scopeRequests(user, data.requests || [], branchFilter), [data.requests, user, branchFilter])
   const groups = {
     aktif: scoped.filter((r) => ['menunggu', 'disetujui'].includes(r.status)),
+    saya: scoped.filter((r) => r.requested_by === user.id),
     menunggu: scoped.filter((r) => r.status === 'menunggu'),
     disetujui: scoped.filter((r) => r.status === 'disetujui'),
     dibayar: scoped.filter((r) => r.status === 'dibayar'),
@@ -62,9 +66,14 @@ export function RequestBoard({ bare }) {
     semua: scoped,
   }
   const list = [...groups[tab]].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-  const TABS = [['aktif', 'Aktif'], ['menunggu', 'Menunggu ACC'], ['disetujui', 'Disetujui'], ['dibayar', 'Dibayar'], ['ditolak', 'Ditolak'], ['semua', 'Semua']]
   const canAcc = can.approveVendor(user)
   const canPay = ['superadmin', 'akunting'].includes(user.role)
+  // Urutan sub-tab mengikuti siapa yang membuka: Direktur mulai dari Perlu ACC,
+  // akunting dari Perlu transfer, pemohon dari pengajuannya sendiri.
+  const TABS = subtab
+    ? [...(canAcc ? [['menunggu', 'Perlu ACC']] : []), ...(canPay || canAcc ? [['disetujui', 'Perlu transfer']] : []), ['saya', 'Saya ajukan'],
+      ...(!canAcc ? [['menunggu', 'Menunggu ACC']] : []), ...(!(canPay || canAcc) ? [['disetujui', 'Disetujui']] : []), ['dibayar', 'Dibayar'], ['ditolak', 'Ditolak'], ['semua', 'Semua']]
+    : [['aktif', 'Aktif'], ['menunggu', 'Menunggu ACC'], ['disetujui', 'Disetujui'], ['dibayar', 'Dibayar'], ['ditolak', 'Ditolak'], ['semua', 'Semua']]
 
   const msg = (r, text, to) => save('notifications', { ...to, text: `Pengajuan ${REQ_KINDS[r.kind]?.label} ${rupiah(r.amount)}: ${text}`, by: user.name, read_by: [] }).catch(() => {})
   const hist = (r, action) => [...(r.history || []), { at: new Date().toISOString(), by: user.name, action }]
@@ -118,13 +127,23 @@ export function RequestBoard({ bare }) {
         </div>
       </div>}
       {(open || bare) && <>
+        {subtab ? (
+          <SubTabs>
+            <div className="-mx-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">
+              {TABS.map(([k, l]) => <SubTabBtn key={k} on={tab === k} onClick={() => setTab(k)} n={groups[k].length} data-subtab={k}>{l}</SubTabBtn>)}
+            </div>
+            <span className="ml-auto hidden text-xs text-[#1e3a5f] sm:inline">{TABS.find(([k]) => k === tab)?.[1]} · <b>{list.length} pengajuan</b> · Total <b>{rupiah(list.reduce((a, r) => a + Number(r.amount || 0), 0))}</b></span>
+            {kanan}
+          </SubTabs>
+        ) : (
         <FinBar
           left={TABS.map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={cx('shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-semibold sm:px-2 sm:py-0.5 sm:text-[11px]', tab === k ? 'bg-amber-500 text-white' : 'text-ink-soft hover:bg-amber-50')}>{l} {groups[k].length}</button>)}
           total={list.reduce((a, r) => a + Number(r.amount || 0), 0)}
-          right={null} />
+          right={null} />)}
+        {subtab && <p className="flex items-center gap-2 px-3 pb-1 pt-2 text-[11.5px] text-ink-mute sm:hidden">{TABS.find(([k]) => k === tab)?.[1]} · <b className="text-ink">{list.length} pengajuan</b><span className="ml-auto">Total <b className="text-ink">{rupiah(list.reduce((a, r) => a + Number(r.amount || 0), 0))}</b></span></p>}
         <FinHead />
         {list.length === 0 ? <p className="px-4 py-6 text-center text-sm text-ink-mute">Tidak ada pengajuan.</p> : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="lg:divide-y lg:divide-slate-100">
             {list.map((r) => {
               const f = get(r.id); const p = projectOf(r)
               return (
