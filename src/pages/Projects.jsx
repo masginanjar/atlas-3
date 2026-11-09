@@ -38,14 +38,18 @@ export default function Projects({ tabAwal }) {
   const [status, setStatus] = useState('aktif')
   // Pencarian/filter/urutan tabel disimpan di sini, bukan di dalam tabelnya,
   // supaya tidak hilang saat panel detail dibuka-tutup atau setelah cetak.
-  const [tableState, setTableState] = useState({ q: '', sortKey: 'timestamp', sortDir: 'desc', filters: {}, shownN: 36 })
+  const [tableState, setTableState] = useState(() => { let v = 'deadline'; try { v = localStorage.getItem('atlas-sort') || 'deadline' } catch { /* abaikan */ } return { q: '', sortKey: v === 'baru' ? 'timestamp' : 'deadline', sortDir: v === 'baru' ? 'desc' : 'asc', filters: {}, shownN: 36 } })
   const VIEWS = ['list', 'tabel']
   // Tampilan kartu dihapus; preferensi lama yang masih 'grid' jatuh ke list.
   const [view, setViewRaw] = useState(() => { try { const v = localStorage.getItem('atlas-view'); return VIEWS.includes(v) ? v : 'list' } catch { return 'list' } })
   const setView = (v) => { setViewRaw(v); try { localStorage.setItem('atlas-view', v) } catch { /* abaikan */ } }
   // urutan: 'deadline' (terdekat dulu) atau 'baru' (project terbaru dulu) — tombol saklar, tersimpan per perangkat
   const [sort, setSortRaw] = useState(() => { try { return localStorage.getItem('atlas-sort') || 'deadline' } catch { return 'deadline' } })
-  const setSort = (v) => { setSortRaw(v); try { localStorage.setItem('atlas-sort', v) } catch { /* abaikan */ } }
+  const setSort = (v) => {
+    setSortRaw(v); try { localStorage.setItem('atlas-sort', v) } catch { /* abaikan */ }
+    // tampilan tabel ikut: Deadline = kolom Deadline naik (terlambat paling akhir), Terbaru = Timestamp turun
+    setTableState((t) => ({ ...t, sortKey: v === 'baru' ? 'timestamp' : 'deadline', sortDir: v === 'baru' ? 'desc' : 'asc' }))
+  }
   // filter deadline dari judul kolom: null | {kind:'today'|'tomorrow'|'range', from, to}
   const [dlFilter, setDlFilter] = useState(null)
   // filter Cabang / Lokasi Print dari judul kolom: { branch: ''|nama, print: ''|nama }
@@ -89,11 +93,19 @@ export default function Projects({ tabAwal }) {
       .filter((p) => cepat !== 'hambatan' || (!isDone(p) && daysLeft(p.about?.deadline) !== null && daysLeft(p.about?.deadline) <= 0))
       .filter((p) => cepat !== 'saya' || p.created_by === user.id || (p.about?.cs_id && p.about.cs_id === user.id))
       .filter((p) => cepat !== 'pilih' || (p.sub_projects || []).some((x) => x.stage === 'pilih_penerjemah'))
-      .sort((a, b) => sort === 'baru' ? new Date(b.created_at || 0) - new Date(a.created_at || 0) : new Date(a.about?.deadline || 0) - new Date(b.about?.deadline || 0))
+      .sort((a, b) => {
+        // Terbaru: tanggal input, paling baru dulu
+        if (sort === 'baru') return new Date(b.created_at || 0) - new Date(a.created_at || 0)
+        // Deadline: hari ini, besok, dst.; yang sudah lewat deadline (dan belum selesai) ditaruh paling akhir
+        const lewat = (p) => (!isDone(p) && daysLeft(p.about?.deadline) < 0 ? 1 : 0)
+        const la = lewat(a), lb = lewat(b); if (la !== lb) return la - lb
+        const da = a.about?.deadline ? new Date(a.about.deadline).getTime() : Infinity, db = b.about?.deadline ? new Date(b.about.deadline).getTime() : Infinity
+        return da === db ? new Date(b.created_at || 0) - new Date(a.created_at || 0) : da - db
+      })
   }, [scoped, tab, q, status, sort, dlFilter, bpFilter, prFilter, cepat, user.id])
-  // project lewat deadline & belum selesai — selalu dipajang di atas tabel (hilang otomatis saat selesai)
+  // project lewat deadline & belum selesai — dihitung untuk ringkasan; urutannya ikut aturan di atas (paling akhir)
   const late = useMemo(() => list.filter((p) => !isDone(p) && daysLeft(p.about?.deadline) < 0), [list])
-  const rest = useMemo(() => late.length ? list.filter((p) => !late.includes(p)) : list, [list, late])
+  const rest = list
 
   // pengatur tampilan daftar: kepadatan baris, ukuran huruf, dan mode layar penuh
   const [density, setDensity] = useDensity()
@@ -299,7 +311,7 @@ export default function Projects({ tabAwal }) {
               current={{ name: namaView, tab, q, status, sort, cepat, dlFilter, prFilter, bpFilter, cols: colsAktif, view }} apply={terapkanView} /> : null}>
           {list.length === 0 && !(view === 'list' && (dlFilter || bpFilter.branch || bpFilter.print || q || tab !== 'all')) ? (
             <Card><Empty icon={FolderOpen} title={worker ? 'Belum ada project untuk Anda' : 'Belum ada project'} text={worker ? 'Project akan muncul di sini begitu ada yang ditugaskan kepada Anda.' : 'Buat project baru dari invoice Zoho.'} action={worker ? null : <Button onClick={() => go('projects/new')}><Plus className="h-4 w-4" />Project Baru</Button>} /></Card>
-          ) : view === 'list' ? <ProjectList pref={pref} list={rest.slice(0, shownN)} late={late} dlFilter={dlFilter} setDlFilter={setDlFilter} prFilter={prFilter} setPrFilter={setPrFilter} cols={colsAktif} detailFor={detailFor} setDetailFor={setDetailFor} filesFor={filesFor} setFilesFor={setFilesFor} onLangkah={bukaLangkah} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
+          ) : view === 'list' ? <ProjectList pref={pref} list={rest.slice(0, shownN)} nLate={late.length} dlFilter={dlFilter} setDlFilter={setDlFilter} prFilter={prFilter} setPrFilter={setPrFilter} cols={colsAktif} detailFor={detailFor} setDetailFor={setDetailFor} filesFor={filesFor} setFilesFor={setFilesFor} onLangkah={bukaLangkah} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
             <ProjectSpreadsheet pref={pref} list={list} detailFor={detailFor} state={tableState} setState={setTableState} hideCols={worker ? SEMBUNYI_TABEL : []}
               onDetail={(p) => go(`projects/${p.id}`)}
               onFiles={(p) => setFilesFor(p)}
@@ -707,7 +719,7 @@ export const ALL_COLS = COLUMNS.map((c) => c.key)
 
 const dlFilterLabel = (f) => !f ? '' : f.kind === 'today' ? 'Hari ini' : f.kind === 'tomorrow' ? 'Besok' : `${tgl(f.from)} – ${tgl(f.to)}`
 
-function ProjectList({ list: listAll, late: lateAll = [], dlFilter, setDlFilter, prFilter = '', setPrFilter = () => {}, cols, bpFilter = { branch: '', print: '' }, setBpFilter = () => {}, options = { branches: [], prints: [] }, detailFor, setDetailFor, filesFor, setFilesFor, onLangkah, pref = {} }) {
+function ProjectList({ list: listAll, nLate = 0, dlFilter, setDlFilter, prFilter = '', setPrFilter = () => {}, cols, bpFilter = { branch: '', print: '' }, setBpFilter = () => {}, options = { branches: [], prints: [] }, detailFor, setDetailFor, filesFor, setFilesFor, onLangkah, pref = {} }) {
   const [lipat, setLipat] = useState(() => new Set())
   const { data, user } = useApp()
   const projectOf = (id) => data.projects.find((x) => x.id === id) // versi terbaru (setelah upload/hapus di pop-up)
@@ -721,8 +733,8 @@ function ProjectList({ list: listAll, late: lateAll = [], dlFilter, setDlFilter,
 
   const [prOpen, setPrOpen] = useState(false)
   const PRIOS = ['Sameday', 'Super Ekspres', 'Ekspres', 'Normal']
-  const prCount = (k) => [...lateAll, ...listAll].filter((p) => (p.about?.priority || 'Normal') === k).length
-  const list = listAll; const late = lateAll
+  const prCount = (k) => listAll.filter((p) => (p.about?.priority || 'Normal') === k).length
+  const list = listAll; const late = [] // urutan terlambat sudah diatur di induk (paling akhir), tidak lagi dipajang terpisah
   const show = (k) => !cols || cols.includes(k) // kolom yang ditampilkan (Pengaturan kolom)
   const gridCols = [...COLUMNS.filter((c) => show(c.key)).map((c) => c.w), '236px'].join(' ')
   const fileCount = (p) => collectFiles(p).length
@@ -859,7 +871,7 @@ function ProjectList({ list: listAll, late: lateAll = [], dlFilter, setDlFilter,
       {(late.length + list.length) > 0 && (() => { const semua = [...late, ...list]; const hlm = semua.reduce((a, p) => a + (p.sub_projects || []).reduce((b, x) => b + (x.docs?.length ? x.docs.reduce((c, d) => c + (Number(d.pages) || 0), 0) : (Number(x.pages) || 0)), 0), 0); return (
         <p className="flex flex-wrap items-center gap-x-3 border-t border-slate-100 px-4 py-2 text-[11px] text-ink-mute" data-ringkas-daftar>
           <span><b className="text-ink">{semua.length}</b> project</span>
-          {late.length > 0 && <span><b className="text-rose-600">{late.length}</b> terlambat</span>}
+          {nLate > 0 && <span><b className="text-rose-600">{nLate}</b> terlambat</span>}
           <span><b className="text-orange-600">{semua.filter((p) => grupOf(p) === 'hariini').length}</b> hari ini</span>
           <span><b className="text-ink">{hlm}</b> hlm berjalan</span>
         </p>) })()}

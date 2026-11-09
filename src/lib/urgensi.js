@@ -6,13 +6,14 @@
 import { DONE, stagesOf, flowOf, isDone } from '../config/workflows.js'
 import { daysLeft } from './format.js'
 
+// Urutan tampil (aturan 9 Nov 2026): hari ini, besok, dst.; yang lewat deadline paling akhir.
 export const GRUP = [
-  ['terlambat', 'Terlambat', 'text-rose-700 bg-rose-50 border-rose-200'],
   ['hariini', 'Hari ini', 'text-orange-700 bg-orange-50 border-orange-200'],
   ['besok', 'Besok', 'text-amber-800 bg-amber-50 border-amber-200'],
   ['minggu', 'Minggu ini', 'text-ink bg-slate-100 border-slate-200'],
   ['nanti', 'Nanti', 'text-ink-soft bg-slate-50 border-slate-200'],
   ['tanpa', 'Tanpa deadline', 'text-ink-mute bg-slate-50 border-slate-200'],
+  ['terlambat', 'Terlambat', 'text-rose-700 bg-rose-50 border-rose-200'],
   ['selesai', 'Selesai', 'text-emerald-700 bg-emerald-50 border-emerald-200'],
 ]
 export const labelGrup = (k) => GRUP.find(([x]) => x === k)?.[1] || k

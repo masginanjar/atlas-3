@@ -136,12 +136,15 @@ export function AppProvider({ children }) {
   }, [refresh])
 
   // Setelah masuk: kembali ke halaman terakhir yang diizinkan, selain itu ke My Project.
-  const arahkanSetelahMasuk = () => {
+  // Setelah masuk: ke halaman yang tadi dituju (bila ada), kalau tidak ke Beranda;
+  // pelaksana lepas (penerjemah/proofreader/otorisator) tidak punya Beranda → Project.
+  const arahkanSetelahMasuk = (u) => {
     const tujuan = ambilTujuan()
-    window.location.hash = `/${tujuan || 'projects'}`
+    const bawaan = ['penerjemah', 'proofreader', 'otorisator'].includes(u?.role) ? 'projects' : 'beranda'
+    window.location.hash = `/${tujuan || bawaan}`
   }
-  const signIn = async (email, password) => { const u = await db.signIn(email, password); setActiveRole(u.role); setUser(u); arahkanSetelahMasuk(); await refresh(); return u }
-  const signUp = async (email, password) => { const u = await db.signUp?.(email, password); if (u && !u.pending) { setActiveRole(u.role); setUser(u); arahkanSetelahMasuk(); await refresh() } return u }
+  const signIn = async (email, password) => { const u = await db.signIn(email, password); setActiveRole(u.role); setUser(u); arahkanSetelahMasuk(u); await refresh(); return u }
+  const signUp = async (email, password) => { const u = await db.signUp?.(email, password); if (u && !u.pending) { setActiveRole(u.role); setUser(u); arahkanSetelahMasuk(u); await refresh() } return u }
   // Realtime (Supabase): perubahan dari pengguna lain → muat ulang tabel terkait (digabung per 400 ms)
   const [liveStatus, setLiveStatus] = useState('') // '', 'SUBSCRIBED', 'CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED', 'POLLING'
   useEffect(() => {

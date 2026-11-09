@@ -72,6 +72,8 @@ export function projectRow(p, namaUser = (x) => x) {
     prioritas: p.about?.priority || 'Normal',
     prioRank: prioRank(p.about?.priority),
     deadline: p.about?.deadline || '',
+    // lewat deadline & belum selesai → ditaruh paling akhir saat urut Deadline
+    terlambat: !!p.about?.deadline && hariKey(p.about.deadline) < hariIni && !subs.every((s) => s.stage === DONE),
     status: statusOf(p),
     cabang: p.branch || '',
     print: p.about?.print_location || p.branch || '',
@@ -113,6 +115,8 @@ export function sortRows(rows, key, dir) {
   if (!col) return rows
   const arah = dir === 'asc' ? 1 : -1
   return [...rows].sort((a, b) => {
+    // Deadline (urut naik): hari ini, besok, dst.; yang lewat deadline & belum selesai paling akhir
+    if (key === 'deadline' && dir === 'asc') { const la = a.terlambat ? 1 : 0, lb = b.terlambat ? 1 : 0; if (la !== lb) return la - lb }
     const x = col.sort(a), y = col.sort(b)
     if (typeof x === 'number' && typeof y === 'number') return (x - y) * arah
     return String(x).localeCompare(String(y), 'id') * arah
