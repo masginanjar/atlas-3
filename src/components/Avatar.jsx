@@ -1,3 +1,4 @@
+import { fotoTim } from '../lib/avatarTim.js'
 import { useState } from 'react'
 import { cx } from './ui.jsx'
 
@@ -53,8 +54,10 @@ export default function Avatar({ user, size = 36, className, ring = true }) {
   const name = user?.name || '?'
   const px = { width: size, height: size }
   const wrap = cx('relative inline-grid shrink-0 place-items-center overflow-hidden rounded-full bg-white', ring && 'ring-2 ring-white shadow-sm', className)
-  if (user?.avatar && !broken) {
-    return <span className={wrap} style={px} title={name}><img src={user.avatar} alt={name} className="h-full w-full object-cover" onError={() => setBroken(true)} /></span>
+  // Foto yang diunggah pengguna diutamakan; bila belum ada, pakai foto tim bawaan (src/assets/avatar).
+  const foto = user?.avatar || fotoTim(name)
+  if (foto && !broken) {
+    return <span className={wrap} style={px} title={name}><img src={foto} alt={name} className="h-full w-full object-cover" onError={() => setBroken(true)} /></span>
   }
   if (!broken && user?.id) return <span className={wrap} style={px} title={name}><PlaceholderAvatar seed={user.id} size={size} /></span>
   return (
