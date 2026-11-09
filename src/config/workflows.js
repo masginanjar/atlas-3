@@ -152,11 +152,7 @@ const STAF_FLOW = [
         itemRoles: { 'Bayar Pajak': ['superadmin', 'supervisor', 'direktur'] },
         // Langkah yang butuh data/berkas: saat dicentang, slide isian terbuka dulu.
         itemForm: {
-          Permohonan: [{ key: 'no_permohonan', label: 'Nomor permohonan', type: 'text' }],
-          Ditunda: [
-            { key: 'tunda_alasan', label: 'Alasan ditunda', type: 'textarea', required: true },
-            { key: 'tunda_sampai', label: 'Perkiraan dilanjutkan', type: 'date' },
-          ],
+          // Permohonan & Ditunda: cukup dicentang, tanpa slide isian.
           'Bayar Pajak': [
             { key: 'pajak_nominal', label: 'Nominal pajak', type: 'money' },
             { key: 'pajak_bukti', label: 'Bukti bayar pajak', type: 'file' },

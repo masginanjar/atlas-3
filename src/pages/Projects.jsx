@@ -5,12 +5,10 @@ import FileManager, { fieldFiles, collect as collectFiles } from '../components/
 import ProjectDetail from './ProjectDetail.jsx'
 import WorkerBoard, { WorkerActions, isWorkRole } from '../components/WorkerActions.jsx'
 import { useApp } from '../lib/store.jsx'
-import { scopeByBranch, can, branchesOf, invoiceLabel, BRANCHES } from '../config/access.js'
+import { scopeByBranch, can, branchesOf, invoiceLabel, BRANCHES, diKoordinasi, vendorKoordinator, foreignLang } from '../config/access.js'
 import ProjectSpreadsheet from '../components/ProjectSpreadsheet.jsx'
 import UnduhData from '../components/UnduhData.jsx'
 import { KapasitasSaya } from '../components/Kapasitas.jsx'
-import Apostille from './Apostille.jsx'
-import { canSeeApostille } from '../config/menuAccess.js'
 import { DONE, isDone, progressOf, stageLabel, flowOf, totalPengajuan, stageIndex, stagesOf, VENDOR_PAID_STAGES } from '../config/workflows.js'
 import { PengajuanStatus, DownloadBukti } from '../components/Pengajuan.jsx'
 import { SUB_TYPES } from '../config/subtypes.js'
@@ -28,6 +26,12 @@ import { muatPref, simpanPref, kelasPref } from '../lib/tampilanProject.js'
 import { grupOf, garisUrgensi, baru, umur, sisaWaktu, porsiSla, posisiTahap, kelompokkan, kelasGrup } from '../lib/urgensi.js'
 import { TABLE_COLS } from '../lib/projectRow.js'
 import TimeAgo from '../components/TimeAgo.jsx'
+import CentangApostille from '../components/CentangApostille.jsx'
+
+/** Order bahasa Mandarin (direkap Akunting — tanpa koordinator, tiap orang order sendiri). */
+const adaMandarin = (p) => (p.sub_projects || []).some((x) => foreignLang(x) === 'Mandarin')
+/** Project yang punya sub dikerjakan vendor (order / pengajuan / pembayaran vendor). */
+const adaVendor = (p) => (p.sub_projects || []).some((x) => x.translator_kind === 'vendor' || x.data?.vendor || ['persetujuan', 'pembayaran', ...VENDOR_PAID_STAGES].includes(x.stage))
 
 export default function Projects({ tabAwal }) {
   const { user, data, branchFilter, setBranchFilter } = useApp()
@@ -84,7 +88,7 @@ export default function Projects({ tabAwal }) {
   const list = useMemo(() => {
     const s = q.trim().toLowerCase()
     return scoped
-      .filter((p) => tab === 'all' || (p.sub_projects || []).some((x) => (x.type || 'jasa_lain') === tab))
+      .filter((p) => tab === 'all' || (tab === 'vendor' ? adaVendor(p) : tab === 'koordinator' ? (p.sub_projects || []).some((x) => diKoordinasi(user, x)) : tab === 'mandarin' ? adaMandarin(p) : (p.sub_projects || []).some((x) => (x.type || 'jasa_lain') === tab)))
       .filter((p) => status === 'semua' || (status === 'aktif' ? !isDone(p) : isDone(p)))
       .filter((p) => !s || [p.invoice_no, p.customer?.name, p.about?.description, ...(p.sub_projects || []).map((x) => x.title)].join(' ').toLowerCase().includes(s))
       .filter((p) => !dlFilter || (p.about?.deadline && String(p.about.deadline).slice(0, 10) >= dlFilter.from && String(p.about.deadline).slice(0, 10) <= dlFilter.to))
@@ -138,7 +142,9 @@ export default function Projects({ tabAwal }) {
   const tabs = [
     { value: 'all', label: 'Semua', count: dasarStatus.length },
     ...Object.entries(SUB_TYPES).map(([k, t]) => ({ value: k, label: t.label, count: dasarStatus.filter((p) => (p.sub_projects || []).some((x) => (x.type || 'jasa_lain') === k)).length })),
-    { value: 'vendor', label: 'Pengajuan Vendor', count: vendorRows.filter((r) => ['persetujuan', 'pembayaran'].includes(r.stage)).length },
+    { value: 'vendor', label: 'Vendor', count: dasarStatus.filter(adaVendor).length },
+    ...(vendorKoordinator(user).length ? [{ value: 'koordinator', label: 'Koordinator', count: dasarStatus.filter((p) => (p.sub_projects || []).some((x) => diKoordinasi(user, x))).length }] : []),
+    ...(user.role === 'akunting' ? [{ value: 'mandarin', label: 'Order Mandarin', count: dasarStatus.filter(adaMandarin).length }] : []),
   ]
 
   return (
@@ -146,7 +152,7 @@ export default function Projects({ tabAwal }) {
       {/* ===== TOOLBAR BARU: satu baris alat · strip Perlu Anda · map status + saringan ===== */}
       {(() => {
         const adaToolbar = !worker || fullView
-        const bisaSaring = adaToolbar && tab !== 'vendor' && !(tab === 'apostille' && canSeeApostille(user))
+        const bisaSaring = adaToolbar
         const nAktif = scoped.filter((p) => !isDone(p)).length
         const tabStatus = [['aktif', 'Aktif', nAktif], ['selesai', 'Selesai', scoped.length - nAktif], ['semua', 'Semua', scoped.length]].map(([key, label, n]) => ({ key, label, n: status === key ? 0 : n, ket: n }))
         const nFilter = [!!prFilter, branchFilter !== 'Semua', !!bpFilter.print, !!dlFilter].filter(Boolean).length
@@ -292,8 +298,9 @@ export default function Projects({ tabAwal }) {
         </>
       )}
 
-      {worker && !fullView ? null : tab === 'vendor' ? <VendorPayments rows={vendorRows} /> : tab === 'apostille' && canSeeApostille(user) ? <Apostille embedded /> : (
+      {worker && !fullView ? null : (
         <>
+          {(tab === 'koordinator' || tab === 'mandarin') && <InfoKoordinator tab={tab} list={list} />}
           <FilterChips chips={[
             tab !== 'all' && { label: `Jenis: ${tabs.find((t) => t.value === tab)?.label || tab}`, clear: () => setTab('all') },
             cepat && { label: cepat === 'hambatan' ? 'Hanya hambatan' : cepat === 'pilih' ? 'Perlu pilih penerjemah' : 'Hanya project saya', clear: () => setCepat('') },
@@ -1046,7 +1053,7 @@ function ProjectExpand({ p }) {
                     <td className={cx(td, 'max-w-[160px] truncate')} title={who}>{who || '—'}</td>
                     <td className={cx(td, 'text-right tabular-nums')}>{dok}</td>
                     <td className={cx(td, 'text-right tabular-nums')}>{hlm}</td>
-                    <td className={cx(td, 'whitespace-nowrap text-brand')}>{stageLabel(flowOf(sb, p), sb.stage)}</td>
+                    <td className={cx(td, 'text-brand')}><CentangApostille p={p} sb={sb} /><StatusVendor sb={sb} /></td>
                   </tr>
                 )
               })}
@@ -1056,5 +1063,47 @@ function ProjectExpand({ p }) {
         {p.about?.notes && <p className="flex items-start gap-1.5 whitespace-pre-line rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200"><StickyNote className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" /><span><b className="font-semibold">Catatan:</b> {p.about.notes}</span></p>}
       </div>
     </div>
+  )
+}
+
+/** Ringkas status vendor di baris sub project: nominal pengajuan + kapan dibayar. */
+export function StatusVendor({ sb }) {
+  const total = totalPengajuan(sb.data || {})
+  const vendor = sb.translator_kind === 'vendor' || sb.data?.vendor || ['persetujuan', 'pembayaran', ...VENDOR_PAID_STAGES].includes(sb.stage)
+  if (!vendor || (!['pengajuan', 'persetujuan', 'pembayaran', ...VENDOR_PAID_STAGES].includes(sb.stage) && !sb.data?.paid_date)) return null
+  return (
+    <span className="mt-0.5 flex flex-wrap items-center gap-1 text-[10.5px] font-semibold" data-status-vendor>
+      {['pengajuan', 'persetujuan', 'pembayaran', ...VENDOR_PAID_STAGES].includes(sb.stage) && <PengajuanStatus stage={sb.stage} revision={!!sb.data?.revision_note} />}
+      {sb.data?.paid_date && <span className="text-emerald-700">· dibayar {tgl(sb.data.paid_date)}</span>}
+    </span>
+  )
+}
+
+/** Info di atas daftar: vendor yang dikoordinasi (tab Koordinator) / rekap order Mandarin (Akunting). Tanpa biaya vendor. */
+function InfoKoordinator({ tab, list }) {
+  const { user, data } = useApp()
+  const vendorNama = (id) => (data.people || []).find((x) => x.id === id)?.name || '—'
+  const subs = list.flatMap((p) => (p.sub_projects || []).map((x) => ({ ...x, p })))
+    .filter((x) => (tab === 'koordinator' ? diKoordinasi(user, x) : foreignLang(x) === 'Mandarin'))
+  const per = new Map()
+  for (const x of subs) {
+    const k = x.data?.vendor ? vendorNama(x.data.vendor) : x.translator_kind === 'vendor' ? 'Vendor' : 'Belum ada vendor'
+    const g = per.get(k) || { n: 0, dok: 0, hal: 0, jalan: 0 }
+    g.n += 1; g.dok += x.docs?.length || x.file_count || 1; g.hal += x.docs?.length ? x.docs.reduce((a, d) => a + (Number(d.pages) || 0), 0) : Number(x.pages) || 0
+    if (x.stage !== DONE) g.jalan += 1
+    per.set(k, g)
+  }
+  return (
+    <Card className="p-3" data-info-koordinator>
+      <p className="text-[12px] font-bold text-ink">{tab === 'koordinator'
+        ? <>Anda koordinator untuk: {vendorKoordinator(user).map((id) => { const v = (data.people || []).find((x) => x.id === id); return v ? `${v.name}${v.languages?.length ? ` (${v.languages.join(', ')})` : ''}` : '' }).filter(Boolean).join(' · ')}</>
+        : <>Rekap order bahasa Mandarin — tidak ada koordinator, tiap orang order sendiri</>}</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {[...per.entries()].map(([k, g]) => (
+          <span key={k} className="rounded-xl bg-slate-50 px-3 py-1.5 text-[12px] ring-1 ring-slate-200"><b>{k}</b> · {g.n} order · {g.dok} dok · {g.hal} hlm{g.jalan ? <span className="text-amber-700"> · {g.jalan} berjalan</span> : null}</span>
+        ))}
+        {!per.size && <span className="text-[12px] text-ink-mute">Belum ada order pada saringan ini.</span>}
+      </div>
+    </Card>
   )
 }

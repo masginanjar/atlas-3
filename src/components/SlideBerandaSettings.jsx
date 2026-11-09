@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Upload, Trash2, Eye, EyeOff, Save, ArrowUp, ArrowDown, Images } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
+import { BRANCHES } from '../config/access.js'
 import { Button, Card, Field, Input, Select, cx } from './ui.jsx'
 import { optimalkanGambar, kbDari } from '../config/loginTheme.js'
 import { DEFAULT_BERANDA, MAKS_SLIDE, JEDA_PILIHAN, RASIO, pengaturanBeranda, slideAktif } from '../config/berandaSlide.js'
@@ -88,7 +89,14 @@ export default function SlideBerandaSettings() {
                 <div className="grid min-w-0 flex-1 gap-1.5 sm:grid-cols-2">
                   <Input value={g.judul || ''} onChange={(e) => setSlide(g.id, { judul: e.target.value })} placeholder="Judul (opsional)" className="!h-10" />
                   <Input value={g.ket || ''} onChange={(e) => setSlide(g.id, { ket: e.target.value })} placeholder="Keterangan singkat (opsional)" className="!h-10" />
-                  <span className="truncate text-[11px] text-ink-mute sm:col-span-2">{g.name} · {kbDari(g.src)} KB · {idx < (t.tampil || 6) && g.aktif !== false ? 'ikut diputar' : 'tidak diputar'}</span>
+                  <div className="flex flex-wrap items-center gap-1 sm:col-span-2" data-slide-cabang={g.id}>
+                    <span className="mr-0.5 text-[11px] font-bold text-ink-soft">Tampil di:</span>
+                    <button type="button" onClick={() => setSlide(g.id, { cabang: [] })} className={cx('h-7 rounded-full px-2.5 text-[11px] font-bold ring-1', !(g.cabang || []).length ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200')}>Semua cabang</button>
+                    {BRANCHES.map((c) => { const on = (g.cabang || []).includes(c); return (
+                      <button key={c} type="button" onClick={() => setSlide(g.id, { cabang: on ? g.cabang.filter((x) => x !== c) : [...(g.cabang || []), c] })}
+                        className={cx('h-7 rounded-full px-2.5 text-[11px] font-semibold ring-1', on ? 'bg-brand text-white ring-brand' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand')}>{c}</button>) })}
+                  </div>
+                  <span className="truncate text-[11px] text-ink-mute sm:col-span-2">{(g.cabang || []).length ? `Khusus ${g.cabang.join(', ')} · ` : ''}{g.name} · {kbDari(g.src)} KB · {idx < (t.tampil || 6) && g.aktif !== false ? 'ikut diputar' : 'tidak diputar'}</span>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <button type="button" onClick={() => geser(idx, -1)} disabled={idx === 0} aria-label="Naik" className="grid h-10 w-10 place-items-center rounded-lg text-ink-mute hover:bg-slate-100 disabled:opacity-30"><ArrowUp className="h-4 w-4" /></button>

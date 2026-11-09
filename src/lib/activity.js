@@ -44,11 +44,12 @@ export function describe(t, prev, row, op = prev ? 'update' : 'insert') {
   const what = t === 'people' ? (PERSON[r.type] || 'kontak') : t === 'users' ? 'pengguna' : t === 'couriers' ? 'kurir' : t === 'app_settings' ? 'pengaturan' : t === 'share_links' ? 'tautan bagikan' : t
   const verb = op === 'remove' ? 'Menghapus' : op === 'insert' ? 'Menambah' : 'Mengubah'
   if (t === 'users' && op === 'update' && prev && row && (prev.avatar || null) !== (row.avatar || null)) return { kind: 'setting', ref_label: label, action: `${row.avatar ? 'Mengganti' : 'Menghapus'} foto profil ${label}` }
+  if (t === 'users' && op === 'update' && prev && row && (prev.role !== row.role || JSON.stringify(prev.extra_roles || []) !== JSON.stringify(row.extra_roles || []))) return { kind: 'akses', ref_label: label, ref_id: row.id, action: `Mengubah peran ${label}: ${prev.role}${(prev.extra_roles || []).length ? ` +${prev.extra_roles.join('+')}` : ''} → ${row.role}${(row.extra_roles || []).length ? ` +${row.extra_roles.join('+')}` : ''}` }
   if (t === 'users' && op === 'update' && prev && row && prev.active !== row.active) return { kind: 'setting', ref_label: label, action: `${row.active === false ? 'Menonaktifkan' : 'Mengaktifkan'} pengguna ${label}` }
   return { kind: t === 'share_links' ? 'project' : 'setting', project_id: r.project_id, ref_label: label, action: `${verb} ${what} ${label}` }
 }
 
-const KIND_LABEL = { project: 'Project', stage: 'Alur kerja', finance: 'Keuangan', petty: 'Petty cash', setting: 'Pengaturan' }
+const KIND_LABEL = { project: 'Project', stage: 'Alur kerja', finance: 'Keuangan', petty: 'Petty cash', setting: 'Pengaturan', akses: 'Hak akses', login: 'Login' }
 export const ACTIVITY_KINDS = KIND_LABEL
 
 /** Semua aktivitas, terbaru di atas. */
@@ -56,7 +57,7 @@ export function allActivities(data) {
   const out = []
   const userByName = new Map((data.users || []).map((u) => [u.name, u]))
   const push = (x) => x.at && out.push({ ...x, role: x.role || userByName.get(x.by)?.role || '' })
-  for (const a of data.activity_log || []) push({ id: a.id, at: a.created_at, by: a.by, role: a.role, action: a.action, kind: a.kind || 'setting', project_id: a.project_id, ref: a.ref_label })
+  for (const a of data.activity_log || []) push({ id: a.id, at: a.created_at, by: a.by, role: a.role, action: a.action, kind: a.kind || (['hantu_on', 'hantu_off', 'persona_on', 'persona_off'].includes(a.action) ? 'akses' : 'setting'), project_id: a.project_id, ref: a.ref_label || a.target_name, table: a.table, hasil: a.hasil })
   for (const p of data.projects || []) {
     if (p.archive || p.demo_perf) continue
     for (const s of p.sub_projects || []) (s.history || []).forEach((h, i) => push({ id: `h:${s.id}:${i}`, at: h.at, by: h.by, action: h.action, kind: 'stage', project_id: p.id, ref: p.invoice_no, sub: s.title }))

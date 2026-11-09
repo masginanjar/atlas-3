@@ -126,6 +126,7 @@ export const jadwalSaya = (rows, userId, ym) =>
 
 /** Jam kerja baris jadwal — ikut skenario bila ada yang libur hari itu. */
 export function jamBaris(peta, r) {
+  if (r.cabang && !CABANG_SHIFT.includes(r.cabang) && r.shift !== LIBUR) return JAM_KANTOR
   const adaYangLibur = yangLibur(peta, r.tanggal, r.cabang).length > 0
   return jamShift(r.shift, { adaYangLibur, skenario: r.skenario || null })
 }
@@ -206,7 +207,13 @@ export const stafCabang = (users, cabang) =>
     .sort((a, b) => a.name.localeCompare(b.name))
 
 /** Baris shift yang relevan untuk cabang: admin hanya bila cabang punya Admin Pusat. */
+/** Cabang yang memakai sistem shift; cabang lain semua masuk Pagi (permintaan Pak, 10 Nov 2026). */
+export const CABANG_SHIFT = ['Bali', 'Jakarta', 'Semarang']
+/** Jam kerja cabang tanpa shift: semua masuk pagi. */
+export const JAM_KANTOR = { mulai: '08.00', selesai: '16.00', istirahat: '12.00 - 13.00', lokasi: 'OFFICE' }
+export const pakaiShift = (cabang) => CABANG_SHIFT.includes(cabang)
 export function barisUntukCabang(users, cabang) {
+  if (!pakaiShift(cabang)) return BARIS_SHIFT.filter((s) => s.key === 'pagi')
   const punyaAdmin = stafCabang(users, cabang).some((u) => rolesOf(u).includes('admin_pusat'))
   return BARIS_SHIFT.filter((s) => s.grup !== 'admin' || punyaAdmin)
 }

@@ -8,9 +8,10 @@ import { tanggalJam, tanggal } from '../lib/waktu.js'
 import { projectRow, TABLE_COLS, sortRows, filterOptions, applyFilters, FILTER_LABEL } from '../lib/projectRow.js'
 import { stageLabel, flowOf } from '../config/workflows.js'
 import { grupOf, garisUrgensi, sisaWaktu, kelasGrup, labelGrup } from '../lib/urgensi.js'
-import { Stepper } from '../pages/Projects.jsx'
+import { Stepper, StatusVendor } from '../pages/Projects.jsx'
 import { progressOf } from '../config/workflows.js'
 import { SUB_TYPES } from '../config/subtypes.js'
+import CentangApostille from './CentangApostille.jsx'
 
 const PAGE = 36
 
@@ -99,7 +100,7 @@ function BarisSub({ subs, kolom }) {
               <td className="max-w-[160px] truncate px-2 py-1.5" title={x.orang}>{x.orang || '—'}</td>
               <td className="px-2 py-1.5 text-right tabular-nums">{x.dok}</td>
               <td className="px-2 py-1.5 text-right tabular-nums">{x.hal}</td>
-              <td className="whitespace-nowrap px-2 py-1.5 text-brand">{x.tahap || '—'}</td>
+              <td className="px-2 py-1.5 text-brand">{x.raw ? <CentangApostille p={x.p} sb={x.raw} label={x.tahap || '—'} /> : (x.tahap || '—')}{x.raw && <StatusVendor sb={x.raw} />}</td>
             </tr>
           ))}
         </tbody>
@@ -330,7 +331,7 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
                   <tr key={`${r.id}-sub`} className="border-b border-slate-100 bg-slate-50/70">
                     <td colSpan={KOLOM.length + 1} className="p-0">
                       <BarisSub kolom={KOLOM} subs={(r.subs || []).map((x) => ({
-                        id: x.id, judul: x.title, kategori: (SUB_TYPES[x.type] || SUB_TYPES.jasa_lain).label,
+                        id: x.id, raw: x, p: r.p, judul: x.title, kategori: (SUB_TYPES[x.type] || SUB_TYPES.jasa_lain).label,
                         arah: x.lang_from && x.lang_to ? `${x.lang_from} → ${x.lang_to}` : '',
                         orang: namaUser(x.data?.translator || x.translator || x.data?.vendor || ''),
                         dok: x.docs?.length || x.file_count || 0,

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Play, Send, FolderOpen, Hand, CheckCircle2, FileText, Upload, Loader2, Circle, Inbox, Building2, Headset, Printer, Eye, Download, ChevronDown, ChevronRight, Undo2 } from 'lucide-react'
+import { Play, Send, FolderOpen, Hand, CheckCircle2, FileText, Upload, Loader2, Circle, Inbox, Building2, Headset, Printer, Eye, Download, ChevronDown, ChevronRight, Undo2, MapPin } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { TolakTugasBtn } from './GantiPenerjemah.jsx'
 import { can, activeClaim, placeOf, seeProofreaderIdentity, pickProofreader, invoiceLabel } from '../config/access.js'
@@ -445,7 +445,7 @@ function TaskRow({ project, sub, alt }) {
           <p className="truncate text-xs text-ink-mute" title={jenis}>{sub.lang_from ? <>{sub.lang_from} <span aria-hidden>→</span> <span className="font-semibold text-ink-soft">{sub.lang_to}</span></> : jenis}</p>
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-ink">{project.customer?.name}</p>
+          <p className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-ink"><span className="truncate">{project.customer?.name}</span>{project.branch && <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-sky-50 px-1.5 py-px text-[11px] font-semibold text-sky-700 ring-1 ring-sky-200" title="Kota cabang" data-kota-cabang><MapPin className="h-3 w-3" />{project.branch}</span>}</p>
           <p className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-mute"><PriorityBadge p={project.about?.priority} /><span className="truncate">{daftar.length} dok · {pages} hlm</span></p>
         </div>
         <DeadlineJam project={project} />
@@ -461,7 +461,7 @@ function TaskRow({ project, sub, alt }) {
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5"><InvoiceNo project={project} /><PriorityBadge p={project.about?.priority} /></div>
           <div className="w-[118px] shrink-0 text-right [&>div>p]:text-right"><DeadlineJam project={project} /></div>
         </div>
-        <p className="truncate text-[13px] font-bold text-ink">{project.customer?.name}</p>
+        <p className="flex min-w-0 items-center gap-1.5 text-[13px] font-bold text-ink"><span className="truncate">{project.customer?.name}</span>{project.branch && <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-sky-50 px-1.5 py-px text-[11px] font-semibold text-sky-700 ring-1 ring-sky-200" title="Kota cabang" data-kota-cabang><MapPin className="h-3 w-3" />{project.branch}</span>}</p>
         <p className="truncate text-xs text-ink-mute">{sub.lang_from ? <>{sub.lang_from} → <span className="font-semibold text-ink-soft">{sub.lang_to}</span></> : jenis} · {daftar.length} dok · {pages} hlm{t.stage.key !== 'penerjemahan' && (sub.data?.translator || sub.translator) ? <> · dari <b className="font-semibold text-ink-soft">{nameOf(sub.data?.translator || sub.translator)}</b></> : ''}</p>
         <StatusTugas t={t} sub={sub} />
         <div className="flex items-center gap-1.5 pt-1">

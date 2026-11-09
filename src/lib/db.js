@@ -24,7 +24,7 @@ const URL_ = import.meta.env.VITE_INSFORGE_URL
 // 'supabase' (live, Supabase) · 'live' (InsForge, lama) · 'demo' (localStorage)
 export const MODE = SUPABASE_READY ? 'supabase' : URL_ ? 'live' : 'demo'
 export const IS_LIVE = MODE !== 'demo'
-const ALL_TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings', 'notes', 'todos', 'reminders', 'messages', 'daftar_harga', 'faq', 'affidavit_stok', 'affidavit_pakai', 'affidavit_kirim', 'jadwal', 'cuti', 'mitra', 'kapasitas']
+const ALL_TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings', 'notes', 'todos', 'reminders', 'messages', 'daftar_harga', 'faq', 'affidavit_stok', 'affidavit_pakai', 'affidavit_kirim', 'jadwal', 'cuti', 'mitra', 'kapasitas', 'perusahaan_dok']
 // Chat dimatikan → `messages` tidak ikut dilanggan realtime maupun disegarkan.
 export const TABLES = CHAT_ENABLED ? ALL_TABLES : ALL_TABLES.filter((t) => t !== 'messages')
 
@@ -33,6 +33,8 @@ const uid = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() +
 // ---------------- DEMO (localStorage) ----------------
 import { perfDemo } from './perfDemo.js'
 import { compactDemo } from './compactDemo.js'
+import { fotoTim } from './avatarTim.js'
+import { isiJadwalDemo } from './jadwalDemo.js'
 import { isFreelance } from '../config/access.js'
 const KEY = 'atlas-alfa-v22' // naikkan versi bila struktur data demo berubah
 let mem = null
@@ -55,6 +57,18 @@ function migrate(m) {
   const u = (id) => m.users.find((x) => x.id === id)
   const set = (id, patch) => { const x = u(id); if (x && Object.entries(patch).some(([k, v]) => JSON.stringify(x[k]) !== JSON.stringify(v))) { Object.assign(x, patch); changed = true } }
   set('u-ot-made', { otorisator_level: 'master' })
+  if (isiJadwalDemo(m)) changed = true
+  // Koordinator vendor (10 Nov 2026): Emma → Pak Zenzia, Debby → Pak Dedi (Jerman)
+  if (!m.koordinator_v1) {
+    let dedi = (m.people || []).find((x) => x.type === 'vendor' && /dedi/i.test(x.name))
+    if (!dedi) { dedi = { id: 'p-vendor-dedi', name: 'Bapak Dedi', type: 'vendor', branch: 'Semua', phone: '', languages: ['Jerman'], services: [{ name: 'Terjemahan Jerman–Indonesia /dok', price: 400000 }, { name: 'Terjemahan Indonesia–Jerman /dok', price: 400000 }], accounts: [], notes: 'Penerjemah lepas Bahasa Jerman.', created_at: new Date().toISOString() }; m.people = [...(m.people || []), dedi] }
+    const zen = (m.people || []).find((x) => x.type === 'vendor' && /zenzia/i.test(x.name))
+    set('u-cs-yog', { koordinator: zen ? [zen.id] : [] })
+    set('u-cs-bdg', { koordinator: [dedi.id] })
+    m.koordinator_v1 = true; changed = true
+  }
+  // foto profil tim (hanya bila belum ada foto unggahan)
+  for (const x of m.users || []) { const f = fotoTim(x.name); if (f && (!x.avatar || x.avatar_tim)) { if (x.avatar !== f) { x.avatar = f; x.avatar_tim = true; changed = true } } }
   set('u-ot-lukas', { otorisator_level: 'staf' })
   set('u-pr-rina', { extra_roles: ['otorisator'], otorisator_level: 'staf' })
   if (!u('u-pr-ela')) { m.users.push({ id: 'u-pr-ela', name: 'Ela', email: 'ela@247.id', role: 'proofreader', branch: 'Bali', extra_roles: ['otorisator'], otorisator_level: 'staf', active: true, created_at: new Date().toISOString() }); changed = true }
@@ -121,6 +135,17 @@ function migrate(m) {
     m.faq = FAQ_SEED.map((r, i) => ({ id: uid(), ...r, status: 'terbit', urutan: i + 1,
       editor: 'Contoh', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }))
     changed = true
+  }
+  // F&Q v2 — balasan English, hitungan pakai & satu usulan CS (demo).
+  if (!m.faq_v2) {
+    const bln = new Date().toISOString().slice(0, 7)
+    const pakai = [41, 33, 18, 9, 27, 4]
+    m.faq = (m.faq || []).map((r, i) => {
+      const s = FAQ_SEED.find((x) => x.pertanyaan === r.pertanyaan)
+      return { ...r, balasan_en: r.balasan_en || s?.balasan_en || '', pakai: r.pakai || { [bln]: pakai[i] ?? 0 }, nilai: r.nilai || { suka: Math.max(1, Math.round((pakai[i] ?? 0) / 5)), kurang: i === 3 ? 2 : 0 } }
+    })
+    m.faq.push({ id: uid(), status: 'usulan', kategori: 'Lainnya', pertanyaan: 'Bisa terjemah dokumen tulisan tangan?', panduan: '', balasan: '', pengusul: 'Emma', pengusul_id: 'u-cs-yog', created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    m.faq_v2 = true; changed = true
   }
   if (!(m.daftar_harga || []).length) {
     const baris = [

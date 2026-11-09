@@ -1,11 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { StickyNote, ListTodo, AlarmClock, FilePlus2, FolderPlus, Plus, Check, Trash2 } from 'lucide-react'
+import { StickyNote, ListTodo, AlarmClock, FilePlus2, FolderPlus, Megaphone, Plus, Check, Trash2 } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import PilihCari from './PilihCari.jsx'
 import { can, invoiceLabel} from '../config/access.js'
 import { Button, Field, Input, Select, Sheet, Textarea, cx } from './ui.jsx'
 import ProjectForm from '../pages/ProjectForm.jsx'
 import { RequestForm } from './Requests.jsx'
+import { PengumumanForm, bolehPengumuman } from './Pengumuman.jsx'
 
 // ============================================================
 //  SATU PANEL KANAN untuk semua aksi cepat.
@@ -21,8 +22,9 @@ export const PANELS = {
   todo: { label: 'To-do Baru', icon: ListTodo, tip: 'Buat To-do', allow: () => true },
   reminder: { label: 'Pengingat Baru', icon: AlarmClock, tip: 'Buat Pengingat / Alarm', allow: () => true },
   pengajuan: { label: 'Pengajuan Baru', icon: FilePlus2, tip: 'Buat Pengajuan', allow: (u) => !!u },
+  pengumuman: { label: 'Pengumuman', icon: Megaphone, tip: 'Kirim Pengumuman', allow: bolehPengumuman },
 }
-export const PANEL_ORDER = ['project', 'note', 'todo', 'reminder', 'pengajuan']
+export const PANEL_ORDER = ['project', 'note', 'todo', 'reminder', 'pengajuan', 'pengumuman']
 
 export function PanelProvider({ children }) {
   const { ask } = useApp()
@@ -54,6 +56,7 @@ function PanelHost() {
   // Ketikan apa pun di dalam panel menandai "belum disimpan" (React meneruskan event dari portal).
   const guard = (el) => <div onInput={() => setDirty(true)} onChange={() => setDirty(true)}>{el}</div>
   if (panel.kind === 'project') return guard(<ProjectForm side preset={p.preset} onClose={shut} onSaved={(saved) => { setDirty(false); p.onSaved?.(saved) }} />)
+  if (panel.kind === 'pengumuman') return <PengumumanForm onClose={shut} />
   if (panel.kind === 'pengajuan') return guard(<RequestForm open side onClose={shut} onSaved={() => setDirty(false)} />)
   if (panel.kind === 'note') return guard(<NoteForm note={p.note} link={p.link} onDirty={setDirty} onClose={shut} />)
   if (panel.kind === 'todo') return guard(<TodoForm todo={p.todo} link={p.link} onDirty={setDirty} onClose={shut} />)

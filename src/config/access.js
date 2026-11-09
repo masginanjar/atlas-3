@@ -18,6 +18,10 @@ export function pettyAccountsOf(u) {
 export const foreignLang = (s) => [s?.lang_from, s?.lang_to].find((l) => l && l !== 'Indonesia') || ''
 /** Koordinator bahasa: semua order bahasa ini lewat 1 pintu (mis. Emma = Jepang). */
 export const coordinatorFor = (users, lang) => (lang ? users.find((u) => u.coordinator_lang === lang && u.active !== false) : null)
+/** Koordinator vendor: tim yang memegang order ke vendor tertentu (user.koordinator = [vendor_id]). */
+export const vendorKoordinator = (u) => (Array.isArray(u?.koordinator) ? u.koordinator : [])
+/** Sub project ini dikoordinasi orang ini? (vendornya dipegang dia, atau diserahkan kepadanya) */
+export const diKoordinasi = (u, x) => !!u && (vendorKoordinator(u).includes(x?.data?.vendor) || (x?.data?.coordinator && x.data.coordinator === u.id))
 export const isMultiBranch = (u) => branchesOf(u).length > 1
 /** Penerjemah, Proofreader & Otorisator = freelance: tidak punya cabang, bekerja dari mana saja. */
 export const FREELANCE_ROLES = ['penerjemah', 'proofreader', 'otorisator']
@@ -171,7 +175,8 @@ export function scopeByBranch(user, rows, branchFilter) {
     const mine = branchesOf(user)
     const lang = user.coordinator_lang
     out = out.filter((r) => mine.includes(r.branch) || mine.includes(r.about?.print_location)
-      || (lang && (r.sub_projects || []).some((x) => x.type === 'terjemahan' && foreignLang(x) === lang)))
+      || (lang && (r.sub_projects || []).some((x) => x.type === 'terjemahan' && foreignLang(x) === lang))
+      || (r.sub_projects || []).some((x) => diKoordinasi(user, x)))
     if (branchFilter && branchFilter !== 'Semua' && mine.length > 1) out = out.filter((r) => r.branch === branchFilter || r.about?.print_location === branchFilter)
   } else if (branchFilter && branchFilter !== 'Semua') out = out.filter((r) => r.branch === branchFilter)
   return out

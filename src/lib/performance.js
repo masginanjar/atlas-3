@@ -108,25 +108,34 @@ export const isIncomingPrint = (u, project) => {
   return !!loc && loc !== project.branch && branchesOf(u).includes(loc) && !branchesOf(u).includes(project.branch)
 }
 
-/** Ringkasan performa user untuk satu hari. */
+/** Jam (HH:MM, WITA) tugas diselesaikan user — dari riwayat sub project. */
+export function selesaiJam(u, t, day) {
+  const h = [...(t.sub.history || [])].reverse().find((x) => x.at && x.by === u.name && dayKey(new Date(x.at)) === day)
+  return h ? clock(new Date(h.at)) : null
+}
+
+/**
+ * Ringkasan performa user untuk satu hari.
+ * Angka % HANYA dari tugas ber-deadline hari itu (selesai ÷ selesai + sisa hari ini).
+ * Tugas terlambat dari hari sebelumnya = "utang lama": tetap ditampilkan, tapi tidak menurunkan angka.
+ */
 export function summarize(u, projects, day = dayKey(), now = new Date()) {
   const all = tasksOf(u, projects)
   const today = all.filter((t) => t.dl.day === day)
   const isToday = day === dayKey(now)
   const done = today.filter((t) => t.status === 'done')
-  // Hari ini: semua tugas aktif yang masih di tangan user ikut dihitung (deadline hari ini, terlambat, maupun mendatang),
-  // sehingga performa tidak 100% selama masih ada pekerjaan yang belum diselesaikan.
-  const active = (isToday ? all : today).filter((t) => t.status === 'active' && (isToday ? t.dl.day >= day : true))
+  const active = today.filter((t) => t.status === 'active')
   const waiting = today.filter((t) => t.status === 'waiting')
   const overdue = isToday ? all.filter((t) => t.dl.day < day && t.status === 'active') : []
-  const total = done.length + active.length + overdue.length
+  const upcoming = isToday ? all.filter((t) => t.dl.day > day && t.status === 'active') : []
+  const total = done.length + active.length
   const pct = total ? Math.round((done.length / total) * 100) : null
   const sortT = (a, b) => a.dl.at - b.dl.at || prio(b.project) - prio(a.project)
-  active.sort(sortT); overdue.sort(sortT)
+  active.sort(sortT); overdue.sort(sortT); upcoming.sort(sortT)
   const late = (t) => t.dl.at < now
   const titipan = [...done, ...active].filter((t) => isIncomingPrint(u, t.project)).length
-  return { day, done, active, waiting, overdue, total, pct, late, titipan,
-    next: [...overdue, ...active][0] ?? null,
+  return { day, done, active, waiting, overdue, upcoming, total, pct, late, titipan,
+    next: active[0] ?? overdue[0] ?? upcoming[0] ?? null,
     top: [...active].sort((a, b) => Number(late(b)) - Number(late(a)) || sortT(a, b)).slice(0, 3) }
 }
 const PR = { Normal: 0, Ekspres: 1, 'Super Ekspres': 2, Sameday: 3 }

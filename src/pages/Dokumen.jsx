@@ -318,265 +318,219 @@ export default function Dokumen() {
     : aktif.jenis === 'project' ? labelProject(projectAktif || {})
     : 'Dokumen'
 
+  // ---------- gaya File Explorer (10 Nov 2026) ----------
+  const [tampil, setTampil] = useState(() => { try { return localStorage.getItem('atlas-dok-tampil') || 'detail' } catch { return 'detail' } })
+  const gantiTampil = (v) => { setTampil(v); try { localStorage.setItem('atlas-dok-tampil', v) } catch { /* abaikan */ } }
+  const [subAktif, setSubAktif] = useState('') // subfolder sub project di dalam folder project
+  const [riwayat, setRiwayat] = useState([])
+  useEffect(() => { setSubAktif('') }, [aktif.projectId, aktif.jenis])
+  const JENIS = { pdf: ['PDF', 'Dokumen PDF', 'bg-rose-600'], image: ['IMG', 'Gambar', 'bg-sky-500'], docx: ['DOC', 'Dokumen Word', 'bg-blue-600'], sheet: ['XLS', 'Lembar kerja', 'bg-emerald-600'], text: ['TXT', 'Teks', 'bg-slate-500'], other: ['FILE', 'Berkas', 'bg-slate-400'] }
+  const IkonBerkas = ({ f, besar }) => { const [t, , w] = JENIS[kindOf(f)] || JENIS.other; return <span className={cx('inline-grid shrink-0 place-items-center rounded-[3px] font-extrabold text-white', w, besar ? 'h-[62px] w-[48px] text-[11px] shadow' : 'h-[18px] w-[15px] text-[6px]')}>{t}</span> }
+  const IkonFolder = ({ besar }) => <span className={cx('relative inline-block shrink-0 rounded-[3px] bg-gradient-to-b from-[#ffd666] to-[#f5b942]', besar ? 'h-[52px] w-[68px]' : 'h-[14px] w-[18px]')}><span className={cx('absolute left-0 rounded-t-[3px] bg-[#f5b942]', besar ? '-top-2 h-2.5 w-7' : '-top-[3px] h-1 w-2')} /></span>
+  // subfolder per sub project
+  const subFolder = aktif.jenis === 'project' && projectAktif && !mencari
+    ? (projectAktif.sub_projects || []).map((sp) => ({ id: sp.id, nama: sp.title || 'Sub project', n: dalamFolder.filter((f) => f.subId === sp.id).length })).filter((x) => x.n)
+    : []
+  const tanpaSub = aktif.jenis === 'project' ? dalamFolder.filter((f) => !f.subId || !subFolder.some((x) => x.id === f.subId)) : []
+  const barisTampil = aktif.jenis === 'project' && !mencari ? (subAktif ? baris.filter((f) => f.subId === subAktif) : baris.filter((f) => tanpaSub.includes(f))) : baris
+  const subNama = subFolder.find((x) => x.id === subAktif)?.nama
+  // Akses cepat
+  const cepat = [
+    { k: 'baru', l: 'Baru diunggah', list: berkas.filter((f) => f.uploaded_at && Date.now() - new Date(f.uploaded_at) < 7 * 864e5) },
+    { k: 'hariini', l: 'Deadline hari ini', list: berkas.filter((f) => { const d = f.project.about?.deadline; return d && new Date(d).toDateString() === new Date().toDateString() }) },
+  ]
+  const [cepatAktif, setCepatAktif] = useState('')
+  const daftarCepat = cepat.find((c) => c.k === cepatAktif)?.list || []
+  const pilihSatu = terpilih.length === 1 ? terpilih[0] : null
+  const fokus = pilihSatu || null
+  const pergi = (fn) => { setRiwayat((r) => [...r, { aktif, subAktif, cepatAktif }].slice(-20)); setCepatAktif(''); fn() }
+  const mundur = () => { const r = riwayat[riwayat.length - 1]; if (!r) return; setRiwayat(riwayat.slice(0, -1)); setAktif(r.aktif); setTimeout(() => setSubAktif(r.subAktif), 0); setCepatAktif(r.cepatAktif) }
+  const naik = () => pergi(() => { if (subAktif) setSubAktif(''); else if (aktif.jenis === 'project') keCabang(aktif.cabang); else keAkar() })
+  const klikBaris = (f, e) => { if (e.ctrlKey || e.metaKey) togglePilih(f.key); else setPilih(new Set([f.key])) }
+  const listUtama = cepatAktif ? daftarCepat : barisTampil
+  const ukuranPilih = terpilih.reduce((a, f) => a + (Number(f.size) || 0), 0)
+  const jumlahItem = cepatAktif ? daftarCepat.length : !mencari && aktif.jenis === 'akar' ? cabangList.length : !mencari && aktif.jenis === 'cabang' ? isiCabang(aktif.cabang).length : (subAktif ? 0 : subFolder.length) + listUtama.length
+
+  const Alat = ({ icon: I, label, onClick, disabled, bahaya, hide }) => hide ? null : (
+    <button type="button" onClick={onClick} disabled={disabled} title={label}
+      className={cx('inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] transition disabled:opacity-40', bahaya ? 'text-rose-600 hover:bg-rose-50' : 'text-ink hover:bg-white')}>
+      <I className="h-4 w-4" /><span className="hidden sm:inline">{label}</span>
+    </button>
+  )
+  const BarisFolder = ({ nama, sub, onBuka, data }) => (
+    <tr className="cursor-default hover:bg-[#e5f1fb]" onDoubleClick={onBuka} data-folder={data}>
+      <td className="px-3 py-1.5" />
+      <td className="py-1.5"><button type="button" onClick={onBuka} className="flex min-h-[28px] items-center gap-2 text-left"><IkonFolder /><span className="truncate font-medium text-ink">{nama}</span></button></td>
+      <td className="hidden text-ink-mute md:table-cell">{sub || ''}</td><td className="hidden text-ink-mute md:table-cell">Folder</td><td className="hidden md:table-cell" /><td className="hidden md:table-cell" />
+    </tr>
+  )
+  const KotakFolder = ({ nama, onBuka, data }) => (
+    <button type="button" onDoubleClick={onBuka} onClick={onBuka} data-folder={data} className="flex w-[104px] flex-col items-center gap-1 rounded-md p-2 text-center text-[11.5px] hover:bg-[#e5f1fb]"><IkonFolder besar /><span className="line-clamp-2 break-all">{nama}</span></button>
+  )
+  const folderBaris = () => {
+    if (cepatAktif || mencari) return []
+    if (aktif.jenis === 'akar') return cabangList.map((g) => ({ k: g.nama, nama: g.nama, sub: bolehLihatJumlah ? `${g.project.size} project` : '', onBuka: () => pergi(() => keCabang(g.nama)), data: 'cabang' }))
+    if (aktif.jenis === 'cabang') return isiCabang(aktif.cabang).map((g) => ({ k: g.p.id, nama: labelProject(g.p), sub: g.terakhir ? tanggalJam(g.terakhir) : '', onBuka: () => pergi(() => keProject(aktif.cabang, g.p.id)), data: 'project' }))
+    if (aktif.jenis === 'project' && !subAktif) return subFolder.map((x, n) => ({ k: x.id, nama: `${n + 1} · ${x.nama}`, sub: `${x.n} berkas`, onBuka: () => pergi(() => setSubAktif(x.id)), data: 'sub' }))
+    return []
+  }
+  const folders = folderBaris()
+
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-3 p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="min-w-0 flex-1">
-          <h1 className="flex items-center gap-2 text-lg font-bold text-ink"><HardDrive className="h-5 w-5 text-brand" />Dokumen</h1>
-          <p className="text-xs text-ink-soft">
-            {berkas.length} berkas · {kb(totalSize)}. Folder mengikuti Cabang → Project; satu sumber dengan File Project.
-          </p>
-        </div>
-        <Button size="sm" variant="outline" className="lg:hidden" onClick={() => setPohonHp(true)}>
-          <PanelLeft className="h-3.5 w-3.5" />Folder
-        </Button>
+    <div className="mx-auto w-full max-w-[1400px] space-y-2 p-0 sm:p-1" data-dokumen-explorer>
+      <div className="flex items-center gap-2">
+        <h1 className="flex items-center gap-2 text-lg font-bold text-ink"><HardDrive className="h-5 w-5 text-brand" />Dokumen</h1>
+        <span className="text-[11px] text-ink-mute">{berkas.length} berkas · {kb(totalSize)}</span>
+        <Button size="sm" variant="outline" className="ml-auto lg:hidden" onClick={() => setPohonHp(true)}><PanelLeft className="h-3.5 w-3.5" />Folder</Button>
       </div>
+      {sibuk && <p role="status" className="flex items-center gap-2 rounded-xl bg-sky-50 px-3 py-2 text-[13px] font-semibold text-sky-900 ring-1 ring-sky-200"><Loader2 className="h-4 w-4 shrink-0 animate-spin" />{sibuk}</p>}
 
-      {sibuk && (
-        <p role="status" className="flex items-center gap-2 rounded-xl bg-sky-50 px-3 py-2 text-[13px] font-semibold text-sky-900 ring-1 ring-sky-200">
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin" />{sibuk}
-        </p>
-      )}
-
-      <div className="flex min-w-0 gap-3">
-        {/* ---------- pohon folder (desktop) ---------- */}
-        <aside className="hidden w-64 shrink-0 lg:block">
-          <Card className="max-h-[70vh] overflow-y-auto p-2">
-            <PohonFolder
-              cabangList={cabangList} isiCabang={isiCabang} isiProject={isiProject}
-              buka={buka} onToggle={toggleBuka} aktif={aktif}
-              onPilihAkar={keAkar} onPilihCabang={keCabang} onPilihProject={keProject}
-              onPilihBerkas={(c, id, f) => { keProject(c, id); setPreview(f) }}
-              trashN={diTrash.length} onPilihTrash={keTrashFolder} tampilJumlah={bolehLihatJumlah}
-            />
-          </Card>
-        </aside>
-
-        {/* ---------- area utama ---------- */}
-        <div className="min-w-0 flex-1 space-y-3">
-          {/* jejak folder */}
-          <nav aria-label="Lokasi folder" className="flex min-w-0 flex-wrap items-center gap-0.5 text-[13px]">
-            <button type="button" onClick={keAkar}
-              className={cx('rounded-lg px-2 py-1 font-semibold', aktif.jenis === 'akar' ? 'text-ink' : 'text-brand hover:bg-brand-soft')}>
-              Semua Cabang
-            </button>
-            {aktif.jenis === 'trash' && (<><ChevronRight className="h-4 w-4 shrink-0 text-ink-mute" /><span className="px-2 py-1 font-semibold text-ink">Trash</span></>)}
-            {aktif.cabang && (
-              <>
-                <ChevronRight className="h-4 w-4 shrink-0 text-ink-mute" />
-                <button type="button" onClick={() => keCabang(aktif.cabang)}
-                  className={cx('rounded-lg px-2 py-1 font-semibold', aktif.jenis === 'cabang' ? 'text-ink' : 'text-brand hover:bg-brand-soft')}>
-                  {aktif.cabang}
-                </button>
-              </>
-            )}
-            {aktif.jenis === 'project' && (
-              <>
-                <ChevronRight className="h-4 w-4 shrink-0 text-ink-mute" />
-                <span className="min-w-0 truncate px-2 py-1 font-semibold text-ink">{labelProject(projectAktif || {})}</span>
-              </>
-            )}
+      <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-300">
+        {/* ribbon */}
+        <div className="flex items-center gap-0.5 overflow-x-auto border-b border-slate-200 bg-[#f3f5f9] px-2 py-1.5 [scrollbar-width:none]" data-ribbon>
+          <Alat icon={Upload} label="Unggah" onClick={() => unggahRef.current?.click()} disabled={!!sibuk || !(aktif.jenis === 'project' && bisaUbah)} />
+          <input ref={unggahRef} type="file" multiple className="hidden" aria-label="Unggah berkas ke folder ini" onChange={(e) => unggah(e.target.files)} />
+          <span className="mx-1 h-5 w-px shrink-0 bg-slate-300" />
+          <Alat icon={Download} label="Unduh" disabled={!terpilih.length || !!sibuk} onClick={() => (terpilih.length === 1 ? unduh(terpilih[0]) : unduhZip(terpilih, `${namaZipFolder} - ${terpilih.length} berkas`))} />
+          <Alat icon={FileArchive} label="Unduh folder" disabled={!dalamFolder.length || !!sibuk || aktif.jenis === 'trash'} onClick={() => unduhZip(dalamFolder, namaZipFolder)} />
+          <Alat icon={Pencil} label="Ganti nama" disabled={!pilihSatu || aktif.jenis === 'trash' || !bolehUbah(user, pilihSatu?.project)} onClick={() => setRename({ f: pilihSatu, nama: tanpaEkstensi(pilihSatu.name) })} />
+          <Alat icon={FolderOpen} label="Buka project" disabled={!pilihSatu && !projectAktif} onClick={() => go(`projects/${(pilihSatu?.project || projectAktif).id}`)} />
+          {aktif.jenis === 'trash' ? (<>
+            <Alat icon={CornerUpLeft} label="Kembalikan" disabled={!terpilih.length} onClick={() => kembalikan(terpilih)} />
+            <Alat icon={Trash2} label="Hapus permanen" bahaya hide={!bolehKosongkanTrash(user)} disabled={!terpilih.length} onClick={() => hapusPermanen(terpilih)} />
+          </>) : <Alat icon={Trash2} label="Hapus" bahaya disabled={!terpilih.length || !terpilih.every((f) => bolehUbah(user, f.project))} onClick={() => keTrash(terpilih)} />}
+          <span className="ml-auto flex shrink-0 items-center gap-0.5 rounded-md bg-white p-0.5 ring-1 ring-slate-200">
+            {[['detail', '☰ Detail'], ['ikon', '▦ Ikon']].map(([k, l]) => <button key={k} type="button" onClick={() => gantiTampil(k)} className={cx('h-8 rounded px-2.5 text-[12px] font-semibold', tampil === k ? 'bg-[#cce4f7] text-ink' : 'text-ink-soft')}>{l}</button>)}
+          </span>
+        </div>
+        {/* bilah alamat */}
+        <div className="flex items-center gap-1.5 border-b border-slate-200 px-2 py-1.5">
+          <button type="button" onClick={mundur} disabled={!riwayat.length} aria-label="Kembali" className="grid h-8 w-8 place-items-center rounded text-ink-soft hover:bg-slate-100 disabled:opacity-30">←</button>
+          <button type="button" onClick={naik} disabled={aktif.jenis === 'akar' && !cepatAktif} aria-label="Naik satu folder" className="grid h-8 w-8 place-items-center rounded text-ink-soft hover:bg-slate-100 disabled:opacity-30">↑</button>
+          <nav aria-label="Lokasi folder" className="flex h-9 min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-md px-2 text-[13px] ring-1 ring-slate-300 [scrollbar-width:none]" data-alamat>
+            <IkonFolder />
+            <button type="button" onClick={() => pergi(keAkar)} className="shrink-0 rounded px-1 hover:bg-slate-100">Dokumen</button>
+            {cepatAktif && <><ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-mute" /><span className="shrink-0 font-semibold">{cepat.find((c) => c.k === cepatAktif)?.l}</span></>}
+            {!cepatAktif && aktif.jenis === 'trash' && <><ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-mute" /><span className="shrink-0 font-semibold">Sampah</span></>}
+            {!cepatAktif && aktif.cabang && <><ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-mute" /><button type="button" onClick={() => pergi(() => keCabang(aktif.cabang))} className="shrink-0 rounded px-1 hover:bg-slate-100">{aktif.cabang}</button></>}
+            {!cepatAktif && aktif.jenis === 'project' && <><ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-mute" /><button type="button" onClick={() => pergi(() => setSubAktif(''))} className="max-w-[260px] shrink-0 truncate rounded px-1 font-semibold hover:bg-slate-100">{labelProject(projectAktif || {})}</button></>}
+            {!cepatAktif && subNama && <><ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-mute" /><span className="shrink-0 font-semibold">{subNama}</span></>}
           </nav>
+          <div className="hidden w-[240px] shrink-0 sm:block"><CariTabel value={cari} onChange={setCari} label={`Cari di ${cepatAktif ? 'akses cepat' : judulFolder}…`} /></div>
+        </div>
+        <div className="sm:hidden border-b border-slate-200 p-2"><CariTabel value={cari} onChange={setCari} label="Cari berkas…" /></div>
 
-          {/* toolbar */}
-          <div className="flex flex-wrap items-center gap-2">
-            <CariTabel value={cari} onChange={setCari} label="Cari nama berkas atau folder…" className="basis-56" />
-            {aktif.jenis === 'trash' ? (
-              <span className="inline-flex h-[34px] items-center rounded-lg bg-slate-100 px-2.5 text-[13px] font-semibold text-ink-soft">Dalam Trash</span>
+        <div className="flex min-h-[480px]">
+          {/* panel navigasi */}
+          <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-slate-200 py-2 lg:block" style={{ maxHeight: '68vh' }}>
+            <p className="px-3 pb-1 text-[11px] font-bold text-ink-soft">⭐ Akses cepat</p>
+            {cepat.map((c) => (
+              <button key={c.k} type="button" onClick={() => { setRiwayat((r) => [...r, { aktif, subAktif, cepatAktif }]); setCepatAktif(c.k); setPilih(new Set()) }}
+                className={cx('flex min-h-[30px] w-full items-center gap-2 px-6 text-left text-[13px] hover:bg-slate-100', cepatAktif === c.k && 'bg-[#cce4f7]')} data-cepat={c.k}>
+                <IkonFolder /><span className="min-w-0 flex-1 truncate">{c.l}</span><span className="text-[11px] text-ink-mute">{c.list.length}</span>
+              </button>
+            ))}
+            <div className="mt-2 px-1">
+              <PohonFolder cabangList={cabangList} isiCabang={isiCabang} isiProject={isiProject} buka={buka} onToggle={toggleBuka} aktif={cepatAktif ? { jenis: '' } : aktif}
+                onPilihAkar={() => pergi(keAkar)} onPilihCabang={(c) => pergi(() => keCabang(c))} onPilihProject={(c, id) => pergi(() => keProject(c, id))}
+                onPilihBerkas={(c, id, f) => { pergi(() => keProject(c, id)); setPreview(f) }}
+                trashN={diTrash.length} onPilihTrash={() => pergi(keTrashFolder)} tampilJumlah={bolehLihatJumlah} />
+            </div>
+          </aside>
+
+          {/* isi */}
+          <div className="min-w-0 flex-1" onClick={(e) => { if (e.target === e.currentTarget) setPilih(new Set()) }}>
+            {jumlahItem === 0 ? (
+              <Empty icon={FolderOpen} title={mencari ? 'Tidak ada berkas yang cocok' : aktif.jenis === 'trash' ? 'Sampah kosong' : 'Folder kosong'}
+                text={aktif.jenis === 'project' && bisaUbah ? 'Klik Unggah di atas untuk menambah berkas.' : ''} />
+            ) : tampil === 'ikon' ? (
+              <div className="flex flex-wrap content-start gap-1 p-3" data-tampil-ikon>
+                {folders.map((x) => <KotakFolder key={x.k} {...x} />)}
+                {listUtama.map((f) => (
+                  <button key={f.key} type="button" onClick={(e) => klikBaris(f, e)} onDoubleClick={() => setPreview(f)} onContextMenu={(e) => { e.preventDefault(); setPilih(new Set([f.key])); setMenu(f.key) }}
+                    className={cx('relative flex w-[104px] flex-col items-center gap-1 rounded-md p-2 text-center text-[11.5px]', pilih.has(f.key) ? 'bg-[#cce4f7]' : 'hover:bg-[#e5f1fb]')}>
+                    {kindOf(f) === 'image' && f.url ? <img src={f.url} alt="" className="h-[62px] w-[62px] rounded object-cover shadow" /> : <IkonBerkas f={f} besar />}
+                    <span className="line-clamp-2 break-all">{f.name}</span>
+                    <MenuBerkas f={f} buka={menu === f.key} onTutup={() => setMenu('')} bisaUbah={aktif.jenis !== 'trash' && bolehUbah(user, f.project)}
+                      onPreview={() => setPreview(f)} onUnduh={() => unduh(f)} onRename={() => setRename({ f, nama: tanpaEkstensi(f.name) })} onTrash={() => keTrash([f])} onBuka={() => go(`projects/${f.project.id}`)} />
+                  </button>
+                ))}
+              </div>
             ) : (
-              <select value={cakupan} onChange={(e) => setCakupan(e.target.value)} aria-label="Cakupan pencarian"
-                className="h-[34px] w-auto max-w-full rounded-lg border-0 bg-white pl-2.5 pr-7 text-[13px] font-semibold text-ink ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-brand">
-                <option value="semua">Semua dokumen</option>
-                <option value="folder">Folder ini saja</option>
-              </select>
+              <table className="w-full table-fixed text-[13px]" data-tampil-detail>
+                <thead className="sticky top-0 bg-white text-left text-[12px] text-ink-soft">
+                  <tr className="border-b border-slate-200">
+                    <th className="w-9 px-3 py-1.5">{listUtama.length > 0 && <input type="checkbox" checked={semuaTerpilih} onChange={togglePilihSemua} aria-label="Pilih semua" className="h-4 w-4 rounded border-slate-300" />}</th>
+                    <th className="py-1.5 font-normal"><button type="button" onClick={() => klikJudul('nama')}>Nama {sortKey === 'nama' ? (sortDir === 'asc' ? '▴' : '▾') : ''}</button></th>
+                    <th className="hidden w-[150px] font-normal md:table-cell"><button type="button" onClick={() => klikJudul('waktu')}>Tanggal diubah {sortKey === 'waktu' ? (sortDir === 'asc' ? '▴' : '▾') : ''}</button></th>
+                    <th className="hidden w-[120px] font-normal md:table-cell">Jenis</th>
+                    <th className="hidden w-[80px] font-normal md:table-cell"><button type="button" onClick={() => klikJudul('ukuran')}>Ukuran</button></th>
+                    <th className="hidden w-[130px] font-normal lg:table-cell">Oleh</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {folders.map((x) => <BarisFolder key={x.k} {...x} />)}
+                  {listUtama.map((f) => (
+                    <tr key={f.key} className={cx('cursor-default', pilih.has(f.key) ? 'bg-[#cce4f7]' : 'hover:bg-[#e5f1fb]')} data-berkas
+                      onClick={(e) => { if (e.target.tagName !== 'INPUT') klikBaris(f, e) }} onDoubleClick={() => setPreview(f)}
+                      onContextMenu={(e) => { e.preventDefault(); setPilih(new Set([f.key])); setMenu(f.key) }}>
+                      <td className="px-3 py-1.5"><input type="checkbox" checked={pilih.has(f.key)} onChange={() => togglePilih(f.key)} aria-label={`Pilih ${f.name}`} className="h-4 w-4 rounded border-slate-300" /></td>
+                      <td className="relative py-1.5">
+                        <span className="flex min-h-[28px] items-center gap-2"><IkonBerkas f={f} /><span className="min-w-0 truncate">{f.name}</span>
+                          <button type="button" onClick={(e) => { e.stopPropagation(); setMenu(menu === f.key ? '' : f.key) }} aria-label={`Tindakan untuk ${f.name}`} className="ml-auto mr-1 grid h-8 w-8 shrink-0 place-items-center rounded text-ink-mute hover:bg-white md:hidden"><MoreHorizontal className="h-4 w-4" /></button></span>
+                        {(mencari || cepatAktif) && <span className="block truncate pl-6 text-[11px] text-ink-mute">{f.cabang} › {f.folder}</span>}
+                        <span className="md:hidden block pl-6 text-[11px] text-ink-mute">{kb(Number(f.size) || 0)} · {f.by || '—'} · {f.uploaded_at ? tanggalJam(f.uploaded_at) : ''}</span>
+                        <MenuBerkas f={f} buka={menu === f.key} onTutup={() => setMenu('')} bisaUbah={aktif.jenis !== 'trash' && bolehUbah(user, f.project)}
+                          onPreview={() => setPreview(f)} onUnduh={() => unduh(f)} onRename={() => setRename({ f, nama: tanpaEkstensi(f.name) })} onTrash={() => keTrash([f])} onBuka={() => go(`projects/${f.project.id}`)} />
+                      </td>
+                      <td className="hidden text-ink-soft md:table-cell">{f.uploaded_at ? tanggalJam(f.uploaded_at) : '—'}</td>
+                      <td className="hidden text-ink-soft md:table-cell">{(JENIS[kindOf(f)] || JENIS.other)[1]}</td>
+                      <td className="hidden text-ink-soft md:table-cell">{kb(Number(f.size) || 0)}</td>
+                      <td className="hidden truncate text-ink-soft lg:table-cell">{f.by || '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
-
-            {aktif.jenis === 'project' && bisaUbah && (
-              <>
-                <Button size="sm" variant="outline" onClick={() => unggahRef.current?.click()} disabled={!!sibuk}>
-                  <Upload className="h-3.5 w-3.5" />Unggah
-                </Button>
-                <input ref={unggahRef} type="file" multiple className="hidden" aria-label="Unggah berkas ke folder ini"
-                  onChange={(e) => unggah(e.target.files)} />
-              </>
+            {aktif.jenis === 'project' && bisaUbah && !mencari && !cepatAktif && (
+              <button type="button" onClick={() => unggahRef.current?.click()} className="m-3 hidden w-[calc(100%-1.5rem)] place-items-center rounded-xl border-2 border-dashed border-slate-300 py-8 text-[12.5px] text-ink-mute hover:border-brand hover:text-brand md:grid"
+                onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); unggah(e.dataTransfer.files) }} data-tarik-unggah>
+                <Upload className="mb-1 h-5 w-5" />Tarik &amp; lepas berkas ke sini, atau klik untuk mengunggah ke "{subNama || labelProject(projectAktif || {})}"
+              </button>
             )}
-            {!mencari && aktif.jenis !== 'trash' && dalamFolder.length > 0 && (
-              <Button size="sm" variant="outline" disabled={!!sibuk}
-                onClick={() => unduhZip(dalamFolder, namaZipFolder)}>
-                <FileArchive className="h-3.5 w-3.5" />Unduh folder ({dalamFolder.length})
-              </Button>
-            )}
-            <span className="ml-auto text-[11px] text-ink-mute">
-              {mencari ? `${baris.length} hasil` : `${dalamFolder.length} berkas`}
-            </span>
           </div>
 
-          {/* baris tindakan untuk berkas terpilih */}
-          {terpilih.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-brand-soft px-3 py-2 ring-1 ring-brand/30">
-              <span className="text-[13px] font-bold text-brand">{terpilih.length} berkas terpilih</span>
-              <Button size="sm" variant="outline" disabled={!!sibuk}
-                onClick={() => unduhZip(terpilih, `${namaZipFolder} - ${terpilih.length} berkas`)}>
-                <FileArchive className="h-3.5 w-3.5" />Unduh ZIP
-              </Button>
-              {aktif.jenis === 'trash' ? (
-                <>
-                  <Button size="sm" variant="outline" disabled={!!sibuk} onClick={() => kembalikan(terpilih)}>
-                    <CornerUpLeft className="h-3.5 w-3.5" />Kembalikan
-                  </Button>
-                  {bolehKosongkanTrash(user) && (
-                    <Button size="sm" variant="outline" disabled={!!sibuk} onClick={() => hapusPermanen(terpilih)}
-                      className="!text-rose-600 !ring-rose-200 hover:!bg-rose-50">
-                      <Trash2 className="h-3.5 w-3.5" />Hapus permanen
-                    </Button>
-                  )}
-                </>
-              ) : bisaUbah && (
-                <Button size="sm" variant="outline" disabled={!!sibuk} onClick={() => keTrash(terpilih)}
-                  className="!text-rose-600 !ring-rose-200 hover:!bg-rose-50">
-                  <Trash2 className="h-3.5 w-3.5" />Hapus ke Trash
-                </Button>
-              )}
-              <button type="button" onClick={() => setPilih(new Set())}
-                className="ml-auto rounded-lg px-2 py-1 text-[12px] font-semibold text-ink-mute hover:bg-white">Batal pilih</button>
-            </div>
-          )}
-
-          {/* isi: daftar folder atau tabel berkas */}
-          {!mencari && aktif.jenis === 'akar' && (
-            cabangList.length === 0
-              ? <Empty icon={FolderOpen} title="Belum ada dokumen" text="Berkas muncul di sini setelah diunggah pada project." />
-              : (
-                <Card className="divide-y divide-slate-100 overflow-hidden">
-                  {cabangList.map((g) => (
-                    <button key={g.nama} type="button" data-folder="cabang" onClick={() => keCabang(g.nama)}
-                      className="flex min-h-[42px] w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-slate-50">
-                      <Folder className="h-4 w-4 shrink-0 text-amber-500" />
-                      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{g.nama}</span>
-                      <span className="shrink-0 text-[11px] tabular-nums text-ink-mute">{g.project.size} project · {g.n} berkas · {kb(g.size)}</span>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
-                    </button>
-                  ))}
-                </Card>
-              )
-          )}
-
-          {!mencari && aktif.jenis === 'cabang' && (
-            isiCabang(aktif.cabang).length === 0
-              ? <Empty icon={FolderOpen} title="Folder kosong" text="Belum ada berkas di cabang ini." />
-              : (
-                <Card className="divide-y divide-slate-100 overflow-hidden">
-                  {isiCabang(aktif.cabang).map((g) => (
-                    <button key={g.p.id} type="button" data-folder="project" onClick={() => keProject(aktif.cabang, g.p.id)}
-                      className="flex min-h-[42px] w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-slate-50">
-                      <Folder className="h-4 w-4 shrink-0 text-sky-500" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-semibold text-ink"><InvoiceNo project={g.p} className="!text-[13px]" /></span>
-                        <span className="block truncate text-[11px] text-ink-mute">{g.p.customer?.name}</span>
-                      </span>
-                      <span className="shrink-0 text-[11px] tabular-nums text-ink-mute">{g.n} berkas · {kb(g.size)}</span>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
-                    </button>
-                  ))}
-                </Card>
-              )
-          )}
-
-          {(mencari || aktif.jenis === 'project' || aktif.jenis === 'trash') && (
-            baris.length === 0
-              ? <Empty icon={FileText} title={mencari ? 'Tidak ada berkas yang cocok' : aktif.jenis === 'trash' ? 'Trash kosong' : 'Folder kosong'}
-                  text={mencari ? 'Coba kata kunci lain, atau ubah cakupan pencarian.' : aktif.jenis === 'trash' ? 'Berkas yang dihapus akan muncul di sini.' : 'Project ini belum punya berkas.'} />
-              : (
-                <Card className="overflow-hidden">
-                  <div className="min-w-0 max-w-full overflow-x-auto">
-                    <table className="tbl-rapat" style={{ minWidth: '820px' }}>
-                      <thead>
-                        <tr>
-                          <th style={{ width: '40px' }}>
-                            <input type="checkbox" checked={semuaTerpilih} onChange={togglePilihSemua}
-                              aria-label="Pilih semua berkas yang tampil"
-                              className="h-4 w-4 rounded border-slate-300 text-brand" />
-                          </th>
-                          {KOLOM.map((c) => <Th key={c.key} kolom={c} sortKey={sortKey} sortDir={sortDir} onKlik={klikJudul} />)}
-                          <th style={{ width: '112px' }} className="text-right">Aksi</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {baris.map((f) => {
-                          const jenis = kindOf(f)
-                          const dipilih = pilih.has(f.key)
-                          return (
-                            <tr key={f.key} className={cx(dipilih && 'bg-brand-soft/60')}
-                              onContextMenu={(e) => { e.preventDefault(); setMenu(f.key) }}>
-                              <td>
-                                <input type="checkbox" checked={dipilih} onChange={() => togglePilih(f.key)}
-                                  aria-label={`Pilih ${f.name}`} className="h-4 w-4 rounded border-slate-300 text-brand" />
-                              </td>
-                              <td>
-                                <span className="flex items-center gap-2">
-                                  <span className={cx('grid h-7 w-7 shrink-0 place-items-center rounded-lg ring-1', WARNA[jenis] || WARNA.other)}>
-                                    <FileText className="h-3.5 w-3.5" />
-                                  </span>
-                                  <button type="button" onClick={() => setPreview(f)} title={`Pratinjau ${f.name}`}
-                                    className="min-w-0 max-w-[260px] truncate text-left font-semibold text-ink hover:text-brand hover:underline">
-                                    {f.name}
-                                  </button>
-                                </span>
-                              </td>
-                              <td className="text-[12px] text-ink-soft">
-                                <button type="button" onClick={() => keLokasi(f)} title={`Buka folder ${f.cabang} / ${f.folder}`}
-                                  className="flex max-w-[220px] items-center gap-1 text-left hover:text-brand hover:underline">
-                                  <Folder className="h-3.5 w-3.5 shrink-0 text-sky-500" />
-                                  <span className="min-w-0 truncate">{f.cabang} / {f.folder}</span>
-                                </button>
-                              </td>
-                              <td className="text-[12px] text-ink-soft">
-                                {f.by
-                                  ? <span className="flex max-w-[150px] items-center gap-1.5"><User2 className="h-3.5 w-3.5 shrink-0 text-ink-mute" /><span className="min-w-0 truncate">{f.by}</span></span>
-                                  : <span className="text-ink-mute">tidak tercatat</span>}
-                              </td>
-                              <td className="whitespace-nowrap text-[12px] text-ink-soft">
-                                {f.uploaded_at
-                                  ? <span className="inline-flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-ink-mute" />{tanggalJam(f.uploaded_at)}</span>
-                                  : <span className="text-ink-mute">—</span>}
-                              </td>
-                              <td className="num text-[12px] text-ink-soft">{kb(Number(f.size) || 0)}</td>
-                              <td>
-                                <span className="aksi relative">
-                                  <button type="button" onClick={() => unduh(f)} aria-label={`Unduh ${f.name}`} title="Unduh"
-                                    className="text-ink-mute hover:bg-slate-100 hover:text-brand"><Download className="h-4 w-4" /></button>
-                                  <button type="button" onClick={() => setMenu(menu === f.key ? '' : f.key)}
-                                    aria-haspopup="menu" aria-expanded={menu === f.key}
-                                    aria-label={`Tindakan lain untuk ${f.name}`} title="Tindakan lain (atau klik kanan baris)"
-                                    className="text-ink-mute hover:bg-slate-100 hover:text-ink"><MoreHorizontal className="h-4 w-4" /></button>
-                                  <MenuBerkas f={f} buka={menu === f.key} onTutup={() => setMenu('')}
-                                    bisaUbah={aktif.jenis === 'trash' ? false : bolehUbah(user, f.project)}
-                                    onPreview={() => setPreview(f)} onUnduh={() => unduh(f)}
-                                    onRename={() => setRename({ f, nama: tanpaEkstensi(f.name) })}
-                                    onTrash={() => keTrash([f])}
-                                    onBuka={() => go(`projects/${f.project.id}`)} />
-                                </span>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
-              )
-          )}
-
-          {aktif.jenis === 'trash' && !mencari && diTrash.length > 0 && (
-            <p className="text-[11px] text-ink-mute">
-              Berkas di Trash tidak lagi muncul di folder maupun di File Project, tapi belum terhapus dari penyimpanan.
-              Pilih berkasnya untuk mengembalikan{bolehKosongkanTrash(user) ? ' atau menghapus permanen' : ''}.
-            </p>
-          )}
-
-          {!mencari && aktif.jenis === 'project' && !bisaUbah && (
-            <p className="text-[11px] text-ink-mute">Anda bisa melihat dan mengunduh berkas di folder ini, tapi tidak mengubahnya.</p>
-          )}
+          {/* panel detail */}
+          <aside className="hidden w-[280px] shrink-0 border-l border-slate-200 p-4 xl:block" data-panel-detail>
+            {fokus ? (
+              <div className="space-y-3 text-[12.5px]">
+                <div className="grid h-[170px] place-items-center overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200">
+                  {kindOf(fokus) === 'image' && fokus.url ? <img src={fokus.url} alt="" className="max-h-full max-w-full object-contain" /> : <IkonBerkas f={fokus} besar />}
+                </div>
+                <div><p className="break-all font-semibold text-ink">{fokus.name}</p><p className="text-ink-mute">{(JENIS[kindOf(fokus)] || JENIS.other)[1]} · {kb(Number(fokus.size) || 0)}</p></div>
+                <dl className="space-y-1.5 text-[12px]">
+                  <div className="flex justify-between gap-2"><dt className="text-ink-mute">Project</dt><dd className="truncate font-semibold">{invoiceLabel(fokus.invoice)}</dd></div>
+                  <div className="flex justify-between gap-2"><dt className="text-ink-mute">Pelanggan</dt><dd className="truncate">{fokus.pelanggan || '—'}</dd></div>
+                  <div className="flex justify-between gap-2"><dt className="text-ink-mute">Cabang</dt><dd>{fokus.cabang}</dd></div>
+                  <div className="flex justify-between gap-2"><dt className="text-ink-mute">Bagian</dt><dd className="truncate">{fokus.source || '—'}</dd></div>
+                  <div className="flex justify-between gap-2"><dt className="text-ink-mute">Diunggah</dt><dd className="truncate">{fokus.by || '—'}{fokus.uploaded_at ? ` · ${tanggalJam(fokus.uploaded_at)}` : ''}</dd></div>
+                </dl>
+                <div className="grid grid-cols-2 gap-1.5 text-[12px] font-semibold">
+                  <button type="button" onClick={() => setPreview(fokus)} className="h-9 rounded-md bg-[#0067c0] text-white">Buka</button>
+                  <button type="button" onClick={() => unduh(fokus)} className="h-9 rounded-md ring-1 ring-slate-300">Unduh</button>
+                  <button type="button" onClick={() => go(`projects/${fokus.project.id}`)} className="col-span-2 h-9 rounded-md ring-1 ring-slate-300">Buka project ↗</button>
+                </div>
+              </div>
+            ) : terpilih.length > 1 ? (
+              <p className="pt-10 text-center text-[13px] text-ink-soft">{terpilih.length} item dipilih<br /><span className="text-ink-mute">{kb(ukuranPilih)}</span></p>
+            ) : <p className="pt-10 text-center text-[12px] text-ink-mute">Pilih berkas untuk melihat detailnya.</p>}
+          </aside>
+        </div>
+        {/* bilah status */}
+        <div className="flex items-center gap-4 border-t border-slate-200 bg-[#f3f5f9] px-3 py-1 text-[11.5px] text-ink-soft" data-bilah-status>
+          <span>{jumlahItem} item</span>{terpilih.length > 0 && <span>{terpilih.length} item dipilih · {kb(ukuranPilih)}</span>}
+          {aktif.jenis === 'project' && !bisaUbah && <span className="text-ink-mute">hanya bisa dilihat & diunduh</span>}
+          <span className="ml-auto hidden text-ink-mute md:inline">Klik = pilih · Ctrl+klik = pilih banyak · klik ganda = buka · klik kanan = menu</span>
         </div>
       </div>
 

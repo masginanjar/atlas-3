@@ -14,6 +14,7 @@ import {
 } from '../lib/jadwal.js'
 import { svgJadwalCabang, svgJadwalPerusahaan, unduhPng } from '../lib/jadwalPng.js'
 import { branchesOf } from '../config/access.js'
+import { CabangMinggu, PanelKanan, HpCabang, HpPerusahaan, SayaBaru, SheetAjukanLibur, RekapLibur, TombolUnduh, mingguAwal, KUOTA_LIBUR } from '../components/JadwalV2.jsx'
 
 const TONE = {
   amber: 'bg-amber-50 text-amber-800 ring-amber-200',
@@ -26,108 +27,99 @@ export default function Jadwal({ embedded }) {
   const [ym, setYm] = useState(() => bulanKunci(new Date()))
   const bolehUbah = canUbahJadwal(user)
   const lihatSemua = canLihatSemua(user)
-
   const cabangLihat = useMemo(() => cabangBolehLihat(user), [user])
   const cabangUbah = useMemo(() => cabangBolehUbah(user), [user])
   const [cabang, setCabang] = useState(() => branchesOf(user)[0] || cabangLihat[0] || 'Bali')
   const [tab, setTab] = useState('saya')
-  const [edit, setEdit] = useState(null)   // { iso, cabang }
+  const [mode, setMode] = useState('minggu') // tampilan cabang di PC: minggu | bulan
+  const [edit, setEdit] = useState(null)
   const [ajukan, setAjukan] = useState(false)
-  const [unduh, setUnduh] = useState(false)
-
   const minggu = useMemo(() => mingguBulan(ym), [ym])
+  const [wi, setWi] = useState(() => mingguAwal(mingguBulan(bulanKunci(new Date()))))
   const rows = data.jadwal || []
   const peta = useMemo(() => indeksJadwal(rows), [rows])
   const cuti = useMemo(() => cutiTerlihat(data.cuti, user), [data.cuti, user])
+  const ymDepan = geserBulan(bulanKunci(new Date()), 1)
+  const nMenunggu = cuti.filter((c) => c.status === 'diajukan' && cabangUbah.includes(c.cabang)).length
+  const gantiBulan = (n) => { setYm(geserBulan(ym, n)); setWi(0) }
 
-  // Komponen Tabs memakai `value`, bukan `key`.
   const tabs = [
-    { value: 'saya', label: 'Jadwal Saya' },
-    { value: 'cabang', label: 'Satu Cabang' },
-    ...(lihatSemua ? [{ value: 'perusahaan', label: 'Satu Perusahaan' }] : []),
+    { value: 'saya', label: 'Saya' },
+    { value: 'cabang', label: 'Cabang' },
+    ...(lihatSemua ? [{ value: 'perusahaan', label: 'Perusahaan' }] : []),
+    ...(bolehUbah ? [{ value: 'rekap', label: `Rekap Libur${nMenunggu ? ` (${nMenunggu})` : ''}` }] : []),
   ]
-
-  const unduhJadwal = async () => {
-    setUnduh(true)
-    try {
-      if (tab === 'perusahaan') {
-        const svg = svgJadwalPerusahaan({
-          judul: labelBulan(ym),
-          sub: 'Jadwal Libur — 247 Sworn Translator',
-          minggu, cabangList: cabangLihat, hariPendek: HARI_PENDEK,
-          liburSel: (iso, cb) => yangLibur(peta, iso, cb).map((r) => namaPendek(nameOf(r.user_id))).join(', '),
-        })
-        await unduhPng(svg, `Jadwal 247 - ${labelBulan(ym)}`)
-      } else {
-        const baris = barisUntukCabang(data.users, cabang)
-        const svg = svgJadwalCabang({
-          judul: labelBulan(ym),
-          sub: `TIM ${cabang.toUpperCase()}`,
-          minggu, baris, hariPendek: HARI_PENDEK,
-          sel: (iso, key) => isiShift(peta, iso, cabang, key)
-            .map((r) => labelOrang(r, nameOf(r.user_id))).join(', '),
-          libur: (iso) => yangLibur(peta, iso, cabang).map((r) => namaPendek(nameOf(r.user_id))).join(', '),
-        })
-        await unduhPng(svg, `Jadwal ${cabang} - ${labelBulan(ym)}`)
-      }
-      notify('Jadwal diunduh sebagai PNG ukuran A4')
-    } catch (e) { notify(e.message || 'Gagal mengunduh', 'err') } finally { setUnduh(false) }
-  }
+  const sudahAju = cuti.some((c) => c.user_id === user.id && tanggalCuti(c).some((d) => d.startsWith(ymDepan)))
 
   return (
-    <div className={embedded ? 'space-y-3' : 'mx-auto w-full max-w-6xl space-y-4 p-4'}>
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
-          {embedded
-            ? <p className="text-xs text-ink-soft">Shift harian dan hari libur tim.</p>
-            : <><h1 className="flex items-center gap-2 text-lg font-bold text-ink"><CalendarRange className="h-5 w-5 text-brand" />Jadwal</h1>
-              <p className="text-xs text-ink-soft">Shift harian dan hari libur tim.</p></>}
-        </div>
+    <div className={embedded ? 'space-y-3' : 'mx-auto w-full max-w-7xl space-y-3 p-0 sm:p-1'} data-jadwal-v2>
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="mr-auto flex items-center gap-2 text-lg font-bold text-ink lg:text-[22px]"><CalendarRange className="h-5 w-5 text-brand" />Jadwal</h1>
         <Button size="sm" variant="outline" onClick={() => setAjukan(true)} data-aksi="ajukan-cuti"><Plane className="h-3.5 w-3.5" />Ajukan Libur</Button>
-        {tab !== 'saya' && (
-          <Button size="sm" variant="outline" loading={unduh} onClick={unduhJadwal}>
-            <Download className="h-3.5 w-3.5" />Unduh PNG A4
-          </Button>
-        )}
+        <TombolUnduh ym={ym} peta={peta} cabang={cabang} rows={rows} />
       </div>
 
-      {/* Tab, pemilih bulan, dan pemilih cabang dijadikan satu baris —
-          sebelumnya tiga baris terpisah padahal ketiganya alat yang sama. */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="min-w-0 flex-1"><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
-        <div className="flex shrink-0 items-center gap-1 rounded-xl bg-white p-1 ring-1 ring-slate-200">
-          <button type="button" onClick={() => setYm(geserBulan(ym, -1))} aria-label="Bulan sebelumnya"
-            className="inline-grid h-11 w-11 place-items-center rounded-lg text-ink-soft hover:bg-slate-100"><ChevronLeft className="h-4 w-4" /></button>
-          <span className="min-w-[120px] text-center text-sm font-bold text-ink" data-label-bulan>{labelBulan(ym)}</span>
-          <button type="button" onClick={() => setYm(geserBulan(ym, 1))} aria-label="Bulan berikutnya"
-            className="inline-grid h-11 w-11 place-items-center rounded-lg text-ink-soft hover:bg-slate-100"><ChevronRight className="h-4 w-4" /></button>
-        </div>
+        <div className="min-w-0 basis-full sm:basis-auto sm:flex-1"><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
+        {tab !== 'rekap' && (
+          <div className="flex shrink-0 items-center gap-1 rounded-xl bg-white p-1 ring-1 ring-slate-200">
+            <button type="button" onClick={() => gantiBulan(-1)} aria-label="Bulan sebelumnya" className="inline-grid h-10 w-10 place-items-center rounded-lg text-ink-soft hover:bg-slate-100"><ChevronLeft className="h-4 w-4" /></button>
+            <span className="min-w-[116px] text-center text-sm font-bold text-ink" data-label-bulan>{labelBulan(ym)}</span>
+            <button type="button" onClick={() => gantiBulan(1)} aria-label="Bulan berikutnya" className="inline-grid h-10 w-10 place-items-center rounded-lg text-ink-soft hover:bg-slate-100"><ChevronRight className="h-4 w-4" /></button>
+          </div>
+        )}
         {tab === 'cabang' && cabangLihat.length > 1 && (
-          <Select value={cabang} onChange={(e) => setCabang(e.target.value)} aria-label="Pilih cabang" className="w-auto">
+          <Select value={cabang} onChange={(e) => setCabang(e.target.value)} aria-label="Pilih cabang" className="!h-11 !w-40">
             {cabangLihat.map((b) => <option key={b}>{b}</option>)}
           </Select>
         )}
-        {bolehUbah && tab === 'cabang' && !cabangUbah.includes(cabang) && (
-          <span className="text-[11px] text-ink-mute">Hanya bisa dilihat — cabang ini bukan wilayah Anda.</span>
+        {tab === 'cabang' && (
+          <div className="hidden rounded-xl bg-white p-1 ring-1 ring-slate-200 lg:flex">
+            {[['minggu', 'Minggu'], ['bulan', 'Bulan']].map(([k, l]) => <button key={k} type="button" onClick={() => setMode(k)} className={cx('h-9 rounded-lg px-3 text-xs font-bold', mode === k ? 'bg-ink text-white' : 'text-ink-soft')}>{l}</button>)}
+          </div>
         )}
       </div>
 
-      {tab === 'saya' && <TampilanSaya {...{ user, ym, rows, peta, cuti, nameOf }} />}
+      {tab === 'saya' && (
+        <>
+          {!sudahAju && (
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-gradient-to-r from-brand to-[#6d5cf6] px-4 py-3 text-white" data-banner-libur>
+              <div className="min-w-0 flex-1"><p className="text-[11px] font-bold text-white/80">PENGAJUAN LIBUR {labelBulan(ymDepan).toUpperCase()}</p><p className="text-[13px] font-bold">Dibuka sekarang · kuota {KUOTA_LIBUR} hari</p></div>
+              <button type="button" onClick={() => setAjukan(true)} className="h-10 rounded-lg bg-white px-3 text-[12px] font-extrabold text-brand"><Plane className="mr-1 inline h-4 w-4" />Ajukan Libur</button>
+            </div>
+          )}
+          <SayaBaru ym={ym} peta={peta} rows={rows} />
+          <DaftarCuti {...{ cuti: cuti.filter((c) => c.user_id === user.id || bolehUbah), user, nameOf, save, remove, notify, ask, bolehUbah }} />
+        </>
+      )}
       {tab === 'cabang' && (
-        <TampilanCabang {...{ minggu, cabang, peta, data, nameOf, ym,
-          bolehUbah: bolehUbah && cabangUbah.includes(cabang), onEdit: setEdit }} />
+        <>
+          <div className="lg:hidden"><HpCabang key={`${ym}-${cabang}`} ym={ym} cabang={cabang} peta={peta} /></div>
+          <div className="hidden lg:block">
+            {mode === 'minggu' ? (
+              <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
+                <CabangMinggu minggu={minggu} wi={wi} setWi={setWi} cabang={cabang} peta={peta} bolehUbah={bolehUbah && cabangUbah.includes(cabang)} onEdit={setEdit} />
+                <PanelKanan cabang={cabang} peta={peta} ym={bulanKunci(new Date())} cuti={cuti} bolehUbah={bolehUbah} onRekap={() => setTab('rekap')} />
+              </div>
+            ) : (
+              <TampilanCabang {...{ minggu, cabang, peta, data, nameOf, ym, bolehUbah: bolehUbah && cabangUbah.includes(cabang), onEdit: setEdit }} />
+            )}
+          </div>
+        </>
       )}
       {tab === 'perusahaan' && (
-        <TampilanPerusahaan {...{ minggu, cabangList: cabangLihat, peta, nameOf }} />
+        <>
+          <div className="lg:hidden"><HpPerusahaan key={ym} ym={ym} peta={peta} /></div>
+          <div className="hidden lg:block"><TampilanPerusahaan {...{ minggu, cabangList: cabangLihat, peta, nameOf }} /></div>
+        </>
       )}
-
-      <DaftarCuti {...{ cuti, user, nameOf, save, remove, notify, ask, bolehUbah }} />
+      {tab === 'rekap' && bolehUbah && <RekapLibur ym={ymDepan} cabangUbah={cabangUbah} />}
 
       {edit && (
         <SheetEdit s={edit} data={data} peta={peta} nameOf={nameOf} save={save} remove={remove}
           notify={notify} onClose={() => setEdit(null)} />
       )}
-      {ajukan && <SheetCuti user={user} save={save} notify={notify} onClose={() => setAjukan(false)} />}
+      {ajukan && <SheetAjukanLibur ymDepan={ymDepan} onClose={() => setAjukan(false)} />}
     </div>
   )
 }

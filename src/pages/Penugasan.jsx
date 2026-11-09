@@ -257,12 +257,12 @@ export default function Penugasan() {
                 <table className="hidden w-full table-fixed text-[12.5px] lg:table" data-tabel-perlu>
                   <thead>
                     <tr className="text-left text-[10.5px] font-bold uppercase tracking-wider text-ink-mute">
-                      <th className="w-[22%] px-3 py-2">Invoice · Pelanggan</th><th className="w-[15%] px-2 py-2">Dokumen</th><th className="w-[9%] px-2 py-2">Arah</th><th className="w-[6%] px-2 py-2 text-center">Hlm</th><th className="w-[12%] px-2 py-2">Deadline</th><th className="px-2 py-2">Saran</th><th className="w-[112px] px-3 py-2" />
+                      <th className="w-[30%] px-3 py-2">Invoice · Pelanggan</th><th className="px-2 py-2">Dokumen</th><th className="w-[13%] px-2 py-2">Arah</th><th className="w-[8%] px-2 py-2 text-center">Hlm</th><th className="w-[15%] px-2 py-2">Deadline</th><th className="w-[112px] px-3 py-2" />
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((r, i) => {
-                      const sr = saranOf(r); const sel = pilih === r.id
+                      const sel = pilih === r.id
                       return (
                         <tr key={r.id} onClick={() => setPilih(sel ? null : r.id)} data-baris-perlu={r.id}
                           className={cx('cursor-pointer border-t border-slate-100 align-middle', sel ? 'bg-brand-soft/60 shadow-[inset_3px_0_0_theme(colors.brand.DEFAULT)]' : i % 2 ? 'bg-slate-50/80' : 'bg-white', 'hover:bg-brand-soft/30')}>
@@ -274,11 +274,8 @@ export default function Penugasan() {
                           <td className="px-2 py-2"><Arah s={r} /></td>
                           <td className="px-2 py-2 text-center text-sm font-extrabold">{hlmSub(r)}</td>
                           <td className="px-2 py-2"><DeadlineKecil iso={r.project.about?.deadline} className="!text-left" /></td>
-                          <td className="max-w-0 px-2 py-2">{sr ? <Saran sr={sr} ringkas /> : <span className="text-xs text-ink-mute">—</span>}</td>
                           <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
-                            {sr?.ok
-                              ? <Button size="sm" loading={!!sibuk[r.id]} onClick={() => tugaskan(r, sr.kind, sr.id)} data-aksi="tugaskan">Tugaskan</Button>
-                              : <Button size="sm" variant="outline" onClick={() => setPilih(r.id)}>Pilih…</Button>}
+                            <Button size="sm" variant="outline" onClick={() => setPilih(r.id)}>Pilih…</Button>
                           </td>
                         </tr>
                       )
@@ -289,7 +286,6 @@ export default function Penugasan() {
                 {/* HP: kartu */}
                 <ul className="lg:hidden" data-kartu-perlu>
                   {rows.map((r, i) => {
-                    const sr = saranOf(r)
                     return (
                       <li key={r.id} className={cx('mx-2.5 my-2 rounded-2xl p-3 ring-1 ring-slate-300', i % 2 ? 'bg-slate-100' : 'bg-white')}>
                         <div className="flex items-center gap-1.5">
@@ -298,24 +294,14 @@ export default function Penugasan() {
                         </div>
                         <p className="mt-1.5 truncate text-[13.5px] font-bold">{r.project.customer?.name || '—'} · {r.title}</p>
                         <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11.5px] text-ink-mute"><Arah s={r} /><span className="rounded-md bg-slate-200/70 px-1.5 py-px font-bold text-ink">{hlmSub(r)} hlm</span>· {r.project.branch}{r.data?.submitted_name ? ` · ${r.data.submitted_name}` : ''}</p>
-                        {sr && <Saran sr={sr} />}
                         <div className="mt-2 flex gap-1.5">
-                          {sr?.ok
-                            ? <Button className="h-11 flex-1" loading={!!sibuk[r.id]} onClick={() => tugaskan(r, sr.kind, sr.id)} data-aksi="tugaskan">Tugaskan ke {sr.nama.split(' ')[0]}</Button>
-                            : <Button variant="outline" className="h-11 flex-1" onClick={() => setSheet(r)}>Pilih penerjemah…</Button>}
-                          <button type="button" onClick={() => setSheet(r)} aria-label="Pilihan lain" className="grid h-11 w-11 place-items-center rounded-xl bg-white text-ink-soft ring-1 ring-slate-200"><MoreHorizontal className="h-4 w-4" /></button>
+                          <Button variant="outline" className="h-11 flex-1" onClick={() => setSheet(r)}>Pilih penerjemah…</Button>
                         </div>
                       </li>
                     )
                   })}
                 </ul>
               </>
-            )}
-            {nSaran > 1 && (
-              <div className="flex items-center gap-2 border-t border-slate-100 px-3 py-2 text-xs text-ink-mute">
-                <span className="flex-1">{nSaran} dokumen sudah punya saran yang muat.</span>
-                <button type="button" onClick={tugaskanSemua} className="font-bold text-brand hover:underline" data-aksi="tugaskan-semua">Tugaskan semua sesuai saran ({nSaran})</button>
-              </div>
             )}
           </Card>
         </div>

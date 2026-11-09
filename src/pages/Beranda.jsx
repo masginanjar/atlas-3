@@ -5,6 +5,8 @@ import { Card, Select, cx } from '../components/ui.jsx'
 import { KOTA, DAFTAR_KOTA, hitungSholat, sholatBerikut, URUT_SHOLAT, jamMenit, menitSekarang, sisaTeks, kotaUser } from '../lib/sholat.js'
 import { AYAT, FAKTA, indeksHari } from '../config/berandaSeed.js'
 import SlideBeranda from '../components/SlideBeranda.jsx'
+import { StripTersemat } from '../components/Pengumuman.jsx'
+import { KartuNgaji } from '../components/Ngaji.jsx'
 import { pengaturanBeranda } from '../config/berandaSlide.js'
 
 // ============================================================
@@ -205,11 +207,12 @@ export default function Beranda() {
 
   return (
     <div className="min-w-0 space-y-3 lg:space-y-4" data-beranda>
-      <div className="space-y-3 lg:hidden">{Hero}{slideHp && <SlideBeranda />}{KartuAyat}{KartuSholat}{KartuFakta}</div>
+      <StripTersemat />
+      <div className="space-y-3 lg:hidden">{Hero}{slideHp && <SlideBeranda />}<KartuNgaji />{KartuSholat}{KartuFakta}</div>
       <div className="hidden lg:grid lg:grid-cols-[1.25fr_1fr] lg:gap-4">
         <div className="space-y-4">{Hero}<SlideBeranda />{KartuFakta}</div>
         <div className="space-y-4">
-          {KartuAyat}
+          <KartuNgaji />
           {KartuSholat}
           <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
             {[

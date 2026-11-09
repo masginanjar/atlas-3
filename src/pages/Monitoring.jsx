@@ -6,7 +6,7 @@ import { PilihPeriode } from '../components/ToolbarRingkas.jsx'
 import { tasksOf, summarize, dayKey } from '../lib/performance.js'
 import { stageLabel, flowOf, DONE, totalPengajuan, termOf, isBilled, PAYMENT_TERMS } from '../config/workflows.js'
 import { placeOf, invoiceLabel} from '../config/access.js'
-import { rupiah, stageArrivedAt } from '../lib/format.js'
+import { rupiah, stageArrivedAt, tgl } from '../lib/format.js'
 import TimeAgo from '../components/TimeAgo.jsx'
 import { Card, Empty, Input, cx } from '../components/ui.jsx'
 import { useTabel, Th } from '../components/TabelSortir.jsx'
@@ -162,6 +162,8 @@ const PERIODE_MONITORING = (today) => {
   ]
 }
 
+import { MonitorNgaji } from '../components/Ngaji.jsx'
+
 export default function Monitoring() {
   const { user, data } = useApp()
   const [now] = useState(() => new Date())
@@ -179,6 +181,10 @@ export default function Monitoring() {
   const allSubs = useMemo(() => projects.flatMap((p) => (p.sub_projects || []).map((s) => ({ ...s, project: p, flow: flowOf(s, p) }))), [projects])
   const trDone = (uid) => allSubs.filter((s) => (s.data?.translator === uid || s.translator === uid) && inRange(s.data?.translated_at))
     .reduce((a, s) => { const d = docStats(s.docs, s.pages); return { reg: a.reg + d.reg, non: a.non + d.non, pages: a.pages + d.pages } }, { reg: 0, non: 0, pages: 0 })
+  // penolakan tugas oleh penerjemah (dari riwayat sub project) dalam rentang
+  const tolakAll = useMemo(() => allSubs.flatMap((s) => (s.history || []).filter((h) => h.rejected && /ditolak penerjemah/i.test(h.action || ''))
+    .map((h) => ({ ...h, sub: s }))), [allSubs])
+  const tolakOf = (u) => tolakAll.filter((h) => (h.by_id ? h.by_id === u.id : h.by === u.name) && inRange(h.at))
   const prDone = (uid) => allSubs.filter((s) => s.data?.proofreader === uid && inRange(s.data?.proofread_at))
     .reduce((a, s) => { const d = docStats(s.docs, s.pages); return { n: a.n + d.reg + d.non, pages: a.pages + d.pages } }, { n: 0, pages: 0 })
   const vendorDone = (vid) => allSubs.filter((s) => s.data?.vendor === vid && (s.stage === DONE || ['proses_vendor'].includes(s.stage) === false && s.data?.hasil_vendor) && inRange(s.data?.hasil_vendor?.uploaded_at || s.data?.received_at || s.stage_at))
@@ -222,14 +228,19 @@ export default function Monitoring() {
         <span className="ml-auto text-[11px] text-ink-mute">Kolom "Dok. diterjemahkan", "Diproofread", dan "Halaman dikerjakan" mengikuti rentang ini.</span>
       </Card>
 
+      <MonitorNgaji range={range} />
+
       <Section id="tr" icon={Languages} title={`Penerjemah (${tr.length})`} tone="bg-indigo-50"
         chips={[['Sedang diterjemahkan', subs.filter((s) => ['tr_int', 'tr_nt'].includes(s.flow) && s.stage === 'penerjemahan').length], ['Perlu penerjemah', needTr, needTr > 0]]}>
         <PeopleTable people={tr} projects={projects} now={now} extraCols={[
           { label: 'Halaman aktif', get: (r) => r.pages },
           { label: 'Dok. diterjemahkan (Reg / Non)', get: (r) => { const d = trDone(r.u.id); return <span title={`${d.pages} halaman`}><b>{d.reg + d.non}</b> <span className="text-ink-mute">({d.reg} / {d.non})</span> <span className="text-[10px] text-ink-mute">· {d.pages} hlm</span></span> } },
+          { label: 'Menolak', get: (r) => { const t = tolakOf(r.u); return t.length ? <span className="font-bold text-rose-600" title={t.map((h) => `${tgl(h.at)} · ${invoiceLabel(h.sub.project.invoice_no)} · ${h.reason || ''}`).join('\n')}>{t.length}×</span> : <span className="text-ink-mute">0</span> } },
           { label: 'Diproofread', get: (r) => { const d = prDone(r.u.id); return <span title={`${d.pages} halaman`}><b>{d.n}</b> <span className="text-[10px] text-ink-mute">· {d.pages} hlm</span></span> } },
         ]} />
       </Section>
+
+      <TabelTolak rows={tr.map((u) => ({ u, t: tolakOf(u) }))} />
 
       <Section id="vendor" icon={Store} title={`Vendor (${vRows.length} aktif)`} tone="bg-violet-50"
         chips={[['Menunggu ACC', vRows.reduce((a, r) => a + r.acc.length, 0)], ['Menunggu bayar', vRows.reduce((a, r) => a + r.pay.length, 0)], ['Dikerjakan', vRows.reduce((a, r) => a + r.work.length, 0)], ['Nilai berjalan', rupiah(vRows.reduce((a, r) => a + r.value, 0))]]}>
@@ -307,5 +318,51 @@ export default function Monitoring() {
         {(reqQueue.length > 0 || billQueue.length > 0) && <p className="flex items-center gap-1.5 border-t border-slate-100 px-4 py-2 text-[11px] text-ink-mute"><AlertTriangle className="h-3.5 w-3.5" />Pengajuan umum & tagihan vendor yang sudah di-ACC menunggu transfer Akunting.</p>}
       </Section>
     </div>
+  )
+}
+
+/** Tabel: berapa kali tiap penerjemah menolak project (dalam rentang), + rincian alasannya. */
+function TabelTolak({ rows }) {
+  const [buka, setBuka] = useState(null)
+  const urut = [...rows].sort((a, b) => b.t.length - a.t.length || String(a.u.name).localeCompare(String(b.u.name)))
+  const total = urut.reduce((a, r) => a + r.t.length, 0)
+  return (
+    <Card className="overflow-hidden" data-tabel-tolak>
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 bg-rose-50/60 px-4 py-2.5">
+        <b className="text-sm">Penolakan project oleh penerjemah</b>
+        <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-700">{total}× pada rentang ini</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-[12.5px]">
+          <thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-ink-mute">
+            <tr><th className="px-4 py-2">Penerjemah</th><th className="px-3 py-2 text-center">Menolak</th><th className="px-3 py-2">Terakhir</th><th className="px-3 py-2">Alasan terakhir</th><th className="w-10" /></tr>
+          </thead>
+          <tbody>
+            {urut.map(({ u, t }) => {
+              const akhir = [...t].sort((a, b) => String(b.at).localeCompare(String(a.at)))[0]
+              const open = buka === u.id
+              return [
+                <tr key={u.id} className={cx('border-t border-slate-100', t.length && 'cursor-pointer hover:bg-slate-50')} onClick={() => t.length && setBuka(open ? null : u.id)}>
+                  <td className="px-4 py-2 font-semibold">{u.name}</td>
+                  <td className="px-3 py-2 text-center">{t.length ? <b className="text-rose-600">{t.length}×</b> : <span className="text-ink-mute">0</span>}</td>
+                  <td className="px-3 py-2 text-ink-soft">{akhir ? tgl(akhir.at) : '—'}</td>
+                  <td className="max-w-[320px] truncate px-3 py-2 text-ink-soft" title={akhir?.reason}>{akhir?.reason || '—'}</td>
+                  <td className="px-2">{t.length > 0 && <ChevronDown className={cx('h-4 w-4 text-ink-mute transition', open && 'rotate-180')} />}</td>
+                </tr>,
+                open && (
+                  <tr key={`${u.id}-r`} className="bg-slate-50/70"><td colSpan={5} className="px-4 py-2">
+                    <ul className="space-y-1">{t.map((h, i) => (
+                      <li key={i} className="flex flex-wrap gap-x-2 text-xs"><span className="text-ink-mute">{tgl(h.at)}</span>
+                        <a href={`#/projects/${h.sub.project.id}`} className="font-bold text-brand hover:underline">{invoiceLabel(h.sub.project.invoice_no)}</a>
+                        <span className="font-semibold">{h.sub.title}</span><span className="text-ink-soft">— {h.reason}</span></li>
+                    ))}</ul>
+                  </td></tr>
+                ),
+              ]
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   )
 }

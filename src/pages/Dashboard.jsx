@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { FolderKanban, CheckCircle2, AlarmClock, Wallet, Banknote, ArrowRight, Inbox, Stamp, ChevronDown, Hand, Upload, Loader2, FileCheck2, Send, Languages, ChevronUp, Users, Undo2, CalendarDays, X , Sunrise, Moon, Waves, Activity, Target, Sprout, Sparkles, Coffee, ReceiptText, ArrowUp, ArrowDown, StickyNote} from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { kapasitasHarian, KAP_DEFAULT } from '../components/Kapasitas.jsx'
-import { Sapaan, AngkaHariIni, Hambatan, RingkasanTim, RingkasanKeuangan } from '../components/DashboardRingkas.jsx'
+import { Sapaan, AngkaHariIni, Hambatan, RingkasanKeuangan } from '../components/DashboardRingkas.jsx'
 import { go } from '../lib/router.js'
 import { BRANCHES, ROLES, can, scopeByBranch, activeClaim, WORKER_ROLES, roleLabel, branchesOf, isMultiBranch, APOSTILLE_FUND, pettyLabel, pettyAccountsOf, foreignLang, coordinatorFor, placeOf, invoiceLabel} from '../config/access.js'
 import { CATEGORIES, DONE, isDone, stagesOf, stageLabel, flowOf, totalPengajuan, stafStatus, PAYMENT_TERMS, termOf, isBilled, recommendFund, VENDOR_PAID_STAGES, stageShort, stageIndex } from '../config/workflows.js'
@@ -23,6 +23,7 @@ import { useTabel, Th } from '../components/TabelSortir.jsx'
 import { useEffect, useState } from 'react'
 import { coverHariIni, sapaan } from '../lib/cover.js'
 import { myReminders, nextAt } from './Reminders.jsx'
+import { StripTersemat } from '../components/Pengumuman.jsx'
 import { KepalaDasbor, PingStrip, AngkaPeran, PetaKerja, AgendaHariIni } from '../components/DasborBaru.jsx'
 import WorkerBoard from '../components/WorkerActions.jsx'
 import { KapasitasSaya } from '../components/Kapasitas.jsx'
@@ -131,6 +132,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-3">
       <KepalaDasbor user={user} ping={pil} />
+      <StripTersemat tanpaPing />
       {strip}
       <AngkaPeran tiles={tiles} aktif={{ tenggat: 'dl', hambatan: 'late', kerja: 'todo' }[tab]} />
       {user.role === 'penerjemah' && <KapasitasSaya />}
@@ -138,7 +140,6 @@ export default function Dashboard() {
       <div className={cx('grid gap-3 lg:items-start', (canSeeTeam(user) || exec || !worker) && 'lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]')}>
         <PetaKerja user={user} s={s} nKerja={todoCount} kerja={kerja} tab={tab} setTab={setTab} tabsExtra={tabsExtra} sembunyi={user.role === 'staf_apostille' ? ['kerja'] : []} />
         <div className="min-w-0 space-y-3">
-          {canSeeTeam(user) && <RingkasanTim />}
           {exec && <RingkasanKeuangan s={s} />}
           <AgendaHariIni />
           {hasPersonalTasks(user) && user.role !== 'staf_apostille' && <PerformanceCard narrow />}
@@ -147,6 +148,7 @@ export default function Dashboard() {
           {user.role === 'otorisator' && <AuthStats narrow />}
         </div>
       </div>
+      {canSeeTeam(user) && <TeamPerformance />}
     </div>
   )
 }

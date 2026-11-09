@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { Home, LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, Stamp, ReceiptText, StickyNote, AlarmClock, CalendarDays, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store, Handshake, Minimize2, Maximize2 } from 'lucide-react'
+import { Home, LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, Stamp, ReceiptText, StickyNote, AlarmClock, CalendarDays, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store, Handshake, Minimize2, Maximize2, Building2, Server } from 'lucide-react'
 import { useApp } from './lib/store.jsx'
 import { MODE, storageError, db } from './lib/db.js'
 import { AlertTriangle } from 'lucide-react'
@@ -28,6 +28,8 @@ const PengajuanPage = lazy(() => import('./pages/Pengajuan.jsx'))
 const Pesan = lazy(() => import('./pages/Pesan.jsx'))
 const DaftarHarga = lazy(() => import('./pages/DaftarHarga.jsx'))
 const Faq = lazy(() => import('./pages/Faq.jsx'))
+const Perusahaan = lazy(() => import('./pages/Perusahaan.jsx'))
+const StatusServer = lazy(() => import('./pages/StatusServer.jsx'))
 const Affidavit = lazy(() => import('./pages/Affidavit.jsx'))
 const Jadwal = lazy(() => import('./pages/Jadwal.jsx'))
 const ProjectForm = lazy(() => import('./pages/ProjectForm.jsx'))
@@ -38,6 +40,8 @@ const Penugasan = lazy(() => import('./pages/Penugasan.jsx'))
 import GlobalSearch from './components/GlobalSearch.jsx'
 import { useFokus, toggleFokus } from './lib/fokus.js'
 import NotificationBell from './components/NotificationBell.jsx'
+import { TombolHantu, PitaHantu } from './components/ModeHantu.jsx'
+import PengingatSholat from './components/PengingatSholat.jsx'
 import ThemePicker, { readTheme, applyTheme } from './components/ThemePicker.jsx'
 import TeamPresence from './components/TeamPresence.jsx'
 import HeaderUser from './components/HeaderUser.jsx'
@@ -51,6 +55,9 @@ import NotifToast from './components/NotifToast.jsx'
 import VendorPage from './pages/Vendor.jsx'
 import { usePanel, PANELS, PANEL_ORDER } from './components/WorkspacePanel.jsx'
 import { RelIkon, TabBawah } from './components/RelMenu.jsx'
+import { KlasikApp, SaklarMode, useKlasik } from './components/ModeKlasik.jsx'
+import { pasangPenangkapError } from './lib/monitor.js'
+pasangPenangkapError()
 import { tabAgendaDari } from './pages/Agenda.jsx'
 import { useDensity } from './lib/density.js'
 
@@ -88,10 +95,13 @@ const MENU = [
   { id: 'manajemen', label: 'Manajemen', icon: FileStack, children: [
     ...(CHAT_ENABLED ? [{ key: 'pesan', label: 'Pesan Masuk', icon: MessageCircle, bar: true, badge: (u, d, bf, x) => x.chatTotals?.msg || 0 }] : []),
     { key: 'agenda', label: 'Agenda', icon: CalendarRange, bar: true },
+    { key: 'notes', label: 'Catatan', icon: StickyNote },
     { key: 'jadwal', label: 'Jadwal', icon: CalendarRange },
     { key: 'affidavit', label: 'Affidavit', icon: FileStack, show: canSeeAffidavit },
   ] },
   { key: 'faq', label: 'FAQ', icon: BookOpen },
+  { key: 'perusahaan', label: 'Perusahaan', icon: Building2 },
+  { key: 'status-server', label: 'Status Server', icon: Server, show: canMonitor },
   { key: 'monitoring', label: 'Monitoring', icon: MonitorCheck, show: canMonitor },
   { key: 'aktivitas', label: 'Aktivitas', icon: History, show: canSeeAllActivity },
   { key: 'settings', label: 'Pengaturan', icon: Cog },
@@ -122,6 +132,7 @@ export default function App() {
   const branchPicker = !!user && (can.seeAllBranches(user) || isMultiBranch(user))
   const branchOptions = user ? ['Semua', ...(can.seeAllBranches(user) ? BRANCHES : branchesOf(user))] : []
   const [storeErr, setStoreErr] = useState(storageError)
+  const klasik = useKlasik(user, data)
   useEffect(() => { const f = (e) => setStoreErr(e.detail); window.addEventListener('atlas-storage', f); return () => window.removeEventListener('atlas-storage', f) }, [])
 
   if (rawPage === 'p' && param) return <><Suspense fallback={null}><Portal token={param} /></Suspense><Toast toast={toast} onClose={dismissToast} /></> // tautan khusus (vendor / pelanggan lama) — tanpa login
@@ -131,12 +142,12 @@ export default function App() {
 
   // Halaman yang tidak boleh dibuka peran ini dialihkan ke Dashboard,
   // supaya alamat langsung (#/keuangan dsb.) juga tertutup.
-  const page = menuBoleh(user, rawPage) ? rawPage : 'dashboard'
+  const page = menuBoleh(user, rawPage) && (rawPage !== 'status-server' || canMonitor(user)) ? rawPage : 'dashboard'
   // Halaman Project & Faktur punya pencarian + filter cabang sendiri → alat header disembunyikan agar tidak dobel (Ctrl K tetap jalan)
   const alatSendiri = ['projects', 'faktur', 'apostille'].includes(page) && !param
   // Ganti peran / persona (jabatan tersembunyi). Di PC tampil di bar atas, di HP di baris kedua.
   const gantiPeran = (mode) => {
-    if (!user || !(rolesOf(user).length > 1 || personaList.length > 0 || user._actor)) return null
+    if (!user || user._hantu || !(rolesOf(user).length > 1 || personaList.length > 0 || user._actor)) return null
     const asli = user._actor ? data.users.find((u) => u.id === user._actor) : user
     const peranAsli = rolesOf(asli)
     const daftarPersona = user._actor ? (asli?.act_as || []).map((id) => data.users.find((u) => u.id === id)).filter(Boolean) : personaList
@@ -172,6 +183,8 @@ export default function App() {
     : page === 'pengajuan' ? <Keuangan tab="pengajuan" />
     : page === 'daftar-harga' ? <DaftarHarga />
     : page === 'faq' ? <Faq />
+    : page === 'perusahaan' ? <Perusahaan tab={param} />
+    : page === 'status-server' && canMonitor(user) ? <StatusServer />
     : page === 'pelanggan' ? <Pelanggan />
     : page === 'dokumen' ? <Dokumen />
     : page === 'vendor' ? <VendorPage />
@@ -181,6 +194,30 @@ export default function App() {
     : page === 'jadwal' ? <Jadwal />
     : page === 'pesan' && CHAT_ENABLED ? <Pesan peerParam={param} />
     : <Dashboard />
+
+  const konfirmasi = (
+    <Sheet open={!!confirmState} title="Konfirmasi" onClose={() => { confirmState?.resolve(false); setConfirmState(null) }}
+      footer={<><Button variant="outline" className="flex-1" onClick={() => { confirmState.resolve(false); setConfirmState(null) }}>Batal</Button>
+        <Button variant="dark" className="flex-1" onClick={() => { confirmState.resolve(true); setConfirmState(null) }}>Ya, lanjutkan</Button></>}>
+      <p className="text-sm text-ink-soft">{confirmState?.msg}</p>
+    </Sheet>
+  )
+  // Mode Klasik (komputer): layar penuh, hanya Project & Keuangan
+  if (klasik) {
+    const detail = (page === 'projects' && param) ? view : null
+    return (
+      <PanelProvider>
+        <PitaHantu />
+        <PengingatSholat />
+        <KlasikApp page={page} param={param} detail={detail && <Suspense fallback={<div className="grid place-items-center py-24"><Loader2 className="h-5 w-5 animate-spin text-brand" /></div>}>{detail}</Suspense>} />
+        <NotifToast />
+        <Toast toast={toast} onClose={dismissToast} />
+        <SessionGuard />
+        <ReminderWatcher />
+        {konfirmasi}
+      </PanelProvider>
+    )
+  }
 
   return (
     <PanelProvider>
@@ -193,6 +230,8 @@ export default function App() {
             Warnanya memakai variabel tema (--head*), jadi ikut berubah
             saat pengguna mengganti Light / Dark / warna sendiri.
            ============================================================ */}
+        <PitaHantu />
+        <PengingatSholat />
         <header className="app-head sticky top-0 z-30 flex h-[var(--appbar)] items-center gap-1.5 border-b px-2 sm:gap-2 sm:px-3 md:px-4"
           style={{ background: 'var(--head)', color: 'var(--head-ink)', borderColor: 'var(--head-line)' }}>
           {/* Logo + nama aplikasi, sejajar lebar sidebar */}
@@ -237,6 +276,8 @@ export default function App() {
           {/* Mode fokus dihapus atas permintaan Pak (9 Nov) */}
 
           <span data-headbtn className="hidden shrink-0 xl:block"><TeamPresence /></span>
+          <SaklarMode klasik={false} />
+          <span data-headbtn className="shrink-0"><TombolHantu /></span>
           <span data-headbtn className="shrink-0"><NotificationBell /></span>
           <span data-headbtn className="min-w-0 shrink-0"><HeaderUser /></span>
           <span data-headbtn className="hidden shrink-0 sm:block"><AppsMenu user={user} /></span>
@@ -253,7 +294,7 @@ export default function App() {
       <div className="min-w-0 flex-1">
         {/* Top bar */}
         {/* Baris kedua (di bawah lg): filter cabang & peran */}
-        {((branchPicker && !alatSendiri) || rolesOf(user).length > 1 || personaList.length > 0 || user._actor) && (
+        {((branchPicker && !alatSendiri) || (!user._hantu && (rolesOf(user).length > 1 || personaList.length > 0 || user._actor))) && (
           <div className="flex min-w-0 items-center gap-2 px-3 pt-2 xl:hidden md:px-4">
             {branchPicker && !alatSendiri && (
               <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} aria-label="Filter cabang"
@@ -287,6 +328,7 @@ export default function App() {
       <Sheet open={more} onClose={() => setMore(false)} title="Menu">
         {/* Jam WIB & WITA — di layar kecil header tidak muat, jadi ditaruh di sini */}
         <JamZona tema="kartu" className="mb-3 flex justify-center rounded-xl bg-slate-50 py-2 ring-1 ring-slate-200" />
+        <div className="mb-3 flex items-center gap-2 rounded-xl bg-ink px-3 py-2 text-white" data-saklar-hp><span className="text-[12px] font-semibold">Mode tampilan</span><span className="ml-auto"><SaklarMode klasik={false} selalu /></span></div>
         <ul className="grid grid-cols-2 gap-2">
           {navItems(user).map((n) => {
             const b = n.badge ? n.badge(user, data, branchFilter, { unlinkedInvoices, chatTotals }) : 0

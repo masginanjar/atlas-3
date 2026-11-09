@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { LayoutGrid, Plus, Search, X } from 'lucide-react'
+import { LayoutGrid, Plus, Search, X, Maximize2, Minimize2 } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
 import { cx, Sheet } from './ui.jsx'
@@ -16,12 +16,20 @@ import { usePanel, PANELS, PANEL_ORDER } from './WorkspacePanel.jsx'
 // ============================================================
 
 /** Halaman utama di rel, urut. Yang tidak boleh dibuka role ini otomatis dilewati. */
-export const RAIL_KEYS = ['beranda', 'dashboard', 'projects', 'faktur', 'keuangan', 'agenda']
+export const RAIL_KEYS = ['beranda', 'dashboard', 'projects', 'faktur', 'penugasan', 'keuangan', 'agenda', 'notes']
 const RAIL_LABEL = { dashboard: 'Dasbor', projects: 'Project', faktur: 'Faktur', keuangan: 'Keuangan', agenda: 'Agenda', settings: 'Pengaturan' }
 
 const badgeOf = (n, ctx) => (n.badge ? n.badge(ctx.user, ctx.data, ctx.branchFilter, ctx.extra) : 0)
 
 /** Item rel: ikon + label kecil, tinggi 52 px, lebar penuh rel. */
+/** Layar penuh (F11) — di rel kiri, di atas Pengaturan. */
+function RelLayarPenuh() {
+  const [full, setFull] = useState(() => !!document.fullscreenElement)
+  useEffect(() => { const f = () => setFull(!!document.fullscreenElement); document.addEventListener('fullscreenchange', f); return () => document.removeEventListener('fullscreenchange', f) }, [])
+  const ganti = async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen() } catch { /* ditolak browser */ } }
+  return <RelItem icon={full ? Minimize2 : Maximize2} label={full ? 'Keluar' : 'Penuh'} title={full ? 'Keluar layar penuh' : 'Layar penuh'} onClick={ganti} aktif={full} dataNav="layar-penuh" />
+}
+
 function RelItem({ icon: Icon, label, aktif, badge, onClick, href, title, dataNav = 'rel' }) {
   const inner = (
     <>
@@ -59,6 +67,7 @@ export function RelIkon({ menu, flat, page, ctx }) {
         {sisa.length > 0 && <RelItem icon={LayoutGrid} label="Lainnya" onClick={() => setLainnya((v) => !v)} aktif={lainnya || diLainnya} badge={badgeSisa} title="Menu lainnya" dataNav="lainnya" />}
       </nav>
       <div className="mt-auto flex flex-col items-center gap-1">
+        <RelLayarPenuh />
         {setting && <RelItem icon={setting.icon} label="Pengaturan" href="#/settings" aktif={page === 'settings'} />}
       </div>
       {lainnya && <PanelLainnya menu={menu} page={page} ctx={ctx} onClose={() => setLainnya(false)} />}

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { db, TABLES, MODE } from './db.js'
+import { catatMonitor, jenisError } from './monitor.js'
 import { describe } from './activity.js'
 import { branchesOf, APOSTILLE_FUND, ROLES, roleLabel, displayNameFor, WORKER_ROLES, branchOfInvoice, can } from '../config/access.js'
 import { zoho } from './integrations.js'
@@ -22,11 +23,19 @@ export const awalBulanLalu = () => {
 
 export function AppProvider({ children }) {
   const [baseUser, setUser] = useState(null)
-  const [data, setData] = useState({ users: [], people: [], projects: [], petty_cash: [], couriers: [], notifications: [], requests: [], perf_daily: [], share_links: [], share_log: [], vendor_bills: [], fund_balances: [], app_settings: [], activity_log: [], pings: [], notes: [], todos: [], reminders: [], messages: [], affidavit_stok: [], affidavit_pakai: [], affidavit_kirim: [], jadwal: [], cuti: [], mitra: [], kapasitas: [] })
+  const [data, setData] = useState({ users: [], people: [], projects: [], petty_cash: [], couriers: [], notifications: [], requests: [], perf_daily: [], share_links: [], share_log: [], vendor_bills: [], fund_balances: [], app_settings: [], activity_log: [], pings: [], notes: [], todos: [], reminders: [], messages: [], affidavit_stok: [], affidavit_pakai: [], affidavit_kirim: [], jadwal: [], cuti: [], mitra: [], kapasitas: [], perusahaan_dok: [] })
   // double job: user bisa berganti peran aktif (mis. Proofreader ↔ Staf Otorisasi)
   const [activeRole, setActiveRoleState] = useState(() => { try { return sessionStorage.getItem('atlas-active-role') } catch { return null } })
+  // Mode hantu: Superadmin melihat aplikasi persis sebagai pengguna lain, TANPA login
+  // sebagai orang itu dan TANPA bisa mengubah data (semua simpan/hapus ditolak).
+  const [hantu, setHantuState] = useState(() => { try { return sessionStorage.getItem('atlas-hantu') || '' } catch { return '' } })
+  const bolehHantu = !!baseUser && (baseUser.base_role || baseUser.role) === 'superadmin'
   const user = useMemo(() => {
     if (!baseUser) return null
+    if (hantu && (baseUser.base_role || baseUser.role) === 'superadmin') {
+      const t = data.users.find((u) => u.id === hantu)
+      if (t && t.id !== baseUser.id) return { ...t, _hantu: true, _hantu_by: baseUser.id }
+    }
     const roles = [baseUser.role, ...(baseUser.extra_roles || [])]
     // foto profil selalu diambil dari tabel users terkini (bisa diganti di Pengaturan → Profil)
     const live = data.users.find((u) => u.id === baseUser.id)
@@ -42,7 +51,7 @@ export function AppProvider({ children }) {
       if (boleh && persona) return { ...persona, _actor: baseUser.id, _actor_name: baseUser.name }
     }
     return roles.includes(activeRole) && activeRole !== baseUser.role ? { ...base, role: activeRole, base_role: baseUser.role } : base
-  }, [baseUser, activeRole, data.users])
+  }, [baseUser, activeRole, data.users, hantu])
   /** Persona yang boleh dipakai akun ini (jabatan tersembunyi). */
   const personaList = useMemo(() => {
     if (!baseUser) return []
@@ -143,7 +152,21 @@ export function AppProvider({ children }) {
     const bawaan = ['penerjemah', 'proofreader', 'otorisator'].includes(u?.role) ? 'projects' : 'beranda'
     window.location.hash = `/${tujuan || bawaan}`
   }
-  const signIn = async (email, password) => { const u = await db.signIn(email, password); setActiveRole(u.role); setUser(u); arahkanSetelahMasuk(u); await refresh(); return u }
+  /** Masuk / keluar mode hantu (hanya Superadmin). Dicatat di log aktivitas (terbaca Superadmin saja). */
+  const setHantu = (id) => {
+    if (!bolehHantu) return
+    const t = id ? data.users.find((u) => u.id === id) : null
+    try { if (t) sessionStorage.setItem('atlas-hantu', t.id); else sessionStorage.removeItem('atlas-hantu') } catch { /* abaikan */ }
+    db.insert?.('activity_log', { table: 'users', action: t ? 'hantu_on' : 'hantu_off', by: baseUser.name, by_id: baseUser.id, role: 'superadmin', target: t?.id || hantu, target_name: t?.name || '' })?.catch?.(() => {})
+    setHantuState(t ? t.id : '')
+    window.location.hash = t ? `/${['penerjemah', 'proofreader', 'otorisator'].includes(t.role) ? 'projects' : 'beranda'}` : '/settings/users'
+  }
+  const signIn = async (email, password) => {
+    let u
+    try { u = await db.signIn(email, password) }
+    catch (e) { catatMonitor({ jenis: 'login_gagal', kelas: jenisError(e), akun: String(email || '').replace(/^(.).*(@.*)$/, '$1•••$2'), pesan: String(e?.message || e).slice(0, 120) }); throw e }
+    db.insert?.('activity_log', { table: 'auth', kind: 'login', action: 'Login berhasil', by: u.name, by_id: u.id, role: u.role })?.then?.((r) => r && setData((d) => ({ ...d, activity_log: [r, ...d.activity_log] })))?.catch?.(() => {})
+    setActiveRole(u.role); setUser(u); arahkanSetelahMasuk(u); await refresh(); return u }
   const signUp = async (email, password) => { const u = await db.signUp?.(email, password); if (u && !u.pending) { setActiveRole(u.role); setUser(u); arahkanSetelahMasuk(u); await refresh() } return u }
   // Realtime (Supabase): perubahan dari pengguna lain → muat ulang tabel terkait (digabung per 400 ms)
   const [liveStatus, setLiveStatus] = useState('') // '', 'SUBSCRIBED', 'CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED', 'POLLING'
@@ -241,6 +264,8 @@ export function AppProvider({ children }) {
     if (reason === 'idle') { setIdleReason(); simpanTujuan() }
     try { if (baseUser) await db.update('users', baseUser.id, { online_until: null }) } catch { /* abaikan */ }
     if (db.personaSet) await db.personaSet(null).catch(() => {})
+    try { sessionStorage.removeItem('atlas-hantu') } catch { /* abaikan */ }
+    setHantuState('')
     await db.signOut(); broadcastSignOut(); setUser(null); setActiveRole('')
   }, [baseUser?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -257,15 +282,21 @@ export function AppProvider({ children }) {
       upsertLocal('activity_log', rec)
     } catch { /* abaikan */ }
   }
+  const tolakHantu = () => { if (user?._hantu) throw new Error(`Mode hantu: hanya melihat sebagai ${user.name} — data tidak bisa diubah`) }
   const save = async (t, row) => {
+    tolakHantu()
     const { id, ...rest } = row
     const prev = id ? data[t]?.find((x) => x.id === id) : null
-    const saved = id ? await db.update(t, id, rest) : await db.insert(t, rest)
+    let saved
+    try { saved = id ? await db.update(t, id, rest) : await db.insert(t, rest) }
+    catch (e) { catatMonitor({ jenis: 'error', sumber: 'simpan', tabel: t, op: id ? 'ubah' : 'tambah', kelas: jenisError(e), pesan: String(e?.message || e).slice(0, 200), by: user?.name, by_id: user?.id }); throw e }
     upsertLocal(t, saved); log(t, prev, saved, id ? 'update' : 'insert'); return saved
   }
   const remove = async (t, id) => {
+    tolakHantu()
     const prev = data[t]?.find((x) => x.id === id)
-    await db.remove(t, id); setData((d) => ({ ...d, [t]: d[t].filter((x) => x.id !== id) })); log(t, prev, null, 'remove')
+    try { await db.remove(t, id) } catch (e) { catatMonitor({ jenis: 'error', sumber: 'simpan', tabel: t, op: 'hapus', kelas: jenisError(e), pesan: String(e?.message || e).slice(0, 200), by: user?.name, by_id: user?.id }); throw e }
+    setData((d) => ({ ...d, [t]: d[t].filter((x) => x.id !== id) })); log(t, prev, null, 'remove')
   }
 
   // ---------- petty cash ----------
@@ -433,7 +464,7 @@ export function AppProvider({ children }) {
       title = x.title
       return { ...x, translator: '', stage: 'pilih_penerjemah', stage_at: now,
         data: { ...x.data, translator: '', tolak_note: why, tolak_by: user.id, tolak_name: user.name, tolak_at: now, tolak_count: (Number(x.data?.tolak_count) || 0) + 1, penerjemahan_work_started_at: '' },
-        history: [...(x.history || []), { at: now, by: user.name, role: user.role, action: `Tugas ditolak penerjemah → kembali ke Pilih Penerjemah · alasan: ${why}`, rejected: true, reason: why }] }
+        history: [...(x.history || []), { at: now, by: user.name, by_id: user.id, role: user.role, action: `Tugas ditolak penerjemah → kembali ke Pilih Penerjemah · alasan: ${why}`, rejected: true, reason: why }] }
     })
     const saved = await save('projects', { ...project, sub_projects: subs })
     const text = `${project.invoice_no} · ${title}: ${user.name} menolak tugas terjemahan — ${why}`
@@ -777,7 +808,7 @@ export function AppProvider({ children }) {
   }, [data.users, data.people, user])
 
   const value = useMemo(() => ({
-    user, setActiveRole, personaList, booting, data, refresh, signIn, signUp, signOut, MODE, save, remove, processStage, pettyBalance, claimSub, myNotifications, markRead, nameOf, patchSubData, saveBiaya, assignTranslator, returnPengajuan, kembalikanKePenerjemah, gantiPenerjemah, tolakTugas, myPings, sendPing, markPingRead, lastPingTo, setAvatar, updateProfile, PING_COOLDOWN_MS, PING_DAILY_MAX,
+    user, setActiveRole, personaList, hantu, setHantu, bolehHantu, booting, data, refresh, signIn, signUp, signOut, MODE, save, remove, processStage, pettyBalance, claimSub, myNotifications, markRead, nameOf, patchSubData, saveBiaya, assignTranslator, returnPengajuan, kembalikanKePenerjemah, gantiPenerjemah, tolakTugas, myPings, sendPing, markPingRead, lastPingTo, setAvatar, updateProfile, PING_COOLDOWN_MS, PING_DAILY_MAX,
     notify, toast, dismissToast, branchFilter, setBranchFilter, ask, confirmState, setConfirmState, liveStatus,
     invoices, invoiceErr, refreshInvoices, unlinkedInvoices, invoiceRange, setInvoiceRange,
     chatMessages, chatUnread, chatTotals, sendMessage, sendChatPing, markChatRead, sendTyping, typing, PING_MAX_24H, PING_GAP_MS,

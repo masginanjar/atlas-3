@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, Pause, Play, ImagePlus } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
+import { branchesOf } from '../config/access.js'
 import { cx } from './ui.jsx'
 import { pengaturanBeranda, slideAktif, RASIO } from '../config/berandaSlide.js'
 
@@ -12,10 +13,11 @@ export default function SlideBeranda({ className, override }) {
   const { user, data } = useApp()
   const p = useMemo(() => override || pengaturanBeranda(data), [data, override])
   const urutan = useMemo(() => {
-    const s = slideAktif(p)
+    // Foto khusus cabang hanya tampil untuk pengguna cabang itu (Superadmin melihat semua).
+    const s = slideAktif(p, override || user?.role === 'superadmin' ? null : branchesOf(user))
     if (!p.acak) return s
     const a = [...s]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a
-  }, [p])
+  }, [p, user, override])
   const [i, setI] = useState(0)
   const [jeda, setJeda] = useState(false)
   const n = urutan.length

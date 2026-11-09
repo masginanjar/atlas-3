@@ -42,7 +42,7 @@ export function KepalaDasbor({ user, ping }) {
 /** Ping: pil jumlah (HP → lembar bawah), strip satu baris di PC. */
 export function PingStrip() {
   const { user, data, myPings, markPingRead } = useApp()
-  const belum = myPings.filter((p) => !(p.read_by || []).includes(user.id))
+  const belum = myPings.filter((p) => p.kind !== 'pengumuman' && !(p.read_by || []).includes(user.id))
   const [sheet, setSheet] = useState(false)
   const [buka, setBuka] = useState(false)
   if (!belum.length) return { pil: null, strip: null }

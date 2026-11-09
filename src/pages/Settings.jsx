@@ -34,6 +34,8 @@ function Pindah({ ke, judul, teks, tombol }) {
   )
 }
 
+import { AksesApostilleSettings } from '../components/CentangApostille.jsx'
+
 export default function Settings() {
   const { user } = useApp()
   const tabs = [
@@ -45,6 +47,7 @@ export default function Settings() {
     can.manageUsers(user) && { value: 'integrasi', label: 'Integrasi', grup: 'Perusahaan' },
     user.role === 'superadmin' && { value: 'tampilan', label: 'Tampilan login', grup: 'Perusahaan' },
     user.role === 'superadmin' && { value: 'beranda', label: 'Slide Beranda', grup: 'Perusahaan' },
+    user.role === 'superadmin' && { value: 'apostille', label: 'Tahapan Apostille', grup: 'Perusahaan' },
     // Sudah pindah menu (K4) — tetap bisa dibuka lewat alamat lama, tampil sebagai pengalih
     { value: 'petty', label: 'Petty Cash', grup: 'Pindah', sembunyi: true },
     can.manageVendors(user) && { value: 'vendor', label: 'Vendor', grup: 'Pindah', sembunyi: true },
@@ -84,6 +87,7 @@ export default function Settings() {
       {tab === 'integrasi' && <Integrations />}
       {tab === 'tampilan' && <LoginSettings />}
       {tab === 'beranda' && <SlideBerandaSettings />}
+      {tab === 'apostille' && <AksesApostilleSettings />}
         </div>
       </div>
     </div>
