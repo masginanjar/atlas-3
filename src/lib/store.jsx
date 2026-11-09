@@ -165,9 +165,10 @@ export function AppProvider({ children }) {
     let u
     try { u = await db.signIn(email, password) }
     catch (e) { catatMonitor({ jenis: 'login_gagal', kelas: jenisError(e), akun: String(email || '').replace(/^(.).*(@.*)$/, '$1•••$2'), pesan: String(e?.message || e).slice(0, 120) }); throw e }
+    markActivity() // hitung idle mulai dari sekarang — jangan langsung keluar karena aktivitas lama sebelum login
     db.insert?.('activity_log', { table: 'auth', kind: 'login', action: 'Login berhasil', by: u.name, by_id: u.id, role: u.role })?.then?.((r) => r && setData((d) => ({ ...d, activity_log: [r, ...d.activity_log] })))?.catch?.(() => {})
     setActiveRole(u.role); setUser(u); arahkanSetelahMasuk(u); await refresh(); return u }
-  const signUp = async (email, password) => { const u = await db.signUp?.(email, password); if (u && !u.pending) { setActiveRole(u.role); setUser(u); arahkanSetelahMasuk(u); await refresh() } return u }
+  const signUp = async (email, password) => { const u = await db.signUp?.(email, password); if (u && !u.pending) { markActivity(); setActiveRole(u.role); setUser(u); arahkanSetelahMasuk(u); await refresh() } return u }
   // Realtime (Supabase): perubahan dari pengguna lain → muat ulang tabel terkait (digabung per 400 ms)
   const [liveStatus, setLiveStatus] = useState('') // '', 'SUBSCRIBED', 'CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED', 'POLLING'
   useEffect(() => {
