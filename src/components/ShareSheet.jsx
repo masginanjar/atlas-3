@@ -215,7 +215,7 @@ export default function ShareSheet({ project, open, onClose }) {
           </Field>
           <Field label={channel === 'wa' ? 'Nomor WhatsApp tujuan' : 'Email tujuan'} hint={canEditContact ? 'Diambil dari kontak tersimpan — boleh dikoreksi.' : 'Diambil dari kontak tersimpan.'}>
             {channel === 'wa'
-              ? <Input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!canEditContact} placeholder="08…" aria-label="Nomor WhatsApp tujuan" />
+              ? <Input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!canEditContact} type="tel" inputMode="tel" placeholder="08…" aria-label="Nomor WhatsApp tujuan" />
               : <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} disabled={!canEditContact} placeholder="nama@email.com" aria-label="Email tujuan" />}
             {canEditContact && <label className="mt-1.5 flex items-center gap-2 text-xs text-ink-soft"><input type="checkbox" checked={saveContact} onChange={(e) => setSaveContact(e.target.checked)} />Simpan perubahan ke kontak {to === 'customer' ? 'pelanggan' : 'vendor'}</label>}
             {channel === 'wa' && phoneUnregistered && <p className="mt-1 flex items-start gap-1 text-[11px] text-amber-700"><AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />Nomor ini belum terdaftar — penerima tidak bisa membuka portal kecuali nomor disimpan ke kontak.</p>}

@@ -59,7 +59,7 @@ export default function SlideBeranda({ className, override }) {
           <div className="absolute bottom-2.5 left-1/2 flex -translate-x-1/2 items-center gap-1.5">
             {urutan.map((g, k) => (
               <button key={g.id} type="button" aria-label={`Foto ${k + 1}`} onClick={() => setI(k)}
-                className={cx('h-1.5 rounded-full transition-all', k === i ? 'w-5 bg-white' : 'w-1.5 bg-white/55 hover:bg-white/80')} />
+                className={cx('h-1.5 rounded-full transition-[width,background-color]', k === i ? 'w-5 bg-white' : 'w-1.5 bg-white/55 hover:bg-white/80')} />
             ))}
           </div>
           <button type="button" aria-label={jeda ? 'Lanjutkan' : 'Jeda'} onClick={() => setJeda((v) => !v)}

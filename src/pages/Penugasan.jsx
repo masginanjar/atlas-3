@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Users, Lock, Plane, Check, AlertTriangle, ChevronRight, MoreHorizontal, Gauge, Building2 } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { Card, Empty, Button, Sheet, cx } from '../components/ui.jsx'
+import { Card, Empty, Button, Sheet, cx, bisaDitekan } from '../components/ui.jsx'
 import { useDashStats, halamanSub } from './Dashboard.jsx'
 import { rolesOf, branchesOf, placeOf, foreignLang, coordinatorFor, invoiceLabel, BRANCHES } from '../config/access.js'
 import { flowOf } from '../config/workflows.js'
@@ -264,7 +264,7 @@ export default function Penugasan() {
                     {rows.map((r, i) => {
                       const sel = pilih === r.id
                       return (
-                        <tr key={r.id} onClick={() => setPilih(sel ? null : r.id)} data-baris-perlu={r.id}
+                        <tr key={r.id} onClick={() => setPilih(sel ? null : r.id)} {...bisaDitekan(() => setPilih(sel ? null : r.id))} data-baris-perlu={r.id}
                           className={cx('cursor-pointer border-t border-slate-100 align-middle', sel ? 'bg-brand-soft/60 shadow-[inset_3px_0_0_theme(colors.brand.DEFAULT)]' : i % 2 ? 'bg-slate-50/80' : 'bg-white', 'hover:bg-brand-soft/30')}>
                           <td className="px-3 py-2">
                             <div className="flex items-center gap-1.5"><InvoiceNo project={r.project} />{(r.project.about?.priority || 'Normal') !== 'Normal' && <PriorityBadge p={r.project.about?.priority} />}</div>

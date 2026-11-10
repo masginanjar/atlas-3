@@ -8,7 +8,7 @@ import { stageLabel, flowOf, DONE, totalPengajuan, termOf, isBilled, PAYMENT_TER
 import { placeOf, invoiceLabel} from '../config/access.js'
 import { rupiah, stageArrivedAt, tgl } from '../lib/format.js'
 import TimeAgo from '../components/TimeAgo.jsx'
-import { Card, Empty, Input, cx } from '../components/ui.jsx'
+import { Card, Empty, Input, cx, bisaDitekan } from '../components/ui.jsx'
 import { useTabel, Th } from '../components/TabelSortir.jsx'
 import { addDays } from '../lib/performance.js'
 
@@ -118,7 +118,7 @@ function PeopleTable({ people, projects, now, extraCols = [] }) {
         const isOpen = openId === r.u.id; const next = r.active[0]
         return (
           <Fragment key={r.u.id}>
-            <tr className={cx('cursor-pointer align-middle hover:bg-slate-50', isOpen ? 'bg-brand-soft/40' : r.late ? 'bg-rose-50/40' : r.s.pct !== null && r.s.pct < 50 && r.active.length ? 'bg-amber-50/40' : '')} onClick={() => setOpenId(isOpen ? null : r.u.id)} data-sorot={r.late ? 'terlambat' : r.s.pct !== null && r.s.pct < 50 && r.active.length ? 'rendah' : ''}>
+            <tr className={cx('cursor-pointer align-middle hover:bg-slate-50', isOpen ? 'bg-brand-soft/40' : r.late ? 'bg-rose-50/40' : r.s.pct !== null && r.s.pct < 50 && r.active.length ? 'bg-amber-50/40' : '')} onClick={() => setOpenId(isOpen ? null : r.u.id)} {...bisaDitekan(() => setOpenId(isOpen ? null : r.u.id))} data-sorot={r.late ? 'terlambat' : r.s.pct !== null && r.s.pct < 50 && r.active.length ? 'rendah' : ''}>
               <td className="px-4 py-2.5"><b>{r.u.name}</b><p className="text-[11px] text-ink-mute">{placeOf(r.u)}{r.u.active === false ? ' · nonaktif' : ''}</p></td>
               <td className="px-2 py-2.5 text-right font-bold tabular-nums">{r.active.length}</td>
               <td className={cx('px-2 py-2.5 text-right tabular-nums', r.late ? 'font-bold text-rose-600' : 'text-ink-mute')}>{r.late}</td>
@@ -280,7 +280,7 @@ export default function Monitoring() {
               const isOpen = vOpen === r.v.id
               return (
                 <Fragment key={r.v.id}>
-                  <tr className={cx('cursor-pointer hover:bg-slate-50', isOpen && 'bg-brand-soft/40')} onClick={() => setVOpen(isOpen ? null : r.v.id)}>
+                  <tr className={cx('cursor-pointer hover:bg-slate-50', isOpen && 'bg-brand-soft/40')} onClick={() => setVOpen(isOpen ? null : r.v.id)} {...bisaDitekan(() => setVOpen(isOpen ? null : r.v.id))}>
                     <td className="px-4 py-2.5"><b>{r.v.name}</b><p className="text-[11px] text-ink-mute">{PAYMENT_TERMS[termOf(r.v)].short}</p></td>
                     <td className="px-2 py-2.5 text-right tabular-nums">{r.acc.length}</td><td className="px-2 py-2.5 text-right tabular-nums">{r.pay.length}</td>
                     <td className="px-2 py-2.5 text-right font-bold tabular-nums">{r.work.length}</td><td className="px-2 py-2.5 text-right tabular-nums">{r.unbilled.length}</td><td className="px-2 py-2.5 text-right tabular-nums" title={`${r.done.n} order selesai dalam rentang`}><b>{r.done.pages}</b> <span className="text-[10px] text-ink-mute">hlm · {r.done.n} order</span></td>
@@ -342,7 +342,7 @@ function TabelTolak({ rows }) {
               const akhir = [...t].sort((a, b) => String(b.at).localeCompare(String(a.at)))[0]
               const open = buka === u.id
               return [
-                <tr key={u.id} className={cx('border-t border-slate-100', t.length && 'cursor-pointer hover:bg-slate-50')} onClick={() => t.length && setBuka(open ? null : u.id)}>
+                <tr key={u.id} className={cx('border-t border-slate-100', t.length && 'cursor-pointer hover:bg-slate-50')} onClick={() => t.length && setBuka(open ? null : u.id)} {...bisaDitekan(() => t.length && setBuka(open ? null : u.id))}>
                   <td className="px-4 py-2 font-semibold">{u.name}</td>
                   <td className="px-3 py-2 text-center">{t.length ? <b className="text-rose-600">{t.length}×</b> : <span className="text-ink-mute">0</span>}</td>
                   <td className="px-3 py-2 text-ink-soft">{akhir ? tgl(akhir.at) : '—'}</td>

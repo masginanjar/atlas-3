@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { Home, LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, Stamp, ReceiptText, StickyNote, AlarmClock, CalendarDays, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store, Handshake, Minimize2, Maximize2, Building2, Server } from 'lucide-react'
+import { Home, LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, Stamp, ReceiptText, StickyNote, AlarmClock, CalendarDays, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store, Handshake, Minimize2, Maximize2, Building2, Server, Rocket } from 'lucide-react'
 import { useApp } from './lib/store.jsx'
 import { MODE, storageError, db } from './lib/db.js'
 import { AlertTriangle } from 'lucide-react'
@@ -8,9 +8,9 @@ import { go } from './lib/router.js'
 import { Toast, Sheet, Button, Popover, cx } from './components/ui.jsx'
 import Login from './pages/Login.jsx'
 import { simpanCache, DEFAULT_LOGIN } from './config/loginTheme.js'
-import Dashboard from './pages/Dashboard.jsx'
-import Projects from './pages/Projects.jsx'
-import ProjectDetail from './pages/ProjectDetail.jsx'
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'))
+const Projects = lazy(() => import('./pages/Projects.jsx'))
+const ProjectDetail = lazy(() => import('./pages/ProjectDetail.jsx'))
 import { canSeeAllActivity, canMonitor, canSeeKeuangan, canSeeApostille, canSeeInvoices, canSeeAffidavit, canSeePelanggan, canSeePenugasan, canSeeKatalog, canSeeVendor, canSeeMitra, canSeeBeranda, menuBoleh } from './config/menuAccess.js'
 import { needsAction } from './lib/badges.js'
 import { ReminderWatcher } from './pages/Reminders.jsx'
@@ -52,11 +52,14 @@ import { CHAT_ENABLED } from './lib/flags.js'
 
 import JamZona from './components/JamZona.jsx'
 import NotifToast from './components/NotifToast.jsx'
-import VendorPage from './pages/Vendor.jsx'
+const VendorPage = lazy(() => import('./pages/Vendor.jsx'))
 import { usePanel, PANELS, PANEL_ORDER } from './components/WorkspacePanel.jsx'
 import { RelIkon, TabBawah } from './components/RelMenu.jsx'
-import { KlasikApp, SaklarMode, useKlasik } from './components/ModeKlasik.jsx'
+import { SaklarMode, useKlasik } from './components/klasikSaklar.jsx'
+const KlasikApp = lazy(() => import('./components/ModeKlasik.jsx').then((m) => ({ default: m.KlasikApp })))
 import { pasangPenangkapError } from './lib/monitor.js'
+import { pasangRilis } from './config/rilis.js'
+const RilisFitur = lazy(() => import('./pages/RilisFitur.jsx'))
 pasangPenangkapError()
 import { tabAgendaDari } from './pages/Agenda.jsx'
 import { useDensity } from './lib/density.js'
@@ -101,6 +104,7 @@ const MENU = [
   ] },
   { key: 'faq', label: 'FAQ', icon: BookOpen },
   { key: 'perusahaan', label: 'Perusahaan', icon: Building2 },
+  { key: 'rilis-fitur', label: 'Rilis Fitur', icon: Rocket, show: canMonitor },
   { key: 'status-server', label: 'Status Server', icon: Server, show: canMonitor },
   { key: 'monitoring', label: 'Monitoring', icon: MonitorCheck, show: canMonitor },
   { key: 'aktivitas', label: 'Aktivitas', icon: History, show: canSeeAllActivity },
@@ -132,6 +136,7 @@ export default function App() {
   const branchPicker = !!user && (can.seeAllBranches(user) || isMultiBranch(user))
   const branchOptions = user ? ['Semua', ...(can.seeAllBranches(user) ? BRANCHES : branchesOf(user))] : []
   const [storeErr, setStoreErr] = useState(storageError)
+  pasangRilis(data.app_settings) // saklar Rilis Fitur berlaku untuk menu & rute di render ini
   const klasik = useKlasik(user, data)
   useEffect(() => { const f = (e) => setStoreErr(e.detail); window.addEventListener('atlas-storage', f); return () => window.removeEventListener('atlas-storage', f) }, [])
 
@@ -142,7 +147,8 @@ export default function App() {
 
   // Halaman yang tidak boleh dibuka peran ini dialihkan ke Dashboard,
   // supaya alamat langsung (#/keuangan dsb.) juga tertutup.
-  const page = menuBoleh(user, rawPage) && (rawPage !== 'status-server' || canMonitor(user)) ? rawPage : 'dashboard'
+  const awal = menuBoleh(user, 'dashboard') ? 'dashboard' : 'projects' // halaman utama ikut saklar Rilis Fitur
+  const page = menuBoleh(user, rawPage) && (!['status-server', 'rilis-fitur'].includes(rawPage) || canMonitor(user)) ? rawPage : awal
   // Halaman Project & Faktur punya pencarian + filter cabang sendiri → alat header disembunyikan agar tidak dobel (Ctrl K tetap jalan)
   const alatSendiri = ['projects', 'faktur', 'apostille'].includes(page) && !param
   // Ganti peran / persona (jabatan tersembunyi). Di PC tampil di bar atas, di HP di baris kedua.
@@ -185,6 +191,7 @@ export default function App() {
     : page === 'faq' ? <Faq />
     : page === 'perusahaan' ? <Perusahaan tab={param} />
     : page === 'status-server' && canMonitor(user) ? <StatusServer />
+    : page === 'rilis-fitur' && canMonitor(user) ? <RilisFitur />
     : page === 'pelanggan' ? <Pelanggan />
     : page === 'dokumen' ? <Dokumen />
     : page === 'vendor' ? <VendorPage />
@@ -193,7 +200,8 @@ export default function App() {
     : page === 'affidavit' ? <Affidavit />
     : page === 'jadwal' ? <Jadwal />
     : page === 'pesan' && CHAT_ENABLED ? <Pesan peerParam={param} />
-    : <Dashboard />
+    : menuBoleh(user, 'dashboard') ? <Dashboard />
+    : <Projects />
 
   const konfirmasi = (
     <Sheet open={!!confirmState} title="Konfirmasi" onClose={() => { confirmState?.resolve(false); setConfirmState(null) }}
@@ -209,7 +217,7 @@ export default function App() {
       <PanelProvider>
         <PitaHantu />
         <PengingatSholat />
-        <KlasikApp page={page} param={param} detail={detail && <Suspense fallback={<div className="grid place-items-center py-24"><Loader2 className="h-5 w-5 animate-spin text-brand" /></div>}>{detail}</Suspense>} />
+        <Suspense fallback={<div className="grid min-h-screen place-items-center"><Loader2 className="h-6 w-6 animate-spin text-brand" /></div>}><KlasikApp page={page} param={param} detail={detail && <Suspense fallback={<div className="grid place-items-center py-24"><Loader2 className="h-5 w-5 animate-spin text-brand" /></div>}>{detail}</Suspense>} /></Suspense>
         <NotifToast />
         <Toast toast={toast} onClose={dismissToast} />
         <SessionGuard />

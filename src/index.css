@@ -3,6 +3,14 @@
 @tailwind utilities;
 
 html { -webkit-tap-highlight-color: transparent; }
+/* Pedoman antarmuka: tap tanpa jeda zoom, fokus keyboard selalu terlihat, hormati "kurangi gerakan". */
+a, button, [role="button"], [role="switch"], [tabindex], input, select, textarea, label, summary { touch-action: manipulation; }
+:focus-visible { outline: 2px solid var(--brand, #2a3a9c); outline-offset: 2px; }
+tr[tabindex]:focus-visible { outline-offset: -2px; }
+[role="dialog"], [data-sheet] { overscroll-behavior: contain; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
 body {
   @apply font-sans text-ink antialiased;
   font-size: 14px;
@@ -387,3 +395,30 @@ table.tabel-besar .text-xs { font-size: 13px; }
   .tabel-digulir td.sticky.left-0 [data-invoice-badge], .tabel-digulir td.sticky.left-0 [class*="rounded-full"] { font-size: 10px !important; padding-left: .3rem !important; padding-right: .3rem !important; }
   .tabel-digulir th.left-0 button { font-size: 10px; }
 }
+
+/* Mode Klasik: baris selang-seling + kolom No. Invoice dibekukan saat tabel digulir ke kanan */
+:root { --klasik-baris: #ffffff; --klasik-zebra: #f3f6fc; --klasik-hover: #e8eefb; --klasik-pilih: #e3e9ff; --klasik-telat: #fdeef1; --klasik-telat-zebra: #fbe6ea; --klasik-detail: #f8faff; --klasik-latar: #f6f7fb; --klasik-judul: #f8fafc; --klasik-bayang: rgba(15, 23, 42, .38); }
+[data-theme="dark"] { --klasik-baris: var(--surface); --klasik-zebra: #1d2439; --klasik-hover: #262f4a; --klasik-pilih: #28315c; --klasik-telat: #34202c; --klasik-telat-zebra: #3b2331; --klasik-detail: #1a2033; --klasik-latar: var(--page); --klasik-judul: var(--surface-2); --klasik-bayang: rgba(0, 0, 0, .8); }
+:where([data-klasik-tabel], [data-klasik-pengajuan]) > tbody > tr { background-color: var(--klasik-baris); }
+:where([data-klasik-tabel], [data-klasik-pengajuan]) > tbody > tr:nth-child(even of [aria-expanded], [data-klasik-aju]) { background-color: var(--klasik-zebra); }
+:where([data-klasik-tabel], [data-klasik-pengajuan]) > tbody > tr[data-telat] { background-color: var(--klasik-telat); }
+:where([data-klasik-tabel], [data-klasik-pengajuan]) > tbody > tr[data-telat]:nth-child(even of [aria-expanded], [data-klasik-aju]) { background-color: var(--klasik-telat-zebra); }
+:where([data-klasik-tabel], [data-klasik-pengajuan]) > tbody > tr:is([aria-expanded], [data-klasik-aju]):hover { background-color: var(--klasik-hover); }
+:where([data-klasik-tabel], [data-klasik-pengajuan]) > tbody > tr[data-pilih] { background-color: var(--klasik-pilih); }
+
+[data-beku-invoice] > thead > tr > th:nth-child(2),
+[data-beku-invoice] > tbody > tr > td:not([colspan]):nth-child(2) { position: sticky; left: 0; z-index: 2; background-color: inherit; }
+[data-beku-invoice] > thead > tr > th:nth-child(2) { background-color: var(--klasik-judul); z-index: 3; }
+/* bayangan di tepi kanan kolom beku: teks di belakangnya memudar, tidak bertumpuk */
+[data-beku-invoice][data-geser] > thead > tr > th:nth-child(2)::after,
+[data-beku-invoice][data-geser] > tbody > tr > td:not([colspan]):nth-child(2)::after {
+  content: ""; position: absolute; top: 0; bottom: 0; right: -22px; width: 22px; pointer-events: none;
+  background: linear-gradient(to right, var(--klasik-bayang), rgba(0, 0, 0, 0));
+}
+[data-beku-invoice][data-geser] > thead > tr > th:nth-child(2),
+[data-beku-invoice][data-geser] > tbody > tr > td:not([colspan]):nth-child(2) { padding-left: 6px; padding-right: 8px; border-right: 1px solid var(--line, #cbd5e1); box-shadow: 10px 0 14px -6px var(--klasik-bayang); clip-path: inset(0 -30px 0 0); }
+[data-beku-invoice][data-geser] > tbody > tr > td:not([colspan]):nth-child(2) .text-sm { font-size: 11px; }
+[data-beku-invoice][data-geser] > tbody > tr > td:not([colspan]):nth-child(2) [class*="px-2.5"] { padding-left: 6px; padding-right: 6px; }
+[data-beku-invoice][data-geser] > tbody > tr > td:not([colspan]):nth-child(2) > :not(:first-child) { display: none; }
+/* Mode gelap: teks berwarna brand di tabel Klasik tetap terbaca */
+[data-theme="dark"] :is([data-klasik-tabel], [data-klasik-pengajuan]) .text-brand { color: #a5b4fc; }

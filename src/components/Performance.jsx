@@ -41,7 +41,7 @@ const STYLE = `
 /** Maskot: tanaman kecil yang tumbuh seiring progres; berbunga & tersenyum saat 100%. */
 function Plant({ pct, anim, cheer }) {
   const p = pct ?? 0
-  const t = anim ? 'transition-all duration-700 ease-out' : ''
+  const t = anim ? 'transition-[transform,opacity] duration-700 ease-out' : ''
   const leaf = (on) => ({ opacity: on ? 1 : 0, transform: on ? 'scale(1)' : 'scale(0.3)' })
   return (
     <svg viewBox="0 0 64 80" className={cx('h-20 w-16 shrink-0', cheer && anim && 'atlas-cheer')} role="img" aria-label={`Maskot tanaman — progres ${pct ?? 0}%`}>

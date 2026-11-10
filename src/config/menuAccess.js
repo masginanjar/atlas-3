@@ -5,6 +5,7 @@
 //  baru diunduh saat menunya benar-benar dibuka.
 // ============================================================
 import { WORKER_ROLES, isFreelance } from './access.js'
+import { fiturBoleh } from './rilis.js'
 
 /**
  * Penerjemah, Proofreader, dan Otorisator bekerja pada dokumen saja —
@@ -18,7 +19,7 @@ export const menuDipersempit = (u) => isFreelance(u)
 
 /** Boleh membuka halaman ini? Dipakai menu DAN rute, supaya alamat langsung juga tertutup. */
 export const menuBoleh = (u, key) =>
-  !menuDipersempit(u) || MENU_PELAKSANA.includes(key)
+  (!menuDipersempit(u) || MENU_PELAKSANA.includes(key)) && fiturBoleh(u, key) // + saklar Rilis Fitur
 
 const APOSTILLE_ROLES = ['staf_apostille', 'supervisor', 'superadmin', 'direktur', 'admin_pusat', 'helper']
 export const canSeeApostille = (u) => APOSTILLE_ROLES.includes(u?.role) || (u?.extra_roles || []).some((r) => APOSTILLE_ROLES.includes(r))

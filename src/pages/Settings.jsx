@@ -982,7 +982,7 @@ function Integrations() {
       </Card>}
       {!live && <Card className="flex flex-wrap items-center gap-3 p-4">
         <div className="min-w-0 flex-1"><p className="text-sm font-bold">Tugas contoh harian (TGS-…)</p><p className="text-xs text-ink-mute">Dibuat ulang tiap pagi agar setiap orang punya tugas berdeadline hari ini. Tidak dihitung dalam angka keuangan. Matikan sebelum dipakai sungguhan.</p></div>
-        <button type="button" role="switch" aria-checked={perfOn} onClick={togglePerf} className={cx('relative h-7 w-12 shrink-0 rounded-full transition', perfOn ? 'bg-brand' : 'bg-slate-300')}><span className={cx('absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition', perfOn ? 'left-[22px]' : 'left-0.5')} /></button>
+        <button type="button" role="switch" aria-checked={perfOn} aria-label="Tugas contoh harian" onClick={togglePerf} className={cx('relative h-7 w-12 shrink-0 rounded-full transition', perfOn ? 'bg-brand' : 'bg-slate-300')}><span className={cx('absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition', perfOn ? 'left-[22px]' : 'left-0.5')} /></button>
       </Card>}
       {!live && <Button variant="outline" onClick={async () => { if (await ask('Kembalikan data demo ke awal?')) { await db.reset(); await refresh(); notify('Data demo direset') } }}><RotateCcw className="h-4 w-4" />Reset data demo</Button>}
     </div>

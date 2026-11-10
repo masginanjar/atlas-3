@@ -155,7 +155,7 @@ export default function Mitra() {
                 <Input value={form.pic} onChange={(e) => setForm((f) => ({ ...f, pic: e.target.value }))} placeholder="orang yang dihubungi" aria-label="Nama PIC" />
               </Field>
               <Field label="Telepon / WhatsApp">
-                <Input value={form.telepon} onChange={(e) => setForm((f) => ({ ...f, telepon: e.target.value }))} placeholder="08…" aria-label="Telepon mitra" inputMode="tel" />
+                <Input value={form.telepon} onChange={(e) => setForm((f) => ({ ...f, telepon: e.target.value }))} type="tel" inputMode="tel" placeholder="08…" aria-label="Telepon mitra" inputMode="tel" />
               </Field>
               <Field label="Email">
                 <Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="nama@perusahaan.com" aria-label="Email mitra" />

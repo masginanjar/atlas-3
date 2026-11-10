@@ -142,12 +142,18 @@ export function Empty({ icon: Icon, title, text, action }) {
 export function Progress({ value }) {
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
-      <div className={cx('h-full rounded-full transition-all', value >= 100 ? 'bg-gradient-to-r from-emerald-400 to-teal-500' : 'bg-gradient-to-r from-brand via-[#7c6cf7] to-accent')} style={{ width: `${value}%` }} />
+      <div className={cx('h-full rounded-full transition-[width]', value >= 100 ? 'bg-gradient-to-r from-emerald-400 to-teal-500' : 'bg-gradient-to-r from-brand via-[#7c6cf7] to-accent')} style={{ width: `${value}%` }} />
     </div>
   )
 }
 
 /** Satu toast saja dalam satu waktu, tidak menumpuk, bisa ditutup, tanpa suara. */
+/** Baris tabel yang bisa diklik juga bisa dibuka lewat keyboard (Tab lalu Enter/Spasi). */
+export const bisaDitekan = (fn) => ({
+  tabIndex: 0,
+  onKeyDown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); fn() } },
+})
+
 export function Toast({ toast, onClose }) {
   if (!toast) return null
   return (

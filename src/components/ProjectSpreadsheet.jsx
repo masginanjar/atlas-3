@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { InvoiceNo } from './badges.jsx'
 import { Eye, MoreHorizontal, Search, SlidersHorizontal, X, ArrowUp, ArrowDown, FolderOpen, Printer } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { Button, cx } from './ui.jsx'
+import { Button, cx, bisaDitekan } from './ui.jsx'
 import { invoiceLabel } from '../config/access.js'
 import { tanggalJam, tanggal } from '../lib/waktu.js'
 import { projectRow, TABLE_COLS, sortRows, filterOptions, applyFilters, FILTER_LABEL } from '../lib/projectRow.js'
@@ -288,7 +288,7 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
             </thead>
             <tbody>
               {tampil.map((r, i) => (
-                <tr key={r.id} onClick={() => toggleBaris(r.id)} aria-expanded={buka.has(r.id)} data-grup={grupOf(r.p)}
+                <tr key={r.id} onClick={() => toggleBaris(r.id)} {...bisaDitekan(() => toggleBaris(r.id))} aria-expanded={buka.has(r.id)} data-grup={grupOf(r.p)}
                   title="Klik untuk melihat sub project"
                   className={cx('cursor-pointer border-b border-slate-100 align-top last:border-0 md:hover:bg-brand-soft/40',
                     detailFor?.id === r.id ? 'bg-brand-soft/60' : buka.has(r.id) ? 'bg-brand-soft/40' : i % 2 === 1 ? 'bg-slate-100 md:bg-slate-50/60' : 'bg-white')}>
