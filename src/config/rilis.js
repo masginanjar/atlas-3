@@ -11,6 +11,7 @@
 export const FITUR = [
   { key: 'projects', label: 'Project', tahap: 1, ket: 'Daftar & proses project (termasuk Apostille)' },
   { key: 'keuangan', label: 'Keuangan', tahap: 1, ket: 'Pengajuan & statusnya' },
+  { key: 'register', label: 'Nomor Register', tahap: 1, ket: 'Admin Pusat menerbitkan nomor; daftar untuk input Pak Arifin' },
   { key: 'dashboard', label: 'Dashboard', tahap: 1, ket: 'Beranda kerja penerjemah / pelaksana' },
   { key: 'jadwal', label: 'Jadwal', tahap: 2, ket: 'Shift Bali, Jakarta, Semarang & cuti' },
   { key: 'pesan', label: 'Pesan Masuk', tahap: 2 },

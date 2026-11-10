@@ -12,7 +12,7 @@ import { fiturBoleh } from './rilis.js'
  * menunya dipersempit supaya tidak penuh hal yang tidak mereka pakai.
  * "settings" tetap ada karena di situ mereka mengganti profil & kata sandi.
  */
-export const MENU_PELAKSANA = ['dashboard', 'projects', 'agenda', 'calendar', 'reminders', 'notes', 'todo', 'settings']
+export const MENU_PELAKSANA = ['dashboard', 'projects', 'register', 'agenda', 'calendar', 'reminders', 'notes', 'todo', 'settings']
 
 /** Benar bila menu orang ini dipersempit (semua perannya pelaksana lepas). */
 export const menuDipersempit = (u) => isFreelance(u)
@@ -48,3 +48,6 @@ export const canSeeAffidavit = (u) => !!u && !WORKER_ROLES.includes(u.role)
 export const isApprover = (u) => ['direktur', 'akunting', 'superadmin'].includes(u?.role)
 /** Beranda (info ringan): semua staf kantor; Penerjemah, Proofreader, Otorisator tidak. */
 export const canSeeBeranda = (u) => !!u && !['penerjemah', 'proofreader', 'otorisator'].includes(u.role)
+
+/** Nomor Register: Admin Pusat (terbitkan), pimpinan, dan otorisator (Pak Arifin menginput ke sistemnya). */
+export const canSeeRegister = (u) => ['superadmin', 'direktur', 'supervisor', 'admin_pusat', 'otorisator'].includes(u?.role)

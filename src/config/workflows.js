@@ -203,9 +203,10 @@ export const CATEGORIES = {
         hint: 'To-Do bersama semua otorisator. Tekan "Ambil" agar tidak dikerjakan bersamaan.',
         fields: [{ key: 'file_final', label: 'Hasil Otorisasi', type: 'file', required: true }],
         onAdvance: (s, u) => ({ authorized_by: u.id, authorized_name: u.name, authorized_at: new Date().toISOString(), claim: null }),
-        notify: () => [{ to_role: 'admin_pusat', text: 'Dokumen selesai diotorisasi — menunggu nomor registrasi' }] },
-      { key: 'registrasi', label: 'Nomor Registrasi', short: 'No. Registrasi', roles: ['superadmin', 'admin_pusat', 'otorisator', 'supervisor'], action: 'Simpan Nomor → Siap Print',
-        hint: 'Muncul setelah otorisasi ACC. Nomor registrasi diambil otomatis berurutan (satu per dokumen); isi nama dalam dokumen, periksa, lalu simpan. Nomor ini dituliskan pada hasil cetak.',
+        // Nomor register dipesan otomatis saat ACC (lihat processStage); Admin Pusat mengecek & menerbitkan
+        notify: () => [{ to_role: 'admin_pusat', text: 'Dokumen selesai diotorisasi — nomor register sudah dibuat, menunggu dicek & diterbitkan' }] },
+      { key: 'registrasi', label: 'Nomor Registrasi', short: 'No. Registrasi', roles: ['superadmin', 'admin_pusat', 'otorisator', 'supervisor'], action: 'Terbitkan Nomor → Siap Print',
+        hint: 'Nomor register sudah dibuat otomatis saat Otorisator ACC (berurutan, satu per dokumen). Cek jenis dokumen & nama dalam dokumen, lalu Terbitkan. Nomor ini dituliskan pada hasil cetak.',
         fields: [{ key: 'reg_numbers', label: 'Nomor registrasi per dokumen', type: 'reg_numbers', required: true }],
         onAdvance: (s, u) => ({ registered_by: u.id, registered_name: u.name, registered_at: new Date().toISOString() }),
         notify: (p) => (p.about?.print_location === 'Vendor'

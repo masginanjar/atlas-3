@@ -105,6 +105,10 @@ export const supabaseDb = {
   async regNext(kode) { return unwrap(await sb().rpc('next_reg_no', { p_lang_code: String(kode) })) },
   /** Simpan baris registrasi (tabel kolom biasa, bukan doc). Nomor kembar ditolak database. */
   async regInsert(rows) { if (!rows?.length) return []; return unwrap(await sb().from('registrations').insert(rows).select('reg_no')) || [] },
+  /** Perbarui baris registrasi yang sudah dipesan (jenis/nama dokumen) saat Admin Pusat menerbitkan. */
+  /** Ubah jenis / nama / tanggal satu nomor register. */
+  async regUpdate(reg_no, patch) { return unwrap(await sb().from('registrations').update(patch).eq('reg_no', reg_no).select('reg_no')) },
+  async regUpsert(rows) { if (!rows?.length) return []; return unwrap(await sb().from('registrations').upsert(rows, { onConflict: 'reg_no' }).select('reg_no')) || [] },
   /** Daftar registrasi untuk satu project / invoice. */
   async regList({ project_id, invoice_no } = {}) {
     let q = sb().from('registrations').select('*').order('reg_no')

@@ -22,9 +22,24 @@ export function setKlasik(uid, on) { try { localStorage.setItem(kunci(uid), on ?
 function bacaKlasik(uid) { try { return localStorage.getItem(kunci(uid)) === '1' } catch { return false } }
 const subscribe = (f) => { subs.add(f); window.addEventListener('resize', f); return () => { subs.delete(f); window.removeEventListener('resize', f) } }
 /** true bila pengguna memilih Mode Klasik (komputer & HP). */
-export const useHp = () => useSyncExternalStore(subscribe, () => window.innerWidth < 768)
+// Tampilan paksa (ikon HP/PC di bar atas): 'hp' | 'pc' | null (= ikut lebar layar)
+const KUNCI_TAMPILAN = 'atlas-klasik-tampilan'
+export function bacaTampilan() { try { const v = localStorage.getItem(KUNCI_TAMPILAN); return v === 'hp' || v === 'pc' ? v : null } catch { return null } }
+export function setTampilan(v) { try { if (v) localStorage.setItem(KUNCI_TAMPILAN, v); else localStorage.removeItem(KUNCI_TAMPILAN) } catch { /* abaikan */ } beritahu() }
+// lebar layar asli (screen.width ikut dihitung, karena tampilan PC di HP memperlebar viewport)
+const lebar = () => Math.min(window.innerWidth, window.screen?.width || window.innerWidth)
+const hpAsli = () => lebar() < 768
+export const useHp = () => useSyncExternalStore(subscribe, () => { const t = bacaTampilan(); return t ? t === 'hp' : hpAsli() })
 /** HP & tablet (iPad): menu Mode Klasik pindah ke bawah layar. */
-export const useLayarSentuh = () => useSyncExternalStore(subscribe, () => window.innerWidth < 1280)
+export const useLayarSentuh = () => useSyncExternalStore(subscribe, () => { const t = bacaTampilan(); return t ? t === 'hp' : lebar() < 1280 })
+/** Ikon tukar tampilan HP ⇄ PC. Pilihan yang sama dengan bawaan layar menghapus paksaan. */
+export const usePaksaHp = () => useSyncExternalStore(subscribe, () => bacaTampilan() === 'hp' && !hpAsli())
+export const usePaksaPc = () => useSyncExternalStore(subscribe, () => bacaTampilan() === 'pc' && hpAsli())
+export function tukarTampilan(sekarangHp) {
+  const mau = sekarangHp ? 'pc' : 'hp'
+  const bawaan = hpAsli() ? 'hp' : 'pc'
+  setTampilan(mau === bawaan ? null : mau)
+}
 export function useKlasik(user, data) {
   const on = useSyncExternalStore(subscribe, () => !!user && bacaKlasik(user._actor || user.id))
   // Rilis bertahap: tim dikunci di Mode Klasik (Superadmin & Direktur tetap bebas)

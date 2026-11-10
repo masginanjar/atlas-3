@@ -782,6 +782,7 @@ function RegNumbersField({ f, sub, project, vals, setVals, projects }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const kode = kodeArah(sub)
+  const dipesan = !!sub.data?.reg_reserved_at && cur.some(Boolean) // nomor sudah dipesan otomatis saat ACC → terkunci
   const ambil = async () => {
     setBusy(true); setErr('')
     try { const n = await ambilNomor(sub, list.length, projects); setVals((o) => ({ ...o, reg_numbers: n })) }
@@ -793,11 +794,11 @@ function RegNumbersField({ f, sub, project, vals, setVals, projects }) {
   const setNo = (i, v) => setVals((o) => { const n = [...(Array.isArray(o.reg_numbers) ? o.reg_numbers : [])]; n[i] = v.replace(/\D/g, '').slice(0, 14); return { ...o, reg_numbers: n } })
   const setNama = (i, v) => setVals((o) => { const n = [...(Array.isArray(o.reg_names) ? o.reg_names : [])]; n[i] = v; return { ...o, reg_names: n } })
   return (
-    <Field label={f.label} required={f.required} hint={kode ? `Arah ${sub.lang_from} → ${sub.lang_to} · kode ${kode} · nomor urut lanjut sebulan untuk semua arah` : 'Arah bahasa ini tidak memakai nomor registrasi otomatis — isi manual bila perlu.'}>
-      <div className="mb-2 flex flex-wrap items-center gap-2">
+    <Field label={f.label} required={f.required} hint={dipesan ? 'Nomor sudah dibuat otomatis saat ACC dan sudah dipesan (tidak dipakai dokumen lain). Cek jenis & nama dalam dokumen, lalu Terbitkan.' : kode ? `Arah ${sub.lang_from} → ${sub.lang_to} · kode ${kode} · kode unik 6 angka berlanjut untuk semua arah` : 'Arah bahasa ini tidak memakai nomor registrasi otomatis — isi manual bila perlu.'}>
+      {!dipesan && <div className="mb-2 flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={ambil} disabled={busy || !kode} data-aksi="ambil-nomor-registrasi">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}{cur.some(Boolean) ? 'Ambil nomor ulang' : 'Ambil nomor'}</Button>
         {err && <span className="text-xs text-rose-700">{err}</span>}
-      </div>
+      </div>}
       <ol className="space-y-2">{list.map((name, i) => (
         <li key={i} className="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200" data-registrasi-dok>
           <div className="flex items-center gap-2">
@@ -806,7 +807,7 @@ function RegNumbersField({ f, sub, project, vals, setVals, projects }) {
           </div>
           <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
             <label className="block"><span className="text-[11px] text-ink-mute">No. registrasi</span>
-              <Input value={cur[i] || ''} onChange={(e) => setNo(i, e.target.value)} inputMode="numeric" placeholder="14 angka" className="!py-1.5 font-mono text-sm tracking-wide" aria-label={`Nomor registrasi dokumen ${i + 1}`} /></label>
+              <Input value={cur[i] || ''} readOnly={dipesan} onChange={(e) => setNo(i, e.target.value)} inputMode="numeric" placeholder="14 angka" className="!py-1.5 font-mono text-sm tracking-wide" aria-label={`Nomor registrasi dokumen ${i + 1}`} /></label>
             <label className="block"><span className="text-[11px] text-ink-mute">Nama dalam dokumen</span>
               <Input value={names[i] ?? ''} onChange={(e) => setNama(i, e.target.value)} placeholder={project.customer?.name || 'Nama pada dokumen'} className="!py-1.5 text-sm" aria-label={`Nama dalam dokumen ${i + 1}`} /></label>
           </div>

@@ -38,8 +38,6 @@ export function compactDemo(m) {
   take(has('tr_int', 'pilih_penerjemah'), (s) => { Object.assign(s, { type: 'terjemahan_nt', flow: 'tr_nt', stage: 'penerjemahan', stage_at: now(), translator: 'u-tr-maria', translator_kind: 'translator', docs: undefined, title: 'Surat Pernyataan (non tersumpah)', description: '1. Surat Pernyataan (non tersumpah)' }); s.data = { translator: 'u-tr-maria', dokumen_sumber: DEMO_PDF('surat-pernyataan-sumber.pdf') }; s.history = [{ at: now(), by: 'Nikita (CS Bali)', action: 'CS Input → Penerjemahan' }] })
   // 3) Otorisator (pool bersama): 2 dokumen
   take(has('tr_int', 'otorisasi')); take(has('tr_int', 'otorisasi'))
-  // 3b) Admin Pusat: 1 dokumen menunggu nomor registrasi (dari siap print yang belum beregistrasi)
-  take(has('tr_int', 'siap_print'), (s) => { Object.assign(s, { stage: 'registrasi', stage_at: now() }); s.data = { ...s.data, reg_numbers: [] }; s.history = [...(s.history || []), { at: now(), by: s.data?.authorized_name || 'Muhammad Arifin', action: 'Otorisasi → Menunggu Nomor Registrasi' }] })
   // 4) CS: cetak (1 titipan print), scan, kirim, input baru, menunggu supervisor
   take((s, p) => s.flow === 'tr_int' && s.stage === 'siap_print' && p.about?.print_location && p.about.print_location !== p.branch)
     || take(has('tr_int', 'siap_print'), (s, p) => { p.about.print_location = p.branch === 'Jakarta' ? 'Bali' : 'Jakarta' })
@@ -122,7 +120,7 @@ function portalDemo(m) {
   const sent = m.projects.find((p) => (p.sub_projects || []).some((s) => s.flow === 'tr_int' && ['siap_kirim', 'selesai'].includes(s.stage) && s.data?.scan_pdf))
   if (sent) {
     const s = sent.sub_projects.find((x) => x.flow === 'tr_int' && ['siap_kirim', 'selesai'].includes(x.stage) && x.data?.scan_pdf)
-    s.data = { ...s.data, reg_numbers: ['REG-2026-0412'], registered_name: 'Nihaya (Admin Pusat)', registered_at: at(-2),
+    s.data = { ...s.data, reg_numbers: ['41261103139910'], registered_name: 'Nihaya (Admin Pusat)', registered_at: at(-2),
       delivery: { type: 'courier', diserahkan_kurir: at(-1) }, shipped_at: at(-1) }
     sent.about = { ...sent.about, courier: courier?.id || sent.about?.courier, resi_no: 'JP1234567890', ship_status: 'Dalam pengantaran' }
     mk(sent, { shared: [`sub:${s.id}:scan_pdf`, `sub:${s.id}:file_final`], regs: [s.id], note: 'Dokumen sudah dikirim. Mohon konfirmasi bila dokumen sudah Bapak/Ibu terima agar nomor register kami aktifkan.' })
@@ -154,7 +152,7 @@ function comboProjects(m) {
         ap('combo-2-ap', 'Akta Pendirian (apostille)', 'antrian', 'Jerman', { staff_apostille: 'u-ap-fajar' }, { by: 'Rika (CS Jakarta)' })] },
     { id: 'combo-3', invoice_no: 'INV-000303', branch: 'Bandung', customer: cust('Siti Nurhaliza', 'Bandung'), created_by: 'u-cs-bdg', created_at: d(-6),
       about: { deadline: day(3), deadline_time: '17:00', priority: 'Normal', received_at: day(-6), print_location: 'Bandung', cs_name: 'Debby (CS Bandung)' },
-      sub_projects: [tr('combo-3-tr', 'Ijazah & Transkrip S1', 'siap_print', { translator: 'u-tr-lina', hasil_terjemahan: DEMO_PDF('combo-3-terjemahan.pdf'), proofreader: 'u-pr-kevin', authorized_by: 'u-ot-made', authorized_name: 'Muhammad Arifin', authorized_at: d(-1), file_final: DEMO_PDF('combo-3-final.pdf'), reg_numbers: ['REG-2026-0311'], registered_name: 'Nihaya (Admin Pusat)', registered_at: d(-1) }, { pages: 4, to: 'Inggris', by: 'Debby (CS Bandung)' }),
+      sub_projects: [tr('combo-3-tr', 'Ijazah & Transkrip S1', 'siap_print', { translator: 'u-tr-lina', hasil_terjemahan: DEMO_PDF('combo-3-terjemahan.pdf'), proofreader: 'u-pr-kevin', authorized_by: 'u-ot-made', authorized_name: 'Muhammad Arifin', authorized_at: d(-1), file_final: DEMO_PDF('combo-3-final.pdf'), reg_numbers: ['41261103139810'], registered_name: 'Nihaya (Admin Pusat)', registered_at: d(-1) }, { pages: 4, to: 'Inggris', by: 'Debby (CS Bandung)' }),
         ap('combo-3-ap', 'Ijazah (apostille Kemenkumham)', 'persetujuan', 'Australia', { vendor: vendor?.id, vendor_service: vendor?.services?.[0]?.name || 'Apostille Kemenkumham (reguler 5 hari)', vendor_cost: Number(vendor?.services?.[0]?.price) || 750000, ongkir_to: 'Vendor → Kantor', ongkir_cost: 30000, total_pengajuan: (Number(vendor?.services?.[0]?.price) || 750000) + 30000, submitted_by: 'u-cs-bdg', submitted_name: 'Debby (CS Bandung)', submitted_at: d(-1) }, { flow: 'ap_ext', by: 'Debby (CS Bandung)' })] },
   ]
 }

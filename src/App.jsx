@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { Home, LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, Stamp, ReceiptText, StickyNote, AlarmClock, CalendarDays, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store, Handshake, Minimize2, Maximize2, Building2, Server, Rocket } from 'lucide-react'
+import { Home, LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, Stamp, ReceiptText, StickyNote, AlarmClock, CalendarDays, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store, Handshake, Minimize2, Maximize2, Building2, Server, Rocket, Hash } from 'lucide-react'
 import { useApp } from './lib/store.jsx'
 import { MODE, storageError, db } from './lib/db.js'
 import { AlertTriangle } from 'lucide-react'
@@ -11,7 +11,7 @@ import { simpanCache, DEFAULT_LOGIN } from './config/loginTheme.js'
 const Dashboard = lazy(() => import('./pages/Dashboard.jsx'))
 const Projects = lazy(() => import('./pages/Projects.jsx'))
 const ProjectDetail = lazy(() => import('./pages/ProjectDetail.jsx'))
-import { canSeeAllActivity, canMonitor, canSeeKeuangan, canSeeApostille, canSeeInvoices, canSeeAffidavit, canSeePelanggan, canSeePenugasan, canSeeKatalog, canSeeVendor, canSeeMitra, canSeeBeranda, menuBoleh } from './config/menuAccess.js'
+import { canSeeAllActivity, canMonitor, canSeeKeuangan, canSeeApostille, canSeeInvoices, canSeeAffidavit, canSeePelanggan, canSeePenugasan, canSeeKatalog, canSeeVendor, canSeeMitra, canSeeBeranda, canSeeRegister, menuBoleh } from './config/menuAccess.js'
 import { needsAction } from './lib/badges.js'
 import { ReminderWatcher } from './pages/Reminders.jsx'
 // Halaman yang tidak dibuka tiap hari dimuat saat diklik → halaman pertama jauh lebih ringan
@@ -31,6 +31,7 @@ const Faq = lazy(() => import('./pages/Faq.jsx'))
 const Perusahaan = lazy(() => import('./pages/Perusahaan.jsx'))
 const StatusServer = lazy(() => import('./pages/StatusServer.jsx'))
 const Affidavit = lazy(() => import('./pages/Affidavit.jsx'))
+const Register = lazy(() => import('./pages/Register.jsx'))
 const Jadwal = lazy(() => import('./pages/Jadwal.jsx'))
 const ProjectForm = lazy(() => import('./pages/ProjectForm.jsx'))
 const Pelanggan = lazy(() => import('./pages/Pelanggan.jsx'))
@@ -91,6 +92,7 @@ const MENU = [
   { id: 'project', label: 'Project', icon: FolderKanban, children: [
     { key: 'penugasan', label: 'Penugasan', icon: Users, show: canSeePenugasan },
     { key: 'projects', label: 'Project', icon: FolderKanban, bar: true },
+    { key: 'register', label: 'Nomor Register', icon: Hash, show: canSeeRegister },
     { key: 'dokumen', label: 'Dokumen', icon: HardDrive },
     { key: 'keuangan', label: 'Keuangan', icon: Wallet, badge: needsAction },
   ] },
@@ -198,6 +200,7 @@ export default function App() {
     : page === 'mitra' ? <MitraPage />
     : page === 'penugasan' ? <Penugasan />
     : page === 'affidavit' ? <Affidavit />
+    : page === 'register' && canSeeRegister(user) ? <Register />
     : page === 'jadwal' ? <Jadwal />
     : page === 'pesan' && CHAT_ENABLED ? <Pesan peerParam={param} />
     : menuBoleh(user, 'dashboard') ? <Dashboard />

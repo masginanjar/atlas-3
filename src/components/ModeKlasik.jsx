@@ -4,8 +4,8 @@
 //  Tanpa harga proyek, pembayaran pelanggan, maupun omset.
 //  Pilihan disimpan per pengguna di perangkat ini. Di HP tidak tersedia.
 // ============================================================
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Search, Plus, ChevronDown, ArrowLeft, ExternalLink, Maximize2, Minimize2, X, FolderOpen, Wallet, Eye, Copy, Languages, Stamp, UserCheck, Printer, LogOut, MoreHorizontal } from 'lucide-react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { Search, Plus, ChevronDown, ArrowLeft, ExternalLink, Maximize2, Minimize2, X, FolderOpen, Wallet, Eye, Copy, Languages, Stamp, UserCheck, Printer, LogOut, MoreHorizontal, Smartphone, Monitor, Hash } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
 import { scopeByBranch, can, branchesOf, BRANCHES, invoiceLabel, isMultiBranch, activeClaim, ROLES, rolesOf, coordinatorFor, foreignLang, diKoordinasi, vendorKoordinator } from '../config/access.js'
@@ -27,16 +27,18 @@ import { kapasitasHarian } from './Kapasitas.jsx'
 import { createPortal } from 'react-dom'
 import { rupiah } from '../lib/format.js'
 import { copyText } from './CopyText.jsx'
-import { menuBoleh, canSeeApostille } from '../config/menuAccess.js'
+import { menuBoleh, canSeeApostille, canSeeRegister } from '../config/menuAccess.js'
 import { drive } from '../lib/integrations.js'
 import { scopeRequests, RequestForm } from './Requests.jsx'
 // Sama dengan aturan di Requests.jsx: pelaksana lepas tidak membuat pengajuan
 const bolehAju = (u) => !!u && !['penerjemah', 'proofreader', 'otorisator', 'staf_apostille'].includes(u.role)
 import { SUMBER_DANA, recommendFund } from '../config/workflows.js'
 
-import ThemePicker from './ThemePicker.jsx'
+import { readTheme, simpanTema, ACCENTS } from './ThemePicker.jsx'
+
+const RegisterPage = lazy(() => import('../pages/Register.jsx'))
 import { kunciKlasik } from '../config/rilis.js'
-import { KLASIK_ROLES_BAWAAN, bolehKlasik, setKlasik, useHp, useLayarSentuh, useKlasik, layarPenuh, SaklarMode } from './klasikSaklar.jsx'
+import { KLASIK_ROLES_BAWAAN, bolehKlasik, setKlasik, useHp, useLayarSentuh, usePaksaHp, usePaksaPc, tukarTampilan, useKlasik, layarPenuh, SaklarMode } from './klasikSaklar.jsx'
 export { KLASIK_ROLES_BAWAAN, bolehKlasik, setKlasik, useHp, useKlasik, SaklarMode }
 
 /** Jam WITA & WIB (jam:menit) + tanggal. */
@@ -118,7 +120,7 @@ const KOLOM = [
 ]
 
 /** Kapsul warna — sama dengan aturan tampilan Tabel. */
-function Lingkar({ warna, judul, children }) {
+export function Lingkar({ warna, judul, children }) {
   if (!warna) return children
   const w = { hitam: 'bg-ink', hijau: 'bg-emerald-600', merah: 'bg-rose-600', oranye: 'bg-orange-500' }[warna]
   return <span title={judul} data-kapsul={warna} className={cx('inline-block max-w-full truncate whitespace-nowrap rounded-full px-2 py-0.5 font-semibold text-white', w)}>{children}</span>
@@ -411,7 +413,7 @@ function JudulKolom({ c, urut, setUrut, f, setF, opsi, kanan, lebar, setLebar })
 }
 
 /** Saring & urutkan baris sesuai definisi kolom. */
-function useTabel(rows, cols, awal, nama) {
+export function useTabel(rows, cols, awal, nama) {
   const [f, setF] = useState({})
   // Lebar kolom hasil tarik pengguna — disimpan per tabel di perangkat ini.
   const kunciLebar = `atlas-klasik-lebar:${nama}`
@@ -441,7 +443,7 @@ function useTabel(rows, cols, awal, nama) {
 
 
 /** HP: semua saringan & urutan kolom dalam satu lembar dari bawah. */
-function LembarSaring({ cols, f, setF, urut, setUrut, opsi, jumlah, onClose, satuan }) {
+export function LembarSaring({ cols, f, setF, urut, setUrut, opsi, jumlah, onClose, satuan }) {
   const setV = (k, v) => setF((o) => ({ ...o, [k]: v || undefined }))
   const sortable = cols.filter((c) => c.sort && (c.tanggal || c.key === 'prioritas' || c.key === 'total' || c.key === 'pelanggan'))
   return (
@@ -470,6 +472,16 @@ function LembarSaring({ cols, f, setF, urut, setUrut, opsi, jumlah, onClose, sat
   )
 }
 
+/** Nomor register sub project (yang sudah ada); terbit = sudah lewat tahap Nomor Registrasi. */
+const regSub = (x) => (x?.data?.reg_numbers || []).filter(Boolean)
+const regTerbit = (x) => regSub(x).length > 0 && x.stage !== 'registrasi'
+/** Sel nomor register: nomor + salin; belum terbit → keterangan. */
+function SelRegister({ x }) {
+  const n = regSub(x)
+  if (!n.length) return null
+  if (!regTerbit(x)) return <span className="text-[11px] font-semibold text-amber-700" title={n.join(', ')}>⏳ menunggu terbit</span>
+  return <span className="inline-flex items-center"><span className="font-mono text-[12px] font-bold text-emerald-800">{n[0]}</span>{n.length > 1 && <InfoHover inline isi={<div className="space-y-0.5 font-mono text-xs">{n.map((v) => <p key={v}>{v}</p>)}</div>}><span className="ml-1 rounded bg-emerald-50 px-1 text-[10px] font-bold text-emerald-700">+{n.length - 1}</span></InfoHover>}<Salin teks={n.join('\n')} label="Nomor register" /></span>
+}
 const jenisLayanan = (x) => SUB_TYPES[x.type]?.label || x.type || ''
 const KOLOM_P = [
   { key: 'timestamp', label: 'Timestamp', sort: (r) => r.timestamp, tanggal: (r) => r.timestamp },
@@ -485,7 +497,7 @@ const KOLOM_P = [
   { key: 'orang', label: 'Penerjemah/Vendor', sort: (r) => r.orangAll[0] || '', nilai: (r) => r.orangAll },
   { key: 'jmlDok', label: 'Dok', num: true, sort: (r) => r.jmlDok },
   { key: 'jmlHal', label: 'Hal', num: true, sort: (r) => r.jmlHal },
-  { key: 'layanan', label: 'Detail Layanan', sort: (r) => r.layananAll[0] || '', nilai: (r) => r.subs.map(jenisLayanan) },
+  { key: 'layanan', label: 'Detail Layanan', sort: (r) => r.layananAll[0] || '', nilai: (r) => r.subs.map(jenisLayanan) },  { key: 'register', label: 'No. Register', sort: (r) => regSub(r.subs.find((x) => regSub(x).length)).join(',') },
 ]
 
 function KlasikProject({ jenis = 'projects' }) {
@@ -553,6 +565,12 @@ function KlasikProject({ jenis = 'projects' }) {
                   <span className="ml-auto shrink-0 text-ink-mute">{sisa ? <span className={grupOf(r.p) === 'terlambat' ? 'font-semibold text-rose-600' : 'font-semibold text-orange-600'}>{sisa}</span> : r.cs}</span>
                 </span>
               </button>
+              {r.subs.some((x) => regSub(x).length) && (
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 pb-2 text-[11px]" data-register-hp>
+                  <span className="font-bold text-ink-mute">No. Register</span>
+                  {r.subs.filter((x) => regSub(x).length).map((x) => <SelRegister key={x.id} x={x} />)}
+                </div>
+              )}
               {dipilih && <div onClick={(e) => e.stopPropagation()} className="[&_[data-klasik-proses]]:!w-full [&_[data-klasik-proses]]:!static"><ProsesInline p={(data.projects || []).find((x) => x.id === r.id) || r.p} /></div>}
             </div>
           )
@@ -614,6 +632,7 @@ function KlasikProject({ jenis = 'projects' }) {
                   <td className="px-3 py-2 text-right tabular-nums"><Tumpuk r={r} fn={(x) => subDok(x) || ''} /></td>
                   <td className="px-3 py-2 text-right tabular-nums"><Tumpuk r={r} fn={(x) => subHal(x) || ''} /></td>
                   <td className="max-w-[240px] px-3 py-2"><InfoHover isi={<InfoLayanan r={r} nameOf={nameOf} />}><Tumpuk r={r} fn={(x) => x.title || x.type} cls="cursor-help underline decoration-dotted decoration-slate-300 underline-offset-2" /></InfoHover></td>
+                  <td className="px-3 py-2"><Tumpuk r={r} fn={(x) => <SelRegister x={x} />} /></td>
                 </tr>,
                 dipilih && <tr key={`${r.id}-p`}><td colSpan={KOLOM_P.length} className="p-0" onClick={(e) => e.stopPropagation()}><ProsesInline p={(data.projects || []).find((x) => x.id === r.id) || r.p} /></td></tr>,
               ]
@@ -907,7 +926,7 @@ function TombolBaru({ hp, setBaru, setAju }) {
 }
 
 /** Ikon setelah No. Invoice: mata (detail ringkas) & folder (file project). */
-function IkonBaris({ id, inv, lihat, folder }) {
+export function IkonBaris({ id, inv, lihat, folder }) {
   const k = 'inline-grid h-7 w-7 place-items-center rounded-md align-middle text-ink-mute hover:bg-slate-200 hover:text-ink'
   return (
     <span className="ml-1 inline-flex items-center align-middle" data-ikon-baris>
@@ -916,7 +935,7 @@ function IkonBaris({ id, inv, lihat, folder }) {
     </span>
   )
 }
-function LembarFile({ id, onClose }) {
+export function LembarFile({ id, onClose }) {
   const { data } = useApp()
   const p = id && (data.projects || []).find((x) => x.id === id)
   if (!p) return null
@@ -928,7 +947,7 @@ function LembarFile({ id, onClose }) {
 //  Hanya yang perlu dilihat cepat; detail lengkap lewat satu tombol.
 // ------------------------------------------------------------
 const waDigit = (t) => { const d = String(t || '').replace(/\D/g, ''); return d.startsWith('0') ? `62${d.slice(1)}` : d }
-function DetailRingkas({ id, onClose }) {
+export function DetailRingkas({ id, onClose }) {
   const { data, nameOf } = useApp()
   const p = (data.projects || []).find((x) => x.id === id)
   if (!p) return <p className="p-6 text-sm text-ink-mute">Project tidak ditemukan.</p>
@@ -1269,7 +1288,7 @@ function MenuAkun({ hp }) {
         {!hp && <span className="hidden leading-tight 2xl:block"><b>{nama}</b></span>}
       </button>
       {buka && (
-        <div role="menu" className="absolute right-0 top-[calc(100%+6px)] z-50 w-60 rounded-xl bg-white p-1.5 text-ink shadow-2xl ring-1 ring-slate-200">
+        <div role="menu" className="absolute right-0 top-[calc(100%+6px)] z-50 w-[272px] rounded-xl bg-white p-1.5 text-ink shadow-2xl ring-1 ring-slate-200">
           <div className="px-3 py-2">
             <p className="truncate text-sm font-bold">{nama}</p>
             <p className="truncate text-xs text-ink-mute">{ROLES[user?.role]?.label || user?.role}{user?.branch ? ` · ${user.branch}` : ''}</p>
@@ -1290,6 +1309,7 @@ function MenuAkun({ hp }) {
               ))}
             </div>
           )}
+          <TemaDiMenu />
           <button type="button" role="menuitem" onClick={keluar} data-aksi="keluar"
             className="flex min-h-[44px] w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50">
             <LogOut className="h-4 w-4" aria-hidden="true" />Keluar
@@ -1303,9 +1323,55 @@ function MenuAkun({ hp }) {
 // ------------------------------------------------------------
 //  KERANGKA LAYAR
 // ------------------------------------------------------------
+/** Pilihan tampilan (HP/PC) & tema warna — di dalam menu akun. */
+function TemaDiMenu() {
+  const hp = useHp()
+  const [t, setT] = useState(readTheme)
+  const ubah = (patch) => { const n = { ...t, ...patch }; setT(n); simpanTema(n) }
+  const pil = (on) => cx('flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg text-[12.5px] font-semibold', on ? 'bg-ink text-white' : 'bg-slate-100 text-ink-soft hover:bg-slate-200')
+  return (
+    <div className="space-y-2.5 border-t border-slate-100 px-2 py-2.5" data-tema-menu>
+      <div>
+        <p className="mb-1 px-1 text-[10.5px] font-bold uppercase tracking-wide text-ink-mute">Versi tampilan</p>
+        <div className="flex gap-1.5">
+          <button type="button" onClick={() => hp || tukarTampilan(false)} aria-pressed={hp} data-aksi="tampilan-hp" className={pil(hp)}><Smartphone className="h-4 w-4" />HP</button>
+          <button type="button" onClick={() => !hp || tukarTampilan(true)} aria-pressed={!hp} data-aksi="tampilan-pc" className={pil(!hp)}><Monitor className="h-4 w-4" />PC</button>
+        </div>
+      </div>
+      <div>
+        <p className="mb-1 px-1 text-[10.5px] font-bold uppercase tracking-wide text-ink-mute">Tema</p>
+        <div className="mb-2 flex gap-1.5">
+          <button type="button" onClick={() => ubah({ mode: 'light' })} aria-pressed={t.mode !== 'dark'} className={pil(t.mode !== 'dark')}>Terang</button>
+          <button type="button" onClick={() => ubah({ mode: 'dark' })} aria-pressed={t.mode === 'dark'} className={pil(t.mode === 'dark')}>Gelap</button>
+        </div>
+        <div className="grid grid-cols-10 gap-1" role="group" aria-label="Warna aksen">
+          {ACCENTS.map(([c, nama]) => (
+            <button key={c} type="button" onClick={() => ubah({ accent: c })} title={nama} aria-label={nama} aria-pressed={t.accent === c}
+              className={cx('h-5 w-5 rounded-full ring-offset-1', t.accent === c && 'ring-2 ring-ink')} style={{ background: c }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Ikon tukar tampilan HP ⇄ PC (on/off). */
+function TombolTampilan({ hp }) {
+  const I = hp ? Monitor : Smartphone
+  const label = hp ? 'Ganti ke tampilan PC' : 'Ganti ke tampilan HP'
+  return (
+    <button type="button" onClick={() => tukarTampilan(hp)} aria-label={label} title={label} data-aksi="tukar-tampilan"
+      className={cx('grid shrink-0 place-items-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white', hp ? 'h-10 w-9' : 'h-11 w-11')}>
+      <I className="h-[18px] w-[18px]" aria-hidden="true" />
+    </button>
+  )
+}
+
+/** Lingkaran merah jumlah (mis. yang baru / perlu ditindaklanjuti). */
+const Lencana = ({ n, gelap }) => (n > 0 ? <span className={cx('absolute -top-2 left-2.5 grid h-[17px] min-w-[17px] place-items-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white ring-2', gelap ? 'ring-[var(--klasik-head,#0e1540)]' : 'ring-white dark:ring-[#141a2e]')} aria-label={`${n} perlu ditindaklanjuti`} data-lencana>{n > 99 ? '99+' : n}</span> : null)
 const labelTab = (l) => (l === 'Apostille/Legalisasi' ? 'Apostille' : l)
 /** Menu bawah Mode Klasik (HP & iPad): tab + tombol "+" di tengah. Tab yang tidak muat masuk "Lainnya". */
-function NavBawah({ tabs, aktif, maks, onPlus }) {
+function NavBawah({ tabs, aktif, maks, onPlus, lencana = {} }) {
   const [lain, setLain] = useState(false)
   const ref = useRef(null)
   useEffect(() => {
@@ -1328,7 +1394,7 @@ function NavBawah({ tabs, aktif, maks, onPlus }) {
   const item = ({ key: k, label: l, ikon: I, judul }) => (
     <a key={k} href={`#/${k}`} title={judul || l} aria-current={aktif === k ? 'page' : undefined} data-tab-klasik
       className={cx('flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-1 text-[10.5px] leading-none', aktif === k ? 'font-extrabold text-ink' : 'font-semibold text-slate-500')}>
-      <span className={cx('grid h-7 w-12 place-items-center rounded-full', aktif === k && 'bg-[var(--klasik-pilih,#e6e9f5)]')}><I className="h-[18px] w-[18px]" aria-hidden="true" /></span>
+      <span className={cx('grid h-7 w-12 place-items-center rounded-full', aktif === k && 'bg-[var(--klasik-pilih,#e6e9f5)]')}><span className="relative"><I className="h-[18px] w-[18px]" aria-hidden="true" /><Lencana n={lencana[k]} /></span></span>
       <span className="max-w-full truncate px-0.5">{labelTab(l)}</span>
     </a>
   )
@@ -1338,12 +1404,12 @@ function NavBawah({ tabs, aktif, maks, onPlus }) {
     <span key="__lain" ref={ref} className="relative flex min-w-0 flex-1">
       <button type="button" onClick={() => setLain((b) => !b)} aria-expanded={lain} aria-haspopup="menu" data-aksi="tab-lainnya"
         className={cx('flex min-h-[52px] w-full flex-col items-center justify-center gap-1 text-[10.5px] font-semibold leading-none', lain ? 'text-ink' : 'text-slate-500')}>
-        <span className={cx('grid h-7 w-12 place-items-center rounded-full', lain && 'bg-[var(--klasik-pilih,#e6e9f5)]')}><MoreHorizontal className="h-[18px] w-[18px]" aria-hidden="true" /></span>Lainnya
+        <span className={cx('grid h-7 w-12 place-items-center rounded-full', lain && 'bg-[var(--klasik-pilih,#e6e9f5)]')}><span className="relative"><MoreHorizontal className="h-[18px] w-[18px]" aria-hidden="true" /><Lencana n={sisa.reduce((t, x) => t + (lencana[x.key] || 0), 0)} /></span></span>Lainnya
       </button>
       {lain && (
         <div role="menu" className="absolute bottom-[calc(100%+10px)] right-0 z-50 w-52 rounded-xl bg-white p-1.5 text-ink shadow-2xl ring-1 ring-slate-200">
           {sisa.map(({ key: k, label: l, ikon: I }) => (
-            <a key={k} role="menuitem" href={`#/${k}`} onClick={() => setLain(false)} className="flex min-h-[44px] items-center gap-2.5 rounded-lg px-3 text-sm font-semibold hover:bg-slate-50"><I className="h-4 w-4 text-ink-mute" aria-hidden="true" />{l}</a>
+            <a key={k} role="menuitem" href={`#/${k}`} onClick={() => setLain(false)} className="flex min-h-[44px] items-center gap-2.5 rounded-lg px-3 text-sm font-semibold hover:bg-slate-50"><I className="h-4 w-4 text-ink-mute" aria-hidden="true" />{l}{lencana[k] > 0 && <span className="ml-auto rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white">{lencana[k]}</span>}</a>
           ))}
         </div>
       )}
@@ -1396,7 +1462,20 @@ export function KlasikApp({ page, param, detail }) {
   const tabs = [
     ...TAB_PROYEK.filter((t) => menuBoleh(user, 'projects') && (!t.boleh || t.boleh(user, data, personaList))),
     ...(menuBoleh(user, 'keuangan') ? [{ key: 'keuangan', label: 'Keuangan', ikon: Wallet }] : []),
+    ...(canSeeRegister(user) && menuBoleh(user, 'register') ? [{ key: 'register', label: 'Register', ikon: Hash, judul: 'Nomor Register' }] : []),
   ]
+  // Lingkaran merah di tab: jumlah yang perlu ditindaklanjuti
+  const lencana = useMemo(() => {
+    const ps = scopeByBranch(user, data.projects || []).filter((p) => !p.cancelled && !p.demo_perf)
+    let tugas = 0, apos = 0, reg = 0
+    for (const p of ps) for (const x of subsOf(p)) {
+      if (x.cancelled) continue
+      if (perluPenerjemah(x)) tugas++
+      if (['apostille', 'legalisasi'].includes(x.type) && x.stage !== DONE && x.stage === stagesOf(flowOf(x, p))[0]?.key) apos++
+      if (x.stage === 'registrasi' && (x.data?.reg_numbers || []).some(Boolean)) reg += x.data.reg_numbers.filter(Boolean).length
+    }
+    return { 'k-penugasan': tugas, 'k-apostille': apos, register: ['superadmin', 'supervisor', 'admin_pusat'].includes(user?.role) ? reg : 0 }
+  }, [user, data.projects])
   const tab = page === 'pengajuan' ? 'keuangan' : tabs.some((t) => t.key === page) ? page : 'projects'
   if (!detail) tabTerakhir = tab
   const kembali = detail ? tabTerakhir : tab
@@ -1405,29 +1484,38 @@ export function KlasikApp({ page, param, detail }) {
   const [baru, setBaru] = useState(false)
   const [ajuBaru, setAjuBaru] = useState(false)
   const formBaruApp = <>{baru && <ProjectForm minimal onClose={() => setBaru(false)} onSaved={() => {}} />}{ajuBaru && <RequestForm open side onClose={() => setAjuBaru(false)} onSaved={() => setAjuBaru(false)} />}</>
-  const isi = tab === 'keuangan' ? <KlasikKeuangan /> : tab === 'k-apostille' ? <KlasikApostille /> : tab === 'k-penugasan' ? <KlasikPenugasan /> : <KlasikProject key={tab} jenis={tab} />
+  const isi = tab === 'register' ? <Suspense fallback={null}><RegisterPage /></Suspense> : tab === 'keuangan' ? <KlasikKeuangan /> : tab === 'k-apostille' ? <KlasikApostille /> : tab === 'k-penugasan' ? <KlasikPenugasan /> : <KlasikProject key={tab} jenis={tab} />
   const hp = useHp()
   const sentuh = useLayarSentuh()
+  const paksaHp = usePaksaHp()
+  const paksaPc = usePaksaPc()
+  // Tampilan PC di HP: layar diperkecil seperti "situs desktop" agar seluruh lebar PC terlihat
+  useEffect(() => {
+    const m = document.querySelector('meta[name="viewport"]')
+    if (!m) return
+    const asli = m.getAttribute('content')
+    if (paksaPc) { const k = Math.min(1, (window.screen?.width || 360) / 1280).toFixed(3); m.setAttribute('content', `width=1280, initial-scale=${k}, minimum-scale=${k}`) }
+    return () => { m.setAttribute('content', asli) }
+  }, [paksaPc])
   const [pilihBaru, setPilihBaru] = useState(false)
   const bolehProj = can.editProject(user) && menuBoleh(user, 'projects')
   const bolehPengajuan = bolehAju(user) && menuBoleh(user, 'keuangan')
   const plus = bolehProj && bolehPengajuan ? () => setPilihBaru(true) : bolehProj ? () => setBaru(true) : bolehPengajuan ? () => setAjuBaru(true) : null
   const bawah = (
     <>
-      <NavBawah tabs={tabs} aktif={aktifTab} maks={hp ? 4 : 7} onPlus={plus} />
+      <NavBawah tabs={tabs} aktif={aktifTab} maks={hp ? 4 : 7} onPlus={plus} lencana={lencana} />
       {pilihBaru && <PilihBaru onClose={() => setPilihBaru(false)} onProject={bolehProj ? () => { setPilihBaru(false); setBaru(true) } : null} onAju={bolehPengajuan ? () => { setPilihBaru(false); setAjuBaru(true) } : null} />}
     </>
   )
   const gayaHead = { '--head-ink': '#fff', '--head-mute': 'rgba(255,255,255,.6)', '--head-hover': 'rgba(255,255,255,.1)', '--head-line': 'rgba(255,255,255,.2)', background: 'var(--klasik-head, #0e1540)' }
   if (hp) return (
-    <div className="min-h-screen bg-[var(--klasik-latar)] pb-28" data-mode-klasik>
+    <div className="min-h-screen bg-[var(--klasik-latar)] pb-28" data-mode-klasik data-paksa-hp={paksaHp || undefined}>
       {formBaruApp}
       <header className="app-head sticky top-0 z-30 px-3 py-2 text-white" style={gayaHead}>
         <div className="flex items-center gap-2">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white text-xs font-extrabold text-ink">A</span>
           <JamHp />
           <span data-headbtn className="ml-auto shrink-0"><NotificationBell /></span>
-          <ThemePicker gelap hp />
           <MenuAkun hp />
         </div>
       </header>
@@ -1450,7 +1538,6 @@ export function KlasikApp({ page, param, detail }) {
         <span className="ml-2"><JamHp /></span>
         <span className="ml-auto"><SaklarMode klasik selalu /></span>
         <span data-headbtn className="shrink-0"><NotificationBell /></span>
-        <ThemePicker gelap />
         <MenuAkun />
       </header>
       <main className="min-w-0">
@@ -1467,19 +1554,24 @@ export function KlasikApp({ page, param, detail }) {
   return (
     <div className="min-h-screen bg-[var(--klasik-latar)]" data-mode-klasik>
       {formBaruApp}
+      {paksaPc && (
+        <button type="button" onClick={() => tukarTampilan(false)} aria-label="Kembali ke tampilan HP" data-aksi="kembali-hp"
+          className="fixed bottom-10 right-10 z-[80] flex h-[150px] items-center gap-5 rounded-full px-12 text-[44px] font-bold text-white shadow-2xl" style={{ background: 'var(--klasik-head, #0e1540)' }}>
+          <Smartphone className="h-16 w-16" aria-hidden="true" />Tampilan HP
+        </button>
+      )}
       <header className="app-head sticky top-0 z-30 flex h-14 items-center gap-3 bg-ink px-5 text-white" style={gayaHead}>
         <span className="grid h-8 w-8 place-items-center rounded-lg bg-white text-sm font-extrabold text-ink">A</span><span className="font-extrabold">ATLAS</span>
         <nav className="ml-3 flex h-14 items-end gap-1" aria-label="Menu Mode Klasik">
           {tabs.map(({ key: k, label: l, ikon: I, judul }) => (
-            <a key={k} href={`#/${k}`} title={judul || l} aria-current={aktifTab === k ? 'page' : undefined} data-tab-klasik className={cx('flex h-12 shrink-0 items-center justify-center whitespace-nowrap rounded-t-lg text-sm', aktifTab === k ? 'w-[116px] gap-1.5' : 'w-[84px] flex-col gap-1', aktifTab === k ? 'bg-[var(--klasik-latar)] font-bold text-ink' : 'font-semibold text-white/70 hover:text-white')}><I className="h-4 w-4" aria-hidden="true" />{aktifTab === k ? (l === 'Apostille/Legalisasi' ? 'Apostille' : l) : <span className="block text-[9.5px] font-semibold leading-none">{l === 'Apostille/Legalisasi' ? 'Apostille' : l}</span>}</a>
+            <a key={k} href={`#/${k}`} title={judul || l} aria-current={aktifTab === k ? 'page' : undefined} data-tab-klasik className={cx('flex h-12 shrink-0 items-center justify-center whitespace-nowrap rounded-t-lg text-sm', aktifTab === k ? 'min-w-[116px] gap-1.5 px-3' : cx(tabs.length > 6 ? 'w-[60px]' : 'w-[84px]', 'flex-col gap-1'), aktifTab === k ? 'bg-[var(--klasik-latar)] font-bold text-ink' : 'font-semibold text-white/70 hover:text-white')}><span className="relative"><I className="h-4 w-4" aria-hidden="true" />{aktifTab !== k && <Lencana gelap n={lencana[k]} />}</span>{aktifTab === k ? <>{l === 'Apostille/Legalisasi' ? 'Apostille' : l}{lencana[k] > 0 && <span className="rounded-full bg-rose-600 px-1.5 text-[10px] font-bold text-white">{lencana[k]}</span>}</> : <span className="block text-[9.5px] font-semibold leading-none">{l === 'Apostille/Legalisasi' ? 'Apostille' : l}</span>}</a>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex items-center gap-2">
           <TombolBaru setBaru={setBaru} setAju={setAjuBaru} />
           <JamKlasik />
           <SaklarMode klasik />
           <span data-headbtn className="shrink-0"><NotificationBell /></span>
-          <ThemePicker gelap />
           <MenuAkun />
           <TombolLayarPenuh />
         </div>

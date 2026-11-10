@@ -9,7 +9,8 @@ import { threadOf, myMessages, unreadByThread, pingQuota, openChatBus, PING_MAX_
 import { broadcastSignOut, markActivity, setIdleReason, simpanTujuan, ambilTujuan } from './session.js'
 import { CHAT_ENABLED } from './flags.js'
 import { DONE, stagesOf, flowOf, isBilled, regComplete, stageLabel } from '../config/workflows.js'
-import { barisRegistrasi } from './registrasi.js'
+import { docListOf } from '../config/workflows.js'
+import { barisRegistrasi, ambilNomor, kodeArah, jumlahDok, namaDefault } from './registrasi.js'
 import { cariStok, cariPeringatan, kunciPeringatan, teksPeringatan, sudahTercatat, arahLabel, canKelolaAffidavit, AMBANG_RENDAH } from './affidavit.js'
 
 const Ctx = createContext(null)
@@ -341,14 +342,32 @@ export function AppProvider({ children }) {
       }
     }
     if (advance && stage.onAdvance) merged = { ...merged, ...stage.onAdvance(s, user) }
+    // Nomor register DIPESAN OTOMATIS saat Otorisator ACC (1 dokumen = 1 nomor, dicatat ke tabel
+    // registrations supaya tidak dipakai dokumen lain). Admin Pusat lalu mengecek & menerbitkan.
+    // Hanya terjemahan tersumpah ID ⇄ EN / NL; arah lain melewati tahap "Nomor Registrasi".
+    let lompat = 0, regRows = null
+    if (advance && stage.key === 'otorisasi' && stages[idx + 1]?.key === 'registrasi') {
+      if (!kodeArah(s)) lompat = 1
+      else if (!(merged.reg_numbers || []).some(Boolean)) {
+        const n = jumlahDok(s)
+        for (let coba = 0; coba < 3 && !regRows; coba++) {
+          const nomor = await ambilNomor(s, n, data.projects)
+          const docs = docListOf(s)
+          const names = Array.from({ length: n }, (_, i) => merged.reg_names?.[i] || namaDefault(docs[i], project))
+          const rows = barisRegistrasi(project, { ...s, data: { ...merged, reg_numbers: nomor, reg_names: names } }, user, names)
+          try { await db.regInsert(rows); regRows = rows; merged = { ...merged, reg_numbers: nomor, reg_names: names, reg_reserved_at: new Date().toISOString() } } catch (e) { if (!/duplicate|sudah dipakai/i.test(e.message) || coba === 2) throw new Error(`Nomor register gagal dibuat: ${e.message}`) }
+        }
+      }
+    }
     if (advance && stage.printBranch) merged = { ...merged, [`${stage.key}_by`]: user.id }
     if (advance && stage.key === 'proofread') merged = { ...merged, proofread_at: new Date().toISOString(), proofread_by: user.id }
     s.data = merged
-    const next = advance ? (stages[idx + 1]?.key ?? DONE) : s.stage
+    const next = advance ? (stages[idx + 1 + lompat]?.key ?? DONE) : s.stage
     const override = values?.__override
     delete merged.__override
-    const nextLabel = next === DONE ? 'Selesai' : stages[idx + 1].label
+    const nextLabel = next === DONE ? 'Selesai' : stages[idx + 1 + lompat].label
     s.history = [...(s.history || []), { at: new Date().toISOString(), by: user.name, role: user.role, action: advance ? (override ? `${stage.label} → ${nextLabel} · dilanjutkan tanpa menunggu ${stage.roles.filter((r) => r !== 'superadmin').map((r) => ROLES[r]?.label || r).join('/')} oleh ${roleLabel(user)} · alasan: ${override}` : `${stage.label} → ${nextLabel}`) : `Update ${stage.label}`, ...(override ? { override: true, reason: override, from: stage.key, to: next } : {}) }]
+    if (regRows) s.history = [...s.history, { at: new Date().toISOString(), by: 'ATLAS (otomatis)', action: `Nomor register dipesan: ${regRows.map((r) => r.reg_no).join(', ')} — menunggu dicek Admin Pusat` }]
     s.stage = next
     if (advance) s.stage_at = new Date().toISOString()
     // Tahap registrasi: nomor dicatat ke tabel registrations DULU — nomor kembar
@@ -356,7 +375,7 @@ export function AppProvider({ children }) {
     if (advance && stage.key === 'registrasi') {
       const rows = barisRegistrasi(project, s, user)
       if (rows.length !== (merged.reg_numbers || []).filter(Boolean).length) throw new Error('Ada nomor registrasi yang formatnya salah (harus 14 angka, diawali 41–44).')
-      try { await db.regInsert(rows) } catch (e) { throw new Error(/duplicate|sudah dipakai/i.test(e.message) ? 'Nomor registrasi sudah dipakai dokumen lain — tekan "Ambil nomor" lagi.' : e.message) }
+      try { await (merged.reg_reserved_at ? db.regUpsert(rows) : db.regInsert(rows)) } catch (e) { throw new Error(/duplicate|sudah dipakai/i.test(e.message) ? 'Nomor registrasi sudah dipakai dokumen lain — tekan "Ambil nomor" lagi.' : e.message) }
     }
     const saved = await save('projects', { ...project, sub_projects: subs })
     if (pettyRow) await save('petty_cash', pettyRow)
@@ -365,6 +384,11 @@ export function AppProvider({ children }) {
       for (const n of stage.notify(project, s, user).filter((x) => x.to_user || x.to_role || x.to_branch)) {
         await save('notifications', { ...n, text: `${project.invoice_no} · ${s.title}: ${n.text}`, project_id: project.id, by: user.name, read_by: [] }).catch(() => {})
       }
+    }
+    // Nomor register terbit (Admin Pusat) → CS pembuat project diberi tahu nomornya
+    if (advance && stage.key === 'registrasi' && project.created_by) {
+      const nomor = (merged.reg_numbers || []).filter(Boolean)
+      if (nomor.length) await save('notifications', { to_user: project.created_by, kind: 'register', text: `${project.invoice_no} · ${s.title}: Nomor register terbit — ${nomor.join(', ')}`, project_id: project.id, by: user.name, read_by: [] }).catch(() => {})
     }
     // F8: titip print — bila tahap cetak/scan diselesaikan oleh cabang print yang BUKAN cabang
     // pemilik project, CS asal diberi tahu otomatis (dulu harus ping manual).

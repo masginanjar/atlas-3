@@ -10,10 +10,13 @@ import { DEMO_ZOHO_NOV } from './demoZohoNov.js'
 import { parseInvoiceItems } from './zohoParse.js'
 import { branchOfInvoice } from '../config/access.js'
 import { autoDeadline } from './waktu.js'
+import { kodeArah, susunNomor, jumlahDok, namaDefault } from './registrasi.js'
+import { docListOf } from '../config/workflows.js'
 
 const TERAKHIR = DEMO_ZOHO_NOV.reduce((m, r) => (r.date > m ? r.date : m), '2026-11-01') // tanggal faktur terbaru di data
 const HARI_INI = TERAKHIR
 const HARI_NYATA = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date()) // tanggal kalender saat demo dibuka
+let regSeq = 30573 // kode unik register demo (1 Nov 2026 mulai 030574, sesuai Sheet)
 const hash = (s) => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 1000003, 7)
 const iso = (date, jam = 9, menit = 0) => new Date(`${date}T${String(jam).padStart(2, '0')}:${String(menit).padStart(2, '0')}:00+08:00`).toISOString()
 const umurHari = (date) => Math.round((new Date(`${HARI_INI}T00:00:00+08:00`) - new Date(`${date}T00:00:00+08:00`)) / 864e5)
@@ -47,6 +50,7 @@ function pilihTahap(daftar, umur, h) {
 }
 
 export function projectsFromZoho({ people = [], pdf, mkId }) {
+  regSeq = 30573
   const vendor = (re) => people.find((p) => p.type === 'vendor' && re.test(p.name))
   const projects = []
   let n = 0
@@ -146,8 +150,13 @@ export function projectsFromZoho({ people = [], pdf, mkId }) {
       if (at >= 1) data.dokumen_sumber = f('sumber')
       if (at >= 2) data.translator = translator
       if (at >= 3) Object.assign(data, { hasil_terjemahan: f('terjemahan'), proofreader })
-      if (at >= 5) Object.assign(data, { authorized_by: otId, authorized_name: otName, authorized_at: waktuTahap(4), file_final: f('final'), reg_numbers: [] })
-      if (at >= 6) Object.assign(data, { reg_numbers: base.docs.map((_, i) => `${String(2600 + (hs % 400))}${i}/REG/XI/2026`), registered_by: 'u-adm', registered_name: 'Nihaya (Admin Pusat)', registered_at: waktuTahap(5) })
+      if (at >= 5) {
+        const kode = kodeArah(base)
+        const nomor = kode ? Array.from({ length: jumlahDok(base) }, () => susunNomor(kode, ++regSeq, waktuTahap(4))) : []
+        Object.assign(data, { authorized_by: otId, authorized_name: otName, authorized_at: waktuTahap(4), file_final: f('final'),
+          reg_numbers: nomor, reg_names: nomor.map((_, k) => namaDefault(docListOf(base)[k], { customer_name: inv.customer_name })), ...(nomor.length ? { reg_reserved_at: waktuTahap(4) } : {}) })
+      }
+      if (at >= 6) Object.assign(data, { registered_by: 'u-adm', registered_name: 'Nihaya (Admin Pusat)', registered_at: waktuTahap(5) })
       if (at >= 7) data.printed_at = waktuTahap(6)
       if (at >= 8) data.scan_pdf = f('scan')
       if (at >= 9) Object.assign(data, { delivery: { type: parsed.courier ? 'courier' : 'pickup', diserahkan_kurir: waktuTahap(8) }, shipped_at: waktuTahap(8), finished_at: waktuTahap(8) })

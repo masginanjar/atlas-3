@@ -12,6 +12,8 @@ export const ACCENTS = [
   ['#9333ea', 'Ungu'], ['#4f46e5', 'Indigo'], ['#7c2d12', 'Cokelat'], ['#0f766e', 'Hijau Laut'], ['#334155', 'Arang'],
 ]
 
+/** Simpan & terapkan tema (dipakai juga oleh menu akun Mode Klasik). */
+export function simpanTema(t) { applyTheme(t); try { localStorage.setItem(KEY, JSON.stringify(t)) } catch { /* abaikan */ } }
 export const readTheme = () => { try { return { ...DEFAULT, ...JSON.parse(localStorage.getItem(KEY) || '{}') } } catch { return DEFAULT } }
 /** Terang-gelapnya sebuah warna (0 = hitam, 1 = putih) — untuk menjaga keterbacaan. */
 const luminance = (hex) => {
