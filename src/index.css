@@ -398,8 +398,8 @@ table.tabel-besar .text-xs { font-size: 13px; }
 }
 
 /* Mode Klasik: baris selang-seling + kolom No. Invoice dibekukan saat tabel digulir ke kanan */
-:root { --klasik-baris: #ffffff; --klasik-zebra: #f3f6fc; --klasik-hover: #e8eefb; --klasik-pilih: #e3e9ff; --klasik-telat: #fdeef1; --klasik-telat-zebra: #fbe6ea; --klasik-detail: #f8faff; --klasik-latar: #f6f7fb; --klasik-judul: #f8fafc; --klasik-bayang: rgba(15, 23, 42, .38); }
-[data-theme="dark"] { --klasik-baris: var(--surface); --klasik-zebra: #1d2439; --klasik-hover: #262f4a; --klasik-pilih: #28315c; --klasik-telat: #34202c; --klasik-telat-zebra: #3b2331; --klasik-detail: #1a2033; --klasik-latar: var(--page); --klasik-judul: var(--surface-2); --klasik-bayang: rgba(0, 0, 0, .8); }
+:root { --klasik-baris: #ffffff; --klasik-zebra: #f3f6fc; --klasik-hover: #e8eefb; --klasik-pilih: #e3e9ff; --klasik-telat: #fdeef1; --klasik-telat-zebra: #fbe6ea; --klasik-detail: #f8faff; --klasik-latar: #f6f7fb; --klasik-judul: #f8fafc; --klasik-bayang: rgba(15, 23, 42, .38); --klasik-luar: #e9edf5; }
+[data-theme="dark"] { --klasik-baris: var(--surface); --klasik-zebra: #1d2439; --klasik-hover: #262f4a; --klasik-pilih: #28315c; --klasik-telat: #34202c; --klasik-telat-zebra: #3b2331; --klasik-detail: #1a2033; --klasik-latar: var(--page); --klasik-judul: var(--surface-2); --klasik-bayang: rgba(0, 0, 0, .8); --klasik-luar: #0b1020; }
 :where([data-klasik-tabel], [data-klasik-pengajuan]) > tbody > tr { background-color: var(--klasik-baris); }
 :where([data-klasik-tabel], [data-klasik-pengajuan]) > tbody > tr:nth-child(even of [aria-expanded], [data-klasik-aju]) { background-color: var(--klasik-zebra); }
 :where([data-klasik-tabel]) > tbody > tr[data-klasik-dok][data-zebra] { background-color: var(--klasik-zebra); }
@@ -468,6 +468,15 @@ table.tabel-besar .text-xs { font-size: 13px; }
 [data-sub-ringkas] .text-\[13px\] { font-size: 11px; }
 [data-sub-ringkas] [aria-pressed].rounded-xl { border-radius: .5rem; padding-left: .55rem; padding-right: .55rem; font-size: 11.5px; }
 
-/* Tampilan HP dipaksa di layar lebar: bingkai selebar HP di tengah */
-[data-paksa-hp] { max-width: 430px; margin-inline: auto; box-shadow: 0 0 0 1px rgba(14,21,64,.08), 0 20px 60px rgba(14,21,64,.18); }
-[data-paksa-hp] [data-nav-bawah] { left: 50%; right: auto; width: 430px; transform: translateX(-50%); }
+
+
+/* Mode Klasik: baris yang baru pindah status tetap terlihat (pudar) sampai "Rapikan" / ganti saringan */
+[data-ditahan] > td:not(:first-child), button[data-ditahan] > span:not(:first-child) { opacity: .5; }
+
+/* Mode Klasik (kartu di tengah): tabel bergulir di dalam kartu — judul kolom tetap di atas,
+   dan bilah geser ke samping selalu terlihat di bawah layar (tidak perlu gulir ke dasar tabel). */
+[data-klasik-kartu] div:has(> table[data-klasik-tabel]) { max-height: calc(100vh - 140px); overflow: auto; overscroll-behavior: contain; }
+[data-klasik-kartu] table[data-klasik-tabel] > thead > tr > th { position: sticky; top: 0; z-index: 3; background-color: var(--klasik-judul); }
+[data-klasik-kartu] :is([data-beku-invoice] > thead > tr > th:nth-child(2), [data-beku-pertama] > thead > tr > th:nth-child(1)) { z-index: 5; }
+/* tabel Project ringkas: padat sedikit supaya 7 kolom muat tanpa geser */
+[data-klasik-kartu] [data-lebar="p"]:not([data-semua-kolom]) > * > tr > :is(th, td) { padding-left: 9px; padding-right: 9px; }

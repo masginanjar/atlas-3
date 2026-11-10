@@ -30,7 +30,9 @@ const TR = { Bali: ['u-tr-andre', 'u-tr-maria'], Jakarta: ['u-tr-hendra'], Bandu
 const TR_SEMUA = ['u-tr-andre', 'u-tr-maria', 'u-tr-hendra', 'u-tr-lina']
 const PR = { Bali: 'u-pr-kevin', Jakarta: 'u-pr-rina', Bandung: 'u-pr-rina' }
 const PR_SEMUA = ['u-pr-kevin', 'u-pr-rina', 'u-pr-ela']
-const OT = [['u-ot-made', 'Muhammad Arifin'], ['u-ot-lukas', 'Sadipan']]
+const OT = [['u-pr-ela', 'Ela'], ['u-ot-made', 'Muhammad Arifin'], ['u-pr-rina', 'Novita']]
+// pembagian otorisasi demo: Ela terbanyak, lalu Muhammad Arifin, sedikit Novita (mengikuti catatan Otorisasi 2026)
+const pilihOto = (h) => OT[[0, 0, 0, 0, 0, 0, 1, 1, 1, 2][h % 10]]
 const AP = ['u-ap-putu', 'Khrisna']
 const VENDOR_BAHASA = { Mandarin: [/tinah/i, 'bill'], Jepang: [/zenzia/i, 'bill'], Jerman: [/georgy/i, 'ext'], Arab: [/hamim/i, 'ext'], Korea: [/anisa/i, 'ext'] }
 const NEGARA_APOSTILLE = ['Australia', 'Belanda', 'Jerman', 'Prancis', 'Amerika Serikat', 'Inggris', 'Italia', 'Kanada', 'Jepang', 'Korea Selatan']
@@ -145,7 +147,7 @@ export function projectsFromZoho({ people = [], pdf, mkId }) {
       const trList = TR[branch] || TR_SEMUA
       const translator = trList[hs % trList.length]
       const proofreader = PR[branch] || PR_SEMUA[hs % PR_SEMUA.length]
-      const [otId, otName] = OT[hs % 2]
+      const [otId, otName] = pilihOto(hs)
       const data = {}
       if (at >= 1) data.dokumen_sumber = f('sumber')
       if (at >= 2) data.translator = translator

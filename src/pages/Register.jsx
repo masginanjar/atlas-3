@@ -14,7 +14,7 @@ import { useApp } from '../lib/store.jsx'
 import { Button, Sheet, cx } from '../components/ui.jsx'
 import { copyText } from '../components/CopyText.jsx'
 import { InvoiceNo } from '../components/badges.jsx'
-import { IkonBaris, LembarFile, DetailRingkas } from '../components/ModeKlasik.jsx'
+import { IkonBaris, LembarFile, DetailRingkas, useTahanBaris, TandaDitahan, TombolRapikan } from '../components/ModeKlasik.jsx'
 import { useHp } from '../components/klasikSaklar.jsx'
 import { scopeByBranch, invoiceLabel } from '../config/access.js'
 import { docListOf } from '../config/workflows.js'
@@ -109,9 +109,10 @@ export default function Register() {
   const terbitSemua = semua.filter((r) => r.terbit)
   const n = { hari: terbitSemua.filter((r) => r.tanggal === hari).length, kemarin: terbitSemua.filter((r) => r.tanggal === kemarin).length }
   const s = q.trim().toLowerCase()
-  const rows = semua.filter((r) => (cepat === 'menunggu' ? !r.terbit : r.terbit && (
+  const rowsAsli = semua.filter((r) => (cepat === 'menunggu' ? !r.terbit : r.terbit && (
     cepat === 'hari' ? r.tanggal === hari : cepat === 'kemarin' ? r.tanggal === kemarin : cepat === '7' ? r.tanggal >= seminggu : true)))
     .filter((r) => !s || [r.no, r.invoice, r.jenis, r.nama, r.cabang].some((v) => String(v).toLowerCase().includes(s)))
+  const { rows, ditahan, rapikan } = useTahanBaris(rowsAsli, (r) => r.key, JSON.stringify([cepat, s]), semua)
   const terbit = rows.filter((r) => r.terbit)
 
   // Ubah tanggal / jenis / nama → disimpan ke project (+ tabel registrations bila sudah terbit)
@@ -193,6 +194,7 @@ export default function Register() {
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-mute" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nomor, invoice, nama…" aria-label="Cari register" className={cx('w-full rounded-lg border-0 bg-white pl-8 pr-2 ring-1 ring-slate-200 focus:ring-2 focus:ring-brand', hp ? 'h-11 text-[14px]' : 'h-9 text-[12.5px]')} />
       </label>
+      <TombolRapikan n={ditahan.size} onClick={rapikan} />
       <span className="ml-auto flex gap-2">
         {cepat === 'menunggu'
           ? rows.length > 1 && <Button size="sm" variant="dark" onClick={terbitkanSemua} disabled={!!sibuk} data-aksi="terbitkan-semua" className="whitespace-nowrap"><Check className="h-4 w-4" />{hp ? `Terbitkan ${rows.length}` : `Terbitkan semua (${rows.length})`}</Button>
@@ -220,7 +222,7 @@ export default function Register() {
       {atas}
       <ul className="divide-y divide-slate-200 bg-white text-[12.5px]">
         {rows.map((r) => (
-          <li key={r.key} className={cx('px-3 py-2.5', !r.terbit && 'bg-amber-50')} data-register-baris={r.terbit ? 'terbit' : 'menunggu'}>
+          <li key={r.key} className={cx('px-3 py-2.5', !r.terbit && 'bg-amber-50', ditahan.has(r.key) && 'opacity-60')} data-register-baris={r.terbit ? 'terbit' : 'menunggu'}>{ditahan.has(r.key) && <TandaDitahan teks={r.terbit ? 'Terbit' : 'Baru diubah'} />}
             <div className="flex items-center"><span className="font-mono text-[15px] font-extrabold">{r.no}</span>{tombolSalin(r.no)}<span className="ml-auto">{tombolProject(r, true)}</span></div>
             <div className="mt-1 text-[13px] font-bold"><SelUbah nilai={r.jenis} boleh={bolehTerbit} label="jenis dokumen" onSimpan={(v) => ubahIsian(r, 'reg_types', v, 'Jenis dokumen')} /></div>
             <div className="mt-0.5 flex flex-wrap gap-x-1.5 text-[12px] text-ink-soft">
@@ -248,8 +250,8 @@ export default function Register() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {rows.map((r, i) => (
-              <tr key={r.key} data-klasik-aju="" className={cx('whitespace-nowrap align-middle', r.terbit && diinput.has(r.no) && 'text-ink-mute')} data-register-baris={r.terbit ? 'terbit' : 'menunggu'}>
-                <td className="px-3 py-2 tabular-nums text-ink-mute">{i + 1}</td>
+              <tr key={r.key} data-klasik-aju="" data-ditahan={ditahan.has(r.key) ? '' : undefined} className={cx('whitespace-nowrap align-middle', r.terbit && diinput.has(r.no) && 'text-ink-mute')} data-register-baris={r.terbit ? 'terbit' : 'menunggu'}>
+                <td className="px-3 py-2 tabular-nums text-ink-mute">{i + 1}{ditahan.has(r.key) && <TandaDitahan teks={r.terbit ? 'Terbit' : 'Baru diubah'} />}</td>
                 {spanInv[i] > 0 && <td rowSpan={spanInv[i]} className="px-3 py-2 align-top"><span className="inline-flex items-center"><InvoiceNo project={r.p} /><IkonBaris id={r.p.id} inv={r.p.invoice_no} lihat={setLihat} folder={setFolder} /></span>{spanInv[i] > 1 && <span className="block text-[10.5px] text-ink-mute">{spanInv[i]} dokumen</span>}</td>}
                 <td className="px-3 py-2"><span className="font-mono text-[13px] font-extrabold">{r.no}</span>{r.terbit && tombolSalin(r.no)}{tombolProject(r)}</td>
                 <td className="px-3 py-2"><SelUbah nilai={r.tanggal} tampil={tglInggris(r.tanggal)} jenis="date" boleh={bolehTerbit} label="tanggal" onSimpan={(v) => ubahIsian(r, 'reg_dates', v, 'Tanggal')} /></td>

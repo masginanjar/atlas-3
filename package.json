@@ -9,7 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "build:demo": "VITE_MASK_PII=1 vite build --mode single --outDir dist-demo",
-    "build:demo:public": "VITE_MASK_PII=1 vite build --mode single --outDir dist-demo",
+    "build:demo:public": "VITE_MASK_PII=1 vite build --mode single --outDir dist-demo && node scripts/escape-fffd.mjs dist-demo/index.html",
     "build:live": "ATLAS_LIVE=1 VITE_MASK_PII=1 vite build",
     "sync:portal": "sh sync-portal-fn.sh"
   },
@@ -18,6 +18,9 @@
     "@insforge/sdk": "^1.5.2",
     "@supabase/supabase-js": "^2.119.0",
     "docx-preview": "^0.4.1",
+    "exceljs": "^4.4.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
     "jszip": "^3.10.2",
     "lucide-react": "^1.66.0",
     "pdfjs-dist": "^4.10.38",

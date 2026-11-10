@@ -140,7 +140,7 @@ export function seed() {
 
 /** Arsip proyek selesai 6 bulan terakhir — riwayat otorisasi untuk grafik bulanan (demo). */
 export function archiveProjects(now = Date.now()) {
-  const OT = [['u-ot-made', 'Muhammad Arifin'], ['u-ot-lukas', 'Sadipan'], ['u-pr-rina', 'Novita'], ['u-pr-ela', 'Ela']]
+  const OT = [['u-ot-made', 'Muhammad Arifin'], ['u-pr-rina', 'Novita'], ['u-pr-ela', 'Ela']]
   const PRF = ['u-pr-kevin', 'u-pr-rina', 'u-pr-ela']
   const TR = ['u-tr-andre', 'u-tr-maria', 'u-tr-hendra', 'u-tr-lina']
   const DOC = ['Ijazah', 'Transkrip Nilai', 'Akta Kelahiran', 'Kartu Keluarga', 'Paspor', 'Surat Nikah', 'SKCK', 'Rekening Koran']
