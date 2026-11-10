@@ -1,5 +1,5 @@
 // ============================================================
-//  DATA DEMO DARI FAKTUR ZOHO SUNGGUHAN (1–5 November 2026).
+//  DATA DEMO DARI FAKTUR ZOHO SUNGGUHAN (1–10 November 2026).
 //  Setiap project dibentuk persis seperti yang dibuat CS lewat "Buat Project":
 //  item invoice dibaca parseInvoiceItems → sub project; prioritas dari item
 //  (Sameday / Super Ekspres / Ekspres / Normal); tenggat = autoDeadline(tanggal invoice, prioritas).
@@ -11,7 +11,8 @@ import { parseInvoiceItems } from './zohoParse.js'
 import { branchOfInvoice } from '../config/access.js'
 import { autoDeadline } from './waktu.js'
 
-const HARI_INI = '2026-11-08'
+const TERAKHIR = DEMO_ZOHO_NOV.reduce((m, r) => (r.date > m ? r.date : m), '2026-11-01') // tanggal faktur terbaru di data
+const HARI_INI = TERAKHIR
 const HARI_NYATA = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Makassar' }).format(new Date()) // tanggal kalender saat demo dibuka
 const hash = (s) => [...String(s)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) % 1000003, 7)
 const iso = (date, jam = 9, menit = 0) => new Date(`${date}T${String(jam).padStart(2, '0')}:${String(menit).padStart(2, '0')}:00+08:00`).toISOString()
@@ -55,17 +56,17 @@ export function projectsFromZoho({ people = [], pdf, mkId }) {
   for (const inv of DEMO_ZOHO_NOV) {
     const h = hash(inv.invoice_no)
     const branch = branchOfInvoice(inv.invoice_no) || 'Bali'
-    const umur = (inv.date === '2026-11-05' && h % 5 === 1) ? 0 : umurHari(inv.date)
+    const umur = (inv.date === TERAKHIR && h % 5 === 1) ? 0 : umurHari(inv.date)
     // sebagian faktur sengaja dibiarkan belum jadi project (alur "Buat Project" di menu Faktur)
-    const sisakan = inv.date === '2026-11-05' ? 0.35 : 0.1
+    const sisakan = inv.date === TERAKHIR ? 0.35 : 0.1
     if ((h % 97) / 97 < sisakan) continue
     if (inv.status === 'draft') continue
     const parsed = parseInvoiceItems(inv.line_items || [])
     if (!parsed.subs.length) continue
     const [csId, csName] = CS[branch] || CS.Bali
-    // Supaya dasbor hidup: ±1 dari 6 invoice tanggal 5 Nov dianggap baru diinput HARI INI (tanggal nyata),
+    // Supaya dasbor hidup: ±1 dari 5 invoice tanggal terbaru dianggap baru diinput HARI INI (tanggal nyata),
     // sepertiganya Sameday (tenggat hari ini), sisanya ikut prioritas aslinya.
-    const hariIni = inv.date === '2026-11-05' && h % 5 === 1
+    const hariIni = inv.date === TERAKHIR && h % 5 === 1
     const priority = hariIni && Math.floor(h / 7) % 3 === 0 ? 'Sameday' : (parsed.priority || 'Normal')
     const received = hariIni ? HARI_NYATA : inv.date
     const deadline = autoDeadline(received, priority)

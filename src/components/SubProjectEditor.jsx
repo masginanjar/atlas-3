@@ -143,7 +143,7 @@ function DocTable({ docs, onChange, invalid, simple = false, uploadLabel = 'Uplo
   )
 }
 
-export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, locked, error }) {
+export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, locked, error, ringkas }) {
   const { data } = useApp()
   const of = (type) => data.people.filter((p) => p.type === type && (p.branch === branch || p.branch === 'Semua'))
   const set = (patch) => onChange({ ...sub, ...patch })
@@ -156,7 +156,7 @@ export default function SubProjectEditor({ n, sub, onChange, onRemove, branch, l
   }
 
   return (
-    <div className={cx('rounded-xl bg-white p-3 shadow-sm ring-1 sm:p-5', error ? 'ring-2 ring-rose-400' : 'ring-emerald-200')}>
+    <div data-sub-ringkas={ringkas ? '' : undefined} className={cx('rounded-xl bg-white shadow-sm ring-1', ringkas ? 'p-3' : 'p-3 sm:p-5', error ? 'ring-2 ring-rose-400' : 'ring-emerald-200')}>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className="grid h-7 min-w-7 place-items-center rounded-lg bg-emerald-600 px-2 text-xs font-bold text-white">{n}</span>
         <div className="order-last flex min-w-0 flex-1 basis-full gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1 [scrollbar-width:none] sm:order-none sm:basis-0" role="tablist" aria-label="Jenis sub project">

@@ -43,6 +43,8 @@ export function applyTheme(t) {
   el.style.setProperty('--head-mute', `color-mix(in srgb, ${ink} 68%, ${head})`)
   el.style.setProperty('--head-line', `color-mix(in srgb, ${ink} 18%, ${head})`)
   el.style.setProperty('--head-hover', `color-mix(in srgb, ${ink} 12%, ${head})`)
+  // Mode Klasik: bar atas tetap gelap (teks putih) — navy bawaan, atau warna aksen yang digelapkan
+  el.style.setProperty('--klasik-head', t.accent === DEFAULT.accent ? '#0e1540' : `color-mix(in srgb, ${t.accent} ${lum > 0.3 ? 55 : 72}%, #0b1020)`)
   el.dataset.panel = t.panel === 'left' ? 'left' : 'right' // sisi panel detail
 }
 /** Sisi panel detail yang dipilih pengguna (dipakai komponen Sheet). */
@@ -50,7 +52,7 @@ export function panelSide() {
   try { return document.documentElement.dataset.panel === 'left' ? 'left' : 'right' } catch { return 'right' }
 }
 
-export default function ThemePicker() {
+export default function ThemePicker({ gelap, hp } = {}) {
   const [theme, setTheme] = useState(readTheme)
   useEffect(() => { applyTheme(theme); try { localStorage.setItem(KEY, JSON.stringify(theme)) } catch { /* abaikan */ } }, [theme])
   const set = (patch) => setTheme((t) => ({ ...t, ...patch }))
@@ -59,7 +61,10 @@ export default function ThemePicker() {
   return (
     <Popover label="Tema tampilan" width="min-w-[250px]" button={({ open, toggle }) => (
       <button onClick={toggle} aria-expanded={open} aria-label="Tema tampilan" title="Tema: Light / Dark / warna aksen"
-        className={cx('grid h-11 w-11 place-items-center rounded-xl ring-1 ring-slate-200 hover:text-brand', open ? 'text-brand ring-brand' : 'text-ink-mute')}>
+        data-aksi="tema"
+        className={gelap
+          ? cx('grid place-items-center rounded-lg text-white/80 hover:bg-white/10 hover:text-white', hp ? 'h-10 w-10' : 'h-11 w-11', open && 'bg-white/15 text-white')
+          : cx('grid h-11 w-11 place-items-center rounded-xl ring-1 ring-slate-200 hover:text-brand', open ? 'text-brand ring-brand' : 'text-ink-mute')}>
         <Palette className="h-4 w-4" />
       </button>
     )}>

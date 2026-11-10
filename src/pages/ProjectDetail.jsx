@@ -82,8 +82,6 @@ export default function ProjectDetail({ id, embedded, focusSub }) {
   const kota = project.customer?.ship?.city
   const kurir = data.couriers?.find((k) => k.id === project.about?.courier)?.name
   const prog = progressOf(project)
-  const tabs = TAB_DETAIL.filter(([k]) => (k === 'portal' || k === 'kirim') ? lihatPelanggan : true)
-  const nFile = collectFiles(project).length
   const subs = project.sub_projects || []
 
   return (
@@ -144,12 +142,32 @@ export default function ProjectDetail({ id, embedded, focusSub }) {
         {subs.map((sb, i) => <SubProject key={sb.id} n={i + 1} project={project} sub={sb} compact={embedded} />)}
       </div>
 
-      {/* ===== Tab bawah — hanya yang dibuka yang dirender ===== */}
-      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pt-1 [scrollbar-width:none]" role="tablist" aria-label="Bagian lain project" data-tab-detail>
+      {/* ===== Tab bawah ===== */}
+      <TabDetailProject project={project} tab={tab} setTab={setTab} />
+
+      {editing && <ProjectForm project={project} onClose={() => setEditing(false)} />}
+      {sharing && <ShareSheet project={project} open={sharing} onClose={() => setSharing(false)} />}
+    </div>
+  )
+}
+
+/** Tab bawah project (catatan, file, kurir, portal, riwayat). Dipakai halaman detail
+ *  & panel ringkas Mode Klasik (ringkas = tampilan tombol lebih kecil). */
+export function TabDetailProject({ project, ringkas, tab: tabLuar, setTab: setTabLuar }) {
+  const { user, data, save, notify } = useApp()
+  const [tabDalam, setTabDalam] = useState(ringkas ? 'file' : 'catatan') // panel ringkas: File terbuka lebih dulu
+  const tab = tabLuar ?? tabDalam
+  const setTab = setTabLuar || setTabDalam
+  const lihatPelanggan = can.seeCustomerDetail(user)
+  const tabs = TAB_DETAIL.filter(([k]) => (k === 'portal' || k === 'kirim') ? lihatPelanggan : true)
+  const nFile = collectFiles(project).length
+  return (
+    <>
+            <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pt-1 [scrollbar-width:none]" role="tablist" aria-label="Bagian lain project" data-tab-detail>
         {tabs.map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} data-tab-detail-item={k}
-            className={cx('flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold ring-1 transition', tab === k ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand')}>
-            {l}{k === 'file' && nFile > 0 && <span className={cx('tabular-nums', tab === k ? 'text-white/70' : 'text-ink-mute')}>{nFile}</span>}
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(ringkas && tab === k ? '' : k)} data-tab-detail-item={k}
+            className={cx('flex shrink-0 items-center gap-1.5 font-semibold ring-1 transition', ringkas ? 'h-8 rounded-lg px-2.5 text-[11.5px]' : 'h-9 rounded-xl px-3 text-xs', tab === k ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand')}>
+            {ringkas ? ({ catatan: 'Catatan', file: 'File', kirim: 'Kurir', portal: 'Portal', riwayat: 'Riwayat' }[k] || l) : l}{k === 'file' && nFile > 0 && <span className={cx('tabular-nums', tab === k ? 'text-white/70' : 'text-ink-mute')}>{nFile}</span>}
           </button>
         ))}
       </div>
@@ -177,9 +195,7 @@ export default function ProjectDetail({ id, embedded, focusSub }) {
         {tab === 'riwayat' && <ProjectActivity project={project} />}
       </div>
 
-      {editing && <ProjectForm project={project} onClose={() => setEditing(false)} />}
-      {sharing && <ShareSheet project={project} open={sharing} onClose={() => setSharing(false)} />}
-    </div>
+    </>
   )
 }
 

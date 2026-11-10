@@ -14,7 +14,8 @@ import SubProjectEditor, { newSub, validateSub, docFileName, safeName } from '..
 import { SUB_TYPES, points } from '../config/subtypes.js'
 import { uploadProjectFiles } from '../components/FileManager.jsx'
 import { kb } from '../lib/format.js'
-import { PrioritySelect } from '../components/Priority.jsx'
+import { PrioritySelect, PRIORITY_META } from '../components/Priority.jsx'
+const LANGS_MIN = ['Indonesia', 'Inggris', 'Mandarin', 'Jepang', 'Korea', 'Arab', 'Belanda', 'Jerman', 'Prancis', 'Spanyol', 'Rusia', 'Lainnya']
 import CustomerInfo from '../components/CustomerInfo.jsx'
 import { rupiah, tgl } from '../lib/format.js'
 
@@ -37,7 +38,7 @@ const normInvoice = (v) => {
   return /^\d+$/.test(t) ? `INV-${t}` : t
 }
 
-export default function ProjectForm({ onClose, project, preset, side, page, onSaved }) {
+export default function ProjectForm({ onClose, project, preset, side, page, onSaved, minimal }) {
   const { user, data, save, notify } = useApp()
   const editing = !!project
   const [customer, setCustomer] = useState(project?.customer ?? preset?.customer ?? null)
@@ -61,6 +62,7 @@ export default function ProjectForm({ onClose, project, preset, side, page, onSa
   const [autoFill, setAutoFill] = useState(null) // ringkasan isian otomatis dari item invoice Zoho (alamat/kurir/prioritas)
   const [invoiceItems, setInvoiceItems] = useState(null) // item invoice Zoho — hanya ditampilkan (view) untuk dibaca/disalin saat mengisi sub project
   const [editShip, setEditShip] = useState(false)
+  const [lengkap, setLengkap] = useState(() => new Set()) // versi minimalis: sub yang dibuka isian lengkapnya
   // Simpan draf (F7): isian project baru disimpan di perangkat ini supaya tidak hilang saat pindah halaman.
   // File (dokumen) tidak bisa disimpan sebagai draf — hanya teks & pilihannya.
   const DRAF_KEY = `atlas-draf-project:${user.id}`
@@ -385,6 +387,137 @@ export default function ProjectForm({ onClose, project, preset, side, page, onSa
       </div>
   )
 
+  // ============================================================
+  //  VERSI MINIMALIS (Mode Klasik): 3 isian + "Lainnya". Logika simpan,
+  //  validasi & alur tetap sama dengan form lengkap di atas.
+  // ============================================================
+  if (minimal) {
+    const hari = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
+    const dl = String(about.deadline || '').slice(0, 10)
+    const autoDl = autoDeadline(about.received_at, about.priority)
+    const setDl = (v) => setAbout((a) => ({ ...a, deadline: v }))
+    const setPrio = (v) => setA('priority')({ target: { value: v } })
+    const chip = (on) => cx('inline-flex h-9 items-center rounded-lg px-3 text-[12.5px] font-semibold ring-1', on ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-300 hover:ring-ink')
+    const ubahSub = (i, patch) => setSubs((arr) => arr.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+    const setDok = (i, x, patch) => {
+      const d0 = { ...((x.docs || [])[0] || { desc: '', pages: 1 }), ...patch }
+      const desc = String(d0.desc || '').trim()
+      ubahSub(i, { docs: [d0, ...(x.docs || []).slice(1)], description: desc ? `1. ${desc}` : '', pages: Number(d0.pages) || 1, file_count: desc ? 1 : 0 })
+    }
+    const tambahDok = (nama = '', type = 'terjemahan') => setSubs((a) => {
+      const kosong = a.length === 1 && !a[0].id && !points(a[0].description).length
+      const baru = newSub(type)
+      if (nama && usesDocs(type)) Object.assign(baru, { docs: [{ desc: nama, pages: 1 }], description: `1. ${nama}`, pages: 1, file_count: 1 })
+      return kosong ? [baru] : [...a, baru]
+    })
+    const itemInv = (invoiceItems?.items || []).map((it) => String(it.name || it.item_name || '').trim()).filter((n) => n && !/delivery|ongkir|kurir|pengiriman|fee/i.test(n))
+    const nDok = subs.filter((x) => points(x.description).length).length
+    const isiMin = (
+      <div className="space-y-5 text-[13px]" data-form-minimal>
+        {drafTersedia && (
+          <div role="status" className="flex flex-wrap items-center gap-2 rounded-xl bg-sky-50 px-3 py-2 text-xs text-sky-900 ring-1 ring-sky-200" data-draf>
+            <span className="min-w-0 flex-1">Ada <b>draf</b> yang belum selesai{drafTersedia.invoice ? ` · ${invoiceLabel(drafTersedia.invoice)}` : ''}.</span>
+            <Button size="sm" onClick={pakaiDraf}>Lanjutkan</Button><Button size="sm" variant="outline" onClick={buangDraf}>Buang</Button>
+          </div>
+        )}
+        {/* 1 · Invoice / pelanggan */}
+        <section>
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-ink-mute"><span className="grid h-5 w-5 place-items-center rounded-full bg-ink text-[10px] text-white">1</span>Pelanggan & invoice</p>
+          <div className="space-y-2">
+            <CustomerPicker ringkas value={customer} invalid={!!E('customer')} onChange={(c) => { setCustomer(c); if (!editing) setInvoice('') }} />
+            {E('customer') && <FieldError>{E('customer')}</FieldError>}
+            {customer && (preset?.invoice_no ? <p className="text-sm font-bold">{invoiceLabel(invoice)}</p> : <InvoicePicker ringkas customer={customer} value={invoice} onChange={setInvoice} error={E('invoice')} />)}
+          </div>
+        </section>
+        {/* 2 · Deadline */}
+        <section>
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-ink-mute"><span className="grid h-5 w-5 place-items-center rounded-full bg-ink text-[10px] text-white">2</span>Deadline</p>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {Object.keys(PRIORITY_META).map((k) => <button key={k} type="button" onClick={() => setPrio(k)} aria-pressed={about.priority === k} data-prio={k} className={chip(about.priority === k)}>{k}</button>)}
+          </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <button type="button" onClick={() => setDl(hari(0))} aria-pressed={dl === hari(0)} className={chip(dl === hari(0))}>Hari ini</button>
+            <button type="button" onClick={() => setDl(hari(1))} aria-pressed={dl === hari(1)} className={chip(dl === hari(1))}>Besok</button>
+            {autoDl && autoDl !== hari(0) && autoDl !== hari(1) && <button type="button" onClick={() => setDl(autoDl)} aria-pressed={dl === autoDl} className={chip(dl === autoDl)}>Sesuai prioritas · {tgl(autoDl)}</button>}
+            <input type="date" value={dl} onChange={(e) => setDl(e.target.value)} aria-label="Tanggal deadline" className="h-9 rounded-lg border-0 px-2 text-[12.5px] ring-1 ring-slate-300 focus:ring-2 focus:ring-brand" />
+            <input type="time" value={about.deadline_time || '17:00'} onChange={setA('deadline_time')} aria-label="Jam deadline" className="h-9 w-[92px] rounded-lg border-0 px-2 text-[12.5px] ring-1 ring-slate-300 focus:ring-2 focus:ring-brand" data-jam-deadline />
+          </div>
+          {E('deadline') && <FieldError>{E('deadline')}</FieldError>}
+        </section>
+        {/* 3 · Dokumen */}
+        <section>
+          <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wide text-ink-mute"><span className="grid h-5 w-5 place-items-center rounded-full bg-ink text-[10px] text-white">3</span>Dokumen</p>
+          {itemInv.length > 0 && (
+            <div className="mb-2 flex flex-wrap items-center gap-1.5" data-item-invoice>
+              <span className="text-[11px] text-ink-mute">Dari invoice:</span>
+              {itemInv.slice(0, 8).map((n, k) => <button key={k} type="button" onClick={() => tambahDok(n)} className="h-7 max-w-[220px] truncate rounded-md bg-emerald-50 px-2 text-[11.5px] font-semibold text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100">+ {n}</button>)}
+            </div>
+          )}
+          <div className="space-y-2">
+            {subs.map((x, i) => {
+              const err = tried ? errs.subs[i] : null
+              const sederhana = x.type === 'terjemahan' && (x.docs || []).length <= 1 && !lengkap.has(x._k ?? x.id) && !isStarted(x) && !(tried && errs.subs[i] && !/dokumen/i.test(errs.subs[i]))
+              if (!sederhana) return (
+                <div key={x.id ?? x._k}>
+                  <SubProjectEditor ringkas n={i + 1} sub={x} branch={branch} error={err} locked={isStarted(x)}
+                    onChange={(next) => setSubs((arr) => arr.map((y, j) => (j === i ? next : y)))}
+                    onRemove={subs.length > 1 && !isStarted(x) ? () => setSubs((a) => a.filter((_, j) => j !== i)) : null} />
+                </div>
+              )
+              const d0 = (x.docs || [])[0] || { desc: '', pages: 1 }
+              return (
+                <div key={x.id ?? x._k} data-baris-dok>
+                  <div className="grid grid-cols-[1fr_auto] gap-1.5 sm:grid-cols-[1fr_96px_96px_56px_auto] sm:items-center">
+                    <input value={d0.desc} onChange={(e) => setDok(i, x, { desc: e.target.value })} placeholder="Nama dokumen, mis. Akta Kelahiran…" aria-label={`Dokumen ${i + 1}`} autoComplete="off"
+                      className={cx('h-9 min-w-0 rounded-lg border-0 px-2.5 text-[13px] ring-1 focus:ring-2 focus:ring-brand', err ? 'ring-rose-400' : 'ring-slate-300')} />
+                    <span className="flex items-center gap-1 sm:contents">
+                      <select value={x.lang_from} onChange={(e) => ubahSub(i, { lang_from: e.target.value })} aria-label="Bahasa asal" className="h-9 min-w-0 rounded-lg border-0 px-1.5 text-[12.5px] ring-1 ring-slate-300">{LANGS_MIN.map((l) => <option key={l}>{l}</option>)}</select>
+                      <select value={x.lang_to} onChange={(e) => ubahSub(i, { lang_to: e.target.value })} aria-label="Bahasa tujuan" className="h-9 min-w-0 rounded-lg border-0 px-1.5 text-[12.5px] ring-1 ring-slate-300">{LANGS_MIN.map((l) => <option key={l}>{l}</option>)}</select>
+                      <input type="number" min="1" inputMode="numeric" value={d0.pages} onChange={(e) => setDok(i, x, { pages: e.target.value })} aria-label="Jumlah halaman" title="Halaman" className="h-9 w-14 rounded-lg border-0 px-2 text-right text-[12.5px] tabular-nums ring-1 ring-slate-300" />
+                    </span>
+                    <span className="col-span-2 flex items-center justify-end gap-1 sm:col-span-1">
+                      <button type="button" onClick={() => setLengkap((m) => new Set([...m, x._k ?? x.id]))} title="Isian lengkap (file, penerjemah, jenis lain)" className="h-8 rounded-md px-1.5 text-[11.5px] font-semibold text-ink-soft hover:bg-slate-100">⋯</button>
+                      {subs.length > 1 && <button type="button" onClick={() => setSubs((a) => a.filter((_, j) => j !== i))} aria-label="Hapus dokumen" className="grid h-8 w-8 place-items-center rounded-md text-ink-mute hover:bg-rose-50 hover:text-rose-600"><X className="h-4 w-4" /></button>}
+                    </span>
+                  </div>
+                  {err && <p className="mt-0.5 text-[11.5px] text-rose-600">{err}</p>}
+                </div>
+              )
+            })}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12.5px] font-semibold">
+            <button type="button" onClick={() => tambahDok()} className="text-brand hover:underline" data-aksi="tambah-dok">+ Terjemahan</button>
+            {['apostille', 'legalisasi', 'jasa_lain'].filter((k) => SUB_TYPES[k]).map((k) => <button key={k} type="button" onClick={() => tambahDok('', k)} className="text-ink-soft hover:text-ink hover:underline">+ {SUB_TYPES[k].label}</button>)}
+          </div>
+        </section>
+        {/* Lainnya */}
+        <details className="border-t border-dashed border-slate-200 pt-3" data-lainnya>
+          <summary className="cursor-pointer text-[12.5px] text-ink-soft"><b className="text-ink">Lainnya</b> — Print di <b>{about.print_location}</b> · catatan · tanggal masuk · file</summary>
+          <div className="mt-3 space-y-3">
+            <label className="flex items-center gap-2"><span className="w-24 text-ink-mute">Print di</span>
+              <select value={about.print_location} onChange={setA('print_location')} className="h-9 flex-1 rounded-lg border-0 px-2 ring-1 ring-slate-300">{[...BRANCHES, PRINT_VENDOR].filter(Boolean).map((b) => <option key={b}>{b}</option>)}</select></label>
+            <label className="flex items-center gap-2"><span className="w-24 text-ink-mute">Tanggal masuk</span>
+              <input type="date" value={String(about.received_at || '').slice(0, 10)} onChange={setA('received_at')} className="h-9 flex-1 rounded-lg border-0 px-2 ring-1 ring-slate-300" /></label>
+            <label className="block"><span className="text-ink-mute">Catatan</span>
+              <Textarea rows={2} value={about.notes || ''} onChange={setA('notes')} placeholder="Opsional" /></label>
+            <FileQueue queue={queue} setQueue={setQueue} subs={subs} />
+          </div>
+        </details>
+        {kurang.length > 0 && (
+          <div role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-800 ring-1 ring-rose-200" data-kurang>
+            <b>Lengkapi dulu:</b> {kurang.join(' · ')}
+          </div>
+        )}
+      </div>
+    )
+    return (
+      <Sheet open side onClose={onClose} title={judul}
+        footer={<><span className="min-w-0 flex-1 truncate text-xs text-ink-mute">{nDok} dokumen{dl ? ` · deadline ${tgl(dl)} ${about.deadline_time || '17:00'}` : ''}</span><Button loading={busy} onClick={submit} data-aksi="simpan-project">{progress || 'Simpan project →'}</Button></>}>
+        {isiMin}
+      </Sheet>
+    )
+  }
+
   // Halaman penuh — dipakai saat dibuka dari menu / ikon +, bukan panel geser,
   // supaya formnya lebar dan mudah dibaca sambil mengisi.
   if (page) return (
@@ -499,7 +632,7 @@ function ShipEditor({ ship, onChange, onDone }) {
   )
 }
 
-function CustomerPicker({ value, onChange, invalid }) {
+function CustomerPicker({ value, onChange, invalid, ringkas }) {
   const [q, setQ] = useState('')
   const [res, setRes] = useState([])
   const [loading, setLoading] = useState(false)
@@ -519,6 +652,13 @@ function CustomerPicker({ value, onChange, invalid }) {
     try { onChange({ ...c, ...((await zoho.contact(c.zoho_id)) || {}) }) } catch (e) { setErr(e.message); onChange(c) } finally { setLoading(false) }
   }
 
+  if (value && ringkas) return (
+    <div className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 ring-1 ring-emerald-200" data-pelanggan-terpilih>
+      <Check className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+      <p className="min-w-0 flex-1 truncate font-bold text-ink">{value.name}<span className="ml-1.5 text-xs font-normal text-ink-mute">{value.city || ''}</span></p>
+      <button type="button" onClick={() => onChange(null)} className="text-xs font-semibold text-brand hover:underline">Ganti</button>
+    </div>
+  )
   if (value) return (
     <div className="rounded-xl bg-white p-4 ring-1 ring-slate-200">
       <div className="flex items-center gap-3">
@@ -559,7 +699,7 @@ function CustomerPicker({ value, onChange, invalid }) {
   )
 }
 
-function InvoicePicker({ customer, value, onChange, error }) {
+function InvoicePicker({ customer, value, onChange, error, ringkas }) {
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(false)
   useEffect(() => {
@@ -570,21 +710,21 @@ function InvoicePicker({ customer, value, onChange, error }) {
 
   return (
     <div>
-      <span className="mb-1.5 flex items-center gap-1.5 text-[13px] font-semibold text-ink-soft"><Receipt className="h-3.5 w-3.5 text-ink-mute" />No. Invoice<span className="text-rose-500" aria-hidden>*</span><span className="ml-auto text-xs font-normal text-ink-mute">dipakai sebagai nama project</span></span>
+      {!ringkas && <span className="mb-1.5 flex items-center gap-1.5 text-[13px] font-semibold text-ink-soft"><Receipt className="h-3.5 w-3.5 text-ink-mute" />No. Invoice<span className="text-rose-500" aria-hidden>*</span><span className="ml-auto text-xs font-normal text-ink-mute">dipakai sebagai nama project</span></span>}
       <div className="space-y-2">
       {loading && <p className="flex items-center gap-2 text-xs text-ink-mute"><Loader2 className="h-3 w-3 animate-spin" />Memuat invoice dari Zoho…</p>}
       {list.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {list.map((iv) => (
             <button key={invoiceLabel(iv.invoice_no)} type="button" onClick={() => onChange(iv.invoice_no)}
-              title={`${tgl(iv.date)} · ${rupiah(iv.total)} · ${iv.status}`} aria-pressed={value === iv.invoice_no} className={cx('flex items-center gap-1.5 rounded-lg px-3 py-2 text-left ring-1 transition', value === iv.invoice_no ? 'bg-brand text-white ring-brand' : 'bg-white ring-slate-300 hover:ring-brand')}>
-              <span className="text-sm font-semibold">{invoiceLabel(iv.invoice_no)}</span><span className={cx('text-xs', value === iv.invoice_no ? 'text-white/80' : 'text-ink-mute')}>{rupiah(iv.total)}</span>
+              title={ringkas ? `${tgl(iv.date)} · ${iv.status}` : `${tgl(iv.date)} · ${rupiah(iv.total)} · ${iv.status}`} aria-pressed={value === iv.invoice_no} className={cx('flex items-center gap-1.5 rounded-lg px-3 py-2 text-left ring-1 transition', value === iv.invoice_no ? 'bg-brand text-white ring-brand' : 'bg-white ring-slate-300 hover:ring-brand')}>
+              <span className="text-sm font-semibold">{invoiceLabel(iv.invoice_no)}</span><span className={cx('text-xs', value === iv.invoice_no ? 'text-white/80' : 'text-ink-mute')}>{ringkas ? tgl(iv.date) : rupiah(iv.total)}</span>
               {value === iv.invoice_no && <Check className="h-3.5 w-3.5" />}
             </button>
           ))}
         </div>
       )}
-      <Input aria-invalid={!!error} placeholder={customer ? 'atau ketik manual, mis. INV-000245' : 'Pilih pelanggan dulu, atau ketik manual'} value={value} onChange={(e) => onChange(e.target.value)} />
+      {(!ringkas || !list.length || !list.some((iv) => iv.invoice_no === value)) && <Input aria-invalid={!!error} placeholder={customer ? (ringkas ? 'Ketik no. invoice' : 'atau ketik manual, mis. INV-000245') : 'Pilih pelanggan dulu, atau ketik manual'} value={value} onChange={(e) => onChange(e.target.value)} className={ringkas ? '!h-9' : ''} />}
       {error && <FieldError>{error}</FieldError>}
       </div>
     </div>

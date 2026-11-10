@@ -34,11 +34,11 @@ export const Pill = ({ className, children }) => <span className={cx('inline-fle
 export function Field({ label, hint, required, children, className, icon: Icon, error }) {
   return (
     <label className={cx('block', className)}>
-      <span className="mb-1.5 flex items-center gap-1.5 text-[13px] font-semibold text-ink-soft">
+      <span data-field-label className="mb-1.5 flex items-center gap-1.5 text-[13px] font-semibold text-ink-soft">
         {Icon && <Icon className="h-3.5 w-3.5 text-ink-mute" />}{label}{required && <span className="text-rose-500" aria-hidden>*</span>}
       </span>
       {children}
-      {error ? <FieldError>{error}</FieldError> : hint && <span className="mt-1 block text-xs text-ink-mute">{hint}</span>}
+      {error ? <FieldError>{error}</FieldError> : hint && <span data-hint className="mt-1 block text-xs text-ink-mute">{hint}</span>}
     </label>
   )
 }

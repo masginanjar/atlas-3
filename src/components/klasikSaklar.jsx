@@ -23,8 +23,10 @@ function bacaKlasik(uid) { try { return localStorage.getItem(kunci(uid)) === '1'
 const subscribe = (f) => { subs.add(f); window.addEventListener('resize', f); return () => { subs.delete(f); window.removeEventListener('resize', f) } }
 /** true bila pengguna memilih Mode Klasik (komputer & HP). */
 export const useHp = () => useSyncExternalStore(subscribe, () => window.innerWidth < 768)
+/** HP & tablet (iPad): menu Mode Klasik pindah ke bawah layar. */
+export const useLayarSentuh = () => useSyncExternalStore(subscribe, () => window.innerWidth < 1280)
 export function useKlasik(user, data) {
-  const on = useSyncExternalStore(subscribe, () => !!user && bacaKlasik(user.id))
+  const on = useSyncExternalStore(subscribe, () => !!user && bacaKlasik(user._actor || user.id))
   // Rilis bertahap: tim dikunci di Mode Klasik (Superadmin & Direktur tetap bebas)
   return (on || kunciKlasik(user)) && bolehKlasik(user, data)
 }
@@ -45,7 +47,7 @@ export function SaklarMode({ klasik, className, selalu }) {
   const pilih = (k) => {
     if (k === klasik) return
     if (k) setTanya(true)
-    else { setKlasik(user.id, false); layarPenuh(false) }
+    else { setKlasik(user._actor || user.id, false); layarPenuh(false) }
   }
   return (
     <>
@@ -59,7 +61,7 @@ export function SaklarMode({ klasik, className, selalu }) {
             <p className="font-bold">Pindah ke Mode Klasik?</p>
                         <label className="mt-3 hidden items-center gap-2 text-[13px] md:flex"><input type="checkbox" checked={full} onChange={(e) => setFull(e.target.checked)} className="h-4 w-4 rounded" />Buka langsung layar penuh</label>
             <div className="mt-4 flex gap-2">
-              <button type="button" data-aksi="ya-klasik" onClick={() => { setKlasik(user.id, true); setTanya(false); if (full && window.innerWidth >= 768) layarPenuh(true); go('projects') }} className="h-11 flex-1 rounded-lg bg-ink text-sm font-bold text-white">Ya, Mode Klasik</button>
+              <button type="button" data-aksi="ya-klasik" onClick={() => { setKlasik(user._actor || user.id, true); setTanya(false); if (full && window.innerWidth >= 768) layarPenuh(true); go('projects') }} className="h-11 flex-1 rounded-lg bg-ink text-sm font-bold text-white">Ya, Mode Klasik</button>
               <button type="button" onClick={() => setTanya(false)} className="h-11 rounded-lg px-4 text-sm font-semibold ring-1 ring-slate-200">Batal</button>
             </div>
           </div>

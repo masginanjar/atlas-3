@@ -5,32 +5,38 @@
 //  Pilihan disimpan per pengguna di perangkat ini. Di HP tidak tersedia.
 // ============================================================
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { Search, Plus, ChevronDown, ArrowLeft, ExternalLink, Maximize2, Minimize2, X, FolderOpen, Wallet, Eye, Copy } from 'lucide-react'
+import { Search, Plus, ChevronDown, ArrowLeft, ExternalLink, Maximize2, Minimize2, X, FolderOpen, Wallet, Eye, Copy, Languages, Stamp, UserCheck, Printer, LogOut, MoreHorizontal } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
-import { scopeByBranch, can, branchesOf, BRANCHES, invoiceLabel, isMultiBranch, activeClaim, ROLES } from '../config/access.js'
+import { scopeByBranch, can, branchesOf, BRANCHES, invoiceLabel, isMultiBranch, activeClaim, ROLES, rolesOf, coordinatorFor, foreignLang, diKoordinasi, vendorKoordinator } from '../config/access.js'
 import { projectRow, statusOf } from '../lib/projectRow.js'
 import { flowOf, stageLabel, stageIndex, DONE, isVendorFlow } from '../config/workflows.js'
 import { ProjectTypes } from './badges.jsx'
 import NotificationBell from './NotificationBell.jsx'
 import Avatar from './Avatar.jsx'
 import { cx, Sheet, bisaDitekan } from './ui.jsx'
-import ProjectDetail, { StagePanel } from '../pages/ProjectDetail.jsx'
+import ProjectDetail, { StagePanel, TabDetailProject } from '../pages/ProjectDetail.jsx'
+import ProjectForm from '../pages/ProjectForm.jsx'
 import { InvoiceNo } from './badges.jsx'
-import { uploadProjectFiles } from './FileManager.jsx'
+import FileManager, { uploadProjectFiles } from './FileManager.jsx'
 import { tanggalJam, tanggal } from '../lib/waktu.js'
 import { grupOf, sisaWaktu } from '../lib/urgensi.js'
 import { stagesOf } from '../config/workflows.js'
-import { SUB_TYPES } from '../config/subtypes.js'
+import { SUB_TYPES, kindPages } from '../config/subtypes.js'
+import { kapasitasHarian } from './Kapasitas.jsx'
 import { createPortal } from 'react-dom'
 import { rupiah } from '../lib/format.js'
 import { copyText } from './CopyText.jsx'
-import { menuBoleh } from '../config/menuAccess.js'
+import { menuBoleh, canSeeApostille } from '../config/menuAccess.js'
 import { drive } from '../lib/integrations.js'
-import { scopeRequests } from './Requests.jsx'
+import { scopeRequests, RequestForm } from './Requests.jsx'
+// Sama dengan aturan di Requests.jsx: pelaksana lepas tidak membuat pengajuan
+const bolehAju = (u) => !!u && !['penerjemah', 'proofreader', 'otorisator', 'staf_apostille'].includes(u.role)
 import { SUMBER_DANA, recommendFund } from '../config/workflows.js'
 
-import { KLASIK_ROLES_BAWAAN, bolehKlasik, setKlasik, useHp, useKlasik, layarPenuh, SaklarMode } from './klasikSaklar.jsx'
+import ThemePicker from './ThemePicker.jsx'
+import { kunciKlasik } from '../config/rilis.js'
+import { KLASIK_ROLES_BAWAAN, bolehKlasik, setKlasik, useHp, useLayarSentuh, useKlasik, layarPenuh, SaklarMode } from './klasikSaklar.jsx'
 export { KLASIK_ROLES_BAWAAN, bolehKlasik, setKlasik, useHp, useKlasik, SaklarMode }
 
 /** Jam WITA & WIB (jam:menit) + tanggal. */
@@ -42,10 +48,10 @@ function JamKlasik() {
   return (
     <div className="flex shrink-0 items-center gap-4 rounded-lg bg-white/10 px-4 py-1.5" data-jam-klasik>
       <div className="text-center leading-tight"><p className="text-[9px] font-bold tracking-wider text-white/50">WITA</p><p className="font-mono text-[17px] font-bold tabular-nums">{j('Asia/Makassar')}</p></div>
-      <span className="h-7 w-px bg-white/20" />
-      <div className="text-center leading-tight"><p className="text-[9px] font-bold tracking-wider text-white/50">WIB</p><p className="font-mono text-[17px] font-bold tabular-nums">{j('Asia/Jakarta')}</p></div>
-      <span className="hidden h-7 w-px bg-white/20 xl:block" />
-      <div className="hidden leading-tight xl:block"><p className="text-[9px] font-bold tracking-wider text-white/50">TANGGAL</p><p className="text-[14px] font-bold">{tgl}</p></div>
+      <span className="hidden h-7 w-px bg-white/20 min-[1440px]:block" />
+      <div className="hidden text-center leading-tight min-[1440px]:block"><p className="text-[9px] font-bold tracking-wider text-white/50">WIB</p><p className="font-mono text-[17px] font-bold tabular-nums">{j('Asia/Jakarta')}</p></div>
+      <span className="hidden h-7 w-px bg-white/20 min-[1800px]:block" />
+      <div className="hidden leading-tight min-[1800px]:block"><p className="text-[9px] font-bold tracking-wider text-white/50">TANGGAL</p><p className="text-[14px] font-bold">{tgl}</p></div>
     </div>
   )
 }
@@ -59,7 +65,7 @@ function JamHp() {
   return (
     <div className="min-w-0 leading-tight" data-jam-klasik>
       <p className="whitespace-nowrap font-mono text-[12px] font-bold tabular-nums"><span className="text-[9px] text-white/50">WITA </span>{j('Asia/Makassar')} <span className="text-[9px] text-white/50">WIB </span>{j('Asia/Jakarta')}</p>
-      <p className="text-[10px] text-white/60">{now.toLocaleDateString('id-ID', { timeZone: 'Asia/Makassar', weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</p>
+      <p className="whitespace-nowrap text-[10px] text-white/60">{now.toLocaleDateString('id-ID', { timeZone: 'Asia/Makassar', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</p>
     </div>
   )
 }
@@ -185,6 +191,47 @@ function InfoPengajuan({ r }) {
 const TIPE_RINGKAS = (t) => ['file', 'text', 'date', 'choice', 'money', 'sumber_dana', 'checklist'].includes(t) || /^(user|person):/.test(t)
 const kotak = 'h-9 rounded-lg border-0 bg-white px-2.5 text-[12.5px] ring-1 ring-slate-300 focus:ring-2 focus:ring-brand'
 
+/** Label unggah dipersingkat: "Upload Hasil Apostille / Legalisasi" → "Upload Hasil". */
+const labelPendek = (l) => String(l || '').replace(/\s+(apostille|legalisasi)(\s*\/\s*(apostille|legalisasi))?$/i, '').trim() || l
+
+/** Ceklis ringkas: satu tombol "2/6 · berikutnya", isinya muncul saat diklik. */
+function CeklisRingkas({ f, v, set }) {
+  const { user } = useApp()
+  const [pos, setPos] = useState(null)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!pos) return
+    const tutup = (e) => { if (!ref.current?.contains(e.target) && !e.target.closest?.('[data-ceklis-pop]')) setPos(null) }
+    const esc = (e) => e.key === 'Escape' && setPos(null)
+    document.addEventListener('mousedown', tutup); document.addEventListener('keydown', esc); window.addEventListener('scroll', tutup, true)
+    return () => { document.removeEventListener('mousedown', tutup); document.removeEventListener('keydown', esc); window.removeEventListener('scroll', tutup, true) }
+  }, [pos])
+  const items = (f.items || []).filter((it) => !f.itemRoles?.[it] || f.itemRoles[it].includes(user.role))
+  const cur = v[f.key] || []
+  const selesai = items.filter((it) => cur.includes(it)).length
+  const berikut = items.find((it) => !cur.includes(it))
+  const penuh = items.length > 0 && selesai === items.length
+  const buka = () => { const r = ref.current.getBoundingClientRect(); setPos({ x: Math.min(r.left, window.innerWidth - 230), y: r.bottom + 4 }) }
+  return (
+    <>
+      <button ref={ref} type="button" onClick={() => (pos ? setPos(null) : buka())} aria-expanded={!!pos} aria-label={`${f.label || 'Ceklis'}: ${selesai} dari ${items.length}`} data-ceklis={f.key}
+        className={cx('inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-bold ring-1', penuh ? 'bg-emerald-50 text-emerald-800 ring-emerald-300' : 'bg-white text-ink ring-slate-300 hover:ring-ink')}>
+        <span className="tabular-nums">{penuh ? '✓' : '☐'} {selesai}/{items.length}</span>
+        {!penuh && berikut && <span className="max-w-[110px] truncate font-semibold text-ink-soft">· {berikut}</span>}
+        <ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden="true" />
+      </button>
+      {pos && createPortal(
+        <div data-ceklis-pop className="fixed z-[96] w-[220px] rounded-xl bg-white p-1.5 text-[12.5px] text-ink shadow-2xl ring-1 ring-slate-200" style={{ left: pos.x, top: pos.y }}>
+          {items.map((it) => { const on = cur.includes(it); return (
+            <button key={it} type="button" role="menuitemcheckbox" aria-checked={on} onClick={() => set({ [f.key]: on ? cur.filter((x) => x !== it) : [...cur, it] })}
+              className="flex min-h-[38px] w-full items-center gap-2 rounded-lg px-2 text-left hover:bg-slate-100">
+              <span className={cx('grid h-5 w-5 place-items-center rounded text-[11px] font-bold', on ? 'bg-emerald-500 text-white' : 'ring-1 ring-slate-300')}>{on ? '✓' : ''}</span>{it}
+            </button>) })}
+        </div>, document.body)}
+    </>
+  )
+}
+
 function IsianRingkas({ f, v, set, project, sub, stage }) {
   const { user, data, notify } = useApp()
   const [up, setUp] = useState(false)
@@ -192,7 +239,7 @@ function IsianRingkas({ f, v, set, project, sub, stage }) {
     const list = v[`${f.key}_list`] || (v[f.key] ? [v[f.key]] : [])
     return (
       <label className={cx('inline-flex h-9 max-w-[260px] cursor-pointer items-center gap-1.5 rounded-lg border border-dashed px-2.5 text-[12.5px]', list.length ? 'border-emerald-400 bg-emerald-50 text-emerald-800' : 'border-slate-300 text-ink-soft hover:border-brand')} title={f.label}>
-        <span className="truncate">{up ? 'Mengunggah…' : list.length ? `✓ ${list.length > 1 ? `${list.length} file` : list[0].name}` : `⤒ ${f.label}`}</span>
+        <span className="truncate">{up ? 'Mengunggah…' : list.length ? `✓ ${list.length > 1 ? `${list.length} file` : list[0].name}` : `⤒ ${labelPendek(f.label)}`}</span>
         <input type="file" multiple className="sr-only" accept={f.accept || 'image/*,application/pdf,.doc,.docx'} onChange={async (e) => {
           const fl = [...e.target.files]; e.target.value = ''; if (!fl.length) return
           setUp(true)
@@ -202,17 +249,7 @@ function IsianRingkas({ f, v, set, project, sub, stage }) {
       </label>
     )
   }
-  if (f.type === 'checklist') {
-    const boleh = (it) => !f.itemRoles?.[it] || f.itemRoles[it].includes(user.role)
-    const cur = v[f.key] || []
-    return (
-      <span className="inline-flex flex-wrap items-center gap-1">
-        {(f.items || []).filter(boleh).map((it) => { const on = cur.includes(it); return (
-          <button key={it} type="button" onClick={() => set({ [f.key]: on ? cur.filter((x) => x !== it) : [...cur, it] })} aria-pressed={on}
-            className={cx('h-8 rounded-md px-2 text-[11.5px] font-bold', on ? 'bg-emerald-500 text-white' : 'bg-white text-ink ring-1 ring-slate-300 hover:ring-ink')}>{on ? '✓ ' : '☐ '}{it}</button>) })}
-      </span>
-    )
-  }
+  if (f.type === 'checklist') return <CeklisRingkas f={f} v={v} set={set} />
   if (f.type === 'sumber_dana') return <select value={v[f.key] || ''} onChange={(e) => set({ [f.key]: e.target.value })} aria-label={f.label} className={cx(kotak, 'pr-7')}>{SUMBER_DANA.map((d) => <option key={d.code} value={d.code}>Dana {d.code}</option>)}</select>
   if (f.type === 'choice') return <select value={v[f.key] || ''} onChange={(e) => set({ [f.key]: e.target.value })} aria-label={f.label} className={cx(kotak, 'pr-7')}><option value="">{f.label}</option>{(f.options || []).map((o) => <option key={o}>{o}</option>)}</select>
   if (/^user:/.test(f.type)) {
@@ -228,7 +265,7 @@ function IsianRingkas({ f, v, set, project, sub, stage }) {
   return <input type={f.type === 'date' ? 'date' : f.type === 'money' ? 'number' : 'text'} value={v[f.key] ?? ''} onChange={(e) => set({ [f.key]: e.target.value })} placeholder={f.label} aria-label={f.label} className={cx(kotak, f.type === 'text' ? 'w-[200px]' : 'w-[150px]')} />
 }
 
-function BarisProses({ n, p, x }) {
+function BarisProses({ n, p, x, sel }) {
   const { user, processStage, notify, nameOf, sendPing } = useApp()
   const flow = flowOf(x, p); const st = stagesOf(flow).find((s) => s.key === x.stage)
   const [v, setV] = useState({})
@@ -244,27 +281,28 @@ function BarisProses({ n, p, x }) {
     }
     setV(init)
   }, [x.stage, x.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const nama = <><span className="w-5 shrink-0 text-right font-bold text-ink-mute">{n}</span><span className="max-w-[260px] truncate font-bold text-ink" title={x.title}>{x.title}</span></>
+  const pad = sel ? 'flex flex-nowrap items-center gap-2 text-[12.5px]' : 'flex flex-wrap items-center gap-2 px-4 py-2 text-[12.5px]'
+  const nama = sel ? null : <><span className="w-5 shrink-0 text-right font-bold text-ink-mute">{n}</span><span className="max-w-[260px] truncate font-bold text-ink" title={x.title}>{x.title}</span></>
   if (x.stage === DONE || !st) return (
-    <div className="flex flex-wrap items-center gap-2 px-4 py-2 text-[12.5px]" data-baris-proses="selesai">{nama}<span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[11.5px] font-bold text-emerald-700">✓ Selesai</span></div>
+    <div className={pad} data-baris-proses="selesai">{nama}<span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[11.5px] font-bold text-emerald-700">✓ Selesai</span></div>
   )
   const normal = can.processStage(user, st, x, p)
   const claim = activeClaim(x)
   const needClaim = st.claimable && user.role !== 'superadmin' && (!claim || claim.by !== user.id)
   const wajib = (st.fields || []).filter((f) => f.required)
   const ringkas = normal && !needClaim && wajib.every((f) => TIPE_RINGKAS(f.type)) && wajib.length <= 3
-  const tahap = <span className={cx('whitespace-nowrap rounded-md px-2 py-0.5 text-[11.5px] font-bold', normal ? 'bg-indigo-50 text-ink' : 'bg-slate-100 text-ink-soft')}>{st.label}</span>
+  const tahap = sel ? null : <span className={cx('whitespace-nowrap rounded-md px-2 py-0.5 text-[11.5px] font-bold', normal ? 'bg-indigo-50 text-ink' : 'bg-slate-100 text-ink-soft')}>{st.label}</span>
   if (!normal) {
     const tid = st.assignee ? x.data?.[st.assignee] : null
     const who = claim && st.claimable ? `${claim.name} (sedang diproses)` : tid ? nameOf(tid) : st.printBranch ? `staf cabang ${p.about?.print_location || p.branch}` : st.roles.filter((r) => r !== 'superadmin').map((r) => ROLES[r]?.label || r).join(' / ')
     const bisaLewati = ['superadmin', 'direktur', 'admin_pusat'].includes(user.role)
     return (
-      <div className="bg-slate-50/70" data-baris-proses="menunggu">
-        <div className="flex flex-wrap items-center gap-2 px-4 py-2 text-[12.5px] text-ink-soft">{nama}{tahap}<span className="text-[11.5px]">🔒 menunggu {who}</span>
+      <div className={sel ? '' : 'bg-slate-50/70'} data-baris-proses="menunggu">
+        <div className={cx(pad, 'text-ink-soft')}>{nama}{tahap}<span className="text-[11.5px]">🔒 menunggu {who}</span>
           {tid && tid !== user.id && <button type="button" onClick={async () => { try { await sendPing({ to_user: tid, project: p, sub: x, stage: st, message: `Mohon dicek: ${st.label}` }); notify('Ping terkirim') } catch (e) { notify(e.message, 'err') } }} className="h-8 rounded-lg bg-white px-3 font-semibold text-ink ring-1 ring-slate-300">🔔 Ping</button>}
           {bisaLewati && <button type="button" onClick={() => setPenuh((o) => !o)} className="h-8 rounded-lg px-2 text-[11.5px] font-semibold text-amber-700 hover:bg-amber-50">{penuh ? 'Tutup' : 'Lanjutkan tanpa menunggu…'}</button>}
         </div>
-        {penuh && <div className="pb-2 [&>div]:mx-4"><StagePanel project={p} sub={x} stage={st} /></div>}
+        {penuh && <div className={sel ? 'whitespace-normal pt-2' : 'pb-2 [&>div]:mx-4'}><StagePanel project={p} sub={x} stage={st} /></div>}
       </div>
     )
   }
@@ -278,7 +316,7 @@ function BarisProses({ n, p, x }) {
   }
   return (
     <div data-baris-proses="aktif">
-      <div className="flex flex-wrap items-center gap-2 px-4 py-2 text-[12.5px]">
+      <div className={pad}>
         {nama}{tahap}
         {ringkas ? <>
           {wajib.map((f) => <IsianRingkas key={f.key} f={f} v={v} set={(o) => setV((cur) => ({ ...cur, ...o }))} project={p} sub={x} stage={st} />)}
@@ -287,7 +325,7 @@ function BarisProses({ n, p, x }) {
         </> : <button type="button" onClick={() => setPenuh((o) => !o)} className="h-9 rounded-lg bg-ink px-3.5 font-bold text-white" data-aksi="proses-lengkap">{penuh ? 'Tutup' : `${st.action || 'Proses'} ▾`}</button>}
         {ok && <span className="font-bold text-emerald-600">✓</span>}
       </div>
-      {penuh && <div className="pb-2 [&>div]:mx-4"><StagePanel project={p} sub={x} stage={st} /></div>}
+      {penuh && <div className={sel ? 'whitespace-normal pt-2' : 'pb-2 [&>div]:mx-4'}><StagePanel project={p} sub={x} stage={st} /></div>}
     </div>
   )
 }
@@ -450,15 +488,21 @@ const KOLOM_P = [
   { key: 'layanan', label: 'Detail Layanan', sort: (r) => r.layananAll[0] || '', nilai: (r) => r.subs.map(jenisLayanan) },
 ]
 
-function KlasikProject() {
-  const { user, data, nameOf } = useApp()
+function KlasikProject({ jenis = 'projects' }) {
+  const { user, data, nameOf, personaList, setActiveRole } = useApp()
+  const [ajuBaru, setAjuBaru] = useState(false)
+  const [baru, setBaru] = useState(false)
+  // Penugasan lewat jabatan tersembunyi: proses harus atas nama persona (mis. Laila Fina)
+  const personaTugas = jenis === 'k-penugasan' && !rolesOf(user).some((r) => PERAN_TUGAS.includes(r)) ? personaList.find((x) => PERAN_TUGAS.includes(x.role)) : null
+  const saringTab = TAB_PROYEK.find((t) => t.key === jenis)?.saring
   const [cepat, setCepat] = useState('aktif')
   const [q, setQ] = useState('')
   const [buka, setBuka] = useState(null)
   const [lihat, setLihat] = useState(null)
+  const [folder, setFolder] = useState(null) // ikon folder → file project langsung
   const [batas, setBatas] = useState(60)
-  const semua = useMemo(() => scopeByBranch(user, data.projects || []).filter((p) => !p.cancelled && !p.demo_perf)
-    .map((p) => projectRow(p, nameOf)), [user, data.projects, nameOf])
+  const semua = useMemo(() => scopeByBranch(user, data.projects || []).filter((p) => !p.cancelled && !p.demo_perf && (!saringTab || saringTab(p, user, data)))
+    .map((p) => projectRow(p, nameOf)), [user, data, nameOf, saringTab])
   const n = {
     aktif: semua.filter((r) => r.status !== 'Selesai').length,
     terlambat: semua.filter((r) => r.terlambat).length,
@@ -474,9 +518,10 @@ function KlasikProject() {
   const tampil = rows.slice(0, batas)
   const tabs = [['aktif', `Aktif ${n.aktif}`], ['terlambat', `Terlambat ${n.terlambat}`], ['hariini', `Hari ini ${n.hariini}`], ['besok', `Besok ${n.besok}`], ['selesai', 'Selesai'], ['semua', 'Semua']]
   const projLihat = lihat && (data.projects || []).find((x) => x.id === lihat)
+  const formBaru = baru && <ProjectForm minimal onClose={() => setBaru(false)} onSaved={() => {}} />
   const lembarDetail = projLihat && (
-    <Sheet open side wide onClose={() => setLihat(null)} title={invoiceLabel(projLihat.invoice_no)} subtitle={`${projLihat.customer?.name || ''} · ${projLihat.branch}`}>
-      <div data-klasik-detail><ProjectDetail id={projLihat.id} embedded /></div>
+    <Sheet open side onClose={() => setLihat(null)} title={invoiceLabel(projLihat.invoice_no)} subtitle={`${projLihat.customer?.name || ''} · ${projLihat.branch}`}>
+      <div data-klasik-detail><DetailRingkas id={projLihat.id} onClose={() => setLihat(null)} /></div>
     </Sheet>
   )
   const hp = useHp()
@@ -515,9 +560,8 @@ function KlasikProject() {
         {!tampil.length && <p className="px-4 py-10 text-center text-ink-mute">Tidak ada project sesuai saringan.</p>}
       </div>
       {rows.length > batas && <button type="button" onClick={() => setBatas((b) => b + 60)} className="m-3 h-11 w-[calc(100%-24px)] rounded-xl bg-white font-semibold text-brand ring-1 ring-slate-200">Tampilkan lebih banyak ({rows.length - batas})</button>}
-      {can.editProject(user) && <button type="button" onClick={() => go('projects/new')} aria-label="Project baru" className="fixed bottom-5 right-4 z-30 grid h-14 w-14 place-items-center rounded-full bg-ink text-white shadow-xl"><Plus className="h-6 w-6" /></button>}
       {saring && <LembarSaring cols={KOLOM_P} {...tb} jumlah={rows.length} satuan="project" onClose={() => setSaring(false)} />}
-      {lembarDetail}
+      {lembarDetail}{formBaru}<LembarFile id={folder} onClose={() => setFolder(null)} />{ajuBaru && <RequestForm open side onClose={() => setAjuBaru(false)} onSaved={() => setAjuBaru(false)} />}
     </div>
   )
   const Tumpuk = ({ r, fn, cls }) => (
@@ -526,6 +570,12 @@ function KlasikProject() {
 
   return (
     <div className="min-w-0">
+      {personaTugas && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900" data-banner-persona>
+          <UserCheck className="h-4 w-4" aria-hidden="true" />Penugasan diproses sebagai <b>{personaTugas.name}</b>.
+          <button type="button" onClick={() => setActiveRole(`as:${personaTugas.id}`)} data-aksi="pakai-persona" className="h-8 rounded-lg bg-amber-500 px-3 font-bold text-white hover:bg-amber-600">Beralih ke {personaTugas.name}</button>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-[var(--klasik-latar)] px-3 py-2 text-[12.5px]" data-klasik-filter>
         <span className="flex shrink-0 gap-0.5 rounded-lg bg-white p-0.5 font-semibold ring-1 ring-slate-200" role="group" aria-label="Filter cepat">
           {tabs.map(([k, l]) => <button key={k} type="button" onClick={() => setCepat(k)} aria-pressed={cepat === k} className={cx('h-8 whitespace-nowrap rounded-md px-2.5', cepat === k ? 'bg-ink text-white' : 'text-ink-soft hover:bg-slate-50')}>{l}</button>)}
@@ -534,11 +584,8 @@ function KlasikProject() {
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-mute" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari invoice, pelanggan, dokumen…" aria-label="Cari project" className="h-9 w-full rounded-lg border-0 bg-white pl-8 pr-2 text-[12.5px] ring-1 ring-slate-200 focus:ring-2 focus:ring-brand" />
         </label>
-        <span className="text-[11px] text-ink-mute">Saring &amp; urutkan lewat judul kolom ▾ · tarik tepi judul untuk ubah lebar</span>{tb.adaLebar && <button type="button" onClick={tb.resetLebar} data-aksi="reset-lebar" className="text-[11px] font-semibold text-brand hover:underline">Lebar semula</button>}
+        {tb.adaLebar && <button type="button" onClick={tb.resetLebar} data-aksi="reset-lebar" className="text-[11px] font-semibold text-brand hover:underline">Lebar semula</button>}
         {nAktif > 0 && <button type="button" onClick={reset} className="flex h-9 items-center gap-1 rounded-lg px-2 font-semibold text-rose-600 hover:bg-rose-50" data-reset-saring><X className="h-3.5 w-3.5" />Hapus {nAktif} saringan</button>}
-        {can.editProject(user) && (
-          <button type="button" onClick={() => go('projects/new')} className="ml-auto flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg bg-ink px-3 font-bold text-white"><Plus className="h-4 w-4" />Project baru</button>
-        )}
       </div>
       <div className="overflow-x-auto" onScroll={(e) => { const g = e.currentTarget.scrollLeft > 8; if (g !== geser) setGeser(g) }}>
         <tb.GayaLebar />
@@ -554,7 +601,7 @@ function KlasikProject() {
               return [
                 <tr key={r.id} onClick={() => setBuka(dipilih ? null : r.id)} {...bisaDitekan(() => setBuka(dipilih ? null : r.id))} aria-expanded={dipilih} className="cursor-pointer whitespace-nowrap align-top" data-pilih={dipilih ? '' : undefined} data-telat={r.terlambat ? '' : undefined} data-klasik-baris>
                   <td className="px-3 py-2 leading-tight"><Lingkar warna={r.dibuatHariIni ? 'hijau' : ''} judul="Diinput hari ini"><span className="text-xs tabular-nums">{tg}</span></Lingkar>{jm && <span className="mt-0.5 block text-[11px] tabular-nums text-ink-mute">{jm}</span>}</td>
-                  <td className="px-3 py-2"><InfoHover inline isi={<InfoLayanan r={r} nameOf={nameOf} />}><Lingkar warna={r.prioMendesak && !r.p.about?.priority?.match(/sameday|super|ekspres|speed/i) ? 'hitam' : ''} judul={`Prioritas ${r.prioritas}`}><InvoiceNo project={r.p} /></Lingkar></InfoHover>{r.subs.length > 1 && <span className="ml-1 rounded bg-slate-200 px-1 text-[10px] font-semibold text-ink-soft">{r.subs.length} sub</span>}<button type="button" onClick={(e) => { e.stopPropagation(); setLihat(r.id) }} title="Lihat detail project" aria-label={`Detail ${invoiceLabel(r.invoice)}`} data-aksi="mata" className="ml-1 inline-grid h-7 w-7 place-items-center rounded-md align-middle text-ink-mute hover:bg-slate-200 hover:text-ink"><Eye className="h-4 w-4" /></button></td>
+                  <td className="px-3 py-2"><InfoHover inline isi={<InfoLayanan r={r} nameOf={nameOf} />}><Lingkar warna={r.prioMendesak && !r.p.about?.priority?.match(/sameday|super|ekspres|speed/i) ? 'hitam' : ''} judul={`Prioritas ${r.prioritas}`}><InvoiceNo project={r.p} /></Lingkar></InfoHover>{r.subs.length > 1 && <span data-sub-count className="ml-1 rounded bg-slate-200 px-1 text-[10px] font-semibold text-ink-soft">{r.subs.length} sub</span>}<IkonBaris id={r.id} inv={r.invoice} lihat={setLihat} folder={setFolder} /></td>
                   <td className="max-w-[170px] truncate px-3 py-2">{r.pelanggan || '—'}</td>
                   <td className="px-3 py-2"><span className={cx('inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold', r.prioritas === 'Normal' ? 'bg-slate-100 text-ink-soft' : 'bg-rose-50 text-rose-700 ring-1 ring-rose-200')}>{r.prioritas}</span></td>
                   <td className="px-3 py-2"><Lingkar warna={r.status === 'Selesai' ? '' : r.dlHariIni ? 'merah' : r.dlBesok ? 'oranye' : ''} judul={r.dlHariIni ? 'Deadline hari ini' : 'Deadline besok'}><span className="tabular-nums">{r.deadline ? tanggal(r.deadline) : '—'}</span></Lingkar>{sisa && <span className={cx('block text-[10.5px] font-bold', grupOf(r.p) === 'terlambat' ? 'text-rose-600' : 'text-orange-600')}>{sisa}</span>}</td>
@@ -580,7 +627,7 @@ function KlasikProject() {
         {rows.length > batas && <button type="button" onClick={() => setBatas((b) => b + 60)} className="ml-3 font-semibold text-brand">Tampilkan lebih banyak</button>}
         <span className="ml-auto">{n.terlambat} terlambat · {n.hariini} deadline hari ini</span>
       </div>
-      {lembarDetail}
+      {lembarDetail}{formBaru}<LembarFile id={folder} onClose={() => setFolder(null)} />{ajuBaru && <RequestForm open side onClose={() => setAjuBaru(false)} onSaved={() => setAjuBaru(false)} />}
     </div>
   )
 }
@@ -695,6 +742,7 @@ function ProsesRequest({ r }) {
 
 function KlasikKeuangan() {
   const { user, data, nameOf } = useApp()
+  const [ajuBaru, setAjuBaru] = useState(false)
   const [cepat, setCepat] = useState('semua')
   const [q, setQ] = useState('')
   const [buka, setBuka] = useState(null)
@@ -788,7 +836,8 @@ function KlasikKeuangan() {
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari invoice, penerima, catatan…" aria-label="Cari pengajuan" className="h-9 w-full rounded-lg border-0 bg-white pl-8 pr-2 text-[12.5px] ring-1 ring-slate-200 focus:ring-2 focus:ring-brand" />
         </label>
         {nAktif > 0 && <button type="button" onClick={reset} className="flex h-9 items-center gap-1 rounded-lg px-2 font-semibold text-rose-600 hover:bg-rose-50"><X className="h-3.5 w-3.5" />Hapus {nAktif} saringan</button>}
-        <span className="ml-auto text-[11px] text-ink-mute">Saring &amp; urutkan lewat judul kolom ▾ · tarik tepi judul untuk ubah lebar</span>{tb.adaLebar && <button type="button" onClick={tb.resetLebar} data-aksi="reset-lebar" className="text-[11px] font-semibold text-brand hover:underline">Lebar semula</button>}
+        {tb.adaLebar && <button type="button" onClick={tb.resetLebar} data-aksi="reset-lebar" className="text-[11px] font-semibold text-brand hover:underline">Lebar semula</button>}
+        {ajuBaru && <RequestForm open side onClose={() => setAjuBaru(false)} onSaved={() => setAjuBaru(false)} />}
       </div>
       <div className="overflow-x-auto" onScroll={(e) => { const g = e.currentTarget.scrollLeft > 8; if (g !== geser) setGeser(g) }}>
         <tb.GayaLebar />
@@ -837,64 +886,612 @@ function KlasikKeuangan() {
   )
 }
 
+/** Tombol "+ Project baru" & "+ Pengajuan" — tampil di semua tab Mode Klasik (header). */
+function TombolBaru({ hp, setBaru, setAju }) {
+  const { user } = useApp()
+  const proj = can.editProject(user) && menuBoleh(user, 'projects')
+  const aju = bolehAju(user) && menuBoleh(user, 'keuangan')
+  if (!proj && !aju) return null
+  if (hp) return (
+    <div className="fixed bottom-5 right-4 z-30 flex items-center gap-2" data-tombol-baru>
+      {aju && <button type="button" onClick={() => setAju(true)} data-aksi="pengajuan-baru" className="flex h-12 items-center gap-1 rounded-full bg-white px-4 text-[13px] font-bold text-ink shadow-xl ring-1 ring-slate-200"><Plus className="h-4 w-4" />Pengajuan</button>}
+      {proj && <button type="button" onClick={() => setBaru(true)} aria-label="Project baru" data-aksi="project-baru" className="flex h-12 items-center gap-1 rounded-full bg-ink px-4 text-[13px] font-bold text-white shadow-xl"><Plus className="h-4 w-4" />Project</button>}
+    </div>
+  )
+  return (
+    <span className="flex items-center gap-1.5" data-tombol-baru>
+      {aju && <button type="button" onClick={() => setAju(true)} data-aksi="pengajuan-baru" title="Pengajuan baru" aria-label="Pengajuan baru" className="flex h-9 items-center gap-1 whitespace-nowrap rounded-lg bg-white/10 px-3 text-[13px] font-bold text-white ring-1 ring-white/25 hover:bg-white/20"><Plus className="h-4 w-4" /><Wallet className="h-4 w-4 min-[1440px]:hidden" aria-hidden="true" /><span className="hidden min-[1440px]:inline">Pengajuan</span></button>}
+      {proj && <button type="button" onClick={() => setBaru(true)} data-aksi="project-baru" className="flex h-9 items-center gap-1 whitespace-nowrap rounded-lg bg-white px-3 text-[13px] font-bold text-ink hover:bg-white/90"><Plus className="h-4 w-4" />Project<span className="hidden min-[1800px]:inline">&nbsp;baru</span></button>}
+    </span>
+  )
+}
+
+/** Ikon setelah No. Invoice: mata (detail ringkas) & folder (file project). */
+function IkonBaris({ id, inv, lihat, folder }) {
+  const k = 'inline-grid h-7 w-7 place-items-center rounded-md align-middle text-ink-mute hover:bg-slate-200 hover:text-ink'
+  return (
+    <span className="ml-1 inline-flex items-center align-middle" data-ikon-baris>
+      <button type="button" onClick={(e) => { e.stopPropagation(); lihat(id) }} title="Lihat detail project" aria-label={`Detail ${invoiceLabel(inv)}`} data-aksi="mata" className={k}><Eye className="h-4 w-4" /></button>
+      <button type="button" onClick={(e) => { e.stopPropagation(); folder(id) }} title="File project" aria-label={`File ${invoiceLabel(inv)}`} data-aksi="folder" className={k}><FolderOpen className="h-4 w-4" /></button>
+    </span>
+  )
+}
+function LembarFile({ id, onClose }) {
+  const { data } = useApp()
+  const p = id && (data.projects || []).find((x) => x.id === id)
+  if (!p) return null
+  return <Sheet open side onClose={onClose} title={`File · ${invoiceLabel(p.invoice_no)}`} subtitle={`${p.customer?.name || ''} · ${p.branch}`}><FileManager project={p} /></Sheet>
+}
+
+// ------------------------------------------------------------
+//  DETAIL RINGKAS — panel dari kanan setelah klik ikon mata.
+//  Hanya yang perlu dilihat cepat; detail lengkap lewat satu tombol.
+// ------------------------------------------------------------
+const waDigit = (t) => { const d = String(t || '').replace(/\D/g, ''); return d.startsWith('0') ? `62${d.slice(1)}` : d }
+function DetailRingkas({ id, onClose }) {
+  const { data, nameOf } = useApp()
+  const p = (data.projects || []).find((x) => x.id === id)
+  if (!p) return <p className="p-6 text-sm text-ink-mute">Project tidak ditemukan.</p>
+  const r = projectRow(p, nameOf)
+  const subs = subsOf(p).filter((x) => !x.cancelled)
+  const telp = p.customer?.phone || p.customer?.ship?.phone
+  const sisa = sisaWaktu(p)
+  return (
+    <div className="space-y-4 text-[13px]" data-detail-ringkas>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Lingkar warna={r.status === 'Selesai' ? '' : r.dlHariIni ? 'merah' : r.dlBesok ? 'oranye' : ''} judul="Deadline"><span className="tabular-nums">⏰ {r.deadline ? tanggalJam(r.deadline) : 'tanpa deadline'}</span></Lingkar>
+        {sisa && <span className={cx('text-[11.5px] font-semibold', /lewat/.test(sisa) ? 'text-rose-600' : 'text-orange-600')}>{sisa}</span>}
+        <span className={cx('rounded-full px-2 py-0.5 text-[11px] font-semibold', PRIO_WARNA(r.prioritas))}>{r.prioritas}</span>
+      </div>
+      <dl className="grid grid-cols-[92px_1fr] gap-x-3 gap-y-1.5">
+        <dt className="text-ink-mute">Pelanggan</dt><dd className="flex min-w-0 items-center gap-2 font-semibold"><span className="truncate">{r.pelanggan || '—'}</span>
+          {telp && <a href={`https://wa.me/${waDigit(telp)}`} target="_blank" rel="noreferrer" className="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-200">WA</a>}</dd>
+        <dt className="text-ink-mute">Cabang</dt><dd>{p.branch}{r.print && r.print !== p.branch ? <span className="text-ink-mute"> · print di {r.print}</span> : ''}</dd>
+        <dt className="text-ink-mute">CS</dt><dd>{r.cs || '—'}</dd>
+        <dt className="text-ink-mute">Status</dt><dd className="font-semibold">{r.status}</dd>
+      </dl>
+      {p.about?.notes && <p className="whitespace-pre-wrap rounded-lg bg-amber-50 px-3 py-2 text-amber-900 ring-1 ring-amber-200">📝 {p.about.notes}</p>}
+      <div>
+        <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-ink-mute">Dokumen ({subs.length})</p>
+        <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200">
+          {subs.map((x, i) => {
+            const st = stagesOf(flowOf(x, p)); const idx = x.stage === DONE ? st.length : Math.max(0, st.findIndex((t) => t.key === x.stage))
+            const pct = st.length ? Math.round((idx / st.length) * 100) : 0
+            return (
+              <li key={x.id} className="space-y-1.5 px-3 py-2.5">
+                <div className="flex items-start gap-2">
+                  <span className="w-4 shrink-0 pt-0.5 text-[11px] font-bold text-ink-mute">{i + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold text-ink" title={x.title}>{x.title || '—'}</p>
+                    <p className="truncate text-[11.5px] text-ink-mute">{SUB_TYPES[x.type]?.label || x.type}{x.lang_from && x.lang_to ? ` · ${x.lang_from} → ${x.lang_to}` : ''} · {subHal(x)} hlm{subOrang(x, nameOf) ? ` · ${subOrang(x, nameOf)}` : ''}</p>
+                  </div>
+                  <span className={cx('shrink-0 rounded-md px-2 py-0.5 text-[11px] font-bold', x.stage === DONE ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-50 text-ink')}>{subStatus(x, p)}</span>
+                </div>
+                <div className="ml-6 h-1 overflow-hidden rounded-full bg-slate-100" title={`Tahap ${Math.min(idx + 1, st.length)} dari ${st.length}`}><div className={cx('h-full rounded-full', x.stage === DONE ? 'bg-emerald-500' : 'bg-brand')} style={{ width: `${Math.max(pct, 4)}%` }} /></div>
+                {x.stage !== DONE && <div className="ml-6"><BarisProses p={p} x={x} sel /></div>}
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+      <div className="space-y-2 [&_[data-tab-detail]]:flex-wrap" data-tab-ringkas><TabDetailProject project={p} ringkas /></div>
+      <button type="button" onClick={() => { onClose?.(); go(`projects/${p.id}`) }} data-aksi="detail-lengkap" className="flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl text-[13px] font-semibold text-ink-soft ring-1 ring-slate-200 hover:bg-slate-50 hover:text-ink">
+        Buka detail lengkap <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
+    </div>
+  )
+}
+
+// ------------------------------------------------------------
+//  APOSTILLE / LEGALISASI — satu baris = satu dokumen (tanpa dropdown).
+//  Invoice/pelanggan/deadline ditulis sekali per project; aksi langsung di baris.
+// ------------------------------------------------------------
+const JENIS_AL = { apostille: ['APOSTILLE', 'bg-violet-100 text-violet-800'], legalisasi: ['LEGALISASI', 'bg-sky-100 text-sky-800'] }
+const KOLOM_A = [
+  { key: 'invoice', label: 'No. Invoice', sort: (d) => d.r.invoice, nilai: (d) => [d.r.invoice || '—'] },
+  { key: 'pelanggan', label: 'Pelanggan', sort: (d) => d.r.pelanggan, nilai: (d) => [d.r.pelanggan || '—'] },
+  { key: 'deadline', label: 'Deadline', sort: (d) => d.r.deadline || '9', tanggal: (d) => d.r.deadline },
+  { key: 'dokumen', label: 'Dokumen', sort: (d) => d.x.title || '' },
+  { key: 'jenis', label: 'Jenis', sort: (d) => d.x.type, nilai: (d) => [JENIS_AL[d.x.type]?.[0] || d.x.type] },
+  { key: 'tujuan', label: 'Negara / Instansi', sort: (d) => d.tujuan, nilai: (d) => [d.tujuan || '—'] },
+  { key: 'tahap', label: 'Tahap', sort: (d) => d.tahap, nilai: (d) => [d.tahap] },
+  { key: 'aksi', label: 'Aksi' },
+  { key: 'cabang', label: 'Cabang', sort: (d) => d.r.cabang || d.p.branch, nilai: (d) => [d.p.branch || '—'] },
+]
+
+function KlasikApostille() {
+  const { user, data, nameOf } = useApp()
+  const [cepat, setCepat] = useState('aktif')
+  const [q, setQ] = useState('')
+  const [lihat, setLihat] = useState(null)
+  const [folder, setFolder] = useState(null) // ikon folder → file project langsung
+  const semua = useMemo(() => {
+    const orang = Object.fromEntries((data.people || []).map((x) => [x.id, x.name]))
+    return scopeByBranch(user, data.projects || []).filter((p) => !p.cancelled && !p.demo_perf && tabApostille(p)).flatMap((p) => {
+      const r = projectRow(p, nameOf)
+      return subsOf(p).filter((x) => !x.cancelled && ['apostille', 'legalisasi'].includes(x.type))
+        .map((x) => ({ id: `${p.id}:${x.id}`, p, x, r, tahap: subStatus(x, p), selesai: x.stage === DONE, tujuan: x.country || orang[x.institution] || x.institution || '' }))
+    })
+  }, [user, data.projects, data.people, nameOf])
+  const n = {
+    aktif: semua.filter((d) => !d.selesai).length,
+    terlambat: semua.filter((d) => !d.selesai && d.r.terlambat).length,
+    hariini: semua.filter((d) => !d.selesai && d.r.dlHariIni).length,
+    besok: semua.filter((d) => !d.selesai && d.r.dlBesok).length,
+  }
+  const s = q.trim().toLowerCase()
+  const dasar = useMemo(() => semua.filter((d) => (cepat === 'aktif' ? !d.selesai : cepat === 'terlambat' ? !d.selesai && d.r.terlambat : cepat === 'hariini' ? !d.selesai && d.r.dlHariIni : cepat === 'besok' ? !d.selesai && d.r.dlBesok : cepat === 'selesai' ? d.selesai : true))
+    .filter((d) => !s || [d.r.invoice, invoiceLabel(d.r.invoice), d.r.pelanggan, d.x.title, d.tujuan, d.tahap].some((v) => String(v || '').toLowerCase().includes(s))), [semua, cepat, s])
+  // urutan bawaan: project terbaru dulu, dokumen tetap berkelompok
+  const tb = useTabel(dasar, KOLOM_A, { key: '', dir: 'desc' }, 'a')
+  const [geser, setGeser] = useState(false)
+  const { hasil: rows, Judul, nAktif, reset } = tb
+  const tabs = [['aktif', `Aktif ${n.aktif}`], ['terlambat', `Terlambat ${n.terlambat}`], ['hariini', `Hari ini ${n.hariini}`], ['besok', `Besok ${n.besok}`], ['selesai', 'Selesai'], ['semua', 'Semua']]
+  let grup = 0
+  return (
+    <div className="min-w-0" data-klasik-apostille>
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-[var(--klasik-latar)] px-3 py-2">
+        <span className="flex rounded-xl bg-white p-1 ring-1 ring-slate-200" role="group" aria-label="Filter cepat">
+          {tabs.map(([k, l]) => <button key={k} type="button" onClick={() => setCepat(k)} aria-pressed={cepat === k} className={cx('min-h-[32px] whitespace-nowrap rounded-lg px-3 text-[12.5px] font-semibold', cepat === k ? 'bg-ink text-white' : 'text-ink-soft hover:text-ink')}>{l}</button>)}
+        </span>
+        <label className="relative min-w-[220px] flex-1 md:max-w-[320px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" aria-hidden="true" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari invoice, pelanggan, dokumen…" aria-label="Cari" className="h-10 w-full rounded-xl border-0 bg-white pl-9 pr-3 text-[13px] ring-1 ring-slate-200 focus:ring-2 focus:ring-brand" /></label>
+        {nAktif > 0 && <button type="button" onClick={reset} className="text-[11px] font-semibold text-rose-600 hover:underline">Hapus saringan ({nAktif})</button>}
+        {tb.adaLebar && <button type="button" onClick={tb.resetLebar} data-aksi="reset-lebar" className="text-[11px] font-semibold text-brand hover:underline">Lebar semula</button>}
+      </div>
+      <div className="overflow-x-auto" onScroll={(e) => { const g = e.currentTarget.scrollLeft > 8; if (g !== geser) setGeser(g) }}>
+        <tb.GayaLebar />
+        <table className="w-full text-[12.5px]" data-klasik-tabel data-lebar="a" data-beku-pertama data-geser={geser ? '' : undefined}>
+          <thead className="bg-slate-50 text-left text-[10.5px] uppercase tracking-wide text-ink-mute"><tr className="border-b border-slate-200">{KOLOM_A.map((c) => <Judul key={c.key} c={c} />)}</tr></thead>
+          <tbody>
+            {rows.map((d, i) => {
+              const awal = i === 0 || rows[i - 1].p.id !== d.p.id
+              if (awal) grup += 1
+              const [jl, jc] = JENIS_AL[d.x.type] || [d.x.type, 'bg-slate-100 text-ink-soft']
+              return (
+                <tr key={d.id} data-klasik-dok data-awal={awal ? '' : undefined} data-zebra={grup % 2 === 0 ? '' : undefined} data-telat={d.r.terlambat && !d.selesai ? '' : undefined} className="whitespace-nowrap align-middle">
+                  <td className="px-3 py-2">{awal && <span className="inline-flex items-center gap-1"><InfoHover inline isi={<InfoLayanan r={d.r} nameOf={nameOf} />}><InvoiceNo project={d.p} /></InfoHover>
+                    <IkonBaris id={d.p.id} inv={d.r.invoice} lihat={setLihat} folder={setFolder} /></span>}</td>
+                  <td className="max-w-[200px] truncate px-3">{awal ? (d.r.pelanggan || '—') : ''}</td>
+                  <td className="px-3">{awal && <Lingkar warna={d.r.status === 'Selesai' ? '' : d.r.dlHariIni ? 'merah' : d.r.dlBesok ? 'oranye' : ''} judul="Deadline"><span className="tabular-nums">{d.r.deadline ? tanggal(d.r.deadline) : '—'}</span></Lingkar>}</td>
+                  <td className="max-w-[240px] truncate px-3 font-bold text-ink" title={d.x.title}>{d.x.title || '—'}</td>
+                  <td className="px-3"><span className={cx('rounded px-1.5 py-0.5 text-[10.5px] font-extrabold', jc)}>{jl}</span></td>
+                  <td className="max-w-[180px] truncate px-3">{d.tujuan || '—'}</td>
+                  <td className="px-3"><span className={cx('rounded-md px-2 py-0.5 text-[11.5px] font-bold', d.selesai ? 'bg-emerald-100 text-emerald-700' : 'bg-indigo-50 text-ink')}>{d.tahap}</span></td>
+                  <td className="px-3 py-1.5"><BarisProses p={d.p} x={d.x} sel /></td>
+                  <td className="px-3">{awal ? d.p.branch : ''}</td>
+                </tr>
+              )
+            })}
+            {!rows.length && <tr><td colSpan={KOLOM_A.length} className="px-5 py-12 text-center text-ink-mute">Tidak ada dokumen apostille / legalisasi{cepat !== 'semua' || nAktif || s ? ' sesuai saringan' : ''}.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <Sheet open={!!lihat} onClose={() => setLihat(null)} title={invoiceLabel((data.projects || []).find((x) => x.id === lihat)?.invoice_no || 'Detail project')} side>{lihat && <DetailRingkas id={lihat} onClose={() => setLihat(null)} />}</Sheet>
+      <LembarFile id={folder} onClose={() => setFolder(null)} />
+    </div>
+  )
+}
+
+// ------------------------------------------------------------
+//  PENUGASAN — dokumen yang perlu penerjemah (tugas Supervisor).
+//  Satu baris = satu dokumen; pilih penerjemah (tanpa rekomendasi; kuota
+//  sisa kapasitas) lalu Tugaskan langsung di baris.
+// ------------------------------------------------------------
+const hlmDok = (x, p) => { const f = flowOf(x, p); const k = kindPages(x); return f === 'tr_nt' ? (Number(x.pages) || 1) : ((k.reguler || 0) + (k.non_reguler || 0)) || (Number(x.pages) || 1) }
+const perluPenerjemah = (x) => x.type === 'terjemahan' && ((x.flow === 'tr_int' && x.stage === 'pilih_penerjemah') || (x.flow === 'tr_ext' && x.stage === 'pengajuan' && !x.data?.vendor && !x.data?.coordinator))
+const KOLOM_T = [
+  { key: 'invoice', label: 'No. Invoice', sort: (d) => d.r.invoice, nilai: (d) => [d.r.invoice || '—'] },
+  { key: 'pelanggan', label: 'Pelanggan', sort: (d) => d.r.pelanggan },
+  { key: 'deadline', label: 'Deadline', sort: (d) => d.r.deadline || '9', tanggal: (d) => d.r.deadline },
+  { key: 'dokumen', label: 'Dokumen', sort: (d) => d.x.title || '' },
+  { key: 'arah', label: 'Arah', sort: (d) => d.arah, nilai: (d) => [d.arah] },
+  { key: 'hal', label: 'Hal', num: true, sort: (d) => d.hal },
+  { key: 'cabang', label: 'Cabang', sort: (d) => d.p.branch, nilai: (d) => [d.p.branch || '—'] },
+  { key: 'tugas', label: 'Penerjemah' },
+]
+
+function KlasikPenugasan() {
+  const { user, data, nameOf, assignTranslator, notify, personaList, setActiveRole } = useApp()
+  const [cepat, setCepat] = useState('semua')
+  const [q, setQ] = useState('')
+  const [pilihan, setPilihan] = useState({})
+  const [sibuk, setSibuk] = useState({})
+  const [lihat, setLihat] = useState(null)
+  const [folder, setFolder] = useState(null) // ikon folder → file project langsung
+  const [tglKuota, setTglKuota] = useState('') // klik tanggal deadline → kuota penerjemah di tanggal itu
+  const personaTugas = !rolesOf(user).some((r) => PERAN_TUGAS.includes(r)) ? personaList.find((x) => PERAN_TUGAS.includes(x.role)) : null
+  // beban penerjemah: halaman yang sedang dikerjakan (atau yang deadline-nya di tanggal terpilih) vs kapasitas harian
+  const tim = useMemo(() => {
+    const pakai = {}
+    for (const p of data.projects || []) for (const x of p.sub_projects || []) if (x.data?.translator && x.stage === 'penerjemahan' && (!tglKuota || hariKey(p.about?.deadline) === tglKuota)) pakai[x.data.translator] = (pakai[x.data.translator] || 0) + hlmDok(x, p)
+    return (data.users || []).filter((u) => u.role === 'penerjemah' && u.active !== false)
+      .map((u) => { const kap = kapasitasHarian(u, data.kapasitas); return { u, kap, pakai: pakai[u.id] || 0, sisa: kap - (pakai[u.id] || 0) } })
+      .sort((a, b) => b.sisa - a.sisa)
+  }, [data.projects, data.users, data.kapasitas, tglKuota])
+  const semua = useMemo(() => scopeByBranch(user, data.projects || []).filter((p) => !p.cancelled && !p.demo_perf).flatMap((p) => {
+    const r = projectRow(p, nameOf)
+    return subsOf(p).filter((x) => !x.cancelled && perluPenerjemah(x)).map((x) => ({ id: `${p.id}:${x.id}`, p, x, r, hal: hlmDok(x, p), arah: `${x.lang_from || '?'} → ${x.lang_to || '?'}` }))
+  }), [user, data.projects, nameOf])
+  // Koordinator bahasa (bila ada) ikut jadi pilihan; tanpa rekomendasi otomatis
+  const koordOf = (d) => coordinatorFor(data.users || [], foreignLang(d.x))
+  const n = { semua: semua.length, terlambat: semua.filter((d) => d.r.terlambat).length, hariini: semua.filter((d) => d.r.dlHariIni).length, besok: semua.filter((d) => d.r.dlBesok).length }
+  const s = q.trim().toLowerCase()
+  const dasar = useMemo(() => semua.filter((d) => (cepat === 'terlambat' ? d.r.terlambat : cepat === 'hariini' ? d.r.dlHariIni : cepat === 'besok' ? d.r.dlBesok : true))
+    .filter((d) => !s || [d.r.invoice, invoiceLabel(d.r.invoice), d.r.pelanggan, d.x.title, d.arah].some((v) => String(v || '').toLowerCase().includes(s))), [semua, cepat, s])
+  const tb = useTabel(dasar, KOLOM_T, { key: 'deadline', dir: 'asc' }, 't')
+  const [geser, setGeser] = useState(false)
+  const { hasil: rows, Judul } = tb
+  // koordinator bahasa (Emma/Debby) → diserahkan ke koordinator; selain itu penerjemah internal
+  const jenisTugas = (id) => ((data.users || []).find((u) => u.id === id)?.coordinator_lang ? 'coord' : 'internal')
+  const tugaskan = async (d, id) => {
+    if (!id) return notify('Pilih penerjemah dulu', 'err')
+    setSibuk((m) => ({ ...m, [d.id]: true }))
+    try {
+      await assignTranslator(d.p, d.x.id, { kind: jenisTugas(id), id, service: null })
+      notify(`${invoiceLabel(d.r.invoice)} · ${d.x.title} → ${(data.users || []).find((u) => u.id === id)?.name || ''}`)
+    } catch (e) { notify(e.message, 'err') }
+    setSibuk((m) => ({ ...m, [d.id]: false }))
+  }
+  const tugaskanSemua = async () => {
+    let ok = 0
+    for (const d of rows) { const sr = pilihan[d.id]; if (!sr) continue; try { await assignTranslator(d.p, d.x.id, { kind: jenisTugas(sr), id: sr, service: null }); ok++ } catch { /* lanjut */ } }
+    notify(`${ok} dokumen ditugaskan`)
+  }
+  const tabs = [['semua', `Perlu penerjemah ${n.semua}`], ['terlambat', `Terlambat ${n.terlambat}`], ['hariini', `Hari ini ${n.hariini}`], ['besok', `Besok ${n.besok}`]]
+  let grup = 0
+  return (
+    <div className="min-w-0" data-klasik-penugasan>
+      {personaTugas && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900" data-banner-persona>
+          <UserCheck className="h-4 w-4" aria-hidden="true" />Penugasan diproses sebagai <b>{personaTugas.name}</b>.
+          <button type="button" onClick={() => setActiveRole(`as:${personaTugas.id}`)} data-aksi="pakai-persona" className="h-8 rounded-lg bg-amber-500 px-3 font-bold text-white hover:bg-amber-600">Beralih ke {personaTugas.name}</button>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-[var(--klasik-latar)] px-3 py-2">
+        <span className="flex rounded-xl bg-white p-1 ring-1 ring-slate-200" role="group" aria-label="Filter cepat">
+          {tabs.map(([k, l]) => <button key={k} type="button" onClick={() => setCepat(k)} aria-pressed={cepat === k} className={cx('min-h-[32px] whitespace-nowrap rounded-lg px-3 text-[12.5px] font-semibold', cepat === k ? 'bg-ink text-white' : 'text-ink-soft hover:text-ink')}>{l}</button>)}
+        </span>
+        <label className="relative min-w-[220px] flex-1 md:max-w-[320px]"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" aria-hidden="true" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari invoice, pelanggan, dokumen…" aria-label="Cari" className="h-10 w-full rounded-xl border-0 bg-white pl-9 pr-3 text-[13px] ring-1 ring-slate-200 focus:ring-2 focus:ring-brand" /></label>
+        {tb.adaLebar && <button type="button" onClick={tb.resetLebar} data-aksi="reset-lebar" className="text-[11px] font-semibold text-brand hover:underline">Lebar semula</button>}
+        {!personaTugas && rows.some((d) => pilihan[d.id]) && <button type="button" onClick={tugaskanSemua} data-aksi="tugaskan-semua" className="ml-auto h-10 rounded-xl bg-emerald-600 px-4 text-[13px] font-bold text-white hover:bg-emerald-700">Tugaskan yang sudah dipilih ({rows.filter((d) => pilihan[d.id]).length})</button>}
+      </div>
+      {/* ringkasan kapasitas penerjemah */}
+      <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-100 bg-white px-3 py-2 [scrollbar-width:none]" data-kapasitas-ringkas>
+        <span className={cx('inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[11.5px] font-bold', tglKuota ? 'bg-indigo-50 text-ink ring-1 ring-indigo-200' : 'text-ink-mute')} data-kuota-tanggal>
+          {tglKuota ? <>Kuota {tanggal(`${tglKuota}T12:00:00+08:00`)}<button type="button" onClick={() => setTglKuota('')} aria-label="Kembali ke kuota saat ini" className="ml-1 grid h-5 w-5 place-items-center rounded hover:bg-indigo-100"><X className="h-3 w-3" /></button></> : 'Kuota saat ini'}
+        </span>
+        {tim.map((t) => (
+          <span key={t.u.id} className={cx('inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-semibold ring-1', t.sisa <= 0 ? 'bg-rose-50 text-rose-700 ring-rose-200' : t.sisa < t.kap * 0.3 ? 'bg-amber-50 text-amber-800 ring-amber-200' : 'bg-emerald-50 text-emerald-800 ring-emerald-200')}>
+            {String(t.u.name).replace(/\s*\(.*\)\s*$/, '')}<span className="tabular-nums opacity-75">{Math.max(0, t.sisa)}/{t.kap} hlm</span>
+          </span>
+        ))}
+      </div>
+      <div className="overflow-x-auto" onScroll={(e) => { const g = e.currentTarget.scrollLeft > 8; if (g !== geser) setGeser(g) }}>
+        <tb.GayaLebar />
+        <table className="w-full text-[12.5px]" data-klasik-tabel data-lebar="t" data-beku-pertama data-geser={geser ? '' : undefined}>
+          <thead className="bg-slate-50 text-left text-[10.5px] uppercase tracking-wide text-ink-mute"><tr className="border-b border-slate-200">{KOLOM_T.map((c) => <Judul key={c.key} c={c} />)}</tr></thead>
+          <tbody>
+            {rows.map((d, i) => {
+              const awal = i === 0 || rows[i - 1].p.id !== d.p.id
+              if (awal) grup += 1
+              const koord = koordOf(d)
+              const nilai = pilihan[d.id] ?? ''
+              return (
+                <tr key={d.id} data-klasik-dok data-awal={awal ? '' : undefined} data-zebra={grup % 2 === 0 ? '' : undefined} data-telat={d.r.terlambat ? '' : undefined} className="whitespace-nowrap align-middle">
+                  <td className="px-3 py-2">{awal && <span className="inline-flex items-center gap-1"><InfoHover inline isi={<InfoLayanan r={d.r} nameOf={nameOf} />}><InvoiceNo project={d.p} /></InfoHover>
+                    <IkonBaris id={d.p.id} inv={d.r.invoice} lihat={setLihat} folder={setFolder} /></span>}</td>
+                  <td className="max-w-[200px] truncate px-3">{awal ? (d.r.pelanggan || '—') : ''}</td>
+                  <td className="px-3">{awal && d.r.deadline && (
+                    <button type="button" onClick={() => setTglKuota((t) => (t === hariKey(d.r.deadline) ? '' : hariKey(d.r.deadline)))} title="Lihat kuota penerjemah di tanggal ini" data-aksi="kuota-tanggal"
+                      className={cx('rounded-full', tglKuota === hariKey(d.r.deadline) && 'ring-2 ring-brand ring-offset-1')}>
+                      <Lingkar warna={d.r.dlHariIni ? 'merah' : d.r.dlBesok ? 'oranye' : ''} judul="Deadline"><span className="tabular-nums underline decoration-dotted underline-offset-2">{tanggal(d.r.deadline)}</span></Lingkar>
+                    </button>)}</td>
+                  <td className="max-w-[240px] truncate px-3 font-bold text-ink" title={d.x.title}>{d.x.title || '—'}</td>
+                  <td className="px-3">{d.arah}</td>
+                  <td className="px-3 text-right tabular-nums">{d.hal}</td>
+                  <td className="px-3">{awal ? d.p.branch : ''}</td>
+                  <td className="px-3 py-1.5">
+                    {personaTugas ? <span className="text-[11.5px] text-ink-mute">🔒 beralih ke {personaTugas.name} untuk menugaskan</span> : (
+                      <span className="flex items-center gap-2">
+                        <select value={nilai} onChange={(e) => setPilihan((m) => ({ ...m, [d.id]: e.target.value }))} aria-label={`Penerjemah untuk ${d.x.title}`} className={cx(kotak, 'max-w-[230px] pr-7')} data-pilih-penerjemah>
+                          <option value="">Pilih penerjemah ▾</option>
+                          {koord && <option value={koord.id}>{String(koord.name).replace(/\s*\(.*\)\s*$/, '')} · koordinator {koord.coordinator_lang}</option>}
+                          {tim.map((t) => <option key={t.u.id} value={t.u.id}>{String(t.u.name).replace(/\s*\(.*\)\s*$/, '')} · sisa {Math.max(0, t.sisa)} hlm</option>)}
+                        </select>
+                        <button type="button" onClick={() => tugaskan(d, nilai)} disabled={sibuk[d.id] || !nilai} data-aksi="tugaskan" className="h-9 rounded-lg bg-ink px-3.5 font-bold text-white disabled:opacity-40">{sibuk[d.id] ? 'Menyimpan…' : 'Tugaskan →'}</button>
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+            {!rows.length && <tr><td colSpan={KOLOM_T.length} className="px-5 py-12 text-center text-ink-mute">Tidak ada dokumen yang menunggu penerjemah{cepat !== 'semua' || s ? ' sesuai saringan' : ''}. 🎉</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <Sheet open={!!lihat} onClose={() => setLihat(null)} title={invoiceLabel((data.projects || []).find((x) => x.id === lihat)?.invoice_no || 'Detail project')} side>{lihat && <DetailRingkas id={lihat} onClose={() => setLihat(null)} />}</Sheet>
+      <LembarFile id={folder} onClose={() => setFolder(null)} />
+    </div>
+  )
+}
+
+// ------------------------------------------------------------
+//  TAB PROJECT KLASIK — semua memakai tabel Project yang sama persis
+//  (kolom, saringan, lebar kolom, warna). Tab tambahan muncul sesuai
+//  tugas tambahan orangnya; Superadmin & Direktur melihat semua.
+// ------------------------------------------------------------
+const PERAN_TUGAS = ['superadmin', 'supervisor', 'direktur']
+const PEMERIKSA_K = (u) => rolesOf(u).some((r) => ['superadmin', 'direktur'].includes(r))
+const subsOf = (p) => p.sub_projects || []
+const tabKoordinator = (p, u, d) => subsOf(p).some((x) => PEMERIKSA_K(u)
+  ? !!(x.data?.coordinator || (x.type === 'terjemahan' && coordinatorFor(d.users || [], foreignLang(x))))
+  : diKoordinasi(u, x) || (!!u.coordinator_lang && x.type === 'terjemahan' && foreignLang(x) === u.coordinator_lang))
+const tabApostille = (p) => subsOf(p).some((x) => ['apostille', 'legalisasi'].includes(x.type))
+const tabPenugasan = (p) => subsOf(p).some((x) => x.type === 'terjemahan' && ((x.flow === 'tr_int' && x.stage === 'pilih_penerjemah') || (x.flow === 'tr_ext' && x.stage === 'pengajuan' && !x.data?.vendor && !x.data?.coordinator)))
+const tabTitip = (p, u) => { const loc = p.about?.print_location; if (!loc || loc === p.branch) return false; if (PEMERIKSA_K(u)) return true; const b = branchesOf(u); return b.includes(loc) || b.includes(p.branch) }
+export const TAB_PROYEK = [
+  { key: 'projects', label: 'Project', ikon: FolderOpen },
+  { key: 'k-koordinator', label: 'Koordinator', ikon: Languages, saring: tabKoordinator, boleh: (u) => PEMERIKSA_K(u) || !!u.coordinator_lang || vendorKoordinator(u).length > 0 },
+  { key: 'k-apostille', label: 'Apostille/Legalisasi', ikon: Stamp, saring: tabApostille, boleh: (u) => canSeeApostille(u) },
+  { key: 'k-penugasan', label: 'Penugasan', ikon: UserCheck, saring: tabPenugasan, boleh: (u, d, persona = []) => rolesOf(u).some((r) => PERAN_TUGAS.includes(r)) || persona.some((x) => PERAN_TUGAS.includes(x.role)) },
+  { key: 'k-titip', label: 'Titip Print', ikon: Printer, saring: tabTitip, boleh: (u, d) => PEMERIKSA_K(u) || (d.projects || []).some((p) => tabTitip(p, u)) },
+]
+let tabTerakhir = 'projects' // untuk tombol "Kembali ke daftar" dari detail project
+
+/** Avatar + menu akun (nama, peran, Keluar) di header Mode Klasik. */
+function MenuAkun({ hp }) {
+  const { user, data, signOut, ask, personaList, setActiveRole } = useApp()
+  const [buka, setBuka] = useState(false)
+  // Ganti peran / persona (jabatan tersembunyi) — sama seperti pemilih peran di Mode Baru
+  const asli = user?._actor ? (data.users || []).find((u) => u.id === user._actor) || user : user
+  const pilihan = user && !user._hantu ? [
+    ...rolesOf(asli).map((r) => ({ v: r, l: `Peran: ${ROLES[r]?.label || r}` })),
+    ...(personaList || []).map((x) => ({ v: `as:${x.id}`, l: `Sebagai: ${String(x.name).replace(/\s*\(.*\)\s*$/, '')}` })),
+  ] : []
+  const nilai = user?._actor ? `as:${user.id}` : user?.role
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!buka) return
+    const tutup = (e) => { if (!ref.current?.contains(e.target)) setBuka(false) }
+    const esc = (e) => e.key === 'Escape' && setBuka(false)
+    document.addEventListener('mousedown', tutup); document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', tutup); document.removeEventListener('keydown', esc) }
+  }, [buka])
+  const nama = String(user?.name || '').replace(/\s*\(.*\)\s*$/, '')
+  const keluar = async () => { setBuka(false); if (await ask('Keluar dari ATLAS?')) signOut() }
+  return (
+    <span ref={ref} className="relative shrink-0">
+      <button type="button" onClick={() => setBuka((b) => !b)} aria-expanded={buka} aria-haspopup="menu" aria-label="Menu akun" data-aksi="menu-akun"
+        className="flex min-h-[40px] items-center gap-2 rounded-lg px-1 text-sm hover:bg-white/10">
+        <Avatar user={user} size={hp ? 30 : 32} ring={false} />
+        {!hp && <span className="hidden leading-tight 2xl:block"><b>{nama}</b></span>}
+      </button>
+      {buka && (
+        <div role="menu" className="absolute right-0 top-[calc(100%+6px)] z-50 w-60 rounded-xl bg-white p-1.5 text-ink shadow-2xl ring-1 ring-slate-200">
+          <div className="px-3 py-2">
+            <p className="truncate text-sm font-bold">{nama}</p>
+            <p className="truncate text-xs text-ink-mute">{ROLES[user?.role]?.label || user?.role}{user?.branch ? ` · ${user.branch}` : ''}</p>
+          </div>
+          {hp && bolehKlasik(user, data) && !kunciKlasik(user) && (
+            <div className="mx-1.5 mb-1.5 flex items-center justify-between gap-2 rounded-lg py-1.5 pl-3 pr-1.5 text-white" style={{ background: 'var(--klasik-head, #0e1540)' }}>
+              <span className="text-xs font-semibold text-white/80">Tampilan</span>
+              <SaklarMode klasik selalu />
+            </div>
+          )}
+          {pilihan.length > 1 && (
+            <div className="border-y border-slate-100 py-1" data-ganti-peran-klasik>
+              {pilihan.map((o) => (
+                <button key={o.v} type="button" role="menuitemradio" aria-checked={nilai === o.v} onClick={() => { setBuka(false); if (nilai !== o.v) setActiveRole(o.v) }}
+                  className={cx('flex min-h-[40px] w-full items-center gap-2 rounded-lg px-3 text-left text-[13px]', nilai === o.v ? 'bg-indigo-50 font-bold text-ink' : 'text-ink-soft hover:bg-slate-50', o.v.startsWith('as:') && nilai === o.v && 'bg-amber-50 text-amber-900')}>
+                  <span className={cx('h-2 w-2 rounded-full', nilai === o.v ? (o.v.startsWith('as:') ? 'bg-amber-500' : 'bg-brand') : 'bg-slate-300')} />{o.l}
+                </button>
+              ))}
+            </div>
+          )}
+          <button type="button" role="menuitem" onClick={keluar} data-aksi="keluar"
+            className="flex min-h-[44px] w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50">
+            <LogOut className="h-4 w-4" aria-hidden="true" />Keluar
+          </button>
+        </div>
+      )}
+    </span>
+  )
+}
+
 // ------------------------------------------------------------
 //  KERANGKA LAYAR
 // ------------------------------------------------------------
+const labelTab = (l) => (l === 'Apostille/Legalisasi' ? 'Apostille' : l)
+/** Menu bawah Mode Klasik (HP & iPad): tab + tombol "+" di tengah. Tab yang tidak muat masuk "Lainnya". */
+function NavBawah({ tabs, aktif, maks, onPlus }) {
+  const [lain, setLain] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!lain) return
+    const tutup = (e) => { if (!ref.current?.contains(e.target)) setLain(false) }
+    const esc = (e) => e.key === 'Escape' && setLain(false)
+    document.addEventListener('pointerdown', tutup); document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('pointerdown', tutup); document.removeEventListener('keydown', esc) }
+  }, [lain])
+  // Yang selalu terlihat: Project & Keuangan, lalu tab yang sedang aktif, lalu sisanya sesuai urutan
+  let tampil = tabs, sisa = []
+  if (tabs.length > maks) {
+    const prio = [...tabs].sort((a, b) => {
+      const n = (t) => (t.key === 'projects' ? 0 : t.key === aktif ? 1 : t.key === 'keuangan' ? 2 : 3)
+      return n(a) - n(b)
+    })
+    const pilih = new Set(prio.slice(0, maks - 1).map((t) => t.key))
+    tampil = tabs.filter((t) => pilih.has(t.key)); sisa = tabs.filter((t) => !pilih.has(t.key))
+  }
+  const item = ({ key: k, label: l, ikon: I, judul }) => (
+    <a key={k} href={`#/${k}`} title={judul || l} aria-current={aktif === k ? 'page' : undefined} data-tab-klasik
+      className={cx('flex min-h-[52px] min-w-0 flex-1 flex-col items-center justify-center gap-1 text-[10.5px] leading-none', aktif === k ? 'font-extrabold text-ink' : 'font-semibold text-slate-500')}>
+      <span className={cx('grid h-7 w-12 place-items-center rounded-full', aktif === k && 'bg-[var(--klasik-pilih,#e6e9f5)]')}><I className="h-[18px] w-[18px]" aria-hidden="true" /></span>
+      <span className="max-w-full truncate px-0.5">{labelTab(l)}</span>
+    </a>
+  )
+  const semua = sisa.length ? [...tampil, { key: '__lain' }] : tampil
+  const tengah = Math.ceil(semua.length / 2)
+  const render = (t) => t.key !== '__lain' ? item(t) : (
+    <span key="__lain" ref={ref} className="relative flex min-w-0 flex-1">
+      <button type="button" onClick={() => setLain((b) => !b)} aria-expanded={lain} aria-haspopup="menu" data-aksi="tab-lainnya"
+        className={cx('flex min-h-[52px] w-full flex-col items-center justify-center gap-1 text-[10.5px] font-semibold leading-none', lain ? 'text-ink' : 'text-slate-500')}>
+        <span className={cx('grid h-7 w-12 place-items-center rounded-full', lain && 'bg-[var(--klasik-pilih,#e6e9f5)]')}><MoreHorizontal className="h-[18px] w-[18px]" aria-hidden="true" /></span>Lainnya
+      </button>
+      {lain && (
+        <div role="menu" className="absolute bottom-[calc(100%+10px)] right-0 z-50 w-52 rounded-xl bg-white p-1.5 text-ink shadow-2xl ring-1 ring-slate-200">
+          {sisa.map(({ key: k, label: l, ikon: I }) => (
+            <a key={k} role="menuitem" href={`#/${k}`} onClick={() => setLain(false)} className="flex min-h-[44px] items-center gap-2.5 rounded-lg px-3 text-sm font-semibold hover:bg-slate-50"><I className="h-4 w-4 text-ink-mute" aria-hidden="true" />{l}</a>
+          ))}
+        </div>
+      )}
+    </span>
+  )
+  return (
+    <nav aria-label="Menu Mode Klasik" data-nav-bawah
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-1 pb-[max(6px,env(safe-area-inset-bottom))] pt-1 shadow-[0_-6px_18px_rgba(14,21,64,.06)] backdrop-blur dark:border-white/10 dark:bg-[#141a2e]/95">
+      <div className="mx-auto flex max-w-[760px] items-end">
+        {semua.slice(0, tengah).map(render)}
+        {onPlus && (
+          <button type="button" onClick={onPlus} aria-label="Buat baru: Project atau Pengajuan" data-aksi="plus-baru"
+            className="mx-1 -mt-6 grid h-14 w-14 shrink-0 place-items-center self-center rounded-full border-4 border-white text-white shadow-[0_8px_20px_rgba(14,21,64,.35)] dark:border-[#141a2e]"
+            style={{ background: 'var(--klasik-head, #0e1540)' }}>
+            <Plus className="h-6 w-6" aria-hidden="true" />
+          </button>
+        )}
+        {semua.slice(tengah).map(render)}
+      </div>
+    </nav>
+  )
+}
+
+/** Lembar pilihan dari tombol "+": Project baru atau Pengajuan. */
+function PilihBaru({ onClose, onProject, onAju }) {
+  useEffect(() => { const esc = (e) => e.key === 'Escape' && onClose(); document.addEventListener('keydown', esc); return () => document.removeEventListener('keydown', esc) }, [onClose])
+  return createPortal(
+    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label="Buat baru" data-pilih-baru>
+      <button type="button" aria-label="Tutup" onClick={onClose} className="absolute inset-0 h-full w-full bg-[#0e1540]/45" />
+      <div className="absolute inset-x-0 bottom-0 mx-auto max-w-[560px] rounded-t-2xl bg-white px-4 pb-[max(18px,env(safe-area-inset-bottom))] pt-2.5 text-ink shadow-2xl dark:bg-[#141a2e] dark:text-white">
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-300" />
+        {onProject && (
+          <button type="button" onClick={onProject} data-aksi="project-baru" className="mb-2 flex min-h-[64px] w-full items-center gap-3 rounded-2xl p-3 text-left ring-1 ring-slate-200 hover:bg-slate-50 dark:ring-white/15 dark:hover:bg-white/5">
+            <span className="grid h-11 w-11 place-items-center rounded-xl text-white" style={{ background: 'var(--klasik-head, #0e1540)' }}><FolderOpen className="h-5 w-5" aria-hidden="true" /></span>
+            <span><b className="block text-[15px]">Project baru</b><span className="text-xs text-ink-mute">Pelanggan, invoice, dokumen</span></span>
+          </button>
+        )}
+        {onAju && (
+          <button type="button" onClick={onAju} data-aksi="pengajuan-baru" className="flex min-h-[64px] w-full items-center gap-3 rounded-2xl p-3 text-left ring-1 ring-slate-200 hover:bg-slate-50 dark:ring-white/15 dark:hover:bg-white/5">
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-amber-100 text-amber-800"><Wallet className="h-5 w-5" aria-hidden="true" /></span>
+            <span><b className="block text-[15px]">Pengajuan</b><span className="text-xs text-ink-mute">Biaya, transfer, kas</span></span>
+          </button>
+        )}
+      </div>
+    </div>, document.body)
+}
+
 export function KlasikApp({ page, param, detail }) {
-  const { user } = useApp()
-  const tab = page === 'keuangan' || page === 'pengajuan' ? 'keuangan' : 'projects'
-  useEffect(() => { if (!['projects', 'keuangan', 'pengajuan'].includes(page)) go('projects') }, [page])
+  const { user, data, personaList } = useApp()
+  const tabs = [
+    ...TAB_PROYEK.filter((t) => menuBoleh(user, 'projects') && (!t.boleh || t.boleh(user, data, personaList))),
+    ...(menuBoleh(user, 'keuangan') ? [{ key: 'keuangan', label: 'Keuangan', ikon: Wallet }] : []),
+  ]
+  const tab = page === 'pengajuan' ? 'keuangan' : tabs.some((t) => t.key === page) ? page : 'projects'
+  if (!detail) tabTerakhir = tab
+  const kembali = detail ? tabTerakhir : tab
+  useEffect(() => { if (!['projects', 'pengajuan', ...tabs.map((t) => t.key)].includes(page)) go('projects') }, [page]) // eslint-disable-line react-hooks/exhaustive-deps
+  const aktifTab = detail ? tabTerakhir : tab
+  const [baru, setBaru] = useState(false)
+  const [ajuBaru, setAjuBaru] = useState(false)
+  const formBaruApp = <>{baru && <ProjectForm minimal onClose={() => setBaru(false)} onSaved={() => {}} />}{ajuBaru && <RequestForm open side onClose={() => setAjuBaru(false)} onSaved={() => setAjuBaru(false)} />}</>
+  const isi = tab === 'keuangan' ? <KlasikKeuangan /> : tab === 'k-apostille' ? <KlasikApostille /> : tab === 'k-penugasan' ? <KlasikPenugasan /> : <KlasikProject key={tab} jenis={tab} />
   const hp = useHp()
+  const sentuh = useLayarSentuh()
+  const [pilihBaru, setPilihBaru] = useState(false)
+  const bolehProj = can.editProject(user) && menuBoleh(user, 'projects')
+  const bolehPengajuan = bolehAju(user) && menuBoleh(user, 'keuangan')
+  const plus = bolehProj && bolehPengajuan ? () => setPilihBaru(true) : bolehProj ? () => setBaru(true) : bolehPengajuan ? () => setAjuBaru(true) : null
+  const bawah = (
+    <>
+      <NavBawah tabs={tabs} aktif={aktifTab} maks={hp ? 4 : 7} onPlus={plus} />
+      {pilihBaru && <PilihBaru onClose={() => setPilihBaru(false)} onProject={bolehProj ? () => { setPilihBaru(false); setBaru(true) } : null} onAju={bolehPengajuan ? () => { setPilihBaru(false); setAjuBaru(true) } : null} />}
+    </>
+  )
+  const gayaHead = { '--head-ink': '#fff', '--head-mute': 'rgba(255,255,255,.6)', '--head-hover': 'rgba(255,255,255,.1)', '--head-line': 'rgba(255,255,255,.2)', background: 'var(--klasik-head, #0e1540)' }
   if (hp) return (
-    <div className="min-h-screen bg-[var(--klasik-latar)] pb-24" data-mode-klasik>
-      <header className="app-head sticky top-0 z-30 px-3 pb-2 pt-2 text-white" style={{ '--head-ink': '#fff', '--head-mute': 'rgba(255,255,255,.6)', '--head-hover': 'rgba(255,255,255,.1)', '--head-line': 'rgba(255,255,255,.2)', background: '#0e1540' }}>
+    <div className="min-h-screen bg-[var(--klasik-latar)] pb-28" data-mode-klasik>
+      {formBaruApp}
+      <header className="app-head sticky top-0 z-30 px-3 py-2 text-white" style={gayaHead}>
         <div className="flex items-center gap-2">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white text-xs font-extrabold text-ink">A</span>
           <JamHp />
-          <span className="ml-auto"><SaklarMode klasik selalu /></span>
-          <span data-headbtn className="shrink-0"><NotificationBell /></span>
+          <span data-headbtn className="ml-auto shrink-0"><NotificationBell /></span>
+          <ThemePicker gelap hp />
+          <MenuAkun hp />
         </div>
-        <nav className="mt-2 grid grid-cols-2 gap-1 rounded-xl bg-white/10 p-1 text-[13px] font-bold" aria-label="Menu Mode Klasik">
-          {[['projects', 'Project', FolderOpen], ['keuangan', 'Keuangan', Wallet]].filter(([k]) => menuBoleh(user, k)).map(([k, l, I]) => (
-            <a key={k} href={`#/${k}`} aria-current={tab === k ? 'page' : undefined} className={cx('flex min-h-[40px] items-center justify-center gap-1.5 rounded-lg', tab === k ? 'bg-white text-ink' : 'text-white/70')}><I className="h-4 w-4" />{l}</a>
-          ))}
-        </nav>
       </header>
       <main className="min-w-0">
         {detail ? (
           <div className="px-3 py-3">
-            <button type="button" onClick={() => go(tab)} className="mb-3 flex min-h-[44px] items-center gap-1 rounded-lg bg-white px-3 text-sm font-semibold ring-1 ring-slate-200"><ArrowLeft className="h-4 w-4" />Kembali ke daftar</button>
+            <button type="button" onClick={() => go(kembali)} className="mb-3 flex min-h-[44px] items-center gap-1 rounded-lg bg-white px-3 text-sm font-semibold ring-1 ring-slate-200"><ArrowLeft className="h-4 w-4" />Kembali ke daftar</button>
             {detail}
           </div>
-        ) : tab === 'keuangan' ? <KlasikKeuangan /> : <KlasikProject />}
+        ) : isi}
       </main>
+      {bawah}
+    </div>
+  )
+  if (sentuh) return (
+    <div className="min-h-screen bg-[var(--klasik-latar)] pb-28" data-mode-klasik>
+      {formBaruApp}
+      <header className="app-head sticky top-0 z-30 flex h-14 items-center gap-3 px-4 text-white" style={gayaHead}>
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-sm font-extrabold text-ink">A</span><span className="font-extrabold">ATLAS</span>
+        <span className="ml-2"><JamHp /></span>
+        <span className="ml-auto"><SaklarMode klasik selalu /></span>
+        <span data-headbtn className="shrink-0"><NotificationBell /></span>
+        <ThemePicker gelap />
+        <MenuAkun />
+      </header>
+      <main className="min-w-0">
+        {detail ? (
+          <div className="px-4 py-4">
+            <button type="button" onClick={() => go(kembali)} className="mb-3 flex min-h-[44px] items-center gap-1 rounded-lg bg-white px-3 text-sm font-semibold ring-1 ring-slate-200"><ArrowLeft className="h-4 w-4" />Kembali ke daftar</button>
+            {detail}
+          </div>
+        ) : <div className="bg-white">{isi}</div>}
+      </main>
+      {bawah}
     </div>
   )
   return (
     <div className="min-h-screen bg-[var(--klasik-latar)]" data-mode-klasik>
-      <header className="app-head sticky top-0 z-30 flex h-14 items-center gap-4 bg-ink px-5 text-white" style={{ '--head-ink': '#fff', '--head-mute': 'rgba(255,255,255,.6)', '--head-hover': 'rgba(255,255,255,.1)', '--head-line': 'rgba(255,255,255,.2)', background: '#0e1540' }}>
+      {formBaruApp}
+      <header className="app-head sticky top-0 z-30 flex h-14 items-center gap-3 bg-ink px-5 text-white" style={gayaHead}>
         <span className="grid h-8 w-8 place-items-center rounded-lg bg-white text-sm font-extrabold text-ink">A</span><span className="font-extrabold">ATLAS</span>
         <nav className="ml-3 flex h-14 items-end gap-1" aria-label="Menu Mode Klasik">
-          {[['projects', 'Project', FolderOpen], ['keuangan', 'Keuangan', Wallet]].filter(([k]) => menuBoleh(user, k)).map(([k, l, I]) => (
-            <a key={k} href={`#/${k}`} aria-current={tab === k ? 'page' : undefined} className={cx('flex items-center gap-1.5 rounded-t-lg px-6 py-3 text-sm', tab === k ? 'bg-[var(--klasik-latar)] font-bold text-ink' : 'font-semibold text-white/70 hover:text-white')}><I className="h-4 w-4" />{l}</a>
+          {tabs.map(({ key: k, label: l, ikon: I, judul }) => (
+            <a key={k} href={`#/${k}`} title={judul || l} aria-current={aktifTab === k ? 'page' : undefined} data-tab-klasik className={cx('flex h-12 shrink-0 items-center justify-center whitespace-nowrap rounded-t-lg text-sm', aktifTab === k ? 'w-[116px] gap-1.5' : 'w-[84px] flex-col gap-1', aktifTab === k ? 'bg-[var(--klasik-latar)] font-bold text-ink' : 'font-semibold text-white/70 hover:text-white')}><I className="h-4 w-4" aria-hidden="true" />{aktifTab === k ? (l === 'Apostille/Legalisasi' ? 'Apostille' : l) : <span className="block text-[9.5px] font-semibold leading-none">{l === 'Apostille/Legalisasi' ? 'Apostille' : l}</span>}</a>
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-3">
+          <TombolBaru setBaru={setBaru} setAju={setAjuBaru} />
           <JamKlasik />
           <SaklarMode klasik />
           <span data-headbtn className="shrink-0"><NotificationBell /></span>
-          <span className="flex items-center gap-2 text-sm"><Avatar user={user} size={32} ring={false} /><span className="hidden leading-tight 2xl:block"><b>{String(user.name).replace(/\s*\(.*\)\s*$/, '')}</b></span></span>
+          <ThemePicker gelap />
+          <MenuAkun />
           <TombolLayarPenuh />
         </div>
       </header>
       <main className="min-w-0">
         {detail ? (
           <div className="px-5 py-4">
-            <button type="button" onClick={() => go(tab)} className="mb-3 flex min-h-[40px] items-center gap-1 rounded-lg bg-white px-3 text-sm font-semibold ring-1 ring-slate-200"><ArrowLeft className="h-4 w-4" />Kembali ke daftar</button>
+            <button type="button" onClick={() => go(kembali)} className="mb-3 flex min-h-[40px] items-center gap-1 rounded-lg bg-white px-3 text-sm font-semibold ring-1 ring-slate-200"><ArrowLeft className="h-4 w-4" />Kembali ke daftar</button>
             <div className="mx-auto max-w-[1280px]">{detail}</div>
           </div>
         ) : (
-          <div className="bg-white">{tab === 'keuangan' ? <KlasikKeuangan /> : <KlasikProject />}</div>
+          <div className="bg-white">{isi}</div>
         )}
       </main>
     </div>

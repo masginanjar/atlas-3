@@ -31,7 +31,7 @@ export const FITUR = [
 export const STATUS_FITUR = [['tersembunyi', 'Tersembunyi'], ['uji', 'Uji coba'], ['aktif', 'Aktif']]
 
 /** Halaman turunan ikut saklar menu induknya. */
-const INDUK = { apostille: 'projects', pengajuan: 'keuangan', reminders: 'agenda', todo: 'agenda', calendar: 'agenda' }
+const INDUK = { apostille: 'projects', 'k-koordinator': 'projects', 'k-apostille': 'projects', 'k-penugasan': 'projects', 'k-titip': 'projects', pengajuan: 'keuangan', reminders: 'agenda', todo: 'agenda', calendar: 'agenda' }
 const DIATUR = new Set(FITUR.map((f) => f.key))
 const PEMERIKSA = ['superadmin', 'direktur']
 
