@@ -140,24 +140,24 @@ export default function Affidavit() {
   ]
   const Chip = ({ on, onClick, children, kelas }) => (
     <button type="button" onClick={onClick} aria-pressed={on}
-      className={cx('inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-[11.5px] font-semibold ring-1 transition', on ? 'bg-[#1e3a5f] text-white ring-[#1e3a5f]' : 'bg-white text-[#1e3a5f] ring-[#c7d3e0] hover:ring-brand', kelas)}>{children}</button>
+      className={cx('inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-[11.5px] font-semibold ring-1 transition', on ? 'bg-[#141B34] text-white ring-[#141B34]' : 'bg-white text-[#141B34] ring-[#D9DBE7] hover:ring-brand', kelas)}>{children}</button>
   )
   const panel = tab === 'stok' ? (
     <>
       {chips.map(([k, l, n]) => <Chip key={k} on={saring === k} onClick={() => setSaring(k)}>{l}<span className={cx('text-[10px] tabular-nums', saring === k ? 'text-slate-300' : 'text-ink-mute')}>{n}</span></Chip>)}
       <span className="hidden w-2 sm:block" />
       {pantau && (
-        <select value={fCabang} onChange={(e) => setFCabang(e.target.value)} aria-label="Filter cabang" className="h-9 w-auto max-w-[46%] rounded-xl border-0 bg-white pl-2.5 pr-7 text-[11.5px] font-semibold text-[#1e3a5f] ring-1 ring-[#c7d3e0]">
+        <select value={fCabang} onChange={(e) => setFCabang(e.target.value)} aria-label="Filter cabang" className="h-9 w-auto max-w-[46%] rounded-xl border-0 bg-white pl-2.5 pr-7 text-[11.5px] font-semibold text-[#141B34] ring-1 ring-[#D9DBE7]">
           <option value="Semua">Semua cabang</option>{cabangSaya.map((b) => <option key={b}>{b}</option>)}
         </select>
       )}
-      <select value={fArah} onChange={(e) => setFArah(e.target.value)} aria-label="Filter arah bahasa" className="h-9 w-auto max-w-[46%] rounded-xl border-0 bg-white pl-2.5 pr-7 text-[11.5px] font-semibold text-[#1e3a5f] ring-1 ring-[#c7d3e0]">
+      <select value={fArah} onChange={(e) => setFArah(e.target.value)} aria-label="Filter arah bahasa" className="h-9 w-auto max-w-[46%] rounded-xl border-0 bg-white pl-2.5 pr-7 text-[11.5px] font-semibold text-[#141B34] ring-1 ring-[#D9DBE7]">
         <option value="Semua">Semua arah</option>{ARAH_AFFIDAVIT.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
       </select>
-      {(fCabang !== 'Semua' || fArah !== 'Semua') && <button type="button" onClick={() => { setFCabang('Semua'); setFArah('Semua') }} className="inline-flex h-9 items-center gap-1 rounded-xl px-2 text-[11.5px] font-semibold text-[#1e3a5f] hover:bg-white"><X className="h-3.5 w-3.5" />Reset</button>}
-      <div className="ml-auto hidden h-9 items-center rounded-xl bg-white p-0.5 ring-1 ring-[#c7d3e0] md:flex" role="group" aria-label="Tampilan">
+      {(fCabang !== 'Semua' || fArah !== 'Semua') && <button type="button" onClick={() => { setFCabang('Semua'); setFArah('Semua') }} className="inline-flex h-9 items-center gap-1 rounded-xl px-2 text-[11.5px] font-semibold text-[#141B34] hover:bg-white"><X className="h-3.5 w-3.5" />Reset</button>}
+      <div className="ml-auto hidden h-9 items-center rounded-xl bg-white p-0.5 ring-1 ring-[#D9DBE7] md:flex" role="group" aria-label="Tampilan">
         {[['kartu', 'Kartu', LayoutGrid], ['tabel', 'Tabel', Table2], ['peta', 'Peta panas', Grid3X3]].map(([k, l, I]) => (
-          <button key={k} type="button" onClick={() => gantiMode(k)} aria-pressed={mode === k} className={cx('inline-flex h-8 items-center gap-1 rounded-[10px] px-2.5 text-[11px] font-bold', mode === k ? 'bg-[#1e3a5f] text-white' : 'text-[#1e3a5f] hover:bg-slate-50')}><I className="h-3.5 w-3.5" />{l}</button>
+          <button key={k} type="button" onClick={() => gantiMode(k)} aria-pressed={mode === k} className={cx('inline-flex h-8 items-center gap-1 rounded-[10px] px-2.5 text-[11px] font-bold', mode === k ? 'bg-[#141B34] text-white' : 'text-[#141B34] hover:bg-slate-50')}><I className="h-3.5 w-3.5" />{l}</button>
         ))}
       </div>
     </>
@@ -334,7 +334,7 @@ export default function Affidavit() {
     <div className="mx-auto w-full max-w-7xl min-w-0 space-y-3 p-3 sm:p-4" data-affidavit>
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0 flex-1">
-          <h1 className="flex items-center gap-2 text-lg font-extrabold text-ink"><FileStack className="h-5 w-5 text-brand" />Affidavit — Stok Lembar</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Affidavit — Stok Lembar</h1>
           <p className="text-[11.5px] text-ink-soft">{pantau ? `${cabangSaya.length} cabang` : `Cabang ${cabangSaya.join(', ') || '—'}`} × 4 arah bahasa · ambang peringatan {AMBANG_RENDAH} lembar · stok berkurang otomatis setiap cetak</p>
         </div>
         {boleh && <Button size="sm" variant="outline" className="hidden sm:inline-flex" onClick={() => setIsiStok({ cabang: cabangSaya[0], arah: ARAH_AFFIDAVIT[0].key, sisa: null, pilih: true })}><Pencil className="h-3.5 w-3.5" />Isi stok</Button>}

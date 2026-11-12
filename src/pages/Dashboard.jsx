@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import { FolderKanban, CheckCircle2, AlarmClock, Wallet, Banknote, ArrowRight, Inbox, Stamp, ChevronDown, Hand, Upload, Loader2, FileCheck2, Send, Languages, ChevronUp, Users, Undo2, CalendarDays, X , Sunrise, Moon, Waves, Activity, Target, Sprout, Sparkles, Coffee, ReceiptText, ArrowUp, ArrowDown, StickyNote} from 'lucide-react'
+import LayarKerja from './LayarKerja.jsx'
+import { infoDeadline } from '../components/BarisCanvas.jsx'
 import { useApp } from '../lib/store.jsx'
 import { kapasitasHarian, KAP_DEFAULT } from '../components/Kapasitas.jsx'
 import { Sapaan, AngkaHariIni, Hambatan, RingkasanKeuangan } from '../components/DashboardRingkas.jsx'
@@ -121,7 +123,7 @@ export default function Dashboard() {
       <PengingatTodo user={user} />
       {TODO_GROUP_ROLES.includes(user.role) ? <div className="p-3"><RoleTodo s={s} user={user} /></div>
         : todoTasks.length === 0 ? <Empty icon={Inbox} title="Tidak ada tugas" text="Semua tahap yang menjadi bagian Anda sudah diproses." />
-        : <ul className="divide-y divide-slate-100" aria-label="Kerja saya">{todoTasks.map((t) => <TaskRow key={t.id} t={t} user={user} />)}</ul>}
+        : <TabelKerja tasks={todoTasks} user={user} />}
     </div>
   )
   const tabsExtra = [
@@ -140,6 +142,8 @@ export default function Dashboard() {
       <div className={cx('grid gap-3 lg:items-start', (canSeeTeam(user) || exec || !worker) && 'lg:grid-cols-[minmax(0,1fr)_380px] xl:grid-cols-[minmax(0,1fr)_420px]')}>
         <PetaKerja user={user} s={s} nKerja={todoCount} kerja={kerja} tab={tab} setTab={setTab} tabsExtra={tabsExtra} sembunyi={user.role === 'staf_apostille' ? ['kerja'] : []} />
         <div className="min-w-0 space-y-3">
+          {pimpinan && <KapasitasPenerjemahKartu />}
+          {pimpinan && <FollowUpPeran s={s} />}
           {exec && <RingkasanKeuangan s={s} />}
           <AgendaHariIni />
           {hasPersonalTasks(user) && user.role !== 'staf_apostille' && <PerformanceCard narrow />}
@@ -264,6 +268,86 @@ const dayOfMonth = () => Number(new Date().toLocaleDateString('sv-SE', { timeZon
 const reminderDone = (id) => { try { return localStorage.getItem(`atlas-todo-done:${id}:${monthKey()}`) === '1' } catch { return false } }
 
 /** Satu baris tugas tahap (dipakai daftar datar & kelompok per role). */
+/** Kapasitas penerjemah hari ini (CANVAS ATLAS): halaman di tahap Penerjemahan bertenggat hari ini vs kapasitas harian. */
+function KapasitasPenerjemahKartu() {
+  const { data } = useApp()
+  const hari = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10)
+  const rows = useMemo(() => {
+    const pakai = {}
+    for (const p of data.projects) for (const x of p.sub_projects || []) {
+      const uid = x.data?.translator; const dl = String(p.about?.deadline || '').slice(0, 10)
+      if (!uid || x.stage !== 'penerjemahan' || !dl || dl > hari) continue
+      pakai[uid] = (pakai[uid] || 0) + halamanSub(x, flowOf(x, p))
+    }
+    return data.users.filter((u) => u.role === 'penerjemah' && u.active !== false)
+      .map((u) => ({ u, n: pakai[u.id] || 0, kap: kapasitasHarian(u, data.kapasitas) }))
+      .sort((a, b) => b.n / b.kap - a.n / a.kap).slice(0, 6)
+  }, [data.projects, data.users, data.kapasitas, hari])
+  if (!rows.length) return null
+  return (
+    <section className="flex flex-col gap-3 rounded-2xl border border-[#DADDE8] bg-white p-4 dark:border-white/10 dark:bg-white/5" data-kapasitas-dasbor>
+      <h2 className="text-base font-medium">Kapasitas Penerjemah <span className="text-[#5E6380]">· hari ini</span></h2>
+      {rows.map(({ u, n, kap }) => { const pc = Math.min(100, Math.round((n / kap) * 100)); return (
+        <div key={u.id} className="flex flex-col gap-1">
+          <span className="flex justify-between text-sm"><b className="truncate">{u.display_name || u.name}</b><span className="tabular-nums">{n}/{kap} Hal</span></span>
+          <span role="img" aria-label={`${n} dari ${kap} halaman`} className="flex h-1.5 overflow-hidden rounded-full bg-[#E3E5EE]"><span style={{ width: `${pc}%`, background: pc >= 90 ? '#FB923C' : '#4169E1' }} /></span>
+        </div>
+      ) })}
+      <a href="#/penugasan" className="inline-flex min-h-9 items-center self-start rounded-[10px] px-3 text-[13px] font-bold text-[#141B34] hover:bg-[#F3F4F9]">Buka Penugasan</a>
+    </section>
+  )
+}
+
+/** Follow-up per peran (CANVAS ATLAS): berapa sub menunggu di tiap tahap. */
+function FollowUpPeran({ s }) {
+  const subs = s.subs.filter((x) => !x.project.demo_perf)
+  const n = (st) => subs.filter((x) => st.includes(x.stage)).length
+  const baris = [
+    ['Supervisor · pilih penerjemah', n(['pilih_penerjemah'])],
+    ['Penerjemah · dikerjakan', n(['penerjemahan'])],
+    ['Proofreader · diperiksa', n(['proofread'])],
+    ['Otorisator · otorisasi', n(['otorisasi'])],
+    ['Admin Kantor Pusat · nomor register', n(['registrasi'])],
+    ['CS Cabang · siap kirim', n(['siap_kirim', 'kirim'])],
+  ]
+  return (
+    <section className="flex flex-col gap-2 rounded-2xl border border-[#DADDE8] bg-white p-4 dark:border-white/10 dark:bg-white/5" data-followup>
+      <h2 className="mb-1 text-base font-medium">Follow-up per role</h2>
+      {baris.map(([l, v]) => <div key={l} className="flex items-center gap-2.5 border-t border-[#EEF0F5] pt-2 text-sm"><span className="flex-1">{l}</span><b className="tabular-nums">{v}</b></div>)}
+    </section>
+  )
+}
+
+/** Tabel "Kerja saya" — desain CANVAS ATLAS: Invoice · Pelanggan · Dokumen · Tahap · Deadline · Kerjakan. */
+function TabelKerja({ tasks, user }) {
+  const [kerja, setKerja] = useState(null)
+  const kolom = 'grid grid-cols-[150px_minmax(0,1.2fr)_minmax(0,1.4fr)_150px_110px_110px] gap-x-2.5'
+  return (
+    <div className="overflow-x-auto" data-tabel-kerja>
+      <div className="min-w-[820px]">
+        <div className={cx(kolom, 'bg-[#E6E8F2] px-3.5 py-2 text-xs font-semibold text-[#3F4563] dark:bg-white/10 dark:text-slate-200')}>
+          <span>Invoice</span><span>Pelanggan</span><span>Dokumen</span><span>Tahap</span><span>Deadline</span><span />
+        </div>
+        {tasks.map((t) => {
+          const d = infoDeadline(t.project)
+          const klaim = activeClaim(t)
+          return (
+            <div key={t.id} className={cx(kolom, 'min-h-12 items-center border-t border-[#EEF0F5] px-3.5 py-1 text-sm dark:border-white/10')}>
+              <a href={`#/projects/${t.project.id}`} className="truncate font-bold tabular-nums hover:underline">{invoiceLabel(t.project.invoice_no)}</a>
+              <span className="truncate">{t.project.customer?.name}</span>
+              <span className="truncate" title={t.title}>{t.title}</span>
+              <span className="truncate">{stageLabel(t.flow, t.stage)}{klaim && <span className={cx('ml-1 text-[11px] font-semibold', klaim.by === user.id ? 'text-violet-700' : 'text-amber-700')}>· {klaim.by === user.id ? 'Anda ambil' : 'Diambil rekan'}</span>}</span>
+              <span>{d ? <span className="inline-flex min-h-6 items-center whitespace-nowrap rounded-full px-2.5 text-xs font-bold" style={{ background: d.bg, color: d.fg }}>{d.sisa === 'Hari ini' ? 'Hari Ini' : d.sisa === 'Besok' ? 'Besok' : d.tgl.replace(/ \d\d\.\d\d$/, '')}</span> : '—'}</span>
+              <span className="text-right"><button type="button" onClick={() => setKerja(t)} className="min-h-9 whitespace-nowrap rounded-[10px] bg-[#DFF1FB] px-3 text-[13px] font-bold text-[#0B5C8A] hover:bg-[#cbe7f7]">Kerjakan</button></span>
+            </div>
+          )
+        })}
+      </div>
+      {kerja && <LayarKerja projectId={kerja.project.id} subId={kerja.id} daftar={[...new Map(tasks.map((t) => [t.project.id, t.project])).values()]} onClose={() => setKerja(null)} />}
+    </div>
+  )
+}
+
 function TaskRow({ t, user }) {
   const d = daysLeft(t.project.about?.deadline)
   return (

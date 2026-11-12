@@ -46,7 +46,7 @@ export default function Activity() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-extrabold tracking-tight sm:text-2xl"><History className="h-6 w-6" />Riwayat Aktivitas</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Riwayat Aktivitas</h1>
         <p className="text-[13px] text-ink-mute">Aktivitas semua orang — project, alur kerja, file, keuangan &amp; pengaturan.<span className="hidden sm:inline"> Hanya terlihat oleh Superadmin &amp; Direktur.</span></p>
       </div>
       <Card className="overflow-hidden">

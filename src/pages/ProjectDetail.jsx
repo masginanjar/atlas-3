@@ -42,6 +42,10 @@ import { PriorityBadge } from '../components/Priority.jsx'
 import { PingButton } from '../components/Ping.jsx'
 import { MessageCircle, MapPin } from 'lucide-react'
 import { langkahBerikutnya, penanggungJawab } from '../lib/langkah.js'
+import { WaktuDibuat, PrioPill, infoDeadline } from '../components/BarisCanvas.jsx'
+import { canSeePayment } from '../config/menuAccess.js'
+import { Plus, PanelRight } from 'lucide-react'
+import LayarKerja from './LayarKerja.jsx'
 
 const TAB_DETAIL = [
   ['catatan', 'Catatan & pengingat'],
@@ -83,6 +87,8 @@ export default function ProjectDetail({ id, embedded, focusSub }) {
   const kurir = data.couriers?.find((k) => k.id === project.about?.courier)?.name
   const prog = progressOf(project)
   const subs = project.sub_projects || []
+
+  if (!embedded) return <DetailCanvas project={project} focusSub={focusSub} tab={tab} setTab={setTab} del={del} setEditing={setEditing} setSharing={setSharing} editing={editing} sharing={sharing} />
 
   return (
     <div className="space-y-3">
@@ -166,7 +172,7 @@ export function TabDetailProject({ project, ringkas, tab: tabLuar, setTab: setTa
             <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pt-1 [scrollbar-width:none]" role="tablist" aria-label="Bagian lain project" data-tab-detail>
         {tabs.map(([k, l]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(ringkas && tab === k ? '' : k)} data-tab-detail-item={k}
-            className={cx('flex shrink-0 items-center gap-1.5 font-semibold ring-1 transition', ringkas ? 'h-8 rounded-lg px-2.5 text-[11.5px]' : 'h-9 rounded-xl px-3 text-xs', tab === k ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:ring-brand')}>
+            className={cx('flex shrink-0 items-center gap-1.5 font-semibold ring-1 transition', ringkas ? 'h-8 rounded-lg px-2.5 text-[11.5px]' : 'h-10 rounded-[10px] px-3.5 text-[13px] font-bold', tab === k ? 'bg-[#141B34] text-white ring-[#141B34]' : ringkas ? 'bg-white text-ink-soft ring-slate-200 hover:ring-brand' : 'bg-white text-[#141B34] ring-[#D9DBE7] hover:ring-[#B9BDD0]')}>
             {ringkas ? ({ catatan: 'Catatan', file: 'File', kirim: 'Kurir', portal: 'Portal', riwayat: 'Riwayat' }[k] || l) : l}{k === 'file' && nFile > 0 && <span className={cx('tabular-nums', tab === k ? 'text-white/70' : 'text-ink-mute')}>{nFile}</span>}
           </button>
         ))}
@@ -199,7 +205,118 @@ export function TabDetailProject({ project, ringkas, tab: tabLuar, setTab: setTa
   )
 }
 
-function SubProject({ n, project, sub, compact }) {
+/** Detail project — tata letak CANVAS ATLAS: ringkasan · daftar dokumen (sub) · tab bagian lain. */
+function DetailCanvas({ project, focusSub, tab, setTab, del, setEditing, setSharing, editing, sharing }) {
+  const { user, data, nameOf } = useApp()
+  const [kerja, setKerja] = useState(focusSub || null) // sub yang dibuka di layar kerja (panel samping)
+  useEffect(() => { if (focusSub) setKerja(focusSub) }, [focusSub])
+  const subs = project.sub_projects || []
+  const dl = infoDeadline(project)
+  const print = project.about?.print_location || project.branch
+  const cs = String(project.about?.cs_name || '').replace(/\s*\(.*\)\s*$/, '')
+  const t = posisiTahapSeg(project)
+  const ctx = { users: data.users, people: data.people, user }
+  const subKerja = subs.find((x) => x.id === kerja)
+  const fakta = (label, isi) => <div className="flex min-w-0 flex-col items-start gap-1"><span className="text-xs text-[#5E6380]">{label}</span>{isi}</div>
+  return (
+    <div className="mx-auto flex max-w-[1180px] flex-col gap-3.5" data-detail-canvas>
+      <button type="button" onClick={() => go('projects')} className="inline-flex min-h-9 items-center gap-1.5 self-start text-[13px] font-bold text-[#141B34]"><ArrowLeft className="h-4 w-4" aria-hidden="true" />Project</button>
+
+      <section aria-label="Ringkasan project" className="flex flex-col gap-3 rounded-2xl border border-[#DADDE8] bg-white p-4 dark:border-white/10 dark:bg-white/5">
+        <div className="flex flex-wrap items-start gap-x-4 gap-y-2.5">
+          <div className="flex min-w-0 flex-[1_1_320px] flex-col gap-1">
+            <h1 className="text-2xl font-extrabold tracking-tight tabular-nums">{invoiceLabel(project.invoice_no)}</h1>
+            <span className="break-words text-base font-semibold">{project.customer?.name || '—'}</span>
+            <WaktuDibuat p={project} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {can.editProject(user) && <button type="button" onClick={() => setEditing(true)} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#D9DBE7] bg-white px-3.5 text-sm font-semibold text-[#141B34] hover:bg-[#F6F7FB]"><Pencil className="h-4 w-4" aria-hidden="true" />Edit</button>}
+            {SHARE_PORTAL_READY && (can.editProject(user) || user.role === 'akunting') && <button type="button" onClick={() => setSharing(true)} className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-[#141B34] px-3.5 text-sm font-semibold text-white"><Share2 className="h-4 w-4" aria-hidden="true" />Bagikan</button>}
+            {can.deleteProject(user) && <button type="button" onClick={del} aria-label="Hapus project" title="Hapus project" className="grid h-11 w-11 place-items-center rounded-xl border border-[#F2C4AE] bg-white text-[#B43D0E] hover:bg-[#FFF5F0]"><Trash2 className="h-[18px] w-[18px]" aria-hidden="true" /></button>}
+          </div>
+        </div>
+        <div className="grid gap-x-4 gap-y-3 border-t border-[#EEF0F5] pt-3 [grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
+          {fakta('Prioritas', <PrioPill p={project.about?.priority || 'Normal'} />)}
+          {fakta('Deadline', dl ? <span className="flex items-center gap-1.5"><span className="inline-flex min-h-[26px] items-center whitespace-nowrap rounded-full px-3 text-[13px] font-bold" style={{ background: dl.bg, color: dl.fg }}>{dl.sisa === 'Hari ini' ? 'Hari Ini' : dl.sisa === 'Besok' ? 'Besok' : dl.tgl.replace(/ \d\d\.\d\d$/, '')}</span><span className="text-[13px] font-bold tabular-nums">{(project.about?.deadline_time || '17:00').replace(':', '.')}</span></span> : <span className="text-sm">—</span>)}
+          {fakta('Cabang', <span className="text-sm font-bold">{project.branch}</span>)}
+          {fakta('Print', <span className={cx('text-sm font-bold', print !== project.branch && 'text-[#B43D0E]')}>{print}</span>)}
+          {fakta('CS', <span className="text-sm font-bold">{cs || '—'}</span>)}
+          {canSeePayment(user) && fakta('Pembayaran', <ProjectPayBadge project={project} />)}
+          {fakta(t.label, <span role="img" aria-label={t.label} className="flex w-[130px] gap-[3px]">{t.seg.map((c, i) => <span key={i} className="h-1.5 flex-1 rounded-[3px]" style={{ background: c }} />)}</span>)}
+        </div>
+        {project.about?.notes && (
+          <div role="note" className="flex items-start gap-2 rounded-xl bg-[#FFFBEA] px-3 py-2.5 text-sm">
+            <StickyNote className="mt-0.5 h-4 w-4 shrink-0 text-[#7A5600]" aria-hidden="true" />
+            <span className="whitespace-pre-line"><strong className="font-bold text-[#7A5600]">Catatan</strong> · {project.about.notes}</span>
+          </div>
+        )}
+      </section>
+
+      <section aria-labelledby="dp-sub" className="overflow-x-auto rounded-2xl border border-[#DADDE8] bg-white dark:border-white/10 dark:bg-white/5">
+        <div className="min-w-[980px]">
+          <div className="flex items-center justify-between gap-2.5 px-4 pb-2.5 pt-3.5">
+            <h2 id="dp-sub" className="text-base font-medium">Dokumen <span className="text-[#5E6380]">· {subs.length} layanan</span></h2>
+            {can.editProject(user) && <button type="button" onClick={() => setEditing(true)} className="inline-flex min-h-9 items-center gap-1.5 rounded-[10px] border border-[#D9DBE7] bg-white px-3 text-[13px] font-semibold text-[#141B34] hover:bg-[#F6F7FB]">Tambah dokumen<Plus className="h-[15px] w-[15px]" aria-hidden="true" /></button>}
+          </div>
+          {subs.map((sb) => {
+            const w = warnaSub(sb)
+            const flow = flowOf(sb, project); const st = stagesOf(flow); const idx = stageIndex(flow, sb.stage); const selesai = sb.stage === DONE
+            const stNow = st[idx]
+            const bisa = stNow && !selesai && can.processStage(user, stNow, sb, project)
+            const who = sb.translator_kind === 'vendor' ? nameOf(sb.translator || sb.data?.vendor) : nameOf(sb.data?.translator || sb.translator)
+            const dok = sb.docs?.length || sb.file_count || 0
+            const hlm = sb.docs?.length ? sb.docs.reduce((a, d) => a + (Number(d.pages) || 0), 0) : (Number(sb.pages) || 0)
+            return (
+              <div key={sb.id} data-sub-card={sb.id} className="grid items-center gap-x-3 border-t border-[#EEF0F5] px-4 py-2.5 [grid-template-columns:minmax(0,2.2fr)_56px_56px_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.8fr)_250px]" style={{ background: w.bg }}>
+                <span className="flex min-w-0 items-center gap-2"><span className="inline-flex min-h-[22px] shrink-0 items-center rounded-lg bg-white px-2 text-[11px] font-bold" style={{ color: w.fg }}>{w.kode}</span><span className="min-w-0 truncate text-sm font-bold" title={sb.title}>{sb.title}</span></span>
+                <span className="whitespace-nowrap text-sm">{dok} Dok</span>
+                <span className="whitespace-nowrap text-sm">{hlm} Hal</span>
+                <span className="min-w-0 truncate text-sm">{sb.lang_from && sb.lang_to ? `${sb.lang_from} → ${sb.lang_to}` : '—'}</span>
+                <span className="min-w-0 truncate text-sm font-semibold" title={who}>{who || '—'}</span>
+                <span className="flex min-w-0 items-center gap-2.5"><span className="min-w-0 truncate text-sm font-bold">{selesai ? 'Selesai' : (stNow?.short || stNow?.label)}</span>
+                  <span role="img" aria-label={selesai ? 'Semua tahap selesai' : `Tahap ${idx + 1} dari ${st.length}`} className="flex w-20 shrink-0 gap-[3px]">{st.map((x, k) => <span key={x.key} className="h-1.5 flex-1 rounded-[3px]" style={{ background: selesai || k < idx ? '#141B34' : k === idx ? '#4169E1' : '#D9DBE7' }} />)}</span></span>
+                <span className="flex items-center justify-end gap-1.5">
+                  {bisa && <button type="button" onClick={() => setKerja(sb.id)} className="min-h-9 whitespace-nowrap rounded-[10px] bg-[#DFF1FB] px-3 text-[13px] font-bold text-[#0B5C8A] hover:bg-[#cbe7f7]">{stNow.action || 'Proses'}</button>}
+                  <button type="button" onClick={() => setKerja(sb.id)} aria-label={`Buka layar kerja: ${sb.title}`} title="Buka layar kerja" data-aksi="layar-kerja" className="grid h-9 w-9 place-items-center rounded-[10px] text-[#141B34] hover:bg-white/70"><PanelRight className="h-[18px] w-[18px]" aria-hidden="true" /></button>
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      <section aria-label="Bagian lain project" className="flex flex-col gap-3.5 rounded-2xl border border-[#DADDE8] bg-white px-4 pb-4 pt-3.5 dark:border-white/10 dark:bg-white/5" data-tab-canvas>
+        <TabDetailProject project={project} tab={tab} setTab={setTab} />
+      </section>
+
+      {subKerja && <LayarKerja projectId={project.id} subId={subKerja.id} onClose={() => setKerja(null)} />}
+      {editing && <ProjectForm project={project} onClose={() => setEditing(false)} />}
+      {sharing && <ShareSheet project={project} open={sharing} onClose={() => setSharing(false)} />}
+      {/* langkah berikutnya tetap dihitung untuk pembaca layar */}
+      <span className="sr-only">{langkahBerikutnya(project, user, ctx).tahap}</span>
+    </div>
+  )
+}
+
+/** Warna & kode kategori sub (CANVAS ATLAS). */
+function warnaSub(sb) {
+  const t = sb?.type || 'jasa_lain'
+  const vendor = sb?.translator_kind === 'vendor' || sb?.executor_kind === 'vendor' || !!sb?.data?.vendor
+  if (t === 'terjemahan') return vendor ? { kode: 'VEN-TR', bg: '#DFF1FB', fg: '#0B5C8A' } : { kode: 'TIM-TR', bg: '#EEF0F5', fg: '#4A4F6A' }
+  if (t === 'terjemahan_nt') return { kode: 'Non Tersumpah', bg: '#FFF4D6', fg: '#7A5600' }
+  if (t === 'apostille' || t === 'legalisasi') return vendor ? { kode: 'VEN-AL', bg: '#FFE4EE', fg: '#A3124F' } : { kode: 'TIM-AL', bg: '#E2F5E8', fg: '#17693A' }
+  return { kode: 'Jasa Lain', bg: '#EEF0F5', fg: '#4A4F6A' }
+}
+/** Segmen tahap project: sub paling belakang menentukan posisi. */
+function posisiTahapSeg(project) {
+  const subs = (project.sub_projects || []).filter((x) => x.stage !== DONE)
+  const x = subs[0] || (project.sub_projects || [])[0]
+  if (!x) return { label: 'Tahap', seg: [] }
+  const flow = flowOf(x, project); const st = stagesOf(flow); const i = x.stage === DONE ? st.length : stageIndex(flow, x.stage)
+  return { label: i >= st.length ? 'Semua tahap selesai' : `Tahap ${i + 1} dari ${st.length}`, seg: st.map((_, k) => (k < i ? '#141B34' : k === i ? '#4169E1' : '#D9DBE7')) }
+}
+
+export function SubProject({ n, project, sub, compact, tanpaTahap }) {
   const flow = flowOf(sub, project)
   const stages = stagesOf(flow)
   const idx = stageIndex(flow, sub.stage)
@@ -218,7 +335,7 @@ function SubProject({ n, project, sub, compact }) {
       </div>
 
       {/* Alur tahap: titik-titik dengan label hanya pada tahap aktif (K11); di panel samping tetap daftar menurun */}
-      {compact ? (
+      {tanpaTahap ? null : compact ? (
         <ol className="space-y-1 px-4 pb-3">
           {stages.map((st, i) => (
             <li key={st.key} className="flex items-center gap-2">

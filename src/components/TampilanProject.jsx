@@ -33,7 +33,7 @@ function Seg({ value, onChange, opsi }) {
 function Saklar({ on, onChange, label }) {
   return (
     <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={() => onChange(!on)}
-      className={cx('relative h-6 w-10 shrink-0 rounded-full transition', on ? 'bg-[#1e3a5f]' : 'bg-slate-300')}>
+      className={cx('relative h-6 w-10 shrink-0 rounded-full transition', on ? 'bg-[#141B34]' : 'bg-slate-300')}>
       <span className={cx('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition', on ? 'left-[18px]' : 'left-0.5')} />
     </button>
   )

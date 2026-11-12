@@ -54,7 +54,7 @@ export default function Jadwal({ embedded }) {
   return (
     <div className={embedded ? 'space-y-3' : 'mx-auto w-full max-w-7xl space-y-3 p-0 sm:p-1'} data-jadwal-v2>
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-auto flex items-center gap-2 text-lg font-bold text-ink lg:text-[22px]"><CalendarRange className="h-5 w-5 text-brand" />Jadwal</h1>
+        <h1 className="mr-auto flex items-center gap-2 text-2xl font-extrabold tracking-tight">Jadwal</h1>
         <Button size="sm" variant="outline" onClick={() => setAjukan(true)} data-aksi="ajukan-cuti"><Plane className="h-3.5 w-3.5" />Ajukan Libur</Button>
         <TombolUnduh ym={ym} peta={peta} cabang={cabang} rows={rows} />
       </div>

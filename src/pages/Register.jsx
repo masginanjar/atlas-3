@@ -9,6 +9,7 @@
 //  seperti Sheet "247 Registrasi Terjemahan 2026".
 // ============================================================
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Copy, Download, Search, Check, Loader2, ArrowUpRight } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { Button, Sheet, cx } from '../components/ui.jsx'
@@ -18,7 +19,7 @@ import { IkonBaris, LembarFile, DetailRingkas, useTahanBaris, TandaDitahan, Tomb
 import { useHp } from '../components/klasikSaklar.jsx'
 import { scopeByBranch, invoiceLabel } from '../config/access.js'
 import { docListOf } from '../config/workflows.js'
-import { PASANGAN, valid, tanggalDari, namaDefault, jenisDefault, barisRegistrasi } from '../lib/registrasi.js'
+import { PASANGAN, valid, tanggalDari, namaDefault, jenisDefault, barisRegistrasi, OPSI_JENIS, KUNCI_JENIS } from '../lib/registrasi.js'
 import { db } from '../lib/db.js'
 import { go } from '../lib/router.js'
 
@@ -81,6 +82,63 @@ function SelUbah({ nilai, tampil, jenis = 'text', boleh, onSimpan, label }) {
   )
 }
 
+/** Pilih jenis dokumen: daftar bisa dicari, dipilih, lalu tetap bisa diketik/diubah. */
+function PilihJenis({ nilai, boleh, opsi, onSimpan }) {
+  const [buka, setBuka] = useState(false)
+  const [v, setV] = useState(nilai || '')
+  const [cari, setCari] = useState('')
+  const [pos, setPos] = useState(null)
+  const [aktif, setAktif] = useState(0)
+  const ref = useRef(null)
+  const tutupRef = useRef(null)
+  useEffect(() => {
+    if (!buka) return
+    ref.current?.focus(); ref.current?.select()
+    const atur = () => { const r = ref.current?.getBoundingClientRect(); if (r) setPos({ x: r.left, y: r.bottom + 4, w: Math.max(r.width, 260), atas: window.innerHeight - r.bottom < 280 ? r.top - 4 : null }) }
+    atur(); window.addEventListener('scroll', atur, true); window.addEventListener('resize', atur)
+    return () => { window.removeEventListener('scroll', atur, true); window.removeEventListener('resize', atur) }
+  }, [buka])
+  if (!boleh) return <span>{nilai}</span>
+  const kc = cari.trim().toLowerCase()
+  const daftar = opsi.filter((o) => !kc || `${o} ${(KUNCI_JENIS[o] || []).join(' ')}`.toLowerCase().includes(kc))
+  const simpan = (x) => { clearTimeout(tutupRef.current); setBuka(false); const t = String(x ?? '').trim(); if (t && t !== nilai) onSimpan(t) }
+  if (!buka) return (
+    <button type="button" data-pilih-jenis onClick={(e) => { e.stopPropagation(); setV(nilai || ''); setCari(''); setAktif(0); setBuka(true) }} title="Pilih / ubah jenis dokumen" aria-label="Pilih jenis dokumen"
+      className="inline-flex max-w-full items-center gap-1 truncate border-b border-dashed border-slate-300 text-left hover:border-brand hover:text-brand">
+      <span className="truncate">{nilai || '— pilih jenis —'}</span><span aria-hidden className="text-[10px] text-ink-mute">▾</span>
+    </button>
+  )
+  return (
+    <>
+      <input ref={ref} value={v} aria-label="Jenis dokumen (cari atau ketik)" placeholder="Cari / ketik jenis dokumen…" role="combobox" aria-expanded="true"
+        onChange={(e) => { setV(e.target.value); setCari(e.target.value); setAktif(0) }}
+        onBlur={() => { tutupRef.current = setTimeout(() => simpan(v), 150) }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') { e.preventDefault(); setAktif((a) => Math.min(a + 1, daftar.length - 1)) }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); setAktif((a) => Math.max(a - 1, 0)) }
+          else if (e.key === 'Enter') { e.preventDefault(); simpan(cari && daftar[aktif] ? daftar[aktif] : v) }
+          else if (e.key === 'Escape') { clearTimeout(tutupRef.current); setBuka(false) }
+        }}
+        className="h-9 w-full min-w-[220px] rounded-lg border-0 bg-white px-2.5 text-[12.5px] ring-2 ring-[#4169E1]" />
+      {pos && createPortal(
+        <ul role="listbox" data-daftar-jenis onMouseDown={(e) => e.preventDefault()}
+          style={{ position: 'fixed', left: pos.x, width: pos.w, ...(pos.atas != null ? { bottom: window.innerHeight - pos.atas } : { top: pos.y }) }}
+          className="z-[300] max-h-64 overflow-y-auto rounded-xl border border-[#DADDE8] bg-white py-1 text-[13px] text-[#141B34] shadow-xl">
+          {daftar.map((o, i) => (
+            <li key={o} role="option" aria-selected={o === nilai}>
+              <button type="button" onClick={() => simpan(o)} onMouseEnter={() => setAktif(i)}
+                className={cx('flex min-h-[40px] w-full items-center px-3 text-left', i === aktif && 'bg-[#F3F4F9]', o === nilai && 'font-bold')}><span className="min-w-0"><span className="block truncate">{o}</span>{KUNCI_JENIS[o] && <span className="block truncate text-[11px] font-normal text-ink-mute">{KUNCI_JENIS[o][0].split(' ').map((k) => (k.length <= 3 || /^e-/.test(k) ? k.toUpperCase() : k[0].toUpperCase() + k.slice(1))).join(' ')}</span>}</span>{o === nilai && <Check className="ml-auto h-4 w-4 text-[#4169E1]" />}</button>
+            </li>
+          ))}
+          {cari && !opsi.some((o) => o.toLowerCase() === cari.trim().toLowerCase()) && (
+            <li><button type="button" onClick={() => simpan(v)} className="flex min-h-[40px] w-full items-center border-t border-[#E7E8F0] px-3 text-left text-[#0B5C8A]">Pakai “{v.trim()}”</button></li>
+          )}
+          {!daftar.length && !cari && <li className="px-3 py-2 text-ink-mute">Daftar kosong</li>}
+        </ul>, document.body)}
+    </>
+  )
+}
+
 /** Kotak isian bergaris (antrian Admin Pusat): simpan saat keluar dari kotak bila berubah. */
 function KotakUbah({ nilai, jenis = 'text', lebar, onSimpan, label }) {
   const [v, setV] = useState(nilai)
@@ -114,6 +172,10 @@ export default function Register() {
     .filter((r) => !s || [r.no, r.invoice, r.jenis, r.nama, r.cabang].some((v) => String(v).toLowerCase().includes(s)))
   const { rows, ditahan, rapikan } = useTahanBaris(rowsAsli, (r) => r.key, JSON.stringify([cepat, s]), semua)
   const terbit = rows.filter((r) => r.terbit)
+  const opsiJenis = useMemo(() => {
+    const hit = {}; for (const r of semua) if (r.jenis) hit[r.jenis] = (hit[r.jenis] || 0) + 1
+    return [...new Set([...OPSI_JENIS, ...Object.keys(hit).filter((k) => hit[k] >= 2 && k.length <= 60)])].sort((x, y) => x.localeCompare(y))
+  }, [semua])
 
   // Ubah tanggal / jenis / nama → disimpan ke project (+ tabel registrations bila sudah terbit)
   const ubahIsian = async (r, kunci, nilai, label) => {
@@ -212,19 +274,21 @@ export default function Register() {
   const jumlahSub = (r) => (r.s.data?.reg_numbers || []).filter(Boolean).length
   const tombolTerbit = (r, besar) => (
     <button type="button" onClick={(e) => { e.stopPropagation(); terbitkan(r.s) }} disabled={!!sibuk} data-aksi="terbitkan"
-      className={cx('inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-ink px-2.5 font-bold text-white disabled:opacity-50', besar ? 'h-10 text-[13px]' : 'h-7 text-[11.5px]')}>
+      className={cx('inline-flex items-center gap-1 whitespace-nowrap rounded-[10px] bg-[#DFF1FB] px-3 font-bold text-[#0B5C8A] hover:bg-[#cbe7f7] disabled:opacity-50', besar ? 'h-11 text-[13px]' : 'h-9 text-[13px]')}>
       {sibuk === r.s.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}Terbitkan{jumlahSub(r) > 1 ? ` ${jumlahSub(r)}` : ''}
     </button>
   )
 
   if (hp) return (
-    <div className="min-w-0" data-halaman-register>
+    <div className="flex min-w-0 flex-col gap-3.5" data-halaman-register>
+      <h1 className="text-2xl font-extrabold tracking-tight">Nomor Register</h1>
+      <div className="min-w-0 overflow-hidden rounded-2xl border border-[#DADDE8] bg-white dark:border-white/10 dark:bg-white/5">
       {atas}
       <ul className="divide-y divide-slate-200 bg-white text-[12.5px]">
         {rows.map((r) => (
           <li key={r.key} className={cx('px-3 py-2.5', !r.terbit && 'bg-amber-50', ditahan.has(r.key) && 'opacity-60')} data-register-baris={r.terbit ? 'terbit' : 'menunggu'}>{ditahan.has(r.key) && <TandaDitahan teks={r.terbit ? 'Terbit' : 'Baru diubah'} />}
             <div className="flex items-center"><span className="font-mono text-[15px] font-extrabold">{r.no}</span>{tombolSalin(r.no)}<span className="ml-auto">{tombolProject(r, true)}</span></div>
-            <div className="mt-1 text-[13px] font-bold"><SelUbah nilai={r.jenis} boleh={bolehTerbit} label="jenis dokumen" onSimpan={(v) => ubahIsian(r, 'reg_types', v, 'Jenis dokumen')} /></div>
+            <div className="mt-1 text-[13px] font-bold"><PilihJenis nilai={r.jenis} boleh={bolehTerbit} opsi={opsiJenis} onSimpan={(v) => ubahIsian(r, 'reg_types', v, 'Jenis dokumen')} /></div>
             <div className="mt-0.5 flex flex-wrap gap-x-1.5 text-[12px] text-ink-soft">
               <SelUbah nilai={r.nama} boleh={bolehTerbit} label="nama dalam dokumen" onSimpan={(v) => ubahIsian(r, 'reg_names', v, 'Nama')} /><span>·</span>
               <SelUbah nilai={r.tanggal} tampil={tglInggris(r.tanggal)} jenis="date" boleh={bolehTerbit} label="tanggal" onSimpan={(v) => ubahIsian(r, 'reg_dates', v, 'Tanggal')} />
@@ -235,13 +299,16 @@ export default function Register() {
         {!rows.length && <li className="px-4 py-10 text-center text-ink-mute">Belum ada nomor register pada pilihan ini.</li>}
       </ul>
       {lembar}
+      </div>
     </div>
   )
 
   // ---------- PC: sama seperti tab Project — bar saring di atas, tabel penuh ----------
   const th = 'px-3 py-2 font-semibold'
   return (
-    <div className="min-w-0" data-halaman-register>
+    <div className="flex min-w-0 flex-col gap-3.5" data-halaman-register>
+      <h1 className="text-2xl font-extrabold tracking-tight">Nomor Register</h1>
+      <div className="min-w-0 overflow-hidden rounded-2xl border border-[#DADDE8] bg-white dark:border-white/10 dark:bg-white/5">
       {atas}
       <div className="overflow-x-auto bg-white">
         <table className="w-full text-[12.5px]" data-klasik-tabel data-tabel-register>
@@ -255,7 +322,7 @@ export default function Register() {
                 {spanInv[i] > 0 && <td rowSpan={spanInv[i]} className="px-3 py-2 align-top"><span className="inline-flex items-center"><InvoiceNo project={r.p} /><IkonBaris id={r.p.id} inv={r.p.invoice_no} lihat={setLihat} folder={setFolder} /></span>{spanInv[i] > 1 && <span className="block text-[10.5px] text-ink-mute">{spanInv[i]} dokumen</span>}</td>}
                 <td className="px-3 py-2"><span className="font-mono text-[13px] font-extrabold">{r.no}</span>{r.terbit && tombolSalin(r.no)}{tombolProject(r)}</td>
                 <td className="px-3 py-2"><SelUbah nilai={r.tanggal} tampil={tglInggris(r.tanggal)} jenis="date" boleh={bolehTerbit} label="tanggal" onSimpan={(v) => ubahIsian(r, 'reg_dates', v, 'Tanggal')} /></td>
-                <td className="max-w-[340px] truncate px-3 py-2"><SelUbah nilai={r.jenis} boleh={bolehTerbit} label="jenis dokumen" onSimpan={(v) => ubahIsian(r, 'reg_types', v, 'Jenis dokumen')} /></td>
+                <td className="max-w-[340px] truncate px-3 py-2"><PilihJenis nilai={r.jenis} boleh={bolehTerbit} opsi={opsiJenis} onSimpan={(v) => ubahIsian(r, 'reg_types', v, 'Jenis dokumen')} /></td>
                 <td className="max-w-[240px] truncate px-3 py-2"><SelUbah nilai={r.nama} boleh={bolehTerbit} label="nama dalam dokumen" onSimpan={(v) => ubahIsian(r, 'reg_names', v, 'Nama')} /></td>
                 <td className="px-3 py-2">{r.cabang}</td>
                 {r.terbit
@@ -272,6 +339,7 @@ export default function Register() {
         {cepat !== 'menunggu' && <span className="ml-auto">{terbit.filter((r) => diinput.has(r.no)).length} sudah diinput</span>}
       </div>
       {lembar}
+      </div>
     </div>
   )
 }

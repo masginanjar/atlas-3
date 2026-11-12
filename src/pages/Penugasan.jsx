@@ -13,6 +13,7 @@ import { InvoiceNo } from '../components/badges.jsx'
 import Avatar from '../components/Avatar.jsx'
 import { daysLeft, tgl } from '../lib/format.js'
 import { go } from '../lib/router.js'
+import { PrioPill } from '../components/BarisCanvas.jsx'
 
 // ============================================================
 //  PENUGASAN — kapasitas penerjemah sebagai acuan.
@@ -186,7 +187,7 @@ export default function Penugasan() {
     <div className="space-y-3">
       {/* judul + periode */}
       <div className="flex items-center gap-2" data-alat>
-        <h1 className="flex items-center gap-2 text-xl font-extrabold tracking-tight sm:text-2xl"><Users className="h-5 w-5 text-ink-mute" />Penugasan</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Penugasan</h1>
         <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700 ring-1 ring-rose-200" data-perlu-n>{rowsAll.length} perlu penerjemah</span>
         <div className="ml-auto"><PilihPeriode range={range} setRange={setRange} pilihan={PERIODE_PENUGASAN()} label="Deadline" /></div>
       </div>
@@ -267,7 +268,7 @@ export default function Penugasan() {
                         <tr key={r.id} onClick={() => setPilih(sel ? null : r.id)} {...bisaDitekan(() => setPilih(sel ? null : r.id))} data-baris-perlu={r.id}
                           className={cx('cursor-pointer border-t border-slate-100 align-middle', sel ? 'bg-brand-soft/60 shadow-[inset_3px_0_0_theme(colors.brand.DEFAULT)]' : i % 2 ? 'bg-slate-50/80' : 'bg-white', 'hover:bg-brand-soft/30')}>
                           <td className="px-3 py-2">
-                            <div className="flex items-center gap-1.5"><InvoiceNo project={r.project} />{(r.project.about?.priority || 'Normal') !== 'Normal' && <PriorityBadge p={r.project.about?.priority} />}</div>
+                            <div className="flex min-w-0 flex-wrap items-center gap-1.5"><InvoiceNo project={r.project} />{(r.project.about?.priority || 'Normal') !== 'Normal' && <PrioPill p={r.project.about?.priority} />}</div>
                             <p className="mt-0.5 truncate text-[11px] text-ink-mute">{r.project.customer?.name || '—'} · {r.project.branch}</p>
                           </td>
                           <td className="px-2 py-2 font-bold"><span className="line-clamp-2">{r.title}</span></td>

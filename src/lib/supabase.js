@@ -106,6 +106,8 @@ export const supabaseDb = {
   /** Simpan baris registrasi (tabel kolom biasa, bukan doc). Nomor kembar ditolak database. */
   async regInsert(rows) { if (!rows?.length) return []; return unwrap(await sb().from('registrations').insert(rows).select('reg_no')) || [] },
   /** Perbarui baris registrasi yang sudah dipesan (jenis/nama dokumen) saat Admin Pusat menerbitkan. */
+  /** Hapus semua data dummy (fungsi server, khusus Superadmin). */
+  async hapusDummy() { return unwrap(await sb().rpc('hapus_dummy')) },
   /** Ubah jenis / nama / tanggal satu nomor register. */
   async regUpdate(reg_no, patch) { return unwrap(await sb().from('registrations').update(patch).eq('reg_no', reg_no).select('reg_no')) },
   async regUpsert(rows) { if (!rows?.length) return []; return unwrap(await sb().from('registrations').upsert(rows, { onConflict: 'reg_no' }).select('reg_no')) || [] },

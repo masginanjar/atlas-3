@@ -7,13 +7,13 @@ export const cx = (...a) => a.filter(Boolean).join(' ')
 
 export function Button({ variant = 'primary', size = 'md', loading, className, children, ...p }) {
   const v = {
-    primary: 'bg-gradient-to-r from-brand to-[#6d5cf6] text-white shadow-glow hover:from-brand-dark hover:to-brand active:translate-y-px',
-    dark: 'bg-ink text-white shadow-sm hover:bg-ink-soft active:translate-y-px',
+    primary: 'bg-[var(--brand)] text-white hover:opacity-90 active:translate-y-px',
+    dark: 'bg-[#141B34] text-white hover:opacity-90 active:translate-y-px',
     ghost: 'bg-transparent text-ink-soft hover:bg-slate-100',
-    outline: 'bg-white text-ink ring-1 ring-slate-300 hover:bg-slate-50 hover:ring-slate-400 active:translate-y-px',
-    danger: 'bg-white text-rose-600 ring-1 ring-rose-300 hover:bg-rose-50 active:translate-y-px',
+    outline: 'bg-white text-ink ring-1 ring-[#D9DBE7] hover:bg-[#F6F7FB] hover:ring-[#B9BDD0] active:translate-y-px',
+    danger: 'bg-white text-[#B43D0E] ring-1 ring-[#F2C4AE] hover:bg-[#FFF5F0] active:translate-y-px',
   }[variant]
-  const s = { sm: 'h-8 px-3 text-xs', md: 'h-10 px-4 text-[13px]', lg: 'h-11 px-5 text-sm' }[size]
+  const s = { sm: 'h-9 px-3 text-xs', md: 'h-11 px-4 text-sm', lg: 'h-11 px-5 text-sm' }[size]
   return (
     <button {...p} disabled={p.disabled || loading}
       className={cx('inline-flex items-center justify-center gap-2 rounded-xl font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50', v, s, className)}>
@@ -22,7 +22,7 @@ export function Button({ variant = 'primary', size = 'md', loading, className, c
   )
 }
 
-export const Card = ({ className, ...p }) => <div {...p} className={cx('rounded-2xl bg-white/95 shadow-card ring-1 ring-slate-200/60 backdrop-blur-sm', className)} />
+export const Card = ({ className, ...p }) => <div {...p} className={cx('rounded-[20px] bg-white ring-1 ring-[#E7E8F0] dark:bg-white/5 dark:ring-white/10', className)} />
 
 export function CatBadge({ cat, className }) {
   const c = CATEGORIES[cat]
@@ -50,11 +50,11 @@ export function FieldError({ children, className }) {
 
 // Kartu seksi pastel: setiap seksi punya warna sendiri + aksen tegas
 export const TONE_CARD = {
-  lavender: { card: 'bg-gradient-to-br from-violet-50 to-white ring-violet-200/70', chip: 'bg-gradient-to-br from-violet-500 to-fuchsia-500', title: 'text-violet-900' },
-  sky: { card: 'bg-gradient-to-br from-sky-50 to-white ring-sky-200/70', chip: 'bg-gradient-to-br from-sky-500 to-indigo-500', title: 'text-sky-900' },
-  peach: { card: 'bg-gradient-to-br from-orange-50 to-white ring-orange-200/70', chip: 'bg-gradient-to-br from-orange-400 to-rose-500', title: 'text-orange-900' },
-  mint: { card: 'bg-gradient-to-br from-emerald-50 to-white ring-emerald-200/70', chip: 'bg-gradient-to-br from-emerald-500 to-teal-500', title: 'text-emerald-900' },
-  aqua: { card: 'bg-gradient-to-br from-cyan-50 to-white ring-cyan-200/70', chip: 'bg-gradient-to-br from-cyan-500 to-sky-500', title: 'text-cyan-900' },
+  lavender: { card: 'bg-white ring-[#E7E8F0]', chip: 'bg-[#EEEBFF] !text-[#4B3FB5] !shadow-none', title: 'text-[#141B34] !font-medium' },
+  sky: { card: 'bg-white ring-[#E7E8F0]', chip: 'bg-[#DFF4F7] !text-[#0A6577] !shadow-none', title: 'text-[#141B34] !font-medium' },
+  peach: { card: 'bg-white ring-[#E7E8F0]', chip: 'bg-[#FFEDE3] !text-[#B43D0E] !shadow-none', title: 'text-[#141B34] !font-medium' },
+  mint: { card: 'bg-white ring-[#E7E8F0]', chip: 'bg-[#E2F5E8] !text-[#17693A] !shadow-none', title: 'text-[#141B34] !font-medium' },
+  aqua: { card: 'bg-white ring-[#E7E8F0]', chip: 'bg-[#DFF4F7] !text-[#0A6577] !shadow-none', title: 'text-[#141B34] !font-medium' },
 }
 /** foldKey = seksi bisa di-minimize (tersimpan per perangkat); summary = ringkasan saat tertutup. */
 export function SectionCard({ tone = 'sky', icon: Icon, title, aside, children, className, foldKey, summary, defaultOpen = true }) {
@@ -63,7 +63,7 @@ export function SectionCard({ tone = 'sky', icon: Icon, title, aside, children, 
   const [open, setOpen] = useState(() => { if (!k) return true; try { const v = localStorage.getItem(k); return v === null ? defaultOpen : v !== '0' } catch { return defaultOpen } })
   const toggle = () => setOpen((o) => { try { localStorage.setItem(k, o ? '0' : '1') } catch { /* abaikan */ } return !o })
   return (
-    <section className={cx('min-w-0 rounded-2xl p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_-10px_rgba(15,23,42,0.12)] ring-1 sm:p-6', t.card, className)}>
+    <section className={cx('min-w-0 rounded-[20px] p-4 ring-1 sm:p-6', t.card, className)}>
       <div className={cx('flex items-center gap-2.5', open && 'mb-4 sm:mb-5')}>
         {Icon && <span className={cx('grid h-8 w-8 shrink-0 place-items-center rounded-xl text-white shadow-sm', t.chip)}><Icon className="h-4 w-4" /></span>}
         <div className="min-w-0 flex-1">
@@ -81,7 +81,7 @@ export function SectionCard({ tone = 'sky', icon: Icon, title, aside, children, 
     </section>
   )
 }
-const inputCls = 'w-full rounded-lg border-0 bg-white px-3 py-2 text-sm text-ink ring-1 ring-slate-300 placeholder:text-slate-400 transition hover:ring-slate-400 focus:outline-none focus:ring-2 focus:ring-brand disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-ink-mute aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-500'
+const inputCls = 'w-full rounded-xl border-0 bg-white px-3 py-2 text-sm text-ink ring-1 ring-[#D9DBE7] placeholder:text-[#8A8FA8] transition hover:ring-[#B9BDD0] focus:outline-none focus:ring-2 focus:ring-[#4169E1] disabled:cursor-not-allowed disabled:bg-[#F3F4F9] disabled:text-ink-mute aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-rose-500'
 export const Input = (p) => <input {...p} className={cx(inputCls, p.className)} />
 export const Textarea = (p) => <textarea rows={3} {...p} className={cx(inputCls, p.className)} />
 export const Select = ({ children, ...p }) => <select {...p} className={cx(inputCls, 'pr-8', p.className)}>{children}</select>
@@ -172,9 +172,9 @@ export function Tabs({ tabs, value, onChange }) {
       <div className="flex w-max gap-1.5">
         {tabs.map((t) => (
           <button key={t.value} onClick={() => onChange(t.value)}
-            className={cx('whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold transition',
-              value === t.value ? 'bg-[var(--surface-3)] text-ink ring-1 ring-[var(--line)]' : 'bg-white text-ink-mute ring-1 ring-slate-200 hover:text-ink')}>
-            {t.label}{t.count !== undefined && <span className="ml-1.5 text-ink-mute">{t.count}</span>}
+            className={cx('min-h-9 whitespace-nowrap rounded-[10px] px-3 text-[13px] font-semibold transition',
+              value === t.value ? 'bg-[#141B34] text-white ring-1 ring-[#141B34]' : 'bg-white text-[#5E6380] ring-1 ring-[#E7E8F0] hover:text-[#141B34]')}>
+            {t.label}{t.count !== undefined && <span className={cx('ml-1.5 text-xs font-bold tabular-nums', value === t.value ? 'opacity-80' : 'opacity-75')}>{t.count}</span>}
           </button>
         ))}
       </div>

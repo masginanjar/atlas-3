@@ -521,12 +521,12 @@ export default function Perusahaan({ tab: tabAwal }) {
     <div className="min-w-0 space-y-4" data-perusahaan ref={ref}>
       <div>
         <p className="text-xs text-ink-mute">Lainnya › <b className="text-ink-soft">Perusahaan</b></p>
-        <h1 className="flex items-center gap-2 text-lg font-bold"><Building2 className="h-5 w-5 text-ink-mute" />Perusahaan</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Perusahaan</h1>
       </div>
-      <div className="-mx-1 flex gap-1 overflow-x-auto border-b border-slate-200 px-1 text-[13px] font-semibold" role="tablist">
+      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 text-[13px] font-bold [scrollbar-width:none]" role="tablist">
         {TABS.map(([k, l, I]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
-            className={cx('flex min-h-[44px] shrink-0 items-center gap-1.5 border-b-2 px-3', tab === k ? 'border-ink text-ink' : 'border-transparent text-ink-soft hover:text-ink')}>
+            className={cx('flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] border px-3.5', tab === k ? 'border-[#141B34] bg-[#141B34] text-white' : 'border-[#D9DBE7] bg-white text-[#141B34] hover:border-[#B9BDD0]')}>
             <I className="h-4 w-4" />{l}
           </button>
         ))}

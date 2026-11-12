@@ -30,8 +30,8 @@ export function KepalaDasbor({ user, ping }) {
   return (
     <section aria-label="Sapaan hari ini" data-sapaan className="flex items-start gap-2">
       <div className="min-w-0 flex-1">
-        <h1 className="truncate text-xl font-extrabold leading-tight tracking-tight sm:text-2xl"><span className="font-semibold text-ink-soft">{sapaan()}, </span>{user.display_name || user.name}</h1>
-        <p className="mt-0.5 text-xs font-semibold text-ink-mute"><span className="sm:hidden">{pendek} · </span>{roleLabel(user)}{user.branch && !isFreelance(user) ? ` · ${user.branch}` : ''}</p>
+        <h1 className="flex items-center gap-2.5 text-2xl font-extrabold leading-tight tracking-tight">Dashboard<span className="inline-flex min-h-6 items-center whitespace-nowrap rounded-full bg-[#DFF1FB] px-2.5 text-xs font-bold tracking-normal text-[#0B5C8A]">{roleLabel(user)}</span></h1>
+        <p className="mt-0.5 text-xs font-semibold text-[#5E6380]"><span className="sm:hidden">{pendek} · </span>{sapaan()}, {user.display_name || user.name} · {roleLabel(user)}{user.branch && !isFreelance(user) ? ` · ${user.branch}` : ''}</p>
       </div>
       {ping}
       <p className="hidden shrink-0 pt-1 text-xs font-semibold text-ink-mute sm:block">{tanggal}</p>
@@ -104,18 +104,17 @@ export function AngkaPeran({ tiles, aktif }) {
     const props = t.href ? { href: t.href } : { type: 'button', onClick: t.onClick }
     return (
       <Tag {...props} data-angka-kartu={t.k} aria-pressed={aktif === t.k || undefined}
-        className={cx('group relative flex min-h-[72px] min-w-0 flex-col justify-end overflow-hidden rounded-2xl bg-white p-3 text-left shadow-card ring-1 transition hover:-translate-y-0.5 hover:ring-brand/40',
-          aktif === t.k ? 'ring-2 ring-ink' : 'ring-slate-200', kecil && 'lg:flex')}>
-        {t.onClick && <span className="absolute right-2.5 top-2.5 text-ink-mute/50 group-hover:text-brand"><ArrowRight className="h-3.5 w-3.5" /></span>}
-        <p className={cx('truncate font-extrabold leading-none tabular-nums', t.uang ? 'text-base' : 'text-2xl', t.tone === 'danger' ? 'text-rose-600' : t.tone === 'warn' ? 'text-amber-700' : t.tone === 'ok' ? 'text-emerald-600' : 'text-ink')}>{t.value}</p>
-        <p className="mt-1 truncate text-[11px] font-semibold text-ink-soft" title={t.label}>{t.label}</p>
-        <p className="truncate text-[10px] text-ink-mute">{t.sub}</p>
+        className={cx('group relative flex min-w-0 flex-col gap-1 rounded-2xl border bg-white px-3.5 py-3 text-left transition hover:border-[#B9BDD0] dark:bg-white/5',
+          aktif === t.k ? 'border-[#141B34]' : 'border-[#DADDE8] dark:border-white/10', kecil && 'lg:flex')}>
+        <p className="truncate text-xs text-[#5E6380]" title={t.label}>{t.label}</p>
+        <p className={cx('truncate font-extrabold leading-tight tabular-nums', t.uang ? 'text-base' : 'text-[22px]', t.tone === 'danger' ? 'text-[#C62828]' : t.tone === 'warn' ? 'text-[#6B4E00]' : t.tone === 'ok' ? 'text-[#17693A]' : 'text-[#141B34] dark:text-white')}>{t.value}</p>
+        {t.sub && <p className="truncate text-[11px] text-[#5E6380]">{t.sub}</p>}
       </Tag>
     )
   }
   return (
     <section aria-label="Angka hari ini" data-angka className="space-y-2">
-      <div className={cx('grid grid-cols-2 gap-2 lg:gap-2.5', { 1: 'lg:grid-cols-1', 2: 'lg:grid-cols-2', 3: 'lg:grid-cols-3', 4: 'lg:grid-cols-4', 5: 'lg:grid-cols-5', 6: 'lg:grid-cols-6', 7: 'lg:grid-cols-7' }[Math.min(7, tiles.length)])}>
+      <div className="grid grid-cols-2 gap-2.5 lg:[grid-template-columns:repeat(auto-fit,minmax(150px,1fr))]">
         {utama.map((t) => <Kotak key={t.k} t={t} />)}
         {lain.map((t) => <span key={t.k} className="hidden min-w-0 lg:block"><Kotak t={t} kecil /></span>)}
       </div>
@@ -124,7 +123,7 @@ export function AngkaPeran({ tiles, aktif }) {
           {lain.map((t) => {
             const Tag = t.href ? 'a' : 'button'
             const props = t.href ? { href: t.href } : { type: 'button', onClick: t.onClick }
-            return <Tag key={t.k} {...props} className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl bg-white px-2.5 text-[11px] font-semibold text-ink-soft ring-1 ring-slate-200">{t.label}<b className="text-ink">{t.value}</b></Tag>
+            return <Tag key={t.k} {...props} className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] border border-[#E7E8F0] bg-white px-3 text-xs font-semibold text-[#5E6380]">{t.label}<b className="text-ink">{t.value}</b></Tag>
           })}
         </div>
       )}
@@ -153,7 +152,7 @@ function BarisProject({ p, keterangan, kanan, aksi }) {
 
 const Chip = ({ on, onClick, n, children }) => (
   <button type="button" onClick={onClick} aria-pressed={on}
-    className={cx('inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 text-xs font-semibold ring-1 transition', on ? 'bg-[#1e3a5f] text-white ring-[#1e3a5f]' : 'bg-white text-[#1e3a5f] ring-[#c7d3e0] hover:ring-brand')}>
+    className={cx('inline-flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3.5 text-[13px] font-bold ring-1 transition', on ? 'bg-[#141B34] text-white ring-[#141B34]' : 'bg-white text-[#141B34] ring-[#D9DBE7] hover:ring-[#B9BDD0]')}>
     {children}{n !== undefined && <span className={cx('text-[10px]', on ? 'text-slate-300' : 'text-ink-mute')}>{n}</span>}
   </button>
 )

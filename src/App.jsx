@@ -1,5 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Home, LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, Stamp, ReceiptText, StickyNote, AlarmClock, CalendarDays, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store, Handshake, Minimize2, Maximize2, Building2, Server, Rocket, Hash, ClipboardList } from 'lucide-react'
+import PindahBooks from './components/PindahBooks.jsx'
+import SidebarMenu from './components/SidebarMenu.jsx'
 import { useApp } from './lib/store.jsx'
 import { MODE, storageError, db } from './lib/db.js'
 import { AlertTriangle } from 'lucide-react'
@@ -79,44 +81,59 @@ function useRoute() {
 //  tab bawah HP, dan Sheet Menu. Induk hanya untuk pengelompokan di
 //  panel Lainnya; hak akses per item lewat show/menuBoleh.
 // ============================================================
+const KANTOR_ROLES = ['superadmin', 'direktur', 'supervisor', 'admin_pusat', 'cs', 'akunting', 'helper', 'staf_apostille']
+const peranDi = (roles) => (u) => roles.includes(u?.role)
+// Susunan menu mengikuti CANVAS ATLAS. Item "segera" = bagian ATLAS Books yang belum jadi.
 const MENU = [
-  // Beranda: info ringan (sapaan, sholat, ayat, fakta) — bukan untuk pelaksana lepas
-  { key: 'beranda', label: 'Beranda', icon: Home, show: canSeeBeranda },
-  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, bar: true },
+  { id: 'utama', label: 'Utama', icon: Home, children: [
+    { key: 'beranda', label: 'Beranda', icon: Home, show: canSeeBeranda },
+    { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, bar: true },
+  ] },
   { id: 'penjualan', label: 'Penjualan', icon: ReceiptText, children: [
+    { key: 'estimasi', label: 'Estimasi', segera: true, show: peranDi(KANTOR_ROLES) },
     { key: 'faktur', label: 'Faktur', icon: ReceiptText, show: canSeeInvoices, badge: (u, d, bf, extra) => extra.unlinkedInvoices },
-    { key: 'daftar-harga', label: 'Katalog', icon: Tags, show: canSeeKatalog },
+    { key: 'terima-pembayaran', label: 'Terima Pembayaran', segera: true, show: peranDi(KANTOR_ROLES) },
     { key: 'pelanggan', label: 'Pelanggan', icon: Users, show: canSeePelanggan },
-    { key: 'vendor', label: 'Vendor', icon: Store, show: canSeeVendor },
     { key: 'mitra', label: 'Mitra', icon: Handshake, show: canSeeMitra },
+    { key: 'daftar-harga', label: 'Katalog', icon: Tags, show: canSeeKatalog },
   ] },
   { id: 'project', label: 'Project', icon: FolderKanban, children: [
-    { key: 'penugasan', label: 'Penugasan', icon: Users, show: canSeePenugasan },
     { key: 'projects', label: 'Project', icon: FolderKanban, bar: true },
+    { key: 'penugasan', label: 'Penugasan', icon: Users, show: canSeePenugasan },
     { key: 'register', label: 'Nomor Register', icon: Hash, show: canSeeRegister },
     { key: 'otorisasi', label: 'Laporan Otorisasi', icon: ClipboardList, show: canSeeLaporanOto },
     { key: 'dokumen', label: 'Dokumen', icon: HardDrive },
-    { key: 'keuangan', label: 'Keuangan', icon: Wallet, badge: needsAction },
-  ] },
-  // Personal digabung ke Manajemen — satu induk saja, urutan sesuai permintaan.
-  { id: 'manajemen', label: 'Manajemen', icon: FileStack, children: [
-    ...(CHAT_ENABLED ? [{ key: 'pesan', label: 'Pesan Masuk', icon: MessageCircle, bar: true, badge: (u, d, bf, x) => x.chatTotals?.msg || 0 }] : []),
-    { key: 'agenda', label: 'Agenda', icon: CalendarRange, bar: true },
-    { key: 'notes', label: 'Catatan', icon: StickyNote },
-    { key: 'jadwal', label: 'Jadwal', icon: CalendarRange },
     { key: 'affidavit', label: 'Affidavit', icon: FileStack, show: canSeeAffidavit },
   ] },
-  { key: 'faq', label: 'FAQ', icon: BookOpen },
-  { key: 'perusahaan', label: 'Perusahaan', icon: Building2 },
-  { key: 'rilis-fitur', label: 'Rilis Fitur', icon: Rocket, show: canMonitor },
-  { key: 'status-server', label: 'Status Server', icon: Server, show: canMonitor },
-  { key: 'monitoring', label: 'Monitoring', icon: MonitorCheck, show: canMonitor },
-  { key: 'aktivitas', label: 'Aktivitas', icon: History, show: canSeeAllActivity },
-  { key: 'settings', label: 'Pengaturan', icon: Cog },
+  { id: 'keuangan', label: 'Keuangan', icon: Wallet, children: [
+    { key: 'keuangan', label: 'Ringkasan', icon: Wallet, badge: needsAction, subOnly: true },
+    { id: 'keu-pengajuan', key: 'keuangan', sub: 'pengajuan', label: 'Pengajuan', samping: true },
+    { id: 'keu-petty', key: 'keuangan', sub: 'petty', label: 'Petty Cash', samping: true, show: canSeeKeuangan },
+    { key: 'kas-bank', label: 'Kas & Bank', segera: true, show: peranDi(['superadmin', 'direktur', 'akunting']) },
+    { key: 'pengeluaran', label: 'Pengeluaran', segera: true, show: peranDi(['superadmin', 'akunting']) },
+    { id: 'keu-tagihan', key: 'keuangan', sub: 'tagihan', label: 'Tagihan Vendor', samping: true, show: canSeeKeuangan },
+    { key: 'vendor', label: 'Vendor', icon: Store, show: canSeeVendor },
+    { key: 'laporan-keuangan', label: 'Laporan', segera: true, show: peranDi(['superadmin', 'akunting']) },
+  ] },
+  { id: 'agenda', label: 'Agenda', icon: CalendarRange, children: [
+    ...(CHAT_ENABLED ? [{ key: 'pesan', label: 'Pesan Masuk', icon: MessageCircle, bar: true, badge: (u, d, bf, x) => x.chatTotals?.msg || 0 }] : []),
+    { key: 'agenda', label: 'Agenda', icon: CalendarRange, bar: true },
+    { key: 'jadwal', label: 'Jadwal Kerja', icon: CalendarRange },
+    { key: 'notes', label: 'Catatan', icon: StickyNote },
+  ] },
+  { id: 'kantor', label: 'Kantor & Sistem', icon: Building2, children: [
+    { key: 'perusahaan', label: 'Perusahaan', icon: Building2 },
+    { key: 'faq', label: 'FAQ', icon: BookOpen },
+    { key: 'settings', label: 'Pengaturan', icon: Cog },
+    { key: 'rilis-fitur', label: 'Rilis Fitur', icon: Rocket, show: canMonitor },
+    { key: 'status-server', label: 'Status Server', icon: Server, show: canMonitor },
+    { key: 'monitoring', label: 'Monitoring', icon: MonitorCheck, show: canMonitor },
+    { key: 'aktivitas', label: 'Aktivitas', icon: History, show: canSeeAllActivity },
+  ] },
 ]
 
 /** Boleh tampil untuk pengguna ini? Hak akses persis seperti sebelumnya. */
-const bolehItem = (user, n) => menuBoleh(user, n.key) && (!n.show || n.show(user))
+const bolehItem = (user, n) => (n.segera || menuBoleh(user, n.key)) && (!n.show || n.show(user))
 /** Submenu yang terlihat; induk tanpa submenu terlihat ikut disembunyikan. */
 const anakTerlihat = (user, n) => (n.children || []).filter((c) => bolehItem(user, c))
 /** Menu yang benar-benar tampil, induk beserta submenunya. */
@@ -124,7 +141,7 @@ const menuTerlihat = (user) => MENU
   .map((n) => (n.children ? { ...n, children: anakTerlihat(user, n) } : n))
   .filter((n) => (n.children ? n.children.length > 0 : bolehItem(user, n)))
 /** Daftar rata semua halaman yang boleh dibuka — dipakai bilah bawah di HP. */
-const navItems = (user) => menuTerlihat(user).flatMap((n) => (n.children ? n.children : [n]))
+const navItems = (user) => menuTerlihat(user).flatMap((n) => (n.children ? n.children : [n])).filter((n) => !n.segera && !n.samping)
 
 export default function App() {
   const { user, data, setActiveRole, personaList, booting, signOut, toast, dismissToast, notify, branchFilter, setBranchFilter, confirmState, setConfirmState, unlinkedInvoices, chatTotals } = useApp()
@@ -266,7 +283,7 @@ export default function App() {
           )}
 
           <span className="hidden flex-1 xl:block" />
-          <JamZona className="hidden shrink-0 md:flex" />
+          <JamZona className="hidden shrink-0 md:flex lg:hidden" />
 
           {/* Cabang / organisasi aktif */}
           {branchPicker && !alatSendiri ? (
@@ -303,7 +320,8 @@ export default function App() {
         </header>
       <div className="md:flex">
       {/* Rel ikon 64 px (K3) — menu lengkap ada di "Lainnya" */}
-      <RelIkon menu={menuTerlihat(user)} flat={navItems(user)} page={page} ctx={{ user, data, branchFilter, extra: { unlinkedInvoices, chatTotals } }} />
+      <RelIkon menu={menuTerlihat(user).map((g) => (g.children ? { ...g, children: g.children.filter((n) => !n.segera && !n.samping) } : g))} flat={navItems(user)} page={page} ctx={{ user, data, branchFilter, extra: { unlinkedInvoices, chatTotals } }} />
+      <SidebarMenu menu={menuTerlihat(user)} page={page} param={param} ctx={{ user, data, branchFilter, extra: { unlinkedInvoices, chatTotals } }} />
 
       <div className="min-w-0 flex-1">
         {/* Top bar */}
@@ -442,6 +460,7 @@ function AppsMenu({ user }) {
               <span className="line-clamp-2 leading-tight">{n.label}</span>
             </a>
           ))}
+          <div className="col-span-3 mt-1 border-t border-slate-100 pt-1"><PindahBooks onPilih={close} /></div>
         </div>
       )}
     </Popover>

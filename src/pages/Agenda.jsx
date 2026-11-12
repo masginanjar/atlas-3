@@ -49,7 +49,7 @@ export default function Agenda({ tab: tabProp = 'kalender' }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2" data-alat>
-        <h1 className="flex items-center gap-2 text-xl font-extrabold tracking-tight sm:text-2xl"><CalendarRange className="h-5 w-5 text-ink-mute" />Agenda</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Agenda</h1>
         <div className="ml-auto flex items-center gap-1.5">
           {/* HP: satu tombol + → lembar pilihan */}
           <button type="button" onClick={() => setSheet(true)} aria-label="Tambah" data-aksi="tambah-agenda"
@@ -66,11 +66,11 @@ export default function Agenda({ tab: tabProp = 'kalender' }) {
       </div>
 
       {/* Tab bersegmen: di HP keempatnya sama lebar (≥44px tinggi) */}
-      <div className="flex rounded-2xl bg-slate-100 p-1 ring-1 ring-slate-200" role="tablist" aria-label="Tampilan agenda" data-tab-agenda>
+      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Tampilan agenda" data-tab-agenda>
         {TAB_AGENDA.map(([k, l, Icon]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => pilih(k)} data-tab-agenda-item={k}
-            className={cx('flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-2 text-xs font-semibold transition sm:flex-none sm:px-4',
-              tab === k ? 'bg-white text-ink shadow-sm ring-1 ring-slate-200' : 'text-ink-soft hover:text-ink')}>
+            className={cx('flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-[10px] border px-3.5 text-[13px] font-bold transition sm:flex-none',
+              tab === k ? 'border-[#141B34] bg-[#141B34] text-white' : 'border-[#D9DBE7] bg-white text-[#141B34] hover:border-[#B9BDD0]')}>
             <Icon className="h-3.5 w-3.5" /><span>{l}</span>
           </button>
         ))}

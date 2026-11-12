@@ -80,23 +80,14 @@ export default function Login() {
     : MODE === 'demo' ? 'Pilih akun untuk mencoba tiap peran & cabang.' : tema.sub
 
   return (
-    <div className="relative min-h-dvh overflow-x-clip px-3 py-4 sm:px-6 sm:py-8" style={{ background: tema.bg }}>
-      {/* bentuk abstrak lembut biru–lavender */}
-      <div aria-hidden className="pointer-events-none absolute -left-40 -top-40 h-[30rem] w-[30rem] rounded-full bg-indigo-300/30 blur-3xl" />
-      <div aria-hidden className="pointer-events-none absolute -bottom-48 -right-32 h-[34rem] w-[34rem] rounded-full bg-violet-300/30 blur-3xl" />
-      <div aria-hidden className="pointer-events-none absolute left-1/3 top-1/4 h-72 w-72 rounded-full bg-sky-200/30 blur-3xl" />
-
-      <div className="relative mx-auto flex min-h-[calc(100dvh-2rem)] max-w-[1120px] items-center">
-        <div className="grid w-full gap-4 rounded-[28px] bg-white p-4 shadow-[0_24px_70px_-30px_rgba(49,46,129,.45)] ring-1 ring-indigo-100 sm:p-5 lg:grid-cols-2 lg:gap-6 lg:p-6">
-
-          {/* ================= KIRI — formulir ================= */}
-          <div className="order-2 flex items-center justify-center px-1 py-3 sm:px-4 sm:py-6 lg:order-1">
-            <div className="w-full max-w-[360px]">
-              <div className="mb-6 flex flex-col items-center text-center">
-                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--brand)] text-lg font-black text-white shadow-sm">A</div>
-                <p className="mt-3 font-display text-[15px] font-extrabold tracking-wide text-ink">Atlas Alfa 5.0</p>
-                <h1 className="mt-3 text-[22px] font-extrabold leading-tight tracking-tight text-ink">{judul}</h1>
-                <p className="mt-1.5 text-[13px] leading-relaxed text-ink-soft">{sub}</p>
+    <div className="flex min-h-dvh items-center justify-center bg-[#F3F4F9] px-4 py-8 text-[#141B34]" data-login-canvas>
+      <section className="w-[400px] max-w-full rounded-2xl border border-[#DADDE8] bg-white p-7">
+          <div>
+            <div className="w-full">
+              <div className="mb-4 flex flex-col items-center gap-1 text-center">
+                <h1 className="text-[28px] font-extrabold tracking-tight">ATLAS</h1>
+                <p className="text-[13px] text-[#5E6380]">247 Translator</p>
+                {(view !== 'masuk' || MODE === 'demo') && <p className="mt-2 text-[13px] text-[#5E6380]"><b className="text-[#141B34]">{judul}</b> · {sub}</p>}
               </div>
 
               {idleOut && (
@@ -140,25 +131,25 @@ export default function Login() {
                 <form onSubmit={view === 'daftar' ? daftar : view === 'lupa' ? lupa : view === 'sandi-baru' ? sandiBaru : submit} className="space-y-3.5">
                   {view !== 'sandi-baru' && (
                     <label className="block">
-                      <span className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{view === 'daftar' ? 'Email kantor' : 'Email / Username'}</span>
+                      <span className="mb-1.5 block text-[13px] font-bold text-[#141B34]">{view === 'daftar' ? 'Email kantor' : 'Email'}</span>
                       <span className="relative block">
-                        <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+                        
                         <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username email" autoFocus
                           name="email" placeholder="nama@247sworntranslator.com"
-                          className="h-11 w-full rounded-xl border-0 bg-slate-50 pl-9 pr-3 text-sm text-ink ring-1 ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand" />
+                          className="h-11 w-full rounded-xl border border-[#D9DBE7] bg-white px-3 text-sm text-[#141B34] placeholder:text-[#8A8FA8] focus:outline-none focus:ring-2 focus:ring-[#4169E1]" />
                       </span>
                     </label>
                   )}
 
                   {view !== 'lupa' && (
                     <label className="block">
-                      <span className="mb-1.5 block text-[12px] font-semibold text-ink-soft">{view === 'masuk' ? 'Password' : 'Kata sandi baru (min. 8 karakter)'}</span>
+                      <span className="mb-1.5 block text-[13px] font-bold text-[#141B34]">{view === 'masuk' ? 'Kata sandi' : 'Kata sandi baru (min. 8 karakter)'}</span>
                       <span className="relative block">
-                        <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
+                        
                         <input type={lihat ? 'text' : 'password'} required minLength={view === 'masuk' ? undefined : 8}
                           value={password} onChange={(e) => setPassword(e.target.value)} name="password"
                           autoComplete={view === 'masuk' ? 'current-password' : 'new-password'} placeholder="••••••••"
-                          className="h-11 w-full rounded-xl border-0 bg-slate-50 pl-9 pr-11 text-sm text-ink ring-1 ring-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand" />
+                          className="h-11 w-full rounded-xl border border-[#D9DBE7] bg-white pl-3 pr-11 text-sm text-[#141B34] placeholder:text-[#8A8FA8] focus:outline-none focus:ring-2 focus:ring-[#4169E1]" />
                         <button type="button" onClick={() => setLihat((v) => !v)} tabIndex={0}
                           aria-label={lihat ? 'Sembunyikan password' : 'Tampilkan password'} title={lihat ? 'Sembunyikan password' : 'Tampilkan password'}
                           className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-lg text-ink-mute transition hover:bg-slate-100 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
@@ -171,12 +162,12 @@ export default function Login() {
                   {view === 'masuk' && (
                     <div className="flex justify-end">
                       <button type="button" onClick={() => { setInfo(''); setSalah(''); setView('lupa') }}
-                        className="text-[12px] font-semibold text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">Lupa Password?</button>
+                        className="min-h-9 rounded-[10px] px-3 text-[13px] font-bold text-[#141B34] hover:bg-[#F3F4F9]">Lupa Password?</button>
                     </div>
                   )}
 
                   <button type="submit" disabled={busy}
-                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--brand)] text-sm font-bold text-white shadow-sm transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-70">
+                    className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#141B34] text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-70">
                     {busy && <Loader2 className="h-4 w-4 animate-spin" />}
                     {busy ? 'Memproses…' : view === 'masuk' ? 'Masuk' : view === 'daftar' ? 'Buat & Masuk' : view === 'lupa' ? 'Kirim tautan' : 'Simpan'}
                   </button>
@@ -212,15 +203,7 @@ export default function Login() {
             </div>
           </div>
 
-          {/* ================= KANAN — panel visual ================= */}
-          <div className="order-1 lg:order-2">
-            <div className="h-[250px] sm:h-[270px] lg:h-[560px]">
-              <LoginVisual tema={tema} gambar={gambar} onError={() => setGambar(null)} />
-            </div>
-          </div>
-
-        </div>
-      </div>
+      </section>
     </div>
   )
 }

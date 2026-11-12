@@ -9,6 +9,7 @@ import { useApp } from '../lib/store.jsx'
 import { FITUR, STATUS_FITUR, rencanaTahap, bacaRilis } from '../config/rilis.js'
 import { ROLES } from '../config/access.js'
 import { Card, Button, cx } from '../components/ui.jsx'
+import PanelDummy from '../components/PanelDummy.jsx'
 
 const JUDUL_TAHAP = { 1: 'Tahap 1 · Inti', 2: 'Tahap 2 · Harian', 3: 'Tahap 3 · Pendukung', 4: 'Tahap 4 · Lengkap' }
 const WARNA = { tersembunyi: 'bg-slate-700 text-white', uji: 'bg-amber-400 text-ink', aktif: 'bg-emerald-600 text-white' }
@@ -52,8 +53,9 @@ export default function RilisFitur() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-4 pb-28" data-rilis-fitur>
+      <PanelDummy />
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="flex items-center gap-2 text-lg font-bold"><Rocket className="h-5 w-5 text-ink-mute" aria-hidden="true" />Rilis Fitur</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Rilis Fitur</h1>
         <span className={cx('rounded-full px-2.5 py-1 text-xs font-bold', v.aktif ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-ink-soft')}>{v.aktif ? 'Rilis bertahap AKTIF' : 'Belum aktif — tim melihat semua fitur'}</span>
         {row?.updated_by && <span className="text-xs text-ink-mute">Terakhir diubah {row.updated_by}{row.updated_at_local ? ` · ${new Date(row.updated_at_local).toLocaleString('id-ID', { timeZone: 'Asia/Makassar', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</span>}
       </div>

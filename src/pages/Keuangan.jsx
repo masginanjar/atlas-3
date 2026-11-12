@@ -79,8 +79,8 @@ export default function Keuangan({ tab }) {
   return (
     <div className="min-w-0 space-y-3">
       <div className="flex items-center gap-2" data-alat>
-        <h1 className="flex items-center gap-2 text-xl font-extrabold leading-tight sm:text-2xl">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-glow"><Wallet className="h-4 w-4" /></span>Keuangan
+        <h1 className="flex items-center gap-2 leading-tight text-2xl font-extrabold tracking-tight">
+          Keuangan
         </h1>
         <div className="ml-auto flex items-center gap-1.5">{tombolTambah}</div>
       </div>

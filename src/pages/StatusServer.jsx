@@ -252,7 +252,7 @@ export default function StatusServer() {
       <div className="flex flex-wrap items-center gap-3">
         <div className="min-w-0">
           <p className="text-xs text-ink-mute">Superadmin › <b className="text-ink-soft">Status Server Supabase</b></p>
-          <h1 className="flex items-center gap-2 text-lg font-bold"><Server className="h-5 w-5 text-ink-mute" />Status Server Supabase</h1>
+          <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Status Server Supabase</h1>
         </div>
         <span className={cx('flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ring-1', ringkasan.s === 'normal' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : ringkasan.s === 'terganggu' ? 'bg-amber-50 text-amber-700 ring-amber-200' : ringkasan.s === 'gagal' ? 'bg-rose-50 text-rose-700 ring-rose-200' : 'bg-slate-100 text-ink-soft ring-slate-200')} data-ringkasan={ringkasan.s}><Dot s={ringkasan.s} />{ringkasan.t}</span>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-xs text-ink-soft">

@@ -33,9 +33,9 @@ export const usePaksaHp = () => false
 export const usePaksaPc = () => false
 export function tukarTampilan() {}
 export function useKlasik(user, data) {
-  const on = useSyncExternalStore(subscribe, () => !!user && bacaKlasik(user._actor || user.id))
-  // Rilis bertahap: tim dikunci di Mode Klasik (Superadmin & Direktur tetap bebas)
-  return (on || kunciKlasik(user)) && bolehKlasik(user, data)
+  // Pilihan Klasik/Baru dihapus (12 Nov 2026): semua peran memakai Mode Baru.
+  useSyncExternalStore(subscribe, () => !!user && bacaKlasik(user._actor || user.id))
+  return false
 }
 
 export async function layarPenuh(on) {
@@ -49,7 +49,8 @@ export async function layarPenuh(on) {
 export function SaklarMode({ klasik, className, selalu }) {
   const { user, data } = useApp()
   const [tanya, setTanya] = useState(false)
-  if (!bolehKlasik(user, data) || kunciKlasik(user)) return null
+  // Saklar Klasik/Baru dihapus — tidak ditampilkan lagi.
+  if (true || !bolehKlasik(user, data) || kunciKlasik(user)) return null
   const pilih = (k) => {
     if (k === klasik) return
     if (k) setTanya(true)

@@ -66,6 +66,10 @@ const JENIS_EN = [
   ['paspor', 'Passport'], ['npwp', 'Taxpayer Identification Number'], ['nib', 'Business Identification Number'], ['sim', 'Driving License'],
   ['rapor', 'Student Report Card'], ['raport', 'Student Report Card'], ['piagam', 'Certificate of Appreciation'], ['sertifikat', 'Certificate'], ['surat izin praktik', 'Practice License'],
 ].sort((a, b) => b[0].length - a[0].length)
+/** Daftar pilihan jenis dokumen (Bahasa Inggris, seperti di Sheet register). */
+export const OPSI_JENIS = [...new Set([...JENIS_EN.map((x) => x[1]), 'Bank Statement', 'Deed of Company Amendment', 'Medical Certificate', 'Employment Certificate', 'Letter of Recommendation', 'Business License', 'Land Certificate', 'Vehicle Registration Certificate', 'Court Decision', 'Adoption Certificate', 'Name Change Certificate', 'Certificate of Good Health', 'Letter of Statement', 'Invitation Letter', 'Sponsor Letter'])].sort((a, b) => a.localeCompare(b))
+/** Kata kunci Indonesia per jenis (untuk pencarian): { 'Birth Certificate': 'akta kelahiran akta lahir …' } */
+export const KUNCI_JENIS = JENIS_EN.reduce((m, [id, en]) => { (m[en] ||= []).push(id); return m }, {})
 export const jenisDefault = (docDesc) => {
   const d = String(docDesc || '').replace(/^\s*(indonesian|english|dutch|inggris|indonesia|belanda)\s+(to|ke)\s+(indonesian|english|dutch|inggris|indonesia|belanda)\s*/i, '').replace(/^\s*\d+[.)]?\s+/, '').trim()
   const k = d.toLowerCase()

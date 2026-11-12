@@ -61,7 +61,9 @@ export default function LaporanOtorisasi() {
   const th = 'px-3 py-2 font-semibold'
 
   return (
-    <div className="min-w-0" data-halaman-laporan-oto>
+    <div className="flex min-w-0 flex-col gap-3.5" data-halaman-laporan-oto>
+      <h1 className="text-2xl font-extrabold tracking-tight">Laporan Otorisasi</h1>
+      <div className="min-w-0 overflow-hidden rounded-2xl border border-[#DADDE8] bg-white dark:border-white/10 dark:bg-white/5">
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-[var(--klasik-latar)] px-3 py-2 text-[12.5px]" data-klasik-filter>
         <span className="flex items-center rounded-lg bg-white ring-1 ring-slate-200">
           <button type="button" onClick={() => setYm((v) => geserBulan(v, -1))} aria-label="Bulan sebelumnya" className="grid h-9 w-9 place-items-center text-ink-mute hover:text-ink"><ChevronLeft className="h-4 w-4" /></button>
@@ -159,6 +161,7 @@ export default function LaporanOtorisasi() {
           )}
         </>
       )}
+      </div>
     </div>
   )
 }

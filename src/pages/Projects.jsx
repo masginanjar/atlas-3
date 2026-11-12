@@ -27,6 +27,10 @@ import { grupOf, garisUrgensi, baru, umur, sisaWaktu, porsiSla, posisiTahap, kel
 import { TABLE_COLS } from '../lib/projectRow.js'
 import TimeAgo from '../components/TimeAgo.jsx'
 import CentangApostille from '../components/CentangApostille.jsx'
+import { WaktuDibuat, PrioPill, DeadlinePill, CabangPrint, eksekutorOf, dibuatBaru, warnaKategori, infoDeadline } from '../components/BarisCanvas.jsx'
+import LayarKerja from './LayarKerja.jsx'
+import TugaskanPenerjemah from '../components/TugaskanPenerjemah.jsx'
+import { coordinatorFor } from '../config/access.js'
 
 /** Order bahasa Mandarin (direkap Akunting — tanpa koordinator, tiap orang order sendiri). */
 const adaMandarin = (p) => (p.sub_projects || []).some((x) => foreignLang(x) === 'Mandarin')
@@ -70,15 +74,21 @@ export default function Projects({ tabAwal }) {
   const [cepat, setCepat] = useState('')
   const [detailFor, setDetailFor] = useState(null) // panel kanan: detail project
   const [langkahFor, setLangkahFor] = useState(null) // slide samping: kerjakan langkah berikutnya { p, subId }
-  const bukaLangkah = (p, subId) => { setFilesFor(null); setDetailFor(null); setLangkahFor({ p, subId }) }
+  const [tugasFor, setTugasFor] = useState(null) // popup kecil: tetapkan penerjemah + kapasitas di tanggal deadline
+  const bukaLangkah = (p, subId, aksi) => {
+    setFilesFor(null); setDetailFor(null)
+    const sb = (p.sub_projects || []).find((x) => x.id === subId)
+    if (aksi && sb?.stage === 'pilih_penerjemah' && !coordinatorFor(data.users, foreignLang(sb))) return setTugasFor({ p, sub: sb })
+    setLangkahFor({ p, subId })
+  }
   const [filesFor, setFilesFor] = useState(null) // panel kanan: file project
-  const [cols, setCols] = useState(() => { try { const v = JSON.parse(localStorage.getItem('atlas-cols-v2') || 'null'); return Array.isArray(v) && v.length ? v.filter((k) => ALL_COLS.includes(k)) : ALL_COLS } catch { return ALL_COLS } })
-  const saveCols = (next) => { setCols(next); try { localStorage.setItem('atlas-cols-v2', JSON.stringify(next)) } catch { /* abaikan */ } }
+  const [cols, setCols] = useState(() => { try { const v = JSON.parse(localStorage.getItem('atlas-cols-v3') || 'null'); return Array.isArray(v) && v.length ? v.filter((k) => ALL_COLS.includes(k)) : ALL_COLS } catch { return ALL_COLS } })
+  const saveCols = (next) => { setCols(next); try { localStorage.setItem('atlas-cols-v3', JSON.stringify(next)) } catch { /* abaikan */ } }
   const worker = isWorkRole(user) // penerjemah / proofreader / otorisator → tampilan fokus tugas
   // Pelaksana freelance tidak terikat cabang, jadi kolom cabang/print/CS disembunyikan.
   // Selain itu tampilan List & Tabel-nya sama persis dengan My Project milik CS.
   const SEMBUNYI_TABEL = ['cabang', 'print', 'cs', 'status', 'orang']
-  const SEMBUNYI_LIST = ['cabang', 'tahap'] // pelaksana tidak perlu kolom "Tahap → berikutnya"
+  const SEMBUNYI_LIST = ['cabang'] // pelaksana tidak perlu kolom "Tahap → berikutnya"
   const colsAktif = worker ? cols.filter((k) => !SEMBUNYI_LIST.includes(k)) : cols
   const [fullView, setFullView] = useState(false)
   const [shownN, setShownN] = useState(36)
@@ -214,76 +224,71 @@ export default function Projects({ tabAwal }) {
           )
         }
 
+        const pil = (on) => (on ? 'bg-[#141B34] text-white border-[#141B34]' : 'bg-white text-[#5E6380] border-[#E7E8F0] hover:border-[#B9BDD0] hover:text-[#141B34]')
+        const seg = (on) => cx('min-h-[38px] rounded-[10px] px-3 text-[13px] font-semibold transition', on ? 'bg-[#141B34] text-white' : 'text-[#5E6380] hover:text-[#141B34]')
+        const chip = (on, extra) => cx('inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] border px-3 text-[13px] font-semibold transition', extra || pil(on))
+        const n = (v, on) => <span className={cx('text-xs font-bold tabular-nums', on ? 'opacity-80' : 'opacity-75')}>{v}</span>
         return (
           <>
-            {/* Baris 1: judul · cari · Filter · (kanan) saklar view · Tampilan · + Project baru */}
-            <div className="flex flex-wrap items-center gap-2" data-alat>
-              <h1 className="mr-1 text-xl font-extrabold tracking-tight sm:text-2xl">Project{!worker && <span className="ml-2 text-sm font-semibold text-ink-mute">{list.length}{status === 'aktif' ? ' aktif' : ''}</span>}</h1>
-              {worker && <p className="text-sm text-ink-mute">Dokumen yang ditugaskan kepada Anda</p>}
+            {/* Baris alat (CANVAS ATLAS): cari · Filter · jumlah · urut · tampilan · atur · Project baru · sembunyikan */}
+            <div className="flex flex-wrap items-center gap-2.5" data-alat>
+              {worker && <h1 className="mr-1 text-xl font-extrabold tracking-tight">Project</h1>}
+              {worker && <p className="text-sm text-[#5E6380]">Dokumen yang ditugaskan kepada Anda</p>}
               {bisaSaring && (
-                <>
-                  <div className="relative hidden min-w-0 sm:block sm:w-[300px]">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                    <Input className="!h-10 pl-9" placeholder="Cari invoice, pelanggan, dokumen…" value={q} onChange={(e) => setQ(e.target.value)} />
-                  </div>
-                  <span className="hidden sm:block">{filterBtn}</span>
-                </>
-              )}
-              <div className="ml-auto flex items-center gap-1.5 sm:gap-2" data-toolbar-project>
-                {bisaSaring && <span className="sm:hidden">{filterBtn}</span>}
-                {adaToolbar && saklarView}
-                {adaToolbar && menuTampilan}
-                {!worker && <Button size="sm" variant="dark" className="hidden !h-10 sm:inline-flex" onClick={() => go('projects/new')} data-aksi="project-baru"><Plus className="h-4 w-4" />Project baru</Button>}
-              </div>
-              {bisaSaring && (
-                <div className="relative basis-full sm:hidden">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <Input className="!h-11 pl-9" placeholder="Cari invoice, pelanggan…" value={q} onChange={(e) => setQ(e.target.value)} />
+                <div className="relative flex min-h-11 min-w-0 max-w-[320px] flex-[1_1_180px] items-center gap-2 rounded-xl border border-[#D9DBE7] bg-white px-3">
+                  <Search className="h-[18px] w-[18px] shrink-0 text-[#5E6380]" aria-hidden="true" />
+                  <input type="search" aria-label="Cari project" placeholder="Cari invoice, pelanggan" value={q} onChange={(e) => setQ(e.target.value)} className="h-10 min-w-0 flex-1 border-0 bg-transparent p-0 text-sm text-[#141B34] outline-none placeholder:text-[#8A8FA8] focus:ring-0" />
                 </div>
               )}
+              {bisaSaring && filterBtn}
+              {!worker && <span className="mr-1.5 hidden text-sm font-semibold text-[#5E6380] 2xl:inline" data-jumlah>{list.length} project</span>}
+              <span className="min-w-0 flex-1" />
+              {bisaSaring && (
+                <div className="hidden rounded-xl border border-[#E7E8F0] bg-white p-[3px] sm:flex" role="group" aria-label="Urutkan" data-urut>
+                  {[['deadline', 'Deadline'], ['baru', 'Terbaru']].map(([k, l]) => <button key={k} type="button" onClick={() => setSort(k)} aria-pressed={sort === k} data-urut-pilihan={k} className={seg(sort === k)}>{l}</button>)}
+                </div>
+              )}
+              {adaToolbar && (
+                <div className="flex rounded-xl border border-[#E7E8F0] bg-white p-[3px]" role="group" aria-label="Tampilan daftar" data-saklar-view>
+                  {[['list', 'Kartu'], ['tabel', 'Tabel']].map(([k, l]) => <button key={k} type="button" onClick={() => setView(k)} aria-pressed={view === k} className={seg(view === k)}>{l}</button>)}
+                </div>
+              )}
+              {adaToolbar && view === 'tabel' && !worker && (
+                <div className="flex rounded-xl border border-[#E7E8F0] bg-white p-[3px]" role="group" aria-label="Status project" data-status-tabel>
+                  {tabStatus.map((t) => <button key={t.key} type="button" onClick={() => setStatus(t.key)} aria-pressed={status === t.key} className={seg(status === t.key)}>{t.label}</button>)}
+                </div>
+              )}
+              {adaToolbar && menuTampilan}
+              {!worker && <button type="button" onClick={() => go('projects/new')} data-aksi="project-baru"
+                className="hidden min-h-11 items-center gap-2 rounded-xl bg-[#141B34] px-4 text-sm font-semibold text-white hover:opacity-90 sm:inline-flex">Project baru<Plus className="h-[18px] w-[18px]" aria-hidden="true" /></button>}
+              {adaToolbar && <button type="button" onClick={() => setPref({ ...pref, toolbar: false })} aria-label="Sembunyikan toolbar" title="Sembunyikan toolbar"
+                className="hidden h-11 w-11 place-items-center rounded-xl border border-[#D9DBE7] bg-white text-[#141B34] hover:bg-[#F3F4F9] sm:grid"><ChevronDown className="h-5 w-5 rotate-180" aria-hidden="true" /></button>}
             </div>
             {worker && <KapasitasSaya />}
 
-            {/* Strip Perlu Anda */}
-            {pref.strip && ['direktur', 'supervisor', 'superadmin'].includes(user.role) && tab !== 'vendor' && <PerluAnda scoped={scoped} nHambatan={nHambatan} onPilih={() => { setTab('all'); setQ(''); setStatus('aktif'); setCepat(cepat === 'pilih' ? '' : 'pilih') }} aktif={cepat} onHambatan={() => { setCepat(cepat === 'hambatan' ? '' : 'hambatan'); setTab('all') }} />}
-
-            {/* Map status + panel saringan */}
-            {bisaSaring && !worker && (
-              <MapTabs tabs={tabStatus.map((t) => ({ key: t.key, label: t.label, n: t.ket, tone: 'mute', icon: null }))} aktif={status} onPilih={(k) => setStatus(k)} ada={pref.panel} label="Status project"
-                kanan={null}
-                panel={pref.panel ? (
-                  <>
-                    <div className="-mx-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]" role="tablist" aria-label="Jenis project" data-chip-project>
-                      {tabs.map((t) => (
-                        <button key={t.value} type="button" role="tab" aria-selected={tab === t.value && !cepat} onClick={() => { setTab(t.value); setCepat('') }} data-chip={t.value}
-                          className={cx('inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 text-xs font-semibold ring-1 transition', tab === t.value && !cepat ? 'bg-[#1e3a5f] text-white ring-[#1e3a5f]' : 'bg-white text-[#1e3a5f] ring-[#c7d3e0] hover:ring-brand')}>
-                          {t.label.replace('Terjemahan Non Tersumpah', 'Non Tersumpah').replace('Terjemahan Tersumpah', 'Tersumpah').replace('Pengajuan Vendor', 'Vendor')}<span className={cx('text-[10px] tabular-nums', tab === t.value && !cepat ? 'text-slate-300' : 'text-ink-mute')}>{t.count}</span>
-                        </button>
-                      ))}
-                      <span className="mx-0.5 w-px shrink-0 self-stretch bg-[#b8c6d6]" aria-hidden="true" />
-                      <button type="button" onClick={() => setDlFilter(dlFilter?.kind === 'today' ? null : { kind: 'today', from: dayKey(), to: dayKey() })} aria-pressed={dlFilter?.kind === 'today'} data-chip="hari-ini"
-                        className={cx('inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 text-xs font-semibold ring-1 transition', dlFilter?.kind === 'today' ? 'bg-[#1e3a5f] text-white ring-[#1e3a5f]' : 'bg-white text-[#1e3a5f] ring-[#c7d3e0] hover:ring-brand')}>
-                        <CalendarClock className="h-3.5 w-3.5" />Hari ini<span className={cx('text-[10px] tabular-nums', dlFilter?.kind === 'today' ? 'text-slate-300' : 'text-ink-mute')}>{nHariIni}</span>
+            {/* Kartu putih: jenis project + saringan cepat */}
+            {bisaSaring && !worker && pref.panel !== false && (
+              <div className="rounded-[20px] bg-white p-3.5 dark:bg-white/5" data-panel-chip>
+                <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible" role="tablist" aria-label="Jenis project" data-chip-project>
+                  {tabs.map((t) => {
+                    const on = tab === t.value && !cepat
+                    return (
+                      <button key={t.value} type="button" role="tab" aria-selected={on} onClick={() => { setTab(t.value); setCepat('') }} data-chip={t.value} className={chip(on)}>
+                        {t.label.replace('Terjemahan Non Tersumpah', 'Non Tersumpah').replace('Terjemahan Tersumpah', 'Tersumpah').replace('Pengajuan Vendor', 'Vendor').replace('Apostille/Legalisasi', 'Apostille')}{n(t.count, on)}
                       </button>
-                      <button type="button" onClick={() => { setCepat(cepat === 'hambatan' ? '' : 'hambatan'); setTab('all') }} aria-pressed={cepat === 'hambatan'} data-chip="hambatan"
-                        className={cx('inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 text-xs font-semibold ring-1 transition', cepat === 'hambatan' ? 'bg-rose-600 text-white ring-rose-600' : nHambatan ? 'bg-rose-50 text-rose-700 ring-rose-200 hover:ring-rose-400' : 'bg-white text-ink-mute ring-[#c7d3e0]')}>
-                        <AlertTriangle className="h-3.5 w-3.5" />Hambatan<span className="text-[10px] tabular-nums opacity-80">{nHambatan}</span>
-                      </button>
-                      {!can.seeAllBranches(user) && (
-                        <button type="button" onClick={() => { setCepat(cepat === 'saya' ? '' : 'saya'); setTab('all') }} aria-pressed={cepat === 'saya'} data-chip="saya"
-                          className={cx('inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 text-xs font-semibold ring-1 transition', cepat === 'saya' ? 'bg-[#1e3a5f] text-white ring-[#1e3a5f]' : 'bg-white text-[#1e3a5f] ring-[#c7d3e0] hover:ring-brand')}>
-                          Saya<span className={cx('text-[10px] tabular-nums', cepat === 'saya' ? 'text-slate-300' : 'text-ink-mute')}>{nSaya}</span>
-                        </button>
-                      )}
-                    </div>
-                    <div className="hidden h-9 shrink-0 items-center rounded-xl bg-white p-0.5 ring-1 ring-[#c7d3e0] sm:flex" role="group" aria-label="Urutkan" data-urut>
-                      {[['deadline', 'Deadline'], ['baru', 'Terbaru']].map(([k, l]) => (
-                        <button key={k} type="button" onClick={() => setSort(k)} aria-pressed={sort === k} data-urut-pilihan={k}
-                          className={cx('h-8 rounded-lg px-2.5 text-[11.5px] font-semibold transition', sort === k ? 'bg-[#1e3a5f] text-white' : 'text-ink-soft hover:text-ink')}>{l}</button>
-                      ))}
-                    </div>
-                  </>
-                ) : null} />
+                    )
+                  })}
+                  <span className="ml-2.5" aria-hidden="true" />
+                  <button type="button" onClick={() => setDlFilter(dlFilter?.kind === 'today' ? null : { kind: 'today', from: dayKey(), to: dayKey() })} aria-pressed={dlFilter?.kind === 'today'} data-chip="hari-ini" className={chip(dlFilter?.kind === 'today')}>Hari ini{n(nHariIni, dlFilter?.kind === 'today')}</button>
+                  <button type="button" onClick={() => { setCepat(cepat === 'hambatan' ? '' : 'hambatan'); setTab('all') }} aria-pressed={cepat === 'hambatan'} data-chip="hambatan"
+                    className={chip(cepat === 'hambatan', cepat === 'hambatan' ? null : 'border-[#FFEDE3] bg-[#FFEDE3] text-[#B43D0E] hover:border-[#F2C4AE]')}>Hambatan{n(nHambatan, cepat === 'hambatan')}</button>
+                  {['direktur', 'supervisor', 'superadmin'].includes(user.role) && (() => { const nPilih = scoped.filter((p) => !isDone(p) && (p.sub_projects || []).some((x) => x.stage === 'pilih_penerjemah')).length; return (
+                    <button type="button" onClick={() => { setTab('all'); setCepat(cepat === 'pilih' ? '' : 'pilih') }} aria-pressed={cepat === 'pilih'} data-chip="pilih" className={chip(cepat === 'pilih')}>Pilih penerjemah{n(nPilih, cepat === 'pilih')}</button>) })()}
+                  {!can.seeAllBranches(user) && (
+                    <button type="button" onClick={() => { setCepat(cepat === 'saya' ? '' : 'saya'); setTab('all') }} aria-pressed={cepat === 'saya'} data-chip="saya" className={chip(cepat === 'saya')}>Saya{n(nSaya, cepat === 'saya')}</button>
+                  )}
+                </div>
+              </div>
             )}
           </>
         )
@@ -318,7 +323,7 @@ export default function Projects({ tabAwal }) {
               current={{ name: namaView, tab, q, status, sort, cepat, dlFilter, prFilter, bpFilter, cols: colsAktif, view }} apply={terapkanView} /> : null}>
           {list.length === 0 && !(view === 'list' && (dlFilter || bpFilter.branch || bpFilter.print || q || tab !== 'all')) ? (
             <Card><Empty icon={FolderOpen} title={worker ? 'Belum ada project untuk Anda' : 'Belum ada project'} text={worker ? 'Project akan muncul di sini begitu ada yang ditugaskan kepada Anda.' : 'Buat project baru dari invoice Zoho.'} action={worker ? null : <Button onClick={() => go('projects/new')}><Plus className="h-4 w-4" />Project Baru</Button>} /></Card>
-          ) : view === 'list' ? <ProjectList pref={{ ...pref, grup: pref.grup && sort === 'deadline' }} list={rest.slice(0, shownN)} nLate={late.length} dlFilter={dlFilter} setDlFilter={setDlFilter} prFilter={prFilter} setPrFilter={setPrFilter} cols={colsAktif} detailFor={detailFor} setDetailFor={setDetailFor} filesFor={filesFor} setFilesFor={setFilesFor} onLangkah={bukaLangkah} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
+          ) : view === 'list' ? <ProjectList status={status} setStatus={setStatus} statusOpsi={[['aktif', `Aktif ${scoped.filter((p) => !isDone(p)).length}`], ['selesai', 'Selesai'], ['semua', 'Semua']].map(([key, label]) => ({ key, label }))} pref={{ ...pref, grup: pref.grup && sort === 'deadline' }} list={rest.slice(0, shownN)} nLate={late.length} dlFilter={dlFilter} setDlFilter={setDlFilter} prFilter={prFilter} setPrFilter={setPrFilter} cols={colsAktif} detailFor={detailFor} setDetailFor={setDetailFor} filesFor={filesFor} setFilesFor={setFilesFor} onLangkah={bukaLangkah} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
             <ProjectSpreadsheet pref={pref} list={list} detailFor={detailFor} state={tableState} setState={setTableState} hideCols={worker ? SEMBUNYI_TABEL : []}
               onDetail={(p) => go(`projects/${p.id}`)}
               onFiles={(p) => setFilesFor(p)}
@@ -342,13 +347,8 @@ export default function Projects({ tabAwal }) {
           <FileManager project={projectOf(filesFor.id) || filesFor} />
         </Sheet>
       )}
-      {langkahFor && (
-        <Sheet open side wide onClose={() => setLangkahFor(null)} title={invoiceLabel(langkahFor.p.invoice_no)} subtitle={`${langkahFor.p.customer?.name || ''} · ${langkahFor.p.branch}`}
-          footer={<><Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={() => setLangkahFor(null)}>Tutup</Button><span className="flex-1" />
-            <a href={`#/projects/${langkahFor.p.id}${langkahFor.subId ? `/${langkahFor.subId}` : ''}`} className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline" title="Buka sebagai halaman penuh">Halaman penuh →</a></>}>
-          <div data-slide-langkah><ProjectDetail id={langkahFor.p.id} embedded focusSub={langkahFor.subId} /></div>
-        </Sheet>
-      )}
+      {tugasFor && <TugaskanPenerjemah p={tugasFor.p} sub={tugasFor.sub} onClose={() => setTugasFor(null)} onLainnya={() => { const t = tugasFor; setTugasFor(null); setLangkahFor({ p: t.p, subId: t.sub.id }) }} />}
+      {langkahFor && <LayarKerja projectId={langkahFor.p.id} subId={langkahFor.subId} daftar={list} onClose={() => setLangkahFor(null)} />}
       {detailFor && (
         <Sheet open side wide onClose={() => setDetailFor(null)} title={invoiceLabel(detailFor.invoice_no)} subtitle={`${detailFor.customer?.name || ''} · ${detailFor.branch}`}
           footer={<><Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={() => setDetailFor(null)}>Tutup</Button><span className="flex-1" />
@@ -450,26 +450,29 @@ function ProjectCard({ p, onOpen, active }) {
 }
 
 /** Tombol langkah berikutnya — label & tujuan dari lib/langkah.js. */
-function TombolLangkah({ p, langkah, hp, onBuka }) {
+function TombolLangkah({ p, langkah, hp, onBuka, canvas }) {
   const nada = { kerja: 'bg-ink text-white ring-ink hover:bg-brand hover:ring-brand', ping: 'bg-amber-50 text-amber-800 ring-amber-200 hover:bg-amber-100', acc: 'bg-violet-50 text-violet-700 ring-violet-200 hover:bg-violet-100', transfer: 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100', buka: 'bg-white text-ink-soft ring-slate-200 hover:text-brand hover:ring-brand' }
   const tuju = () => {
     if (langkah.jenis === 'acc' || langkah.jenis === 'transfer') return go('keuangan')
-    if (onBuka) return onBuka(p, langkah.sub?.id) // slide dari samping — tanpa pindah halaman
+    if (onBuka) return onBuka(p, langkah.sub?.id, true) // slide dari samping — tanpa pindah halaman
     go(`projects/${p.id}${langkah.sub ? `/${langkah.sub.id}` : ''}`)
   }
   return (
     <button type="button" onClick={tuju} data-aksi="langkah" data-jenis={langkah.jenis} title={`${langkah.tahap}${langkah.berikut ? ` → ${langkah.berikut}` : ''}`}
-      className={cx('shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-bold ring-1 transition', hp ? 'h-11' : 'h-8', nada[langkah.jenis] || nada.buka)}>
+      className={canvas ? 'h-7 min-w-0 truncate whitespace-nowrap rounded-lg bg-[#DFF1FB] px-2 text-xs font-bold text-[#0B5C8A] transition hover:bg-[#cbe7f7]'
+        : cx('shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-bold ring-1 transition', hp ? 'h-11' : 'h-8', nada[langkah.jenis] || nada.buka)}>
       {langkah.label}
     </button>
   )
 }
 
 /** Menu ⋯ per baris: detail panel, folder file, rincian. */
-function AksiLainnya({ p, hp, open, toggle, detailAktif, onDetail, onFiles, fileCount }) {
+function AksiLainnya({ p, hp, open, toggle, detailAktif, onDetail, onFiles, fileCount, canvas }) {
   // Ikon langsung terlihat (tanpa menu titik tiga) supaya cukup 1 klik.
-  const btn = (aktif) => cx('grid shrink-0 place-items-center rounded-lg ring-1 transition', hp ? 'h-11 w-11' : 'h-8 w-8',
-    aktif ? 'bg-brand-soft text-brand ring-brand/30' : 'bg-white text-ink-mute ring-slate-200 hover:text-brand')
+  const btn = (aktif) => canvas
+    ? cx('grid h-7 w-7 shrink-0 place-items-center rounded-lg transition', aktif ? 'bg-[#141B34] text-white' : 'text-[#141B34] hover:bg-[#F3F4F9]')
+    : cx('grid shrink-0 place-items-center rounded-lg ring-1 transition', hp ? 'h-11 w-11' : 'h-8 w-8',
+      aktif ? 'bg-brand-soft text-brand ring-brand/30' : 'bg-white text-ink-mute ring-slate-200 hover:text-brand')
   return (
     <span className="flex shrink-0 items-center gap-1" data-aksi="ikon-baris">
       <a href={`#/projects/${p.id}`} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} title="Buka halaman detail project" className={btn(detailAktif)} data-aksi="detail"><Eye className="h-4 w-4" /></a>
@@ -698,35 +701,40 @@ function WaIkon({ p }) {
 }
 
 export const COLUMNS = [
-  // Tata letak 8 Nov 2026: tiap sel 2 baris (utama + pendukung lebih kecil), sejajar antarkolom.
-  { key: 'invoice', label: 'Invoice', w: 'minmax(160px,1.2fr)', cls: 'min-w-0 overflow-hidden',
-    cell: (p) => <><span className="flex min-h-6 flex-wrap items-center gap-1.5"><InvoiceNo project={p} /><NoteIcon note={p.about?.notes} /><DemoBadge project={p} /></span><span className="flex min-h-4 items-center gap-1.5"><TimeAgo at={p.created_at} prefix="Diinput" className="!mt-0 h-4" />{!baru(p) && !isDone(p) && <span className="rounded bg-slate-100 px-1 text-[9.5px] font-semibold text-ink-mute" title="Umur project">{umur(p)}</span>}</span></> },
-  { key: 'pelanggan', label: 'Pelanggan', w: 'minmax(110px,1.2fr)', cls: 'min-w-0',
-    cell: (p) => <><span className="flex min-h-6 flex-wrap items-center gap-1.5"><span className="min-w-0 truncate text-sm font-semibold leading-6 text-ink" title={p.customer?.name}>{p.customer?.name}</span><WaIkon p={p} /></span><CsName p={p} /></> },
-  { key: 'prioritas', label: 'Prioritas', w: 'minmax(112px,0.7fr)', cls: 'min-w-0 overflow-hidden',
-    cell: (p) => <span className="flex min-h-6 flex-wrap items-center">{(p.about?.priority || 'Normal') === 'Normal' ? <span className="text-sm text-ink-soft">Normal</span> : <PriorityBadge p={p.about.priority} />}</span> },
-  { key: 'deadline', label: 'Deadline', w: 'minmax(100px,0.8fr)',
-    cell: (p, { pref }) => <><DeadlineCell project={p} done={isDone(p)} align="left" />{pref?.urgensi && sisaWaktu(p) && (() => { const s = porsiSla(p); const g = grupOf(p); return <span className="mt-0.5 block" data-sla><span className={cx('block text-[10.5px] font-bold', g === 'terlambat' ? 'text-rose-600' : 'text-orange-600')}>{sisaWaktu(p)}</span>{s !== null && <span className="mt-0.5 block h-1 w-24 overflow-hidden rounded-full bg-slate-200"><span className={cx('block h-full', g === 'terlambat' ? 'bg-rose-500' : 'bg-orange-500')} style={{ width: `${Math.round(s * 100)}%` }} /></span>}</span> })()}</> },
-  { key: 'layanan', label: 'Layanan', w: 'minmax(110px,1fr)', cls: 'min-w-0',
-    cell: (p) => <span className="flex min-h-6 flex-wrap items-center gap-1"><ProjectTypes project={p} />{(p.sub_projects?.length || 0) > 1 && <span className="shrink-0 text-[11px] text-ink-mute" data-sub-teks>{p.sub_projects.length} sub</span>}</span> },
-  { key: 'cabang', label: 'Cabang · Print', w: 'minmax(90px,0.7fr)', cls: 'min-w-0',
-    cell: (p) => { const print = p.about?.print_location || p.branch; const beda = print !== p.branch; return (
-      <span data-info2>
-        <span className="block min-h-6 truncate text-sm leading-6 text-ink">{p.branch}</span>
-        <span className="flex min-h-4 items-center gap-1 text-[11px] text-ink-mute" title={beda ? `Dicetak di ${print} (beda cabang)` : `Dicetak di ${print}`} data-print={beda ? 'beda' : 'sama'}><Printer className="h-3 w-3 shrink-0" /><span className={cx('truncate', beda && 'font-bold text-pop')}>{print}</span></span>
-      </span>) } },
-  { key: 'tahap', label: 'Tahap & progres', w: 'minmax(160px,1.6fr)', cls: 'min-w-0',
-    cell: (p, { prog, langkah, pref }) => <>
-      <span className="block min-h-6 truncate text-sm font-semibold leading-6 text-brand" title={langkah ? `${langkah.tahap}${langkah.berikut ? ` → ${langkah.berikut}` : ''}${langkah.pic ? ` · ${langkah.pic}` : ''}` : ''}>{langkah ? langkah.tahap : currentStage(p)}{langkah?.berikut && langkah.tahap !== 'Selesai' && <span className="text-xs font-medium text-ink-mute"> ▸ {langkah.berikut}</span>}{langkah?.pic && !pref?.pelaksana && <span className="text-xs font-medium text-ink-mute" data-pic> · {langkah.pic}</span>}</span>
-      {pref?.stepper ? <Stepper p={p} prog={prog} /> : <span className="flex min-h-4 items-center gap-2"><Progress value={prog} /><span className="w-9 shrink-0 text-right text-[11px] font-semibold tabular-nums text-ink-mute">{prog}%</span></span>}
-      {pref?.pelaksana && <Pelaksana p={p} langkah={langkah} className="mt-0.5" />}
+  // Tata letak CANVAS ATLAS (12 Nov 2026): kartu per baris, maks 2 baris per sel (utama + pendukung).
+  { key: 'invoice', label: 'Invoice', w: 'minmax(152px,136fr)', cls: 'flex min-w-0 flex-col gap-[3px]',
+    cell: (p) => <>
+      <a href={`#/projects/${p.id}`} onClick={(e) => e.stopPropagation()} data-inv={dibuatBaru(p) ? 'baru' : 'lama'}
+        className={cx('max-w-full self-start truncate rounded-md text-base font-bold leading-[26px] tabular-nums text-[#141B34] hover:underline', dibuatBaru(p) && '-ml-1.5 bg-[#E2F5E8] px-1.5')}>{invoiceLabel(p.invoice_no)}</a>
+      <WaktuDibuat p={p} />
+    </> },
+  { key: 'pelanggan', label: 'Pelanggan', w: 'minmax(0,142fr)', cls: 'flex min-w-0 flex-col gap-[3px]',
+    cell: (p) => <>
+      <span className="flex min-w-0 items-center gap-1.5"><span className="min-w-0 truncate text-[15px] font-bold leading-[26px]" title={p.customer?.name}>{p.customer?.name}</span><NoteIcon note={p.about?.notes} /><DemoBadge project={p} /></span>
+      <span className="truncate text-xs text-[#5E6380]">{(p.about?.cs_name || '').replace(/\s*\(.*\)\s*$/, '') ? `CS ${(p.about.cs_name).replace(/\s*\(.*\)\s*$/, '')}` : '—'}</span>
+    </> },
+  { key: 'prioritas', label: 'Prioritas', w: 'minmax(0,118fr)', cls: 'min-w-0',
+    cell: (p) => <><PrioPill p={p.about?.priority || 'Normal'} /><span className="mt-[3px] block whitespace-nowrap text-xs text-[#5E6380]" data-sub-teks>{p.sub_projects?.length || 0} sub</span></> },
+  { key: 'deadline', label: 'Deadline', w: 'minmax(0,98fr)', cls: 'min-w-0',
+    cell: (p) => <DeadlinePill p={p} /> },
+  { key: 'cabang', label: 'Cabang · Print', w: 'minmax(0,88fr)', cls: 'min-w-0',
+    cell: (p) => <CabangPrint p={p} /> },
+  { key: 'eksekutor', label: 'Eksekutor', w: 'minmax(0,112fr)', cls: 'flex min-w-0 flex-col gap-[3px]',
+    cell: (p, { ctx }) => { const e = eksekutorOf(p, ctx); return <>
+      <span className="truncate text-sm font-semibold leading-[26px]" title={e.lay}>{e.lay}</span>
+      <span className="truncate text-xs text-[#5E6380]" title={e.eks}>{e.eks}</span>
+    </> } },
+  { key: 'tahap', label: 'Tahap', w: 'minmax(0,138fr)', cls: 'flex min-w-0 flex-col gap-[3px]',
+    cell: (p, { prog, langkah }) => <>
+      <span className="truncate text-sm font-bold leading-[26px]" title={langkah ? `${langkah.tahap}${langkah.berikut ? ` → ${langkah.berikut}` : ''}` : ''}>{langkah ? langkah.tahap : currentStage(p)}{langkah?.berikut && langkah.tahap !== 'Selesai' && <span className="text-xs font-medium text-[#5E6380]"> ▸ {langkah.berikut}</span>}</span>
+      <span className="flex min-w-0 items-center gap-2"><span className="w-24 shrink-0"><Stepper p={p} prog={prog} kecil /></span><span className="min-w-0 truncate text-xs text-[#5E6380]">{langkah?.pic || ''}</span></span>
     </> },
 ]
 export const ALL_COLS = COLUMNS.map((c) => c.key)
 
 const dlFilterLabel = (f) => !f ? '' : f.kind === 'today' ? 'Hari ini' : f.kind === 'tomorrow' ? 'Besok' : `${tgl(f.from)} – ${tgl(f.to)}`
 
-function ProjectList({ list: listAll, nLate = 0, dlFilter, setDlFilter, prFilter = '', setPrFilter = () => {}, cols, bpFilter = { branch: '', print: '' }, setBpFilter = () => {}, options = { branches: [], prints: [] }, detailFor, setDetailFor, filesFor, setFilesFor, onLangkah, pref = {} }) {
+function ProjectList({ status = 'aktif', setStatus = () => {}, statusOpsi = [], list: listAll, nLate = 0, dlFilter, setDlFilter, prFilter = '', setPrFilter = () => {}, cols, bpFilter = { branch: '', print: '' }, setBpFilter = () => {}, options = { branches: [], prints: [] }, detailFor, setDetailFor, filesFor, setFilesFor, onLangkah, pref = {} }) {
   const [lipat, setLipat] = useState(() => new Set())
   const { data, user } = useApp()
   const projectOf = (id) => data.projects.find((x) => x.id === id) // versi terbaru (setelah upload/hapus di pop-up)
@@ -743,7 +751,8 @@ function ProjectList({ list: listAll, nLate = 0, dlFilter, setDlFilter, prFilter
   const prCount = (k) => listAll.filter((p) => (p.about?.priority || 'Normal') === k).length
   const list = listAll; const late = [] // urutan terlambat sudah diatur di induk (paling akhir), tidak lagi dipajang terpisah
   const show = (k) => !cols || cols.includes(k) // kolom yang ditampilkan (Pengaturan kolom)
-  const gridCols = [...COLUMNS.filter((c) => show(c.key)).map((c) => c.w), '236px'].join(' ')
+  const gridCols = [...COLUMNS.filter((c) => show(c.key)).map((c) => c.w), 'minmax(176px,190fr)'].join(' ')
+  const [stOpen, setStOpen] = useState(false)
   const fileCount = (p) => collectFiles(p).length
   const today = dayKey()
   const [range, setRange] = useState({ from: today, to: addDays(today, 7) })
@@ -753,65 +762,84 @@ function ProjectList({ list: listAll, nLate = 0, dlFilter, setDlFilter, prFilter
     const prog = progressOf(p)
     const langkah = langkahBerikutnya(p, user, ctx)
     return (
-            <li key={p.id} data-zebra={i % 2 === 1 ? 'abu' : 'putih'} data-grup={grupOf(p)} className={cx('scroll-mt-28 transition max-xl:mx-2.5 max-xl:my-2 max-xl:overflow-hidden max-xl:rounded-2xl max-xl:ring-1 max-xl:ring-slate-300', pref.urgensi && cx('border-l-[3px]', garisUrgensi(p)), detailFor?.id === p.id || filesFor?.id === p.id ? 'bg-brand-soft/60 shadow-[inset_3px_0_0_0_var(--brand)]' : open.has(p.id) ? 'xl:border-l-4 xl:border-brand bg-brand-soft/70 max-xl:ring-brand' : i % 2 === 1 ? 'bg-slate-100 xl:bg-slate-50/80' : 'bg-white')}>
+            <li key={p.id} data-grup={grupOf(p)} data-kartu-baris className={cx('scroll-mt-28 overflow-hidden rounded-2xl border bg-white transition max-xl:mx-0.5 max-xl:my-2 xl:mb-3', open.has(p.id) || detailFor?.id === p.id || filesFor?.id === p.id ? 'border-[var(--brand)] ring-1 ring-[var(--brand)]' : 'border-[#DADDE8] hover:border-[#B9BDD0]')}>
               <div className="relative">
               {/* Klik baris = buka/tutup rincian sub project; ikon mata = halaman detail */}
               <div role="button" tabIndex={0} aria-expanded={open.has(p.id)} onClick={() => toggle(p.id)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(p.id) } }}
-                className={cx('u-row group block cursor-pointer px-4', open.has(p.id) ? 'pl-3' : 'hover:bg-brand-soft/40')}>
+                className="u-row group block cursor-pointer px-4 xl:py-[18px]">
                 {/* Desktop: baris tabel */}
-                <div style={{ gridTemplateColumns: gridCols }} className="hidden items-start gap-2 text-left xl:grid 2xl:gap-3">
+                <div style={{ gridTemplateColumns: gridCols }} className="hidden items-start gap-3 text-left xl:grid">
                   {COLUMNS.filter((c) => show(c.key)).map((c) => <span key={c.key} className={c.cls}>{c.cell(p, { prog, ctx, langkah, pref })}</span>)}
                   {/* Tombol baru muncul saat baris disentuh/diarahkan kursor — 3 tombol × 20 baris
                       yang selalu terlihat membuat tabel penuh kotak tanpa guna. Di layar sentuh
                       (tanpa hover) tombolnya tetap terlihat, begitu juga saat baris sedang dibuka. */}
                   {/* Aksi: SATU tombol langkah berikutnya (selalu terlihat) + menu ⋯ (K9) */}
-                  <span className="flex items-center justify-end gap-1" data-aksi-baris onClick={(e) => e.stopPropagation()}>
-                    <TombolLangkah p={p} langkah={langkah} onBuka={onLangkah} />
-                    <AksiLainnya p={p} open={open.has(p.id)} toggle={() => toggle(p.id)} detailAktif={detailFor?.id === p.id}
+                  <span className="flex min-w-0 items-center justify-end gap-1" data-aksi-baris onClick={(e) => e.stopPropagation()}>
+                    <TombolLangkah p={p} langkah={langkah} onBuka={onLangkah} canvas />
+                    <AksiLainnya canvas p={p} open={open.has(p.id)} toggle={() => toggle(p.id)} detailAktif={detailFor?.id === p.id}
                       onDetail={() => { setDetailFor(p); setFilesFor(null) }} onFiles={() => setFilesFor(p)} fileCount={fileCount(p)} />
                   </span>
                 </div>
                 {/* HP: kartu 4 baris — (1) invoice · prioritas · tenggat, (2) pelanggan, (3) arah bahasa · dok · hlm · cabang, (4) tahap ▸ berikutnya + progres, lalu tombol */}
-                <div className="space-y-1 py-0.5 xl:hidden" data-kartu-hp>
-                  <div className="flex items-start gap-2">
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5"><InvoiceNo project={p} /><NoteIcon note={p.about?.notes} />{(p.about?.priority || 'Normal') !== 'Normal' && <PriorityBadge p={p.about.priority} />}</div>
-                    <div className="w-[88px] shrink-0 text-right"><DeadlineCell project={p} done={isDone(p)} />{pref.urgensi && sisaWaktu(p) && <span className={cx('block text-[10.5px] font-bold', grupOf(p) === 'terlambat' ? 'text-rose-600' : 'text-orange-600')}>{sisaWaktu(p)}</span>}</div>
+                <div className="flex flex-col gap-2.5 py-3.5 xl:hidden" data-kartu-hp>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className={cx('min-w-0 truncate text-[15px] font-bold tabular-nums', dibuatBaru(p) && '-ml-1.5 rounded-md bg-[#E2F5E8] px-1.5')}>{invoiceLabel(p.invoice_no)}</span>
+                    <PrioPill p={p.about?.priority || 'Normal'} />
+                    <span className="flex-1" />
+                    {(() => { const d = infoDeadline(p); return d ? <span className="inline-flex min-h-6 shrink-0 items-center whitespace-nowrap rounded-full px-2.5 text-xs font-bold" style={{ background: d.bg, color: d.fg }}>{d.sisa === 'Hari ini' ? 'Hari Ini' : d.sisa === 'Besok' ? 'Besok' : d.tgl.replace(/ \d\d\.\d\d$/, '')}</span> : null })()}
                   </div>
-                  <p className="flex items-center gap-1.5 text-[13px] font-bold text-ink"><span className="min-w-0 truncate">{p.customer?.name}</span><WaIkon p={p} /></p>
-                  <p className="truncate text-xs text-ink-mute"><RingkasSub p={p} />{!ctx.worker && <> · {p.branch}{p.about?.print_location && p.about.print_location !== p.branch ? <> · <span className="font-bold text-pop">print {p.about.print_location}</span></> : ''}</>}</p>
-                  <div className="space-y-1.5" onClick={(e) => e.stopPropagation()}>
-                    <div className="min-w-0">
-                      <p className="truncate text-xs font-semibold text-brand">{langkah.tahap}{langkah.berikut && langkah.tahap !== 'Selesai' && <span className="font-medium text-ink-mute"> ▸ {langkah.berikut}</span>}{langkah.pic && !pref.pelaksana && <span className="font-medium text-ink-mute"> · {langkah.pic}</span>}</p>
-                      {pref.pelaksana && <Pelaksana p={p} langkah={langkah} />}
-                      <div className="mt-1">{pref.stepper ? <Stepper p={p} prog={prog} /> : <div className="flex items-center gap-2"><Progress value={prog} /><span className="text-[11px] font-semibold text-ink-mute">{prog}%</span></div>}</div>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                    {!ctx.worker && <span className="min-w-0 flex-1 [&>button]:w-full"><TombolLangkah p={p} langkah={langkah} hp onBuka={onLangkah} /></span>}
-                    <AksiLainnya p={p} hp open={open.has(p.id)} toggle={() => toggle(p.id)} detailAktif={detailFor?.id === p.id}
-                      onDetail={() => { setDetailFor(p); setFilesFor(null) }} onFiles={() => setFilesFor(p)} fileCount={fileCount(p)} />
-                    </div>
+                  <span className="flex min-w-0 items-center gap-1.5 text-[15px] font-semibold"><span className="min-w-0 truncate">{p.customer?.name}</span><NoteIcon note={p.about?.notes} /></span>
+                  <span className="min-w-0 truncate text-[13px] text-[#5E6380]">{[!ctx.worker && p.branch, !ctx.worker && `Print ${p.about?.print_location || p.branch}`, (p.sub_projects || [])[0] ? (() => { const sb = p.sub_projects[0]; const t = sb.type || 'jasa_lain'; const v = sb.translator_kind === 'vendor' || sb.executor_kind === 'vendor' || !!sb.data?.vendor; return t === 'terjemahan' ? (v ? 'VEN-TR' : 'TIM-TR') : t === 'terjemahan_nt' ? 'Non Tersumpah' : ['apostille', 'legalisasi'].includes(t) ? (v ? 'VEN-AL' : 'TIM-AL') : 'Jasa Lain' })() : null, eksekutorOf(p, ctx).lay].filter(Boolean).join(' · ')}</span>
+                  <div className="flex min-w-0 items-center gap-2 border-t border-[#EEF0F5] pt-2" onClick={(e) => e.stopPropagation()}>
+                    <span className="min-w-0 truncate text-sm font-bold">{langkah.tahap}</span>
+                    <span className="w-16 shrink-0"><Stepper p={p} prog={prog} kecil /></span>
+                    <span className="flex-1" />
+                    {!ctx.worker && langkah.jenis !== 'buka' && <span className="shrink-0"><TombolLangkah p={p} langkah={langkah} onBuka={onLangkah} canvas /></span>}
+                    <a href={`#/projects/${p.id}`} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] text-[#141B34] hover:bg-[#F3F4F9]"><Eye className="h-4 w-4" /></a>
+                    <button type="button" onClick={() => setFilesFor(p)} aria-label={`File ${invoiceLabel(p.invoice_no)}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] text-[#141B34] hover:bg-[#F3F4F9]"><FolderOpen className="h-4 w-4" /></button>
                   </div>
                 </div>
               </div>
               <WorkerActions project={p} />
               </div>
-              {open.has(p.id) && <ProjectExpand p={p} />}
+              {open.has(p.id) && <ProjectExpand p={p} onLangkah={onLangkah} />}
             </li>
           )
   }
   return (
-    <Card className="overflow-visible">
-      <div style={{ gridTemplateColumns: gridCols }}
-        className="pointer-events-none sticky top-[var(--list-top,var(--appbar))] z-10 hidden gap-2 2xl:gap-3 rounded-t-2xl border-b border-slate-200 bg-slate-50/95 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-ink-mute backdrop-blur xl:grid">
-        {COLUMNS.filter((c) => show(c.key)).map((c) => {
-          if (c.key === 'deadline') return (
-            <button key={c.key} type="button" onClick={() => setDlOpen(true)} className={cx('pointer-events-auto flex items-center gap-1 text-left uppercase hover:text-brand', dlFilter && 'text-brand')} title="Filter deadline">
-              Deadline <ChevronDown className="h-3 w-3" />{dlFilter && <span className="rounded-full bg-brand px-1.5 py-px text-[10px] normal-case tracking-normal text-white">{dlFilterLabel(dlFilter)}</span>}
-            </button>
-          )
-          return <span key={c.key}>{c.label}</span>
-        })}
-        <span className="text-right">Aksi</span>
+    <div className="overflow-visible" data-daftar-canvas>
+      <div className="sticky top-[var(--list-top,var(--appbar))] z-10 hidden bg-[var(--page,#F3F4F9)] pb-0.5 pt-1.5 xl:block" data-kepala-daftar>
+        <div style={{ gridTemplateColumns: gridCols }} className="grid items-center gap-3 rounded-xl bg-[#E6E8F2] px-4 py-1 text-xs font-bold tracking-[0.02em] text-[#3F4563] dark:bg-white/10 dark:text-slate-200">
+          {COLUMNS.filter((c) => show(c.key)).map((c) => {
+            if (c.key === 'deadline') return (
+              <span key={c.key} className="flex min-h-8 items-center gap-1">Deadline
+                <button type="button" onClick={() => setDlOpen(true)} aria-label={`Filter deadline${dlFilter ? `: ${dlFilterLabel(dlFilter)}` : ''}`} title="Filter deadline"
+                  className={cx('grid h-6 w-6 place-items-center rounded-md', dlFilter ? 'bg-[#4169E1] text-white' : 'text-[#5E6380] hover:bg-white/60')}><ChevronDown className="h-3.5 w-3.5" /></button></span>
+            )
+            if (c.key === 'prioritas') return (
+              <span key={c.key} className="flex min-h-8 items-center gap-1">Prioritas
+                <button type="button" onClick={() => setPrOpen(true)} aria-label={`Filter prioritas${prFilter ? `: ${prFilter}` : ''}`} title="Filter prioritas"
+                  className={cx('grid h-6 w-6 place-items-center rounded-md', prFilter ? 'bg-[#4169E1] text-white' : 'text-[#5E6380] hover:bg-white/60')}><ChevronDown className="h-3.5 w-3.5" /></button></span>
+            )
+            if (c.key === 'cabang') return (
+              <span key={c.key} className="flex min-h-8 min-w-0 items-center gap-1"><span className="truncate">Cabang · Print</span>
+                <button type="button" onClick={() => setBpOpen(true)} aria-label="Filter cabang & print" title="Filter cabang & print"
+                  className={cx('grid h-6 w-6 shrink-0 place-items-center rounded-md', bpActive ? 'bg-[#4169E1] text-white' : 'text-[#5E6380] hover:bg-white/60')}><ChevronDown className="h-3.5 w-3.5" /></button></span>
+            )
+            return <span key={c.key} className="flex min-h-8 min-w-0 items-center truncate">{c.label}</span>
+          })}
+          <span className="relative flex min-h-8 items-center justify-end gap-2">Kerjakan
+            {statusOpsi.length > 0 && <button type="button" onClick={() => setStOpen((v) => !v)} aria-haspopup="menu" aria-expanded={stOpen} aria-label="Status project" data-status-menu
+              className="inline-flex min-h-[26px] items-center gap-1 whitespace-nowrap rounded-lg bg-[#141B34] px-2 text-xs font-bold text-white">{(statusOpsi.find((o) => o.key === status) || statusOpsi[0]).label}<ChevronDown className="h-3 w-3" /></button>}
+            {stOpen && <button type="button" aria-label="Tutup menu status" tabIndex={-1} onClick={() => setStOpen(false)} onKeyDown={(e) => e.key === 'Escape' && setStOpen(false)} className="fixed inset-0 z-20 cursor-default" />}
+            {stOpen && (
+              <div role="menu" onKeyDown={(e) => e.key === 'Escape' && setStOpen(false)} className="absolute right-0 top-[calc(100%+4px)] z-30 flex min-w-[160px] flex-col gap-0.5 rounded-xl border border-[#DADDE8] bg-white p-1.5 shadow-[0_10px_28px_rgba(20,27,52,.18)]">
+                {statusOpsi.map((o) => <button key={o.key} type="button" role="menuitemradio" aria-checked={status === o.key} onClick={() => { setStatus(o.key); setStOpen(false) }}
+                  className={cx('min-h-[34px] whitespace-nowrap rounded-lg px-2.5 text-left text-[13px] text-[#141B34]', status === o.key ? 'bg-[#EEF0F5] font-bold' : 'font-medium hover:bg-[#F6F7FB]')}>{o.label}</button>)}
+              </div>
+            )}
+          </span>
+        </div>
       </div>
       {dlFilter && <div className="flex items-center gap-2 border-b border-slate-100 bg-brand-soft/40 px-4 py-1.5 text-xs lg:hidden"><span className="font-semibold text-brand">Deadline: {dlFilterLabel(dlFilter)}</span><button type="button" onClick={() => setDlFilter(null)} className="ml-auto font-semibold text-ink-mute hover:text-rose-600">Hapus</button></div>}
       <Sheet open={dlOpen} onClose={() => setDlOpen(false)} title="Filter deadline"
@@ -867,11 +895,11 @@ function ProjectList({ list: listAll, nLate = 0, dlFilter, setDlFilter, prFilter
             {g.label}<span className="font-semibold opacity-70">· {g.rows.length} project</span>
             <span className="ml-auto text-[10.5px] font-semibold opacity-70">{lipat.has(g.key) ? 'buka ⌄' : 'lipat ⌃'}</span>
           </button>
-          {!lipat.has(g.key) && <ul className="max-xl:pb-1 xl:divide-y xl:divide-slate-200/70">{g.rows.map(renderRow)}</ul>}
+          {!lipat.has(g.key) && <ul className="max-xl:pb-1 xl:pt-2">{g.rows.map(renderRow)}</ul>}
         </div>
       )) : (<>
       {late.length > 0 && <ul className="border-b-2 border-rose-200 bg-rose-50/60 xl:divide-y xl:divide-rose-100">{late.map(renderRow)}</ul>}
-      <ul className="max-xl:pb-1 xl:divide-y xl:divide-slate-200/70 xl:[&>li:last-child]:rounded-b-2xl xl:[&>li:last-child]:overflow-hidden">
+      <ul className="max-xl:pb-1 xl:pt-2">
         {list.map(renderRow)}
       </ul>
       </>)}
@@ -892,7 +920,7 @@ function ProjectList({ list: listAll, nLate = 0, dlFilter, setDlFilter, prFilter
           </div>}
         </div>
       )}
-    </Card>
+    </div>
   )
 }
 
@@ -1014,54 +1042,48 @@ function RingkasSub({ p }) {
   return <>{arah}{subs.length > 1 && <span className="text-ink-mute"> +{subs.length - 1}</span>}{dok ? ` · ${dok} dok` : ''}{hlm ? ` · ${hlm} hlm` : ''}</>
 }
 
-function ProjectExpand({ p }) {
-  const { nameOf } = useApp()
+function ProjectExpand({ p, onLangkah }) {
+  const { nameOf, user } = useApp()
   const subs = p.sub_projects || []
-  const th = 'whitespace-nowrap px-2.5 py-1.5 text-left text-[11px] font-bold text-ink-mute'
-  const td = 'px-2.5 py-1.5 align-top text-xs text-ink'
+  const w = warnaKategori(subs[0])
   return (
-    <div className="border-t border-brand/15 bg-slate-100/80 px-3 pb-3 pt-2.5 sm:px-4">
-      <div className="space-y-2">
-        {/* Tabel sederhana — selaras dengan rincian pada tampilan Tabel */}
-        <div className="min-w-0 max-w-full overflow-x-auto rounded-xl bg-white ring-1 ring-slate-200">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50">
-                <th scope="col" className={cx(th, 'w-8')}>#</th>
-                <th scope="col" className={th}>Judul</th>
-                <th scope="col" className={th}>Arah Bahasa</th>
-                <th scope="col" className={th}>Penerjemah/Vendor</th>
-                <th scope="col" className={cx(th, 'text-right')}>Dok.</th>
-                <th scope="col" className={cx(th, 'text-right')}>Hlm.</th>
-                <th scope="col" className={th}>Tahap</th>
-              </tr>
-            </thead>
-            <tbody>
-              {subs.length === 0 && (
-                <tr><td colSpan={7} className="px-2.5 py-4 text-center text-xs text-ink-mute">Belum ada sub project.</td></tr>
-              )}
-              {subs.map((sb, i) => {
-                const who = sb.translator_kind === 'vendor' ? nameOf(sb.translator || sb.data?.vendor) : nameOf(sb.data?.translator || sb.translator)
-                const dok = sb.docs?.length || sb.file_count || 0
-                const hlm = sb.docs?.length ? sb.docs.reduce((a, d) => a + (Number(d.pages) || 0), 0) : (Number(sb.pages) || 0)
-                const arah = sb.lang_from && sb.lang_to ? `${sb.lang_from} → ${sb.lang_to}` : ''
-                return (
-                  <tr key={sb.id || i} className="border-t border-slate-100">
-                    <td className={cx(td, 'tabular-nums text-ink-mute')}>{i + 1}</td>
-                    <td className={cx(td, 'max-w-[220px] truncate font-semibold')} title={sb.title}>{sb.title || '—'}</td>
-                    <td className={cx(td, 'whitespace-nowrap')}>{arah || '—'}</td>
-                    <td className={cx(td, 'max-w-[160px] truncate')} title={who}>{who || '—'}</td>
-                    <td className={cx(td, 'text-right tabular-nums')}>{dok}</td>
-                    <td className={cx(td, 'text-right tabular-nums')}>{hlm}</td>
-                    <td className={cx(td, 'text-brand')}><CentangApostille p={p} sb={sb} /><StatusVendor sb={sb} /></td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-        {p.about?.notes && <p className="flex items-start gap-1.5 whitespace-pre-line rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 ring-1 ring-amber-200"><StickyNote className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" /><span><b className="font-semibold">Catatan:</b> {p.about.notes}</span></p>}
-      </div>
+    <div className="pb-1.5 pt-1" style={{ background: w.bg }} data-isi-baris>
+      {subs.length === 0 && <p className="px-4 py-3 text-xs text-[#5E6380]">Belum ada sub project.</p>}
+      {subs.map((sb, i) => {
+        const who = sb.translator_kind === 'vendor' ? nameOf(sb.translator || sb.data?.vendor) : nameOf(sb.data?.translator || sb.translator)
+        const dok = sb.docs?.length || sb.file_count || 0
+        const hlm = sb.docs?.length ? sb.docs.reduce((a, d) => a + (Number(d.pages) || 0), 0) : (Number(sb.pages) || 0)
+        const arah = sb.lang_from && sb.lang_to ? `${sb.lang_from} → ${sb.lang_to}` : '—'
+        const flow = flowOf(sb, p); const st = stagesOf(flow); const idx = st.findIndex((x) => x.key === sb.stage)
+        const selesai = sb.stage === DONE
+        const tahap = selesai ? 'Selesai' : stageLabel(flow, sb.stage)
+        const berikut = selesai ? '' : (st[idx + 1]?.label || 'Selesai')
+        const stNow = st[idx]
+        const bisa = stNow && !selesai && can.processStage(user, stNow, sb, p)
+        return (
+          <div key={sb.id || i} className="grid items-center gap-x-3 gap-y-2 border-t border-[rgba(20,27,52,0.08)] px-4 py-2.5 lg:grid-cols-[minmax(160px,2.2fr)_56px_56px_minmax(150px,1.1fr)_minmax(110px,1fr)_minmax(200px,2.2fr)_auto]" data-sub-baris>
+            <span className="min-w-0 truncate text-[13px] font-bold" title={sb.title}>{sb.title || '—'}</span>
+            <span className="whitespace-nowrap text-sm tabular-nums">{dok} Dok</span>
+            <span className="whitespace-nowrap text-sm tabular-nums">{hlm} Hal</span>
+            <span className="truncate whitespace-nowrap text-sm">{arah}</span>
+            <span className="min-w-0 truncate text-sm font-semibold" title={who}>{who || '—'}</span>
+            <span className="flex min-w-0 items-center gap-2.5">
+              <span className="min-w-0 truncate text-sm font-bold">{tahap}{berikut && <span className="text-xs font-medium" style={{ color: w.fg }}> ▸ {berikut}</span>}</span>
+              <span className="flex w-24 shrink-0 gap-[3px]" role="img" aria-label={selesai ? 'Semua tahap selesai' : `Tahap ${idx + 1} dari ${st.length}`}>
+                {st.map((x, k) => <span key={x.key} className="h-1.5 max-w-[26px] flex-1 rounded-[3px]" style={{ background: selesai || k < idx ? '#141B34' : k === idx ? '#4169E1' : 'rgba(20,27,52,0.14)' }} />)}
+              </span>
+            </span>
+            <span className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+              <CentangApostille p={p} sb={sb} label="" />
+              <StatusVendor sb={sb} />
+              {bisa && <button type="button" onClick={() => onLangkah?.(p, sb.id, true)} data-aksi="sub-kerja" className="min-h-11 whitespace-nowrap rounded-xl bg-[#141B34] px-3.5 text-[13px] font-bold text-white hover:opacity-90">{stNow.action || 'Proses'}</button>}
+              <button type="button" onClick={() => onLangkah?.(p, sb.id)} aria-label={`Buka layar kerja: ${sb.title || ''}`} title="Buka layar kerja" data-aksi="layar-kerja"
+                className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-[#141B34] hover:bg-[#F6F7FB]"><Columns3 className="h-[19px] w-[19px]" aria-hidden="true" /></button>
+            </span>
+          </div>
+        )
+      })}
+      {p.about?.notes && <p className="flex items-start gap-2 whitespace-pre-line border-t border-[rgba(20,27,52,0.08)] px-4 py-2 text-[13px]"><StickyNote className="mt-0.5 h-4 w-4 shrink-0" style={{ color: w.fg }} aria-hidden="true" /><span><strong>Catatan:</strong> {p.about.notes}</span></p>}
     </div>
   )
 }

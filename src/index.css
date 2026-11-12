@@ -5,7 +5,7 @@
 html { -webkit-tap-highlight-color: transparent; }
 /* Pedoman antarmuka: tap tanpa jeda zoom, fokus keyboard selalu terlihat, hormati "kurangi gerakan". */
 a, button, [role="button"], [role="switch"], [tabindex], input, select, textarea, label, summary { touch-action: manipulation; }
-:focus-visible { outline: 2px solid var(--brand, #2a3a9c); outline-offset: 2px; }
+:focus-visible { outline: 2px solid #4169E1; outline-offset: 2px; }
 tr[tabindex]:focus-visible, [data-tab-klasik]:focus-visible { outline-offset: -2px; }
 [data-tab-klasik]:focus:not(:focus-visible) { outline: none; }
 [role="dialog"], [data-sheet] { overscroll-behavior: contain; }
@@ -58,9 +58,9 @@ html[data-fokus="1"] [data-alat] { display: none !important; }
 }
 
 /* Prioritas Sameday: kedip merah–hitam (urgent). Dihormati pengaturan "kurangi gerakan". */
-@keyframes atlas-urgent { 0%, 45% { background: #dc2626; color: #fff; box-shadow: 0 0 0 1px #dc2626, 0 0 10px rgba(220,38,38,.55); } 55%, 100% { background: #0e1540; color: #fff; box-shadow: 0 0 0 1px #0e1540; } }
+@keyframes atlas-urgent { 0%, 45% { background: #dc2626; color: #fff; box-shadow: 0 0 0 1px #dc2626, 0 0 10px rgba(220,38,38,.55); } 55%, 100% { background: #141B34; color: #fff; box-shadow: 0 0 0 1px #141B34; } }
 .atlas-urgent { animation: atlas-urgent 1s steps(1, end) infinite; background: #dc2626; color: #fff; }
-@media (prefers-reduced-motion: reduce) { .atlas-urgent { animation: none; background: #dc2626; color: #fff; box-shadow: 0 0 0 1px #0e1540; } }
+@media (prefers-reduced-motion: reduce) { .atlas-urgent { animation: none; background: #dc2626; color: #fff; box-shadow: 0 0 0 1px #141B34; } }
 
 /* Deadline hari ini: kedip merah (teks tetap terbaca). */
 @keyframes atlas-blink { 0%, 50% { background: #dc2626; box-shadow: 0 0 0 1px #dc2626, 0 0 10px rgba(220,38,38,.5); } 51%, 100% { background: #f87171; box-shadow: 0 0 0 1px #f87171; } }
@@ -87,9 +87,9 @@ html[data-fokus="1"] [data-alat] { display: none !important; }
 /* Toolbar tegak di tepi kanan — lebih lebar mulai tablet supaya ikonnya lega. */
 /* rel ikon kanan dihapus (K2) — tidak ada lagi lebar yang disisihkan */
 @media (min-width: 768px) { :root { --railw: 0px; } }
-:root { --nav: #ffffff; --nav-ink: #0e1540; --nav-mute: #7a85a8; --nav-line: #e9edf5; --nav-hover: #f1f4f9; }
+:root { --nav: #ffffff; --nav-ink: #141B34; --nav-mute: #5E6380; --nav-line: #E7E8F0; --nav-hover: #f1f4f9; }
 /* Header atas: hitam sebagai warna bawaan, mengikuti tema Light/Dark/Custom. */
-:root { --head: #0b1020; --head-ink: #ffffff; --head-mute: #a3adc9; --head-line: #2b3453; --head-hover: #1b2439; }
+:root { --head: #FFFFFF; --head-ink: #141B34; --head-mute: #5E6380; --head-line: #E7E8F0; --head-hover: #F3F4F9; }
 [data-theme="dark"] { --head: #0b1020; --head-ink: #e9edf9; --head-mute: #939db9; --head-line: #273049; --head-hover: #1a2234; }
 /* Kontrol bawaan (pencarian, tim, lonceng, profil) dipakai apa adanya —
    hanya warnanya yang disesuaikan agar terbaca di header gelap. */
@@ -132,8 +132,8 @@ html[data-fokus="1"] [data-alat] { display: none !important; }
    Variabel di bawah dipakai ulang oleh kelas utilitas → satu sumber warna.
    ============================================================ */
 :root {
-  --page: #f4f6fc; --surface: #ffffff; --surface-2: #f8fafc; --surface-3: #f1f5f9;
-  --line: #e2e8f0; --txt: #0e1540; --txt-soft: #3f4a73; --txt-mute: #7a85a8;
+  --page: #F3F4F9; --surface: #FFFFFF; --surface-2: #F6F7FB; --surface-3: #EEF0F5;
+  --line: #E7E8F0; --txt: #141B34; --txt-soft: #4A4F6A; --txt-mute: #5E6380;
   --brand: #4f46e5; --brand-soft: #eef1ff;
 }
 [data-theme="dark"] {
@@ -398,7 +398,7 @@ table.tabel-besar .text-xs { font-size: 13px; }
 }
 
 /* Mode Klasik: baris selang-seling + kolom No. Invoice dibekukan saat tabel digulir ke kanan */
-:root { --klasik-baris: #ffffff; --klasik-zebra: #f3f6fc; --klasik-hover: #e8eefb; --klasik-pilih: #e3e9ff; --klasik-telat: #fdeef1; --klasik-telat-zebra: #fbe6ea; --klasik-detail: #f8faff; --klasik-latar: #f6f7fb; --klasik-judul: #f8fafc; --klasik-bayang: rgba(15, 23, 42, .38); --klasik-luar: #e9edf5; }
+:root { --klasik-baris: #FFFFFF; --klasik-zebra: #F6F7FB; --klasik-hover: #EEF0F7; --klasik-pilih: #E6E8F2; --klasik-telat: #FFF0F3; --klasik-telat-zebra: #FFE8EE; --klasik-detail: #F8F9FC; --klasik-latar: #F3F4F9; --klasik-judul: #E6E8F2; --klasik-bayang: rgba(20, 27, 52, .30); --klasik-luar: #F3F4F9; }
 [data-theme="dark"] { --klasik-baris: var(--surface); --klasik-zebra: #1d2439; --klasik-hover: #262f4a; --klasik-pilih: #28315c; --klasik-telat: #34202c; --klasik-telat-zebra: #3b2331; --klasik-detail: #1a2033; --klasik-latar: var(--page); --klasik-judul: var(--surface-2); --klasik-bayang: rgba(0, 0, 0, .8); --klasik-luar: #0b1020; }
 :where([data-klasik-tabel], [data-klasik-pengajuan]) > tbody > tr { background-color: var(--klasik-baris); }
 :where([data-klasik-tabel], [data-klasik-pengajuan]) > tbody > tr:nth-child(even of [aria-expanded], [data-klasik-aju]) { background-color: var(--klasik-zebra); }
@@ -480,3 +480,16 @@ table.tabel-besar .text-xs { font-size: 13px; }
 [data-klasik-kartu] :is([data-beku-invoice] > thead > tr > th:nth-child(2), [data-beku-pertama] > thead > tr > th:nth-child(1)) { z-index: 5; }
 /* tabel Project ringkas: padat sedikit supaya 7 kolom muat tanpa geser */
 [data-klasik-kartu] [data-lebar="p"]:not([data-semua-kolom]) > * > tr > :is(th, td) { padding-left: 9px; padding-right: 9px; }
+
+/* ============================================================
+   GAYA VISUAL BERSAMA (ATLAS Design): Inter · latar #F3F4F9 · kartu putih
+   sudut 20 · teks #141B34 · garis #E7E8F0 · isian 44px sudut 12 · fokus #4169E1
+   ============================================================ */
+body { font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
+.border-slate-100 { border-color: #EEF0F5; } .border-slate-200 { border-color: var(--line); }
+.ring-slate-200 { --tw-ring-color: var(--line); } .ring-slate-300 { --tw-ring-color: #D9DBE7; }
+.divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #EEF0F5; }
+.shadow-card { box-shadow: none; }
+.rounded-2xl { border-radius: 20px; } .rounded-xl { border-radius: 14px; }
+[data-mode-klasik] .rounded-lg { border-radius: 12px; }
+[data-klasik-tabel] > thead { color: #3F4563; }

@@ -379,7 +379,7 @@ export default function Dokumen() {
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-2 p-0 sm:p-1" data-dokumen-explorer>
       <div className="flex items-center gap-2">
-        <h1 className="flex items-center gap-2 text-lg font-bold text-ink"><HardDrive className="h-5 w-5 text-brand" />Dokumen</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Dokumen</h1>
         <span className="text-[11px] text-ink-mute">{berkas.length} berkas · {kb(totalSize)}</span>
         <Button size="sm" variant="outline" className="ml-auto lg:hidden" onClick={() => setPohonHp(true)}><PanelLeft className="h-3.5 w-3.5" />Folder</Button>
       </div>

@@ -182,7 +182,7 @@ export default function Beranda() {
   )
 
   const Hero = (
-    <div className="relative overflow-hidden rounded-2xl p-4 text-white lg:p-6" style={{ background: 'linear-gradient(135deg,#1e3a5f 0%,#2f5d8a 60%,#4b86b4 100%)' }}>
+    <div className="relative overflow-hidden rounded-2xl p-4 text-white lg:p-6" style={{ background: 'linear-gradient(135deg,#141B34 0%,#2f5d8a 60%,#4b86b4 100%)' }}>
       <span className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">

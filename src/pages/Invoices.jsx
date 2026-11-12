@@ -151,7 +151,7 @@ export default function Invoices() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2" data-alat>
-        <h1 className="mr-1 flex items-center gap-2 text-xl font-extrabold tracking-tight sm:text-2xl"><FileText className="h-5 w-5 text-ink-mute" />Faktur</h1>
+        <h1 className="mr-1 flex items-center gap-2 text-2xl font-extrabold tracking-tight">Faktur</h1>
         <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]" role="tablist" aria-label="Status project" data-tab-faktur>
           {TABS.map(([k, label, n]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} data-tab-faktur-item={k}

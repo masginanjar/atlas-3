@@ -35,6 +35,8 @@ const bolehAju = (u) => !!u && !['penerjemah', 'proofreader', 'otorisator', 'sta
 import { SUMBER_DANA, recommendFund } from '../config/workflows.js'
 
 import { readTheme, simpanTema, ACCENTS } from './ThemePicker.jsx'
+import PindahBooks from './PindahBooks.jsx'
+import PanelDummy from './PanelDummy.jsx'
 
 const RegisterPage = lazy(() => import('../pages/Register.jsx'))
 const LaporanOtoPage = lazy(() => import('../pages/LaporanOtorisasi.jsx'))
@@ -123,8 +125,9 @@ const KOLOM = [
 /** Kapsul warna — sama dengan aturan tampilan Tabel. */
 export function Lingkar({ warna, judul, children }) {
   if (!warna) return children
-  const w = { hitam: 'bg-ink', hijau: 'bg-emerald-600', merah: 'bg-rose-600', oranye: 'bg-orange-500' }[warna]
-  return <span title={judul} data-kapsul={warna} className={cx('inline-block max-w-full truncate whitespace-nowrap rounded-full px-2 py-0.5 font-semibold text-white', w)}>{children}</span>
+  // aturan warna "Gaya visual bersama": hari ini merah, besok oranye, telat merah muda, dibuat < 1 hari hijau muda
+  const w = { hitam: 'bg-[#141B34] text-white', hijau: 'bg-[#E2F5E8] text-[#17693A]', merah: 'bg-[#C62828] text-white', oranye: 'bg-[#FB923C] text-[#141B34]', telat: 'bg-[#FFD9E2] text-[#A3123E]' }[warna]
+  return <span title={judul} data-kapsul={warna} className={cx('inline-block max-w-full truncate whitespace-nowrap rounded-full px-2.5 py-0.5 font-bold', w)}>{children}</span>
 }
 
 /** Info melayang saat kursor diarahkan (posisi tetap, tidak terpotong tabel). */
@@ -343,7 +346,7 @@ function ProsesInline({ p }) {
   )
 }
 
-const PRIO_WARNA = (p) => (/sameday/i.test(p) ? 'bg-rose-600 text-white' : /super/i.test(p) ? 'bg-rose-100 text-rose-700' : /ekspres|speed/i.test(p) ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-ink-soft')
+const PRIO_WARNA = (p) => (/sameday/i.test(p) ? 'bg-[#141B34] text-white' : /super/i.test(p) ? 'bg-[#FFD9E2] text-[#A3123E]' : /ekspres|speed/i.test(p) ? 'bg-[#FFF3C4] text-[#6B4E00]' : 'bg-[#EEF0F5] text-[#4A4F6A]')
 
 /** Judul kolom yang bisa diklik: urutkan + saring (nilai / rentang tanggal). */
 function JudulKolom({ c, urut, setUrut, f, setF, opsi, kanan, lebar, setLebar }) {
@@ -657,7 +660,7 @@ function KlasikProject({ jenis = 'projects' }) {
                   <td className="px-3 py-2"><InfoHover inline isi={<InfoLayanan r={r} nameOf={nameOf} />}><Lingkar warna={r.prioMendesak && !r.p.about?.priority?.match(/sameday|super|ekspres|speed/i) ? 'hitam' : ''} judul={`Prioritas ${r.prioritas}`}><InvoiceNo project={r.p} /></Lingkar></InfoHover>{r.subs.length > 1 && <span data-sub-count className="ml-1 rounded bg-slate-200 px-1 text-[10px] font-semibold text-ink-soft">{r.subs.length} sub</span>}<IkonBaris id={r.id} inv={r.invoice} lihat={setLihat} folder={setFolder} /></td>
                   <td className="max-w-[170px] truncate px-3 py-2">{r.pelanggan || '—'}</td>
                   <td className="px-3 py-2"><span className={cx('inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold', r.prioritas === 'Normal' ? 'bg-slate-100 text-ink-soft' : 'bg-rose-50 text-rose-700 ring-1 ring-rose-200')}>{r.prioritas}</span></td>
-                  <td className="px-3 py-2"><Lingkar warna={r.status === 'Selesai' ? '' : r.dlHariIni ? 'merah' : r.dlBesok ? 'oranye' : ''} judul={r.dlHariIni ? 'Deadline hari ini' : 'Deadline besok'}><span className="tabular-nums">{r.deadline ? tanggal(r.deadline) : '—'}</span></Lingkar>{sisa && <span className={cx('block text-[10.5px] font-bold', grupOf(r.p) === 'terlambat' ? 'text-rose-600' : 'text-orange-600')}>{sisa}</span>}</td>
+                  <td className="px-3 py-2"><Lingkar warna={r.status === 'Selesai' ? '' : r.dlHariIni ? 'merah' : r.dlBesok ? 'oranye' : grupOf(r.p) === 'terlambat' ? 'telat' : ''} judul={r.dlHariIni ? 'Deadline hari ini' : r.dlBesok ? 'Deadline besok' : 'Terlambat'}><span className="tabular-nums">{r.deadline ? tanggal(r.deadline) : '—'}</span></Lingkar>{sisa && <span className={cx('block text-[10.5px] font-bold', grupOf(r.p) === 'terlambat' ? 'text-rose-600' : 'text-orange-600')}>{sisa}</span>}</td>
                   <td className="px-3 py-2"><Tumpuk r={r} fn={(x) => <span className="text-xs font-semibold text-brand">{subStatus(x, r.p)}</span>} /></td>
                   <td className="px-3 py-2">{r.cabang}</td>
                   <td className="px-3 py-2">{r.print}</td>
@@ -1337,7 +1340,7 @@ function MenuAkun({ hp }) {
             <p className="truncate text-xs text-ink-mute">{ROLES[user?.role]?.label || user?.role}{user?.branch ? ` · ${user.branch}` : ''}</p>
           </div>
           {hp && bolehKlasik(user, data) && !kunciKlasik(user) && (
-            <div className="mx-1.5 mb-1.5 flex items-center justify-between gap-2 rounded-lg py-1.5 pl-3 pr-1.5 text-white" style={{ background: 'var(--klasik-head, #0e1540)' }}>
+            <div className="mx-1.5 mb-1.5 flex items-center justify-between gap-2 rounded-lg py-1.5 pl-3 pr-1.5 text-white" style={{ background: 'var(--klasik-head, #141B34)' }}>
               <span className="text-xs font-semibold text-white/80">Tampilan</span>
               <SaklarMode klasik selalu />
             </div>
@@ -1352,7 +1355,9 @@ function MenuAkun({ hp }) {
               ))}
             </div>
           )}
+          <div className="border-t border-slate-100 py-1"><PindahBooks onPilih={() => setBuka(false)} /></div>
           <TemaDiMenu />
+          <PanelDummy ringkas />
           <button type="button" role="menuitem" onClick={keluar} data-aksi="keluar"
             className="flex min-h-[44px] w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50">
             <LogOut className="h-4 w-4" aria-hidden="true" />Keluar
@@ -1392,7 +1397,7 @@ function TemaDiMenu() {
 
 
 /** Lingkaran merah jumlah (mis. yang baru / perlu ditindaklanjuti). */
-const Lencana = ({ n, gelap }) => (n > 0 ? <span className={cx('absolute -top-2 left-2.5 grid h-[17px] min-w-[17px] place-items-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white ring-2', gelap ? 'ring-[var(--klasik-head,#0e1540)]' : 'ring-white dark:ring-[#141a2e]')} aria-label={`${n} perlu ditindaklanjuti`} data-lencana>{n > 99 ? '99+' : n}</span> : null)
+const Lencana = ({ n, gelap }) => (n > 0 ? <span className={cx('absolute -top-2 left-2.5 grid h-[17px] min-w-[17px] place-items-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white ring-2', gelap ? 'ring-[var(--klasik-head,#141B34)]' : 'ring-white dark:ring-[#141a2e]')} aria-label={`${n} perlu ditindaklanjuti`} data-lencana>{n > 99 ? '99+' : n}</span> : null)
 const labelTab = (l) => (l === 'Apostille/Legalisasi' ? 'Apostille' : l)
 /** Menu bawah Mode Klasik (HP & iPad): tab + tombol "+" di tengah. Tab yang tidak muat masuk "Lainnya". */
 function NavBawah({ tabs, aktif, maks, onPlus, lencana = {} }) {
@@ -1447,7 +1452,7 @@ function NavBawah({ tabs, aktif, maks, onPlus, lencana = {} }) {
         {onPlus && (
           <button type="button" onClick={onPlus} aria-label="Buat baru: Project atau Pengajuan" data-aksi="plus-baru"
             className="mx-1 -mt-6 grid h-14 w-14 shrink-0 place-items-center self-center rounded-full border-4 border-white text-white shadow-[0_8px_20px_rgba(14,21,64,.35)] dark:border-[#141a2e]"
-            style={{ background: 'var(--klasik-head, #0e1540)' }}>
+            style={{ background: 'var(--klasik-head, #141B34)' }}>
             <Plus className="h-6 w-6" aria-hidden="true" />
           </button>
         )}
@@ -1462,12 +1467,12 @@ function PilihBaru({ onClose, onProject, onAju }) {
   useEffect(() => { const esc = (e) => e.key === 'Escape' && onClose(); document.addEventListener('keydown', esc); return () => document.removeEventListener('keydown', esc) }, [onClose])
   return createPortal(
     <div className="fixed inset-0 z-[60]" role="dialog" aria-modal="true" aria-label="Buat baru" data-pilih-baru>
-      <button type="button" aria-label="Tutup" onClick={onClose} className="absolute inset-0 h-full w-full bg-[#0e1540]/45" />
+      <button type="button" aria-label="Tutup" onClick={onClose} className="absolute inset-0 h-full w-full bg-[#141B34]/45" />
       <div className="absolute inset-x-0 bottom-0 mx-auto max-w-[560px] rounded-t-2xl bg-white px-4 pb-[max(18px,env(safe-area-inset-bottom))] pt-2.5 text-ink shadow-2xl dark:bg-[#141a2e] dark:text-white">
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-300" />
         {onProject && (
           <button type="button" onClick={onProject} data-aksi="project-baru" className="mb-2 flex min-h-[64px] w-full items-center gap-3 rounded-2xl p-3 text-left ring-1 ring-slate-200 hover:bg-slate-50 dark:ring-white/15 dark:hover:bg-white/5">
-            <span className="grid h-11 w-11 place-items-center rounded-xl text-white" style={{ background: 'var(--klasik-head, #0e1540)' }}><FolderOpen className="h-5 w-5" aria-hidden="true" /></span>
+            <span className="grid h-11 w-11 place-items-center rounded-xl text-white" style={{ background: 'var(--klasik-head, #141B34)' }}><FolderOpen className="h-5 w-5" aria-hidden="true" /></span>
             <span><b className="block text-[15px]">Project baru</b><span className="text-xs text-ink-mute">Pelanggan, invoice, dokumen</span></span>
           </button>
         )}
@@ -1521,7 +1526,7 @@ export function KlasikApp({ page, param, detail }) {
       {pilihBaru && <PilihBaru onClose={() => setPilihBaru(false)} onProject={bolehProj ? () => { setPilihBaru(false); setBaru(true) } : null} onAju={bolehPengajuan ? () => { setPilihBaru(false); setAjuBaru(true) } : null} />}
     </>
   )
-  const gayaHead = { '--head-ink': '#fff', '--head-mute': 'rgba(255,255,255,.6)', '--head-hover': 'rgba(255,255,255,.1)', '--head-line': 'rgba(255,255,255,.2)', background: 'var(--klasik-head, #0e1540)' }
+  const gayaHead = { '--head-ink': '#fff', '--head-mute': 'rgba(255,255,255,.6)', '--head-hover': 'rgba(255,255,255,.1)', '--head-line': 'rgba(255,255,255,.2)', background: 'var(--klasik-head, #141B34)' }
   if (hp) return (
     <div className="min-h-screen bg-[var(--klasik-latar)] pb-28" data-mode-klasik>
       {formBaruApp}

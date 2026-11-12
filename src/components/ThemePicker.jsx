@@ -4,9 +4,9 @@ import { Popover, cx } from './ui.jsx'
 
 // Tema disimpan per browser: { mode: 'light' | 'dark', accent: '#rrggbb' }
 const KEY = 'atlas-theme'
-const DEFAULT = { mode: 'light', accent: '#111827', panel: 'right' } // bawaan: monokrom (hitam–putih), panel detail dari kanan
+const DEFAULT = { mode: 'light', accent: '#141B34', panel: 'right' } // bawaan: monokrom (hitam–putih), panel detail dari kanan
 export const ACCENTS = [
-  ['#111827', 'Monokrom (bawaan)'], ['#475569', 'Abu'], ['#1e3a8a', 'Navy'], ['#2563eb', 'Biru'], ['#0284c7', 'Biru Langit'],
+  ['#141B34', 'Tinta ATLAS (bawaan)'], ['#475569', 'Abu'], ['#1e3a8a', 'Navy'], ['#2563eb', 'Biru'], ['#0284c7', 'Biru Langit'],
   ['#0d9488', 'Teal'], ['#059669', 'Hijau'], ['#16a34a', 'Hijau Daun'], ['#65a30d', 'Lime'], ['#ca8a04', 'Kuning'],
   ['#d97706', 'Oranye'], ['#ea580c', 'Oranye Tua'], ['#dc2626', 'Merah'], ['#be123c', 'Marun'], ['#db2777', 'Pink'],
   ['#9333ea', 'Ungu'], ['#4f46e5', 'Indigo'], ['#7c2d12', 'Cokelat'], ['#0f766e', 'Hijau Laut'], ['#334155', 'Arang'],
@@ -37,16 +37,16 @@ export function applyTheme(t) {
     ? `color-mix(in srgb, ${t.accent} 30%, #1c2234)`
     : `color-mix(in srgb, ${t.accent} 8%, white)`)
   // Header (bar atas) ikut warna aksen; warna teks/ikonnya dipilih otomatis (putih di aksen gelap, gelap di aksen terang)
-  const head = dark ? `color-mix(in srgb, ${t.accent} 55%, #0b1020)` : t.accent
-  const headTerang = !dark && lum > 0.45
-  const ink = headTerang ? '#0e1540' : '#ffffff'
+  // Desain CANVAS ATLAS: bar atas putih (terang) / gelap netral (gelap); aksen dipakai di tombol & menu aktif
+  const head = dark ? '#121729' : '#FFFFFF'
+  const ink = dark ? '#e9edf9' : '#141B34'
   el.style.setProperty('--head', head)
   el.style.setProperty('--head-ink', ink)
   el.style.setProperty('--head-mute', `color-mix(in srgb, ${ink} 68%, ${head})`)
   el.style.setProperty('--head-line', `color-mix(in srgb, ${ink} 18%, ${head})`)
   el.style.setProperty('--head-hover', `color-mix(in srgb, ${ink} 12%, ${head})`)
   // Mode Klasik: bar atas tetap gelap (teks putih) — navy bawaan, atau warna aksen yang digelapkan
-  el.style.setProperty('--klasik-head', t.accent === DEFAULT.accent ? '#0e1540' : `color-mix(in srgb, ${t.accent} ${lum > 0.3 ? 55 : 72}%, #0b1020)`)
+  el.style.setProperty('--klasik-head', t.accent === DEFAULT.accent ? '#141B34' : `color-mix(in srgb, ${t.accent} ${lum > 0.3 ? 55 : 72}%, #0b1020)`)
   el.dataset.panel = t.panel === 'left' ? 'left' : 'right' // sisi panel detail
 }
 /** Sisi panel detail yang dipilih pengguna (dipakai komponen Sheet). */

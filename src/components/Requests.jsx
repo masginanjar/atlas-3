@@ -132,7 +132,7 @@ export function RequestBoard({ bare, tab: tabProp, onTab, subtab, kanan }) {
             <div className="-mx-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">
               {TABS.map(([k, l]) => <SubTabBtn key={k} on={tab === k} onClick={() => setTab(k)} n={groups[k].length} data-subtab={k}>{l}</SubTabBtn>)}
             </div>
-            <span className="ml-auto hidden text-xs text-[#1e3a5f] sm:inline">{TABS.find(([k]) => k === tab)?.[1]} · <b>{list.length} pengajuan</b> · Total <b>{rupiah(list.reduce((a, r) => a + Number(r.amount || 0), 0))}</b></span>
+            <span className="ml-auto hidden text-xs text-[#141B34] sm:inline">{TABS.find(([k]) => k === tab)?.[1]} · <b>{list.length} pengajuan</b> · Total <b>{rupiah(list.reduce((a, r) => a + Number(r.amount || 0), 0))}</b></span>
             {kanan}
           </SubTabs>
         ) : (

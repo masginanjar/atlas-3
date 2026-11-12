@@ -1,3 +1,4 @@
+import PindahBooks from './PindahBooks.jsx'
 import { useEffect, useRef, useState } from 'react'
 import { UserRound, MessageSquareDot, BellOff, SlidersHorizontal, Palette, HelpCircle, LogOut, Check, ChevronRight, Sun, Moon } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
@@ -103,6 +104,8 @@ export default function HeaderUser() {
               <Item icon={SlidersHorizontal} href="#/settings">Preferences</Item>
               <Item icon={Palette} onClick={() => setSub('theme')} right={<ChevronRight className="h-3.5 w-3.5 text-ink-mute" />}>Themes</Item>
               <Item icon={HelpCircle} href="#/settings">Help</Item>
+              <div className="my-1 border-t border-slate-100" />
+              <PindahBooks />
               <div className="my-1 border-t border-slate-100" />
               <Item icon={LogOut} danger onClick={() => signOut()}>Logout</Item>
             </div>

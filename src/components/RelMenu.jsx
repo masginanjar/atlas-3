@@ -61,7 +61,7 @@ export function RelIkon({ menu, flat, page, ctx }) {
   useEffect(() => { setLainnya(false) }, [page])
   return (
     <aside style={{ background: 'var(--nav)', color: 'var(--nav-ink)', borderRight: '1px solid var(--nav-line)' }}
-      className="sticky top-[var(--appbar)] hidden h-[calc(100dvh-var(--appbar))] w-16 shrink-0 flex-col items-stretch gap-0.5 px-1.5 py-2 md:flex" data-rel-ikon>
+      className="sticky top-[var(--appbar)] hidden h-[calc(100dvh-var(--appbar))] w-16 shrink-0 flex-col items-stretch gap-0.5 px-1.5 py-2 md:flex lg:hidden" data-rel-ikon>
       <nav className="flex flex-col gap-0.5" aria-label="Menu utama">
         {utama.map((n) => <RelItem key={n.key} icon={n.icon} label={RAIL_LABEL[n.key] || n.label} href={`#/${n.key}`} aktif={page === n.key} badge={badgeOf(n, ctx)} />)}
         {sisa.length > 0 && <RelItem icon={LayoutGrid} label="Lainnya" onClick={() => setLainnya((v) => !v)} aktif={lainnya || diLainnya} badge={badgeSisa} title="Menu lainnya" dataNav="lainnya" />}

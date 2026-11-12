@@ -16,12 +16,12 @@ const dayKey = (d) => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(
 const jam = (d) => new Date(d).toLocaleTimeString('id-ID', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
 const DOW = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
 const TYPES = {
-  deadline: { label: 'Deadline project', icon: FolderKanban, cls: 'bg-rose-50 text-rose-700 ring-rose-200' },
-  todo: { label: 'To-do', icon: ListTodo, cls: 'bg-sky-50 text-sky-700 ring-sky-200' },
-  reminder: { label: 'Pengingat', icon: AlarmClock, cls: 'bg-amber-50 text-amber-800 ring-amber-200' },
+  deadline: { label: 'Deadline project', icon: FolderKanban, cls: 'bg-[#FFD9E2] text-[#A3123E] ring-transparent' },
+  todo: { label: 'To-do', icon: ListTodo, cls: 'bg-[#EEF0F5] text-[#4A4F6A] ring-transparent' },
+  reminder: { label: 'Pengingat', icon: AlarmClock, cls: 'bg-[#DFF1FB] text-[#0B5C8A] ring-transparent' },
 }
 /** Warna titik per jenis agenda — dipakai pada tampilan kalender di HP. */
-const DOT = { deadline: 'bg-rose-500', todo: 'bg-sky-500', reminder: 'bg-amber-500' }
+const DOT = { deadline: 'bg-[#C62828]', todo: 'bg-[#5E6380]', reminder: 'bg-[#0B5C8A]' }
 
 /** Semua item bertanggal — diambil dari sumber data yang sama, tanpa pencatatan tanggal terpisah. */
 export function calendarItems(user, data, branchFilter) {
@@ -136,8 +136,8 @@ export default function Calendar({ embedded, onPick }) {
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
       <div className="min-w-0 space-y-3">
       <Card className="overflow-hidden p-0">
-        <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50 text-center text-[10px] font-bold uppercase tracking-wider text-ink-mute">
-          {DOW.map((d) => <span key={d} className="py-1.5">{d}</span>)}
+        <div className="grid grid-cols-7 bg-[#E6E8F2] text-center text-xs font-semibold text-[#3F4563] dark:bg-white/10 dark:text-slate-200">
+          {DOW.map((d) => <span key={d} className="py-2">{d}</span>)}
         </div>
         <div className="grid grid-cols-7">
           {cells.map((d, i) => {
@@ -145,7 +145,7 @@ export default function Calendar({ embedded, onPick }) {
             const list = (k && byDay[k]) || []
             const kinds = [...new Set(list.map((x) => x.type))]
             return (
-              <div key={i} className={cx('border-b border-r border-slate-100 last:border-r-0 md:min-h-[92px] md:p-1.5', !d && 'bg-slate-50/60', k === todayK && 'bg-brand-soft/40')}>
+              <div key={i} className={cx('border-b border-r border-[#E7E8F0] last:border-r-0 md:min-h-[92px] md:p-1.5 dark:border-white/10', !d && 'bg-[#FAFAFC] dark:bg-white/[.02]')}>
                 {/* HP: hanya tanggal + titik/jumlah; ketuk untuk melihat jam lengkapnya */}
                 <button type="button" disabled={!d} onClick={() => setPick(k === pick ? '' : k)} aria-label={d ? `${d.getDate()} — ${list.length} agenda` : undefined}
                   className={cx('flex h-14 w-full flex-col items-center justify-center gap-1 md:hidden', k === pick && 'bg-brand-soft ring-1 ring-inset ring-brand')}>
@@ -160,7 +160,7 @@ export default function Calendar({ embedded, onPick }) {
                   {d && (
                     <div className="mb-1 flex items-center gap-1">
                       <button type="button" onClick={() => setPick(k)} aria-label={`Pilih tanggal ${d.getDate()}`}
-                        className={cx('grid h-5 min-w-[20px] place-items-center rounded-md px-1 text-[11px] font-bold hover:bg-slate-100', k === pick ? 'bg-ink text-white hover:bg-ink' : k === todayK ? 'text-brand' : 'text-ink-mute')}>{d.getDate()}</button>
+                        className={cx('grid h-[26px] min-w-[26px] place-items-center rounded-full px-1 text-xs font-bold hover:bg-[#F3F4F9]', k === todayK ? 'bg-[#141B34] text-white hover:bg-[#141B34]' : k === pick ? 'bg-[#DFF1FB] text-[#0B5C8A]' : 'text-[#141B34]')}>{d.getDate()}</button>
                       {/* tanda + : buat To-do pada tanggal ini */}
                       <button type="button" onClick={() => open('todo', { todo: { due: k } })}
                         aria-label={`Buat to-do tanggal ${d.getDate()}`} title="Buat To-do pada tanggal ini"
@@ -180,7 +180,7 @@ export default function Calendar({ embedded, onPick }) {
                     {list.slice(0, 3).map((it) => (
                       <li key={it.id}>
                         <button type="button" onClick={() => openItem(it)} title={`${jam(it.at)} · ${it.title}`}
-                          className={cx('block w-full truncate rounded-md px-1.5 py-0.5 text-left text-[10px] font-semibold ring-1', TYPES[it.type].cls)}>
+                          className={cx('block w-full truncate rounded-md px-1.5 py-0.5 text-left text-[11px] font-semibold', TYPES[it.type].cls)}>
                           {jam(it.at)} {it.title}
                         </button>
                       </li>

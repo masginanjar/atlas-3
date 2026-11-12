@@ -134,7 +134,7 @@ export default function KeuanganRingkas({ s, pilihTab, bukaTopUp }) {
                 return (
                   <div key={b} className="flex flex-1 flex-col items-center gap-1 text-[10px] font-semibold text-ink-mute" title={`${namaKas(b)}: ${rupiah(v)}`}>
                     <span className="text-[10.5px] font-bold text-ink">{v ? rpPendek(v).replace('Rp ', '') : '0'}</span>
-                    <span className={cx('w-full rounded-t-md', v ? 'bg-[#1e3a5f]' : 'bg-slate-200')} style={{ height: Math.max(2, Math.round((v / maxCab) * 70)) }} />
+                    <span className={cx('w-full rounded-t-md', v ? 'bg-[#141B34]' : 'bg-slate-200')} style={{ height: Math.max(2, Math.round((v / maxCab) * 70)) }} />
                     <span className="truncate">{b === APOSTILLE_FUND ? 'Apostille' : b}</span>
                   </div>
                 )

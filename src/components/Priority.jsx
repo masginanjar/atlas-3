@@ -5,10 +5,10 @@ import { cx } from './ui.jsx'
 
 // 1 ikon per prioritas — Normal: pohon · Ekspres: tetes air · Super Ekspres: api · Sameday: petir hitam
 export const PRIORITY_META = {
-  Normal: { icons: [TreeDeciduous], cls: 'bg-slate-100 text-ink-soft ring-slate-200', icon: 'text-ink-mute', on: 'bg-slate-50 ring-slate-300' },
-  Ekspres: { icons: [Droplet], cls: 'bg-amber-50 text-amber-700 ring-amber-200', icon: 'text-amber-600', on: 'bg-amber-50 ring-amber-300' },
-  'Super Ekspres': { icons: [Flame], cls: 'bg-orange-50 text-orange-700 ring-orange-200', icon: 'text-orange-600', on: 'bg-orange-50 ring-orange-300' },
-  Sameday: { icons: [Zap], cls: 'bg-rose-50 text-rose-700 ring-rose-300', icon: 'text-rose-600', on: 'bg-rose-50 ring-rose-400' },
+  Normal: { icons: [TreeDeciduous], cls: 'bg-[#EEF0F5] text-[#4A4F6A] ring-transparent', icon: 'text-ink-mute', on: 'bg-slate-50 ring-slate-300' },
+  Ekspres: { icons: [Droplet], cls: 'bg-[#FFF3C4] text-[#6B4E00] ring-transparent', icon: 'text-[#6B4E00]', on: 'bg-[#FFF3C4] ring-amber-300' },
+  'Super Ekspres': { icons: [Flame], cls: 'bg-[#FFD9E2] text-[#A3123E] ring-transparent', icon: 'text-[#A3123E]', on: 'bg-[#FFD9E2] ring-rose-300' },
+  Sameday: { icons: [Zap], cls: 'bg-[#141B34] text-white ring-transparent', icon: 'text-white', on: 'bg-[#141B34] ring-[#141B34] text-white' },
 }
 const meta = (p) => PRIORITY_META[({ Tinggi: 'Super Ekspres', Speed: 'Ekspres', 'Super Speed': 'Super Ekspres' })[p] || p] ?? PRIORITY_META.Normal
 
@@ -20,7 +20,7 @@ function Icons({ p, size = 'h-3.5 w-3.5' }) {
  *  Sameday: ikon + teks dengan animasi kedip merah–hitam (urgent). iconOnly tetap menampilkan teks agar prioritas selalu terbaca. */
 export function PriorityBadge({ p = 'Normal', iconOnly, className }) {
   const label = ({ Tinggi: 'Super Ekspres', Speed: 'Ekspres', 'Super Speed': 'Super Ekspres' })[p] || p || 'Normal'
-  if (label === 'Normal') return <span title="Prioritas Normal" className={cx('inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-ink-mute', className)}>Normal</span>
+  if (label === 'Normal') return <span title="Prioritas Normal" className={cx('inline-flex items-center rounded-full bg-[#EEF0F5] px-2 py-0.5 text-[11px] font-semibold text-[#4A4F6A]', className)}>Normal</span>
   return (
     <span title={label} className={cx('inline-flex items-center gap-1 whitespace-nowrap rounded-full font-bold ring-1', iconOnly ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-0.5 text-[11px]', meta(p).cls, className)}>
       <Icons p={p} size={iconOnly ? 'h-3 w-3' : 'h-3.5 w-3.5'} />{label}

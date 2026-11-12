@@ -15,7 +15,7 @@ import { cx } from './ui.jsx'
 const Ctx = createContext(null)
 
 /** Warna map: tab aktif + panel. */
-export const MAP_BG = 'bg-[#dbe4ee]'
+export const MAP_BG = 'bg-white dark:bg-white/5'
 
 export function useSubTabHost() {
   const [el, setEl] = useState(null)
@@ -38,12 +38,12 @@ export function MapTabs({ tabs, aktif, onPilih, ada, setPanelEl, kanan, label = 
             const on = aktif === t.key
             return (
               <button key={t.key} type="button" role="tab" aria-selected={on} onClick={() => onPilih(t.key)} data-tab={t.key}
-                className={cx('relative flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-xs font-semibold transition',
-                  on && ada ? cx('h-11 rounded-t-xl pb-1 text-[#1e3a5f]', MAP_BG)
-                    : on ? 'mb-1 h-9 rounded-xl bg-ink text-white ring-1 ring-ink'
-                      : 'mb-1 h-9 rounded-xl bg-white text-ink-soft ring-1 ring-slate-200 hover:ring-brand')}>
+                className={cx('relative flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3.5 text-[13px] font-bold transition',
+                  on && ada ? cx('h-11 rounded-t-xl pb-1 text-[#141B34]', MAP_BG)
+                    : on ? 'mb-1 h-10 rounded-[10px] bg-[#141B34] text-white ring-1 ring-[#141B34]'
+                      : 'mb-1 h-10 rounded-[10px] bg-white text-[#141B34] ring-1 ring-[#D9DBE7] hover:ring-[#B9BDD0]')}>
                 {t.icon && <t.icon className="h-3.5 w-3.5" />}{t.label}
-                {t.n > 0 && <span className={cx('rounded-full px-1.5 text-[10px] font-bold', on && ada ? 'bg-[#1e3a5f] text-white' : on ? 'bg-white text-ink' : t.tone === 'mute' ? 'bg-slate-100 text-ink-mute' : 'bg-rose-500 text-white')}>{t.n}</span>}
+                {t.n > 0 && <span className={cx('rounded-full px-1.5 text-[10px] font-bold', on && ada ? 'bg-[#141B34] text-white' : on ? 'bg-white text-ink' : t.tone === 'mute' ? 'bg-slate-100 text-ink-mute' : 'bg-rose-500 text-white')}>{t.n}</span>}
               </button>
             )
           })}
@@ -70,8 +70,8 @@ export function SubTabs({ children, className }) {
 export function SubTabBtn({ on, onClick, n, children, className, ...p }) {
   return (
     <button type="button" onClick={onClick} aria-pressed={on} {...p}
-      className={cx('inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl px-3 text-xs font-semibold ring-1 transition',
-        on ? 'bg-[#1e3a5f] text-white ring-[#1e3a5f]' : 'bg-white text-[#1e3a5f] ring-[#c7d3e0] hover:ring-brand', className)}>
+      className={cx('inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 text-[13px] font-semibold ring-1 transition',
+        on ? 'bg-[#141B34] text-white ring-[#141B34]' : 'bg-white text-[#141B34] ring-[#D9DBE7] hover:ring-[#B9BDD0]', className)}>
       {children}{n !== undefined && <span className={cx('text-[10px] font-semibold', on ? 'text-slate-300' : 'text-ink-mute')}>{n}</span>}
     </button>
   )

@@ -271,7 +271,7 @@ export default function Faq() {
       <div className="-mx-1 rounded-2xl bg-ink px-4 pb-4 pt-4 text-white sm:mx-0 sm:px-6 sm:pb-5 sm:pt-5">
         <div className="flex flex-wrap items-center gap-2">
           <BookOpen className="h-5 w-5 shrink-0 text-white/70" aria-hidden="true" />
-          <h1 className="min-w-0 text-lg font-extrabold sm:text-xl">F&amp;Q · Panduan menjawab pelanggan</h1>
+          <h1 className="min-w-0 text-2xl font-extrabold tracking-tight">F&amp;Q · Panduan menjawab pelanggan</h1>
           <span className="ml-auto hidden rounded-full bg-white/10 px-3 py-1 text-xs sm:inline">{terbit.length} panduan{hariLalu !== null ? ` · diperbarui ${hariLalu === 0 ? 'hari ini' : `${hariLalu} hari lalu`}` : ''}</span>
           {bolehUbah && (
             <button type="button" onClick={() => { setEdit(kosong); setPratinjau(false) }}

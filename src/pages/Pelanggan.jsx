@@ -95,7 +95,7 @@ export default function Pelanggan() {
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
       <div className="min-w-0">
-        <h1 className="flex items-center gap-2 text-lg font-bold text-ink"><Users className="h-5 w-5 text-brand" />Pelanggan</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Pelanggan</h1>
         <p className="text-xs text-ink-soft">
           {rows.length} pelanggan dari {totalProject} project. Dirangkum otomatis dari project — tidak ada data terpisah yang perlu diisi.
         </p>
