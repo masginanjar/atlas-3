@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
 import { FolderKanban, CheckCircle2, AlarmClock, Wallet, Banknote, ArrowRight, Inbox, Stamp, ChevronDown, Hand, Upload, Loader2, FileCheck2, Send, Languages, ChevronUp, Users, Undo2, CalendarDays, X , Sunrise, Moon, Waves, Activity, Target, Sprout, Sparkles, Coffee, ReceiptText, ArrowUp, ArrowDown, StickyNote} from 'lucide-react'
 import LayarKerja from './LayarKerja.jsx'
+import ProjectDetail, { SubProject } from './ProjectDetail.jsx'
+import TugaskanPenerjemah from '../components/TugaskanPenerjemah.jsx'
 import { infoDeadline } from '../components/BarisCanvas.jsx'
 import { useApp } from '../lib/store.jsx'
 import { kapasitasHarian, KAP_DEFAULT } from '../components/Kapasitas.jsx'
@@ -320,30 +322,54 @@ function FollowUpPeran({ s }) {
 
 /** Tabel "Kerja saya" — desain CANVAS ATLAS: Invoice · Pelanggan · Dokumen · Tahap · Deadline · Kerjakan. */
 function TabelKerja({ tasks, user }) {
-  const [kerja, setKerja] = useState(null)
-  const kolom = 'grid grid-cols-[150px_minmax(0,1.2fr)_minmax(0,1.4fr)_150px_110px_110px] gap-x-2.5'
+  const { data } = useApp()
+  const [kerja, setKerja] = useState(null) // layar kerja penuh (lewat "Vendor / koordinator…")
+  const [buka, setBuka] = useState('') // panel kerja ringkas di bawah baris
+  const [tugas, setTugas] = useState(null) // popup tetapkan penerjemah
+  const [lihat, setLihat] = useState(null) // panel samping detail project
+  const kolom = 'grid grid-cols-[128px_minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_92px_96px] gap-x-2.5'
+  const kerjakan = (t) => {
+    if (t.stage === 'pilih_penerjemah' && !coordinatorFor(data.users, foreignLang(t))) return setTugas(t)
+    setBuka((b) => (b === t.id ? '' : t.id))
+  }
   return (
     <div className="overflow-x-auto" data-tabel-kerja>
-      <div className="min-w-[820px]">
+      <div className="min-w-[640px]">
         <div className={cx(kolom, 'bg-[#E6E8F2] px-3.5 py-2 text-xs font-semibold text-[#3F4563] dark:bg-white/10 dark:text-slate-200')}>
           <span>Invoice</span><span>Pelanggan</span><span>Dokumen</span><span>Tahap</span><span>Deadline</span><span />
         </div>
         {tasks.map((t) => {
           const d = infoDeadline(t.project)
           const klaim = activeClaim(t)
+          const p = data.projects.find((x) => x.id === t.project.id) || t.project
+          const sb = (p.sub_projects || []).find((x) => x.id === t.id) || t
           return (
-            <div key={t.id} className={cx(kolom, 'min-h-12 items-center border-t border-[#EEF0F5] px-3.5 py-1 text-sm dark:border-white/10')}>
-              <a href={`#/projects/${t.project.id}`} className="truncate font-bold tabular-nums hover:underline">{invoiceLabel(t.project.invoice_no)}</a>
+            <div key={t.id} className="border-t border-[#EEF0F5] dark:border-white/10">
+            <div role="button" tabIndex={0} onClick={() => kerjakan(t)} onKeyDown={(e) => { if (e.key === 'Enter') kerjakan(t) }} className={cx(kolom, 'min-h-12 cursor-pointer items-center px-3.5 py-1 text-sm hover:bg-[#F6F7FB] dark:hover:bg-white/5', buka === t.id && 'bg-[#F3F4F9]')} data-baris-kerja>
+              <button type="button" onClick={(e) => { e.stopPropagation(); setLihat(p) }} title="Lihat detail project (panel samping)" className="truncate text-left font-bold tabular-nums hover:underline">{invoiceLabel(t.project.invoice_no)}</button>
               <span className="truncate">{t.project.customer?.name}</span>
               <span className="truncate" title={t.title}>{t.title}</span>
               <span className="truncate">{stageLabel(t.flow, t.stage)}{klaim && <span className={cx('ml-1 text-[11px] font-semibold', klaim.by === user.id ? 'text-violet-700' : 'text-amber-700')}>· {klaim.by === user.id ? 'Anda ambil' : 'Diambil rekan'}</span>}</span>
               <span>{d ? <span className="inline-flex min-h-6 items-center whitespace-nowrap rounded-full px-2.5 text-xs font-bold" style={{ background: d.bg, color: d.fg }}>{d.sisa === 'Hari ini' ? 'Hari Ini' : d.sisa === 'Besok' ? 'Besok' : d.tgl.replace(/ \d\d\.\d\d$/, '')}</span> : '—'}</span>
-              <span className="text-right"><button type="button" onClick={() => setKerja(t)} className="min-h-9 whitespace-nowrap rounded-[10px] bg-[#DFF1FB] px-3 text-[13px] font-bold text-[#0B5C8A] hover:bg-[#cbe7f7]">Kerjakan</button></span>
+              <span className="text-right"><button type="button" onClick={(e) => { e.stopPropagation(); kerjakan(t) }} className={cx('min-h-9 whitespace-nowrap rounded-[10px] px-3 text-[13px] font-bold', buka === t.id ? 'bg-[#141B34] text-white' : 'bg-[#DFF1FB] text-[#0B5C8A] hover:bg-[#cbe7f7]')}>{buka === t.id ? 'Tutup' : t.stage === 'pilih_penerjemah' ? 'Tetapkan' : 'Kerjakan'}</button></span>
+            </div>
+            {buka === t.id && (
+              <div className="mx-3 mb-3 overflow-hidden rounded-2xl border border-[#DADDE8] bg-white dark:bg-white/5" data-kerja-di-baris>
+                <SubProject key={sb.id} n={1} project={p} sub={sb} ringkas />
+              </div>
+            )}
             </div>
           )
         })}
       </div>
+      {tugas && <TugaskanPenerjemah p={data.projects.find((x) => x.id === tugas.project.id) || tugas.project} sub={tugas} onClose={() => setTugas(null)} onLainnya={() => { const t = tugas; setTugas(null); setKerja(t) }} />}
       {kerja && <LayarKerja projectId={kerja.project.id} subId={kerja.id} daftar={[...new Map(tasks.map((t) => [t.project.id, t.project])).values()]} onClose={() => setKerja(null)} />}
+      {lihat && (
+        <Sheet open side wide onClose={() => setLihat(null)} title={invoiceLabel(lihat.invoice_no)} subtitle={`${lihat.customer?.name || ''} · ${lihat.branch}`}
+          footer={<><Button variant="outline" onClick={() => setLihat(null)}>Tutup</Button><span className="flex-1" /><a href={`#/projects/${lihat.id}`} className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline">Halaman penuh →</a></>}>
+          <ProjectDetail id={lihat.id} embedded />
+        </Sheet>
+      )}
     </div>
   )
 }

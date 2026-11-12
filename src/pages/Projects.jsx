@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { go } from '../lib/router.js'
 import { Plus, Minus, Search, FolderOpen, Banknote, CalendarClock, Layers, LayoutGrid, List, ChevronRight, ChevronDown, Sparkles, StickyNote, Printer, AlertTriangle, Eye, X, Save, Rows2, Rows3, Rows4, Maximize2, Minimize2, Table2, MoreHorizontal, Columns3, Bookmark } from 'lucide-react'
 import FileManager, { fieldFiles, collect as collectFiles } from '../components/FileManager.jsx'
-import ProjectDetail from './ProjectDetail.jsx'
+import ProjectDetail, { SubProject, AksiBaris } from './ProjectDetail.jsx'
 import WorkerBoard, { WorkerActions, isWorkRole } from '../components/WorkerActions.jsx'
 import { useApp } from '../lib/store.jsx'
 import { scopeByBranch, can, branchesOf, invoiceLabel, BRANCHES, diKoordinasi, vendorKoordinator, foreignLang } from '../config/access.js'
@@ -325,7 +325,7 @@ export default function Projects({ tabAwal }) {
             <Card><Empty icon={FolderOpen} title={worker ? 'Belum ada project untuk Anda' : 'Belum ada project'} text={worker ? 'Project akan muncul di sini begitu ada yang ditugaskan kepada Anda.' : 'Buat project baru dari invoice Zoho.'} action={worker ? null : <Button onClick={() => go('projects/new')}><Plus className="h-4 w-4" />Project Baru</Button>} /></Card>
           ) : view === 'list' ? <ProjectList status={status} setStatus={setStatus} statusOpsi={[['aktif', `Aktif ${scoped.filter((p) => !isDone(p)).length}`], ['selesai', 'Selesai'], ['semua', 'Semua']].map(([key, label]) => ({ key, label }))} pref={{ ...pref, grup: pref.grup && sort === 'deadline' }} list={rest.slice(0, shownN)} nLate={late.length} dlFilter={dlFilter} setDlFilter={setDlFilter} prFilter={prFilter} setPrFilter={setPrFilter} cols={colsAktif} detailFor={detailFor} setDetailFor={setDetailFor} filesFor={filesFor} setFilesFor={setFilesFor} onLangkah={bukaLangkah} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
             <ProjectSpreadsheet pref={pref} list={list} detailFor={detailFor} state={tableState} setState={setTableState} hideCols={worker ? SEMBUNYI_TABEL : []}
-              onDetail={(p) => go(`projects/${p.id}`)}
+              onDetail={(p) => { setFilesFor(null); setDetailFor(p) }}
               onFiles={(p) => setFilesFor(p)}
               onPrint={(p) => { setFilesFor(p) }}
               renderAksi={(p) => { const ctx = { users: data.users, people: data.people, user, worker }; const langkah = langkahBerikutnya(p, user, ctx); return (
@@ -475,7 +475,7 @@ function AksiLainnya({ p, hp, open, toggle, detailAktif, onDetail, onFiles, file
       aktif ? 'bg-brand-soft text-brand ring-brand/30' : 'bg-white text-ink-mute ring-slate-200 hover:text-brand')
   return (
     <span className="flex shrink-0 items-center gap-1" data-aksi="ikon-baris">
-      <a href={`#/projects/${p.id}`} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} title="Buka halaman detail project" className={btn(detailAktif)} data-aksi="detail"><Eye className="h-4 w-4" /></a>
+      <button type="button" onClick={onDetail} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} title="Lihat detail project (panel samping)" className={btn(detailAktif)} data-aksi="detail"><Eye className="h-4 w-4" /></button>
       <button type="button" onClick={onFiles} aria-label={`File ${invoiceLabel(p.invoice_no)}`} title={`Folder file project${fileCount ? ` (${fileCount})` : ''}`} className={cx(btn(false), 'relative')} data-aksi="file"><FolderOpen className="h-4 w-4" />{fileCount > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-brand px-1 text-[9px] font-bold leading-[14px] text-white">{fileCount}</span>}</button>
       <button type="button" onClick={toggle} aria-expanded={open} aria-label={`Rincian ${invoiceLabel(p.invoice_no)}`} title="Buka/tutup rincian sub project" className={btn(open)} data-aksi="rincian"><ChevronDown className={cx('h-4 w-4 transition', open && 'rotate-180')} /></button>
     </span>
@@ -740,6 +740,8 @@ function ProjectList({ status = 'aktif', setStatus = () => {}, statusOpsi = [], 
   const projectOf = (id) => data.projects.find((x) => x.id === id) // versi terbaru (setelah upload/hapus di pop-up)
   const [open, setOpen] = useState(() => new Set())
   const toggle = (id) => setOpen((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const [fokus, setFokus] = useState({}) // sub yang panel kerjanya dibuka saat baris dibuka dari tombol aksi
+  const bukaKerja = (p, subId) => { setFokus((f) => ({ ...f, [p.id]: subId })); setOpen((s) => new Set(s).add(p.id)) }
   const bp = 'both'
   const [bpOpen, setBpOpen] = useState(false)
   const bpActive = !!(bpFilter.branch || bpFilter.print)
@@ -751,7 +753,7 @@ function ProjectList({ status = 'aktif', setStatus = () => {}, statusOpsi = [], 
   const prCount = (k) => listAll.filter((p) => (p.about?.priority || 'Normal') === k).length
   const list = listAll; const late = [] // urutan terlambat sudah diatur di induk (paling akhir), tidak lagi dipajang terpisah
   const show = (k) => !cols || cols.includes(k) // kolom yang ditampilkan (Pengaturan kolom)
-  const gridCols = [...COLUMNS.filter((c) => show(c.key)).map((c) => c.w), 'minmax(176px,190fr)'].join(' ')
+  const gridCols = [...COLUMNS.filter((c) => show(c.key)).map((c) => c.w), 'minmax(206px,230fr)'].join(' ')
   const [stOpen, setStOpen] = useState(false)
   const fileCount = (p) => collectFiles(p).length
   const today = dayKey()
@@ -775,7 +777,9 @@ function ProjectList({ status = 'aktif', setStatus = () => {}, statusOpsi = [], 
                       (tanpa hover) tombolnya tetap terlihat, begitu juga saat baris sedang dibuka. */}
                   {/* Aksi: SATU tombol langkah berikutnya (selalu terlihat) + menu ⋯ (K9) */}
                   <span className="flex min-w-0 items-center justify-end gap-1" data-aksi-baris onClick={(e) => e.stopPropagation()}>
-                    <TombolLangkah p={p} langkah={langkah} onBuka={onLangkah} canvas />
+                    {!open.has(p.id) && langkah.jenis === 'kerja' && langkah.sub
+                      ? <AksiBaris kecil project={p} sub={langkah.sub} onPanel={() => bukaKerja(p, langkah.sub.id)} onTugas={() => onLangkah(p, langkah.sub.id, true)} />
+                      : !open.has(p.id) && <TombolLangkah p={p} langkah={langkah} onBuka={onLangkah} canvas />}
                     <AksiLainnya canvas p={p} open={open.has(p.id)} toggle={() => toggle(p.id)} detailAktif={detailFor?.id === p.id}
                       onDetail={() => { setDetailFor(p); setFilesFor(null) }} onFiles={() => setFilesFor(p)} fileCount={fileCount(p)} />
                   </span>
@@ -794,15 +798,17 @@ function ProjectList({ status = 'aktif', setStatus = () => {}, statusOpsi = [], 
                     <span className="min-w-0 truncate text-sm font-bold">{langkah.tahap}</span>
                     <span className="w-16 shrink-0"><Stepper p={p} prog={prog} kecil /></span>
                     <span className="flex-1" />
-                    {!ctx.worker && langkah.jenis !== 'buka' && <span className="shrink-0"><TombolLangkah p={p} langkah={langkah} onBuka={onLangkah} canvas /></span>}
-                    <a href={`#/projects/${p.id}`} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] text-[#141B34] hover:bg-[#F3F4F9]"><Eye className="h-4 w-4" /></a>
-                    <button type="button" onClick={() => setFilesFor(p)} aria-label={`File ${invoiceLabel(p.invoice_no)}`} className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] text-[#141B34] hover:bg-[#F3F4F9]"><FolderOpen className="h-4 w-4" /></button>
+                    {!ctx.worker && !open.has(p.id) && langkah.jenis !== 'buka' && <span className="shrink-0">{langkah.jenis === 'kerja' && langkah.sub
+                      ? <AksiBaris kecil project={p} sub={langkah.sub} onPanel={() => bukaKerja(p, langkah.sub.id)} onTugas={() => onLangkah(p, langkah.sub.id, true)} />
+                      : <TombolLangkah p={p} langkah={langkah} onBuka={onLangkah} canvas />}</span>}
+                    <button type="button" onClick={() => { setFilesFor(null); setDetailFor(p) }} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} data-aksi="detail" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] text-[#141B34] hover:bg-[#F3F4F9]"><Eye className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => setFilesFor(p)} aria-label={`File ${invoiceLabel(p.invoice_no)}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] text-[#141B34] hover:bg-[#F3F4F9]"><FolderOpen className="h-4 w-4" /></button>
                   </div>
                 </div>
               </div>
               <WorkerActions project={p} />
               </div>
-              {open.has(p.id) && <ProjectExpand p={p} onLangkah={onLangkah} />}
+              {open.has(p.id) && <ProjectExpand key={fokus[p.id] || 'x'} p={p} onLangkah={onLangkah} awal={fokus[p.id]} />}
             </li>
           )
   }
@@ -1042,9 +1048,12 @@ function RingkasSub({ p }) {
   return <>{arah}{subs.length > 1 && <span className="text-ink-mute"> +{subs.length - 1}</span>}{dok ? ` · ${dok} dok` : ''}{hlm ? ` · ${hlm} hlm` : ''}</>
 }
 
-function ProjectExpand({ p, onLangkah }) {
-  const { nameOf, user } = useApp()
+function ProjectExpand({ p: p0, onLangkah, awal }) {
+  const { nameOf, user, data } = useApp()
+  const p = data.projects.find((x) => x.id === p0.id) || p0 // versi terbaru setelah aksi
   const subs = p.sub_projects || []
+  // Klik isi baris = panel kerja langsung di bawahnya (tanpa pindah layar). 1 sub → langsung terbuka.
+  const [aktif, setAktif] = useState(() => awal || (subs.length === 1 && subs[0].stage !== DONE ? subs[0].id : ''))
   const w = warnaKategori(subs[0])
   return (
     <div className="pb-1.5 pt-1" style={{ background: w.bg }} data-isi-baris>
@@ -1061,12 +1070,14 @@ function ProjectExpand({ p, onLangkah }) {
         const stNow = st[idx]
         const bisa = stNow && !selesai && can.processStage(user, stNow, sb, p)
         return (
-          <div key={sb.id || i} className="grid items-center gap-x-3 gap-y-2 border-t border-[rgba(20,27,52,0.08)] px-4 py-2.5 lg:grid-cols-[minmax(160px,2.2fr)_56px_56px_minmax(150px,1.1fr)_minmax(110px,1fr)_minmax(200px,2.2fr)_auto]" data-sub-baris>
-            <span className="min-w-0 truncate text-[13px] font-bold" title={sb.title}>{sb.title || '—'}</span>
-            <span className="whitespace-nowrap text-sm tabular-nums">{dok} Dok</span>
-            <span className="whitespace-nowrap text-sm tabular-nums">{hlm} Hal</span>
-            <span className="truncate whitespace-nowrap text-sm">{arah}</span>
-            <span className="min-w-0 truncate text-sm font-semibold" title={who}>{who || '—'}</span>
+          <div key={sb.id || i} className="border-t border-[rgba(20,27,52,0.08)]">
+          <div role="button" tabIndex={0} aria-expanded={aktif === sb.id} onClick={() => setAktif((a) => (a === sb.id ? '' : sb.id))} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setAktif((a) => (a === sb.id ? '' : sb.id)) } }}
+            title="Klik untuk mengerjakan di sini" className={cx('grid cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-2.5 hover:bg-white/40 lg:grid-cols-[minmax(120px,2fr)_48px_48px_minmax(100px,1fr)_minmax(70px,0.8fr)_minmax(130px,1.5fr)_auto]', aktif === sb.id && 'bg-white/50')} data-sub-baris>
+            <span className="col-span-2 min-w-0 truncate text-[13px] font-bold lg:col-span-1" title={sb.title}>{sb.title || '—'}<span className="block truncate text-[12.5px] font-normal text-[#5E6380] lg:hidden">{[`${dok} Dok`, `${hlm} Hal`, arah !== '—' && arah, who].filter(Boolean).join(' · ')}</span></span>
+            <span className="hidden whitespace-nowrap text-sm tabular-nums lg:block">{dok} Dok</span>
+            <span className="hidden whitespace-nowrap text-sm tabular-nums lg:block">{hlm} Hal</span>
+            <span className="hidden truncate whitespace-nowrap text-sm lg:block">{arah}</span>
+            <span className="hidden min-w-0 truncate text-sm font-semibold lg:block" title={who}>{who || '—'}</span>
             <span className="flex min-w-0 items-center gap-2.5">
               <span className="min-w-0 truncate text-sm font-bold">{tahap}{berikut && <span className="text-xs font-medium" style={{ color: w.fg }}> ▸ {berikut}</span>}</span>
               <span className="flex w-24 shrink-0 gap-[3px]" role="img" aria-label={selesai ? 'Semua tahap selesai' : `Tahap ${idx + 1} dari ${st.length}`}>
@@ -1074,12 +1085,18 @@ function ProjectExpand({ p, onLangkah }) {
               </span>
             </span>
             <span className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-              <CentangApostille p={p} sb={sb} label="" />
+              <CentangApostille p={p} sb={sb} label="" bulat onPanel={() => setAktif(sb.id)} />
               <StatusVendor sb={sb} />
-              {bisa && <button type="button" onClick={() => onLangkah?.(p, sb.id, true)} data-aksi="sub-kerja" className="min-h-11 whitespace-nowrap rounded-xl bg-[#141B34] px-3.5 text-[13px] font-bold text-white hover:opacity-90">{stNow.action || 'Proses'}</button>}
+              {aktif !== sb.id && <AksiBaris project={p} sub={sb} onPanel={() => setAktif(sb.id)} onTugas={() => onLangkah?.(p, sb.id, true)} />}
               <button type="button" onClick={() => onLangkah?.(p, sb.id)} aria-label={`Buka layar kerja: ${sb.title || ''}`} title="Buka layar kerja" data-aksi="layar-kerja"
                 className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-[#141B34] hover:bg-[#F6F7FB]"><Columns3 className="h-[19px] w-[19px]" aria-hidden="true" /></button>
             </span>
+          </div>
+          {aktif === sb.id && (
+            <div className="mx-3 mb-3 overflow-hidden rounded-2xl border border-[#DADDE8] bg-white dark:bg-white/5" onClick={(e) => e.stopPropagation()} data-kerja-di-baris>
+              <SubProject key={sb.id} n={i + 1} project={p} sub={sb} ringkas />
+            </div>
+          )}
           </div>
         )
       })}

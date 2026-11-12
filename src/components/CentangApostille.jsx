@@ -55,7 +55,7 @@ export function bolehCentang(user, sb) {
 }
 
 /** Dipakai di kolom Tahap. Bila bukan apostille dengan ceklist, kembalikan label tahap biasa. */
-export default function CentangApostille({ p, sb, label }) {
+export default function CentangApostille({ p, sb, label, bulat, onPanel }) {
   const { user, data, processStage, patchSubData, notify } = useApp()
   const [sibuk, setSibuk] = useState('')
   const info = infoAlur(sb, p)
@@ -86,12 +86,25 @@ export default function CentangApostille({ p, sb, label }) {
   const toggle = async (e, it) => {
     stop(e)
     if (!boleh) return
-    if (!cur.includes(it) && f.itemForm?.[it]?.length) { go(`projects/${p.id}`); return } // butuh isian/berkas
+    if (!cur.includes(it) && f.itemForm?.[it]?.length) { if (onPanel) onPanel(); else go(`projects/${p.id}`); return } // butuh isian/berkas
     const n = cur.includes(it) ? cur.filter((x) => x !== it) : [...cur, it]
     setSibuk(it)
     try { await patchSubData(p, sb.id, { [f.key]: n }, `${cur.includes(it) ? 'Batal centang' : 'Centang'} ${it} (${f.label})`) }
     catch (er) { notify(er.message, 'err') } finally { setSibuk('') }
   }
+  if (bulat) return (
+    <span className="inline-flex items-center gap-1" onClick={stop} role="group" aria-label="Langkah proses" data-centang-apostille={sb.id}>
+      {items.map((it) => {
+        const on = cur.includes(it)
+        return (
+          <button key={it} type="button" onClick={(e) => toggle(e, it)} disabled={!boleh || !!sibuk} aria-pressed={on} aria-label={it} title={`${it}${(f.opsional || []).includes(it) ? ' (opsional)' : ''}`} data-centang={it}
+            className={cx('grid h-8 w-8 shrink-0 place-items-center rounded-full border text-[12px] font-bold transition', on ? 'border-[#141B34] bg-[#141B34] text-white' : 'border-[#D9DBE7] bg-white text-[#141B34]', boleh && !on && 'hover:border-[#4169E1]', !boleh && 'cursor-default')}>
+            {sibuk === it ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : on ? '✓' : it[0]}
+          </button>
+        )
+      })}
+    </span>
+  )
   return (
     <span className="inline-flex flex-wrap items-center gap-1" onClick={stop} data-centang-apostille={sb.id}>
       {items.map((it) => {

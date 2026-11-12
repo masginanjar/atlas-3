@@ -3,7 +3,8 @@ import { Share2, ArrowLeft, Pencil, Trash2, Upload, FileText, Download, Check, L
 import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
 import { drive } from '../lib/integrations.js'
-import { can, PERSON_TYPES, ROLES, scopeByBranch, activeClaim, placeOf, branchesOf, printBranchOf, displayNameFor, seeProofreaderIdentity, proofreaderTeamName, pickProofreader, invoiceLabel} from '../config/access.js'
+import { can, PERSON_TYPES, ROLES, scopeByBranch, activeClaim, placeOf, branchesOf, printBranchOf, displayNameFor, seeProofreaderIdentity, proofreaderTeamName, pickProofreader, invoiceLabel, coordinatorFor, foreignLang } from '../config/access.js'
+import TugaskanPenerjemah from '../components/TugaskanPenerjemah.jsx'
 import { saveBlob, dataUrlToBlob } from '../lib/download.js'
 import ResiFields from '../components/ResiFields.jsx'
 import FilePreview from '../components/FilePreview.jsx'
@@ -41,7 +42,7 @@ import { CourierSelect } from '../components/Courier.jsx'
 import { PriorityBadge } from '../components/Priority.jsx'
 import { PingButton } from '../components/Ping.jsx'
 import { MessageCircle, MapPin } from 'lucide-react'
-import { langkahBerikutnya, penanggungJawab } from '../lib/langkah.js'
+import { langkahBerikutnya, penanggungJawab, labelPendek } from '../lib/langkah.js'
 import { WaktuDibuat, PrioPill, infoDeadline } from '../components/BarisCanvas.jsx'
 import { canSeePayment } from '../config/menuAccess.js'
 import { Plus, PanelRight } from 'lucide-react'
@@ -316,13 +317,24 @@ function posisiTahapSeg(project) {
   return { label: i >= st.length ? 'Semua tahap selesai' : `Tahap ${i + 1} dari ${st.length}`, seg: st.map((_, k) => (k < i ? '#141B34' : k === i ? '#4169E1' : '#D9DBE7')) }
 }
 
-export function SubProject({ n, project, sub, compact, tanpaTahap }) {
+export function SubProject({ n, project, sub, compact, tanpaTahap, ringkas }) {
+  const { user, data } = useApp()
+  const [pakaiForm, setPakaiForm] = useState(false)
   const flow = flowOf(sub, project)
   const stages = stagesOf(flow)
   const idx = stageIndex(flow, sub.stage)
   const [showLog, setShowLog] = useState(false)
   const done = sub.stage === DONE
 
+  if (ringkas && !pakaiForm && sub.stage === 'pilih_penerjemah' && can.processStage(user, stages[idx], sub, project) && !coordinatorFor(data.users, foreignLang(sub))) return (
+    <div data-sub-card={sub.id} data-panel-ringkas><TugaskanPenerjemah inline p={project} sub={sub} onLainnya={() => setPakaiForm(true)} /></div>
+  )
+  if (ringkas) return (
+    <div data-sub-card={sub.id} data-panel-ringkas>
+      {['ap_int', 'lg_int'].includes(flow) && <BiayaPanel project={project} sub={sub} />}
+      {done ? <p className="px-4 py-3 text-[13px] font-semibold text-emerald-700">Sub project ini sudah selesai.</p> : <StagePanel project={project} sub={sub} stage={stages[idx]} ringkas />}
+    </div>
+  )
   return (
     <Card className="overflow-hidden" data-sub-card={sub.id}>
       <div className="flex items-start justify-between gap-2 p-4 pb-2">
@@ -462,7 +474,7 @@ function FileChip({ file }) {
     : <span className="flex min-w-0 items-center gap-1.5 text-xs font-semibold">{Inner}</span>
 }
 
-export function StagePanel({ project, sub, stage }) {
+export function StagePanel({ project, sub, stage, ringkas }) {
   const { user, data, processStage, notify, pettyBalance, claimSub, nameOf, patchSubData } = useApp()
   const [vals, setVals] = useState({})
   const [busy, setBusy] = useState(null)
@@ -496,6 +508,14 @@ export function StagePanel({ project, sub, stage }) {
       : stage.printBranch ? `staf cabang ${project.about?.print_location || project.branch}`
       : stage.roles.filter((r) => r !== 'superadmin').map((r) => ROLES[r].label).join(' / ')
     const stagesAll = stagesOf(flowOf(sub, project)); const iNow = stagesAll.findIndex((x) => x.key === stage.key); const nx = stagesAll[iNow + 1]
+    if (ringkas) return (
+      <div className="flex flex-wrap items-center gap-2 px-3 py-3 text-[13px]" data-kotak-berikutnya="menunggu">
+        <Lock className="h-4 w-4 shrink-0 text-[#5E6380]" /><span className="min-w-0 flex-1">Menunggu <b>{who}</b></span>
+        <PingButton project={project} sub={sub} stage={stage} />
+        {stage.key === 'penerjemahan' && <GantiPenerjemahBtn project={project} sub={sub} />}
+        {canOverride && <Button size="sm" variant="outline" onClick={() => setOverrideMode(true)} title="Lewati menunggu role ini — wajib isi alasan & data tahap"><FastForward className="h-3.5 w-3.5" />Lanjutkan sendiri</Button>}
+      </div>
+    )
     return (
       <div className="mx-4 mb-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-900 ring-1 ring-amber-200" data-kotak-berikutnya="menunggu">
         <p className="flex items-center gap-1.5"><Lock className="h-3.5 w-3.5 shrink-0" /><span><b>Sekarang:</b> {stage.label} oleh <b>{who}</b>{nx ? <span className="text-amber-700"> · berikutnya {nx.short || nx.label}</span> : ''}</span></p>
@@ -543,8 +563,9 @@ export function StagePanel({ project, sub, stage }) {
   }
 
   return (
-    <div className="mx-4 mb-3 rounded-xl ring-2 ring-brand/20" data-kotak-berikutnya="kerja">
-      <div className={cx('rounded-t-xl px-3 py-2', overriding ? 'bg-amber-100' : 'bg-brand-soft')}><p className={cx('text-xs font-bold', overriding ? 'text-amber-900' : 'text-brand')}><span className="font-semibold opacity-70">Sekarang:</span> {stage.label}{overriding && ' · Mode lanjutkan tanpa menunggu role'}<span className="ml-2 font-semibold opacity-70">Langkah berikutnya (Anda):</span> {stage.action || 'Simpan'}</p>{stage.hint && <p className="text-[11px] text-ink-soft">{stage.hint}</p>}</div>
+    <div className={ringkas ? '' : 'mx-4 mb-3 rounded-xl ring-2 ring-brand/20'} data-kotak-berikutnya="kerja">
+      {ringkas ? (stage.hint || overriding) && <p className={cx('mx-3 mt-3 rounded-lg px-3 py-2 text-[12.5px]', overriding ? 'bg-amber-100 font-semibold text-amber-900' : 'bg-[#F3F4F9] text-[#4A4F6A]')}>{overriding ? 'Mode lanjutkan tanpa menunggu role' : stage.hint}</p>
+      : <div className={cx('rounded-t-xl px-3 py-2', overriding ? 'bg-amber-100' : 'bg-brand-soft')}><p className={cx('text-xs font-bold', overriding ? 'text-amber-900' : 'text-brand')}><span className="font-semibold opacity-70">Sekarang:</span> {stage.label}{overriding && ' · Mode lanjutkan tanpa menunggu role'}<span className="ml-2 font-semibold opacity-70">Langkah berikutnya (Anda):</span> {stage.action || 'Simpan'}</p>{stage.hint && <p className="text-[11px] text-ink-soft">{stage.hint}</p>}</div>}
       <RevisionNote sub={sub} className="mx-3 mt-3 rounded-xl" />
       <TolakNote sub={sub} className="mx-3 mt-3 rounded-xl" />
       <GantiNote sub={sub} className="mx-3 mt-3 rounded-xl" />
@@ -931,5 +952,67 @@ function RegNumbersField({ f, sub, project, vals, setVals, projects }) {
         </li>
       ))}</ol>
     </Field>
+  )
+}
+
+/**
+ * AKSI DI ISI BARIS (CANVAS ATLAS "Kartu-Role")
+ * Tombol kerja ringkas langsung di baris sub project — tanpa membuka detail:
+ * Ambil (antrean bersama), Upload hasil (field file), lalu tombol aksi tahap.
+ * Bila tahap butuh isian lain (nomor register, pengiriman, pilihan orang, uang…),
+ * tombol aksi membuka panel kerja ringkas di bawah baris (onPanel).
+ */
+const ISIAN_SEDERHANA = new Set(['file', 'text', 'textarea', 'date'])
+export function AksiBaris({ project, sub, onPanel, onTugas, kecil }) {
+  const { user, data, processStage, claimSub, notify } = useApp()
+  const [busy, setBusy] = useState('')
+  const flow = flowOf(sub, project); const stages = stagesOf(flow); const stage = stages[stageIndex(flow, sub.stage)]
+  if (!stage || sub.stage === DONE || !can.processStage(user, stage, sub, project)) return null
+  const tombol = cx('inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] px-3 text-[13px] font-bold transition disabled:opacity-60', kecil ? 'h-8' : 'min-h-11')
+  const utama = cx(tombol, 'bg-[#141B34] text-white hover:opacity-90')
+  const biru = cx(tombol, 'bg-[#DFF1FB] text-[#0B5C8A] hover:bg-[#cbe7f7]')
+  // Pilih penerjemah → popup kapasitas
+  if (sub.stage === 'pilih_penerjemah' && onTugas && !coordinatorFor(data.users, foreignLang(sub))) {
+    return <button type="button" onClick={(e) => { e.stopPropagation(); onTugas() }} className={utama} data-aksi="baris-tetapkan">Tetapkan</button>
+  }
+  const claim = activeClaim(sub)
+  if (stage.claimable && user.role !== 'superadmin' && (!claim || claim.by !== user.id)) {
+    if (claim) return <span className="text-xs font-semibold text-amber-700">Diproses {claim.name}</span>
+    return <button type="button" disabled={!!busy} onClick={async (e) => { e.stopPropagation(); setBusy('ambil'); try { await claimSub(project, sub.id, true); notify('Dokumen diambil') } catch (er) { notify(er.message, 'err') } finally { setBusy('') } }} className={utama} data-aksi="baris-ambil">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Hand className="h-4 w-4" />}Ambil</button>
+  }
+  const fileFields = stage.fields.filter((f) => f.type === 'file')
+  const isi = (f) => f.type === 'file' ? fieldFiles(sub.data, f.key).length > 0 : String(sub.data?.[f.key] ?? '').trim() !== ''
+  const rumit = stage.fields.some((f) => f.required && !ISIAN_SEDERHANA.has(f.type)) || stage.fields.some((f) => f.required && f.type !== 'file' && !isi(f))
+    || ['siap_kirim', 'cs_final', 'kirim'].includes(stage.key) || stage.key === 'proses_vendor' || (stage.print && perluAffidavit(project, sub))
+  const kurangFile = fileFields.filter((f) => f.required && !isi(f))
+  const unggah = async (f, files) => {
+    if (!files.length) return
+    setBusy('unggah')
+    try {
+      const up = await uploadProjectFiles(files.map((file) => ({ file, name: file.name, sub_id: sub.id })), { branch: project.branch, invoice: project.invoice_no, by: user.name })
+      const list = [...fieldFiles(sub.data, f.key), ...up]
+      await processStage(project, sub.id, { [f.key]: list[0], [`${f.key}_list`]: list }, false)
+      notify(`${up.length} file diunggah`)
+    } catch (er) { notify(er.message, 'err') } finally { setBusy('') }
+  }
+  const lanjut = async (e) => {
+    e.stopPropagation()
+    if (rumit || kurangFile.length) return onPanel?.()
+    setBusy('aksi')
+    try { await processStage(project, sub.id, {}, true); notify(`${sub.title}: ${stage.label} selesai`) } catch (er) { notify(er.message, 'err') } finally { setBusy('') }
+  }
+  return (
+    <span className="flex flex-wrap items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()} data-aksi-baris-sub>
+      {!rumit && fileFields.slice(0, 1).map((f) => (
+        <label key={f.key} className={cx(biru, 'cursor-pointer')} title={f.label} data-aksi="baris-unggah">
+          {busy === 'unggah' ? <Loader2 className="h-4 w-4 animate-spin" /> : isi(f) ? <Check className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+          {isi(f) ? `${fieldFiles(sub.data, f.key).length} file` : 'Upload'}
+          <input type="file" multiple className="hidden" accept={f.accept || 'image/*,application/pdf,.doc,.docx'} onChange={(e) => { const fl = [...e.target.files]; e.target.value = ''; unggah(f, fl) }} aria-label={f.label} />
+        </label>
+      ))}
+      <button type="button" onClick={lanjut} disabled={!!busy} className={utama} title={rumit ? 'Isi data tahap ini' : kurangFile.length ? `Upload dulu: ${kurangFile.map((f) => f.label).join(', ')}` : stage.action} data-aksi="baris-lanjut">
+        {busy === 'aksi' && <Loader2 className="h-4 w-4 animate-spin" />}{/^upload/i.test(labelPendek(stage.action)) && fileFields.length ? 'Lanjut' : (labelPendek(stage.action) || 'Proses')}
+      </button>
+    </span>
   )
 }
