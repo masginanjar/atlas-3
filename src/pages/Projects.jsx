@@ -253,11 +253,6 @@ export default function Projects({ tabAwal }) {
                   {[['list', 'Kartu'], ['tabel', 'Tabel']].map(([k, l]) => <button key={k} type="button" onClick={() => setView(k)} aria-pressed={view === k} className={seg(view === k)}>{l}</button>)}
                 </div>
               )}
-              {adaToolbar && view === 'tabel' && !worker && (
-                <div className="flex rounded-xl border border-[#E7E8F0] bg-white p-[3px]" role="group" aria-label="Status project" data-status-tabel>
-                  {tabStatus.map((t) => <button key={t.key} type="button" onClick={() => setStatus(t.key)} aria-pressed={status === t.key} className={seg(status === t.key)}>{t.label}</button>)}
-                </div>
-              )}
               {adaToolbar && menuTampilan}
               {!worker && <button type="button" onClick={() => go('projects/new')} data-aksi="project-baru"
                 className="hidden min-h-11 items-center gap-2 rounded-xl bg-[#141B34] px-4 text-sm font-semibold text-white hover:opacity-90 sm:inline-flex">Project baru<Plus className="h-[18px] w-[18px]" aria-hidden="true" /></button>}
@@ -324,14 +319,15 @@ export default function Projects({ tabAwal }) {
           {list.length === 0 && !(view === 'list' && (dlFilter || bpFilter.branch || bpFilter.print || q || tab !== 'all')) ? (
             <Card><Empty icon={FolderOpen} title={worker ? 'Belum ada project untuk Anda' : 'Belum ada project'} text={worker ? 'Project akan muncul di sini begitu ada yang ditugaskan kepada Anda.' : 'Buat project baru dari invoice Zoho.'} action={worker ? null : <Button onClick={() => go('projects/new')}><Plus className="h-4 w-4" />Project Baru</Button>} /></Card>
           ) : view === 'list' ? <ProjectList status={status} setStatus={setStatus} statusOpsi={[['aktif', `Aktif ${scoped.filter((p) => !isDone(p)).length}`], ['selesai', 'Selesai'], ['semua', 'Semua']].map(([key, label]) => ({ key, label }))} pref={{ ...pref, grup: pref.grup && sort === 'deadline' }} list={rest.slice(0, shownN)} nLate={late.length} dlFilter={dlFilter} setDlFilter={setDlFilter} prFilter={prFilter} setPrFilter={setPrFilter} cols={colsAktif} detailFor={detailFor} setDetailFor={setDetailFor} filesFor={filesFor} setFilesFor={setFilesFor} onLangkah={bukaLangkah} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
-            <ProjectSpreadsheet pref={pref} list={list} detailFor={detailFor} state={tableState} setState={setTableState} hideCols={worker ? SEMBUNYI_TABEL : []}
+            <ProjectSpreadsheet pref={pref} list={list} detailFor={detailFor} state={tableState} setState={setTableState} hideCols={worker ? SEMBUNYI_TABEL : []} tanpaCari
+              kepalaAksi={worker ? 'Aksi' : <span className="inline-flex items-center gap-2">Aksi<select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status project" data-status-tabel className="h-7 rounded-lg border-0 bg-[#141B34] py-0 pl-2 pr-7 text-xs font-bold text-white focus:ring-2 focus:ring-[#4169E1]">{[['aktif', `Aktif ${scoped.filter((p) => !isDone(p)).length}`], ['selesai', 'Selesai'], ['semua', 'Semua']].map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></span>}
               onDetail={(p) => { setFilesFor(null); setDetailFor(p) }}
               onFiles={(p) => setFilesFor(p)}
               onPrint={(p) => { setFilesFor(p) }}
               renderAksi={(p) => { const ctx = { users: data.users, people: data.people, user, worker }; const langkah = langkahBerikutnya(p, user, ctx); return (
                 <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                   {!worker && <TombolLangkah p={p} langkah={langkah} onBuka={bukaLangkah} />}
-                  <a href={`#/projects/${p.id}`} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} title="Buka halaman detail project" data-aksi="detail" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand"><Eye className="h-4 w-4" /></a>
+                  <button type="button" onClick={() => { setFilesFor(null); setDetailFor(p) }} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} title="Lihat detail project (panel samping)" data-aksi="detail" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand"><Eye className="h-4 w-4" /></button>
                   <button type="button" onClick={() => setFilesFor(p)} aria-label={`File ${invoiceLabel(p.invoice_no)}`} title="Folder file project" data-aksi="file" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand"><FolderOpen className="h-4 w-4" /></button>
                 </span>) }} />
           )}

@@ -109,7 +109,7 @@ function BarisSub({ subs, kolom }) {
   )
 }
 
-export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles, onPrint, state, setState, hideCols = [], renderAksi, pref = {} }) {
+export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles, onPrint, state, setState, hideCols = [], renderAksi, pref = {}, tanpaCari, kepalaAksi }) {
   // Kolom yang disembunyikan untuk peran tertentu (mis. pelaksana freelance tidak punya cabang),
   // lalu pilihan pengguna (Tampilan › Kolom tabel).
   const KOLOM = TABLE_COLS.filter((c) => !hideCols.includes(c.key)).filter((c) => !pref.tabelCols || c.key === 'invoice' || pref.tabelCols.includes(c.key))
@@ -205,7 +205,7 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
   return (
     <div className="min-w-0 space-y-3">
       {/* ---------- Pencarian & filter (di HP pakai pencarian/filter halaman, supaya tidak dobel) ---------- */}
-      <div className="hidden min-w-0 flex-wrap items-center gap-2 md:flex">
+      <div className={cx('hidden min-w-0 flex-wrap items-center gap-2', !tanpaCari && 'md:flex')}>
         <label className="relative block min-w-0 flex-1 basis-full sm:basis-60">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" aria-hidden="true" />
           <input value={q} onChange={(e) => set({ q: e.target.value, shownN: PAGE })}
@@ -283,7 +283,7 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
                     </button>
                   </th>
                 ))}
-                <th scope="col" style={{ width: renderAksi ? '250px' : '104px', minWidth: renderAksi ? '250px' : '104px' }} className="sticky top-0 z-20 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-ink-soft md:right-0">Aksi</th>
+                <th scope="col" style={{ width: renderAksi ? '250px' : '104px', minWidth: renderAksi ? '250px' : '104px' }} className="sticky top-0 z-20 whitespace-nowrap border-b border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-ink-soft md:right-0">{kepalaAksi || 'Aksi'}</th>
               </tr>
             </thead>
             <tbody>
