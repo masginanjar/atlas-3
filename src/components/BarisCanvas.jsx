@@ -38,6 +38,11 @@ export function infoDeadline(p) {
   const tgl = `${Number(k.slice(8, 10))} ${BLN[Number(k.slice(5, 7)) - 1]}${jam && jam !== '00.00' ? ` ${jam}` : ''}`
   if (isDone(p)) return { tgl, bg: '#EEF0F5', fg: '#4A4F6A', teks: '#5E6380', sisa: 'Selesai' }
   if (s < 0) return { tgl, bg: '#FFD9E2', fg: '#A3123E', teks: '#A3123E', sisa: `Terlambat ${-s} hari` }
+  if (s === 0 && String(dl).length > 10 && Date.now() > d.getTime()) {
+    // Lewat jam deadline hari ini → tampilkan jam keterlambatan, bukan "Hari ini"
+    const jamLewat = Math.max(1, Math.floor((Date.now() - d.getTime()) / 3600e3))
+    return { tgl, bg: '#FFD9E2', fg: '#A3123E', teks: '#A3123E', sisa: `Terlambat ${jamLewat} jam`, lewat: true }
+  }
   if (s === 0) return { tgl, bg: '#C62828', fg: '#FFFFFF', teks: '#B71C1C', sisa: 'Hari ini' }
   if (s === 1) return { tgl, bg: '#FB923C', fg: '#141B34', teks: '#9A3A06', sisa: 'Besok' }
   return { tgl, bg: '#EEF0F5', fg: '#4A4F6A', teks: '#5E6380', sisa: `${s} hari lagi` }
@@ -95,9 +100,9 @@ export function CabangPrint({ p }) {
   const beda = print !== p.branch
   return (
     <span className="flex min-w-0 flex-col gap-[3px]">
-      <span className="truncate text-sm leading-[26px]">{p.branch}</span>
-      <span className="flex items-center gap-1 text-xs text-[#5E6380]" title={beda ? `Dicetak di ${print} (beda cabang)` : `Dicetak di ${print}`} data-print={beda ? 'beda' : 'sama'}>
-        <Printer className="h-[13px] w-[13px] shrink-0" aria-hidden="true" /><span className={cx('truncate', beda && 'font-bold text-[#B43D0E]')}>{print}</span>
+      <span className="truncate text-sm leading-[26px]" title={`Cabang pemesan: ${p.branch}`}><span className="sr-only">Cabang pemesan: </span>{p.branch}</span>
+      <span className="flex items-center gap-1 text-xs text-[#5E6380]" title={beda ? `Lokasi cetak: ${print} (beda dari cabang pemesan)` : `Lokasi cetak: ${print}`} data-print={beda ? 'beda' : 'sama'}>
+        <Printer className="h-[13px] w-[13px] shrink-0" aria-hidden="true" /><span className="sr-only">Lokasi cetak: </span><span className={cx('truncate', beda && 'font-bold text-[#B43D0E]')}>{print}</span>
       </span>
     </span>
   )

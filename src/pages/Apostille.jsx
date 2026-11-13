@@ -53,7 +53,7 @@ export default function Apostille({ embedded }) {
     <div className="space-y-3" data-apostille-tab>
       {!embedded && <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-extrabold tracking-tight sm:text-2xl"><Stamp className="h-5 w-5 text-ink-soft" />Apostille & Legalisasi</h1>
+          <h1 className="text-[17px] font-extrabold leading-tight tracking-tight flex items-center gap-2"><Stamp className="h-5 w-5 text-ink-soft" />Apostille & Legalisasi</h1>
           <p className="text-sm text-ink-mute">{mine ? 'Pekerjaan apostille & legalisasi yang ditugaskan kepada Anda' : 'Seluruh pekerjaan apostille & legalisasi internal'}</p>
         </div>
       </div>}

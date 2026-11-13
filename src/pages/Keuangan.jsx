@@ -12,6 +12,7 @@ import { MapTabs, SubTabProvider, useSubTabHost } from '../components/SubTab.jsx
 import { needsAction } from '../lib/badges.js'
 import Pengajuan from './Pengajuan.jsx'
 
+import { KeAtas } from '../components/SlotAtas.jsx'
 import { canSeeKeuangan } from '../config/menuAccess.js'
 export { canSeeKeuangan }
 
@@ -68,7 +69,7 @@ export default function Keuangan({ tab }) {
         className="grid h-11 w-11 place-items-center rounded-xl bg-ink text-white shadow-sm sm:hidden"><Plus className="h-5 w-5" /></button>
       <div className="hidden sm:block">
         <Popover label="Catat / ajukan" width="min-w-[280px]" button={({ toggle, open: o }) => (
-          <Button size="sm" variant="dark" onClick={toggle} aria-expanded={o} data-aksi="tambah-keuangan"><Plus className="h-3.5 w-3.5" />Catat / Ajukan<ChevronDown className="h-3.5 w-3.5 opacity-70" /></Button>
+          <Button variant="dark" className="!h-9 !rounded-[10px]" onClick={toggle} aria-expanded={o} aria-haspopup="menu" data-aksi="tambah-keuangan"><Plus className="h-4 w-4" />Catat / Ajukan<ChevronDown className="h-3.5 w-3.5 opacity-70" /></Button>
         )}>
           {({ close }) => <MenuCatat opsi={opsi} onPilih={(j) => { close(); buka(j) }} />}
         </Popover>
@@ -78,11 +79,11 @@ export default function Keuangan({ tab }) {
 
   return (
     <div className="min-w-0 space-y-3">
-      <div className="flex items-center gap-2" data-alat>
-        <h1 className="flex items-center gap-2 leading-tight text-2xl font-extrabold tracking-tight">
+      <div className="sr-only" data-alat>
+        <h1 className="text-[17px] font-extrabold leading-tight tracking-tight flex items-center gap-2">
           Keuangan
         </h1>
-        <div className="ml-auto flex items-center gap-1.5">{tombolTambah}</div>
+        <KeAtas slot="tambah"><div className="flex items-center gap-1.5">{tombolTambah}</div></KeAtas>
       </div>
 
       <SubTabProvider value={host.ctx}>

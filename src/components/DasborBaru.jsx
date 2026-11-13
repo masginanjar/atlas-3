@@ -30,7 +30,7 @@ export function KepalaDasbor({ user, ping }) {
   return (
     <section aria-label="Sapaan hari ini" data-sapaan className="flex items-start gap-2">
       <div className="min-w-0 flex-1">
-        <h1 className="flex items-center gap-2.5 text-2xl font-extrabold leading-tight tracking-tight">Dashboard<span className="inline-flex min-h-6 items-center whitespace-nowrap rounded-full bg-[#DFF1FB] px-2.5 text-xs font-bold tracking-normal text-[#0B5C8A]">{roleLabel(user)}</span></h1>
+        <h1 className="flex items-center gap-2.5 text-[17px] font-extrabold leading-tight tracking-tight">Dashboard<span className="inline-flex min-h-6 items-center whitespace-nowrap rounded-full bg-[#DFF1FB] px-2.5 text-xs font-bold tracking-normal text-[#0B5C8A]">{roleLabel(user)}</span></h1>
         <p className="mt-0.5 text-xs font-semibold text-[#5E6380]"><span className="sm:hidden">{pendek} · </span>{sapaan()}, {user.display_name || user.name} · {roleLabel(user)}{user.branch && !isFreelance(user) ? ` · ${user.branch}` : ''}</p>
       </div>
       {ping}

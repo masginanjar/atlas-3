@@ -4,6 +4,7 @@ import MyReminders from './MyReminders.jsx'
 import Calendar from './Calendar.jsx'
 import Notes from './Notes.jsx'
 import { usePanel } from '../components/WorkspacePanel.jsx'
+import { KeAtas } from '../components/SlotAtas.jsx'
 import { Button, Sheet, Popover, cx } from '../components/ui.jsx'
 
 const Jadwal = lazy(() => import('./Jadwal.jsx'))
@@ -48,32 +49,31 @@ export default function Agenda({ tab: tabProp = 'kalender' }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2" data-alat>
-        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Agenda</h1>
-        <div className="ml-auto flex items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-2" data-alat>
+        <h1 className="text-[17px] font-extrabold leading-tight tracking-tight flex items-center gap-2">Agenda</h1>
+        <KeAtas slot="tambah"><div className="flex items-center gap-1.5">
           {/* HP: satu tombol + → lembar pilihan */}
-          <button type="button" onClick={() => setSheet(true)} aria-label="Tambah" data-aksi="tambah-agenda"
-            className="grid h-11 w-11 place-items-center rounded-xl bg-ink text-white shadow-sm sm:hidden"><Plus className="h-5 w-5" /></button>
+          <button type="button" onClick={() => setSheet(true)} aria-label="Tambah agenda" data-aksi="tambah-agenda"
+            className="grid h-11 w-11 place-items-center rounded-xl bg-[#141B34] text-white shadow-sm sm:hidden"><Plus className="h-5 w-5" /></button>
           {/* PC: menu kecil */}
           <div className="hidden sm:block">
             <Popover label="Tambah agenda" width="min-w-[260px]" button={({ toggle, open: o }) => (
-              <Button size="sm" variant="dark" onClick={toggle} aria-expanded={o} data-aksi="tambah-agenda"><Plus className="h-3.5 w-3.5" />Tambah<ChevronDown className="h-3.5 w-3.5 opacity-70" /></Button>
+              <button type="button" onClick={toggle} aria-expanded={o} aria-haspopup="menu" data-aksi="tambah-agenda" className="inline-flex h-9 items-center gap-2 rounded-[10px] bg-[#141B34] px-4 text-sm font-semibold text-white hover:opacity-90 dark:bg-[var(--brand)]"><Plus className="h-[18px] w-[18px]" aria-hidden="true" />Agenda<ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" /></button>
             )}>
               {({ close }) => <MenuTambah onPilih={(j) => { close(); buat(j) }} labelTanggal={labelTanggal} />}
             </Popover>
           </div>
-        </div>
-      </div>
-
-      {/* Tab bersegmen: di HP keempatnya sama lebar (≥44px tinggi) */}
-      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Tampilan agenda" data-tab-agenda>
+        </div></KeAtas>
+      {/* Tab bersegmen di baris yang sama dengan judul (HP: keempatnya sama lebar, ≥44px) */}
+      <div className="flex min-w-0 flex-1 flex-wrap gap-1.5" role="tablist" aria-label="Tampilan agenda" data-tab-agenda>
         {TAB_AGENDA.map(([k, l, Icon]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => pilih(k)} data-tab-agenda-item={k}
-            className={cx('flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-[10px] border px-3.5 text-[13px] font-bold transition sm:flex-none',
+            className={cx('flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[8px] border px-3 text-[12.5px] font-bold transition sm:flex-none md:h-8',
               tab === k ? 'border-[#141B34] bg-[#141B34] text-white' : 'border-[#D9DBE7] bg-white text-[#141B34] hover:border-[#B9BDD0]')}>
             <Icon className="h-3.5 w-3.5" /><span>{l}</span>
           </button>
         ))}
+      </div>
       </div>
 
       <div data-isi-agenda={tab}>

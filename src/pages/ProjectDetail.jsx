@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Share2, ArrowLeft, Pencil, Trash2, Upload, FileText, Download, Check, Lock, History, CalendarClock, Loader2, UserRound, Truck, Printer, Hand, Unlock, Eye, FolderOpen, FastForward, StickyNote } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { go } from '../lib/router.js'
@@ -45,7 +45,7 @@ import { MessageCircle, MapPin } from 'lucide-react'
 import { langkahBerikutnya, penanggungJawab, labelPendek } from '../lib/langkah.js'
 import { WaktuDibuat, PrioPill, infoDeadline } from '../components/BarisCanvas.jsx'
 import { canSeePayment } from '../config/menuAccess.js'
-import { Plus, PanelRight } from 'lucide-react'
+import { Plus, PanelRight, RotateCcw, AlertCircle } from 'lucide-react'
 import LayarKerja from './LayarKerja.jsx'
 
 const TAB_DETAIL = [
@@ -969,6 +969,62 @@ function RegNumbersField({ f, sub, project, vals, setVals, projects }) {
  * tombol aksi membuka panel kerja ringkas di bawah baris (onPanel).
  */
 const ISIAN_SEDERHANA = new Set(['file', 'text', 'textarea', 'date'])
+const BATAS_MB = 25
+const cocokTipe = (file, accept) => {
+  if (!accept) return true
+  const nama = file.name.toLowerCase()
+  return accept.split(',').map((a) => a.trim().toLowerCase()).some((a) => a.endsWith('/*') ? (file.type || '').startsWith(a.slice(0, -1)) : a.startsWith('.') ? nama.endsWith(a) : file.type === a)
+}
+/** Jendela unggah dari baris: pilih → cek nama/ukuran/jenis → progres → berhasil / gagal + coba lagi. Sukses hanya setelah tersimpan. */
+export function UnggahDialog({ project, sub, field, awal, onClose }) {
+  const { user, processStage, notify } = useApp()
+  const accept = field.accept || 'image/*,application/pdf,.doc,.docx'
+  const [files, setFiles] = useState(awal)
+  const [fase, setFase] = useState('pilih') // pilih | unggah | gagal
+  const [prog, setProg] = useState([0, 0])
+  const [galat, setGalat] = useState('')
+  const masalah = (fl) => fl.size > BATAS_MB * 1048576 ? `Lebih dari ${BATAS_MB} MB` : !cocokTipe(fl, accept) ? 'Jenis file tidak didukung' : fl.size === 0 ? 'File kosong' : ''
+  const valid = files.filter((fl) => !masalah(fl))
+  const sibuk = fase === 'unggah'
+  const kunci = useRef(false) // cegah klik ganda → unggahan ganda
+  const kirim = async () => {
+    if (kunci.current || !valid.length) return
+    kunci.current = true
+    setFase('unggah'); setGalat(''); setProg([0, valid.length])
+    try {
+      const up = await uploadProjectFiles(valid.map((file) => ({ file, name: file.name, sub_id: sub.id })), { branch: project.branch, invoice: project.invoice_no, by: user.name }, (i, n) => setProg([i, n]))
+      const list = [...fieldFiles(sub.data, field.key), ...up]
+      await processStage(project, sub.id, { [field.key]: list[0], [`${field.key}_list`]: list }, false)
+      notify(`${up.length} file tersimpan · ${sub.title}`)
+      onClose()
+    } catch (er) { setGalat(er?.message || 'Gagal mengunggah'); setFase('gagal') } finally { kunci.current = false }
+  }
+  return (
+    <Sheet open onClose={() => { if (!sibuk) onClose() }} title={`Unggah · ${field.label}`}
+      footer={<>
+        <Button variant="outline" className="flex-1" disabled={sibuk} onClick={onClose}>Batal</Button>
+        <Button className="flex-[2]" disabled={sibuk || !valid.length} onClick={kirim} data-aksi="unggah-kirim">
+          {sibuk ? <><Loader2 className="h-4 w-4 animate-spin" />Mengunggah {prog[0]}/{prog[1]}…</> : fase === 'gagal' ? <><RotateCcw className="h-4 w-4" />Coba lagi</> : <><Upload className="h-4 w-4" />Unggah {valid.length} file</>}
+        </Button></>}>
+      <div className="space-y-3" onClick={(e) => e.stopPropagation()}>
+        <p className="text-sm text-ink-soft"><b className="text-ink">{invoiceLabel(project.invoice_no)}</b> · {sub.title}</p>
+        <ul className="divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200" data-daftar-unggah>
+          {files.map((fl, i) => { const m = masalah(fl); return (
+            <li key={i} className="flex min-h-11 items-center gap-2 px-3 py-2 text-sm">
+              {m ? <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" /> : <FileText className="h-4 w-4 shrink-0 text-ink-mute" />}
+              <span className="min-w-0 flex-1"><span className="block truncate font-semibold" title={fl.name}>{fl.name}</span><span className={cx('text-xs', m ? 'text-rose-600' : 'text-ink-mute')}>{kb(fl.size)}{m ? ` · ${m}` : ''}</span></span>
+              {!sibuk && <button type="button" onClick={() => setFiles(files.filter((_, j) => j !== i))} aria-label={`Hapus ${fl.name} dari daftar`} className="grid h-9 w-9 place-items-center rounded-lg text-ink-mute hover:bg-slate-50 hover:text-rose-600"><Trash2 className="h-4 w-4" /></button>}
+            </li>) })}
+        </ul>
+        {sibuk && <div aria-live="polite"><Progress value={prog[1] ? Math.round(((prog[0] - 0.5) / prog[1]) * 100) : 0} /><p className="mt-1 text-xs text-ink-mute">Mengunggah file {prog[0]} dari {prog[1]} — jangan tutup jendela ini.</p></div>}
+        {fase === 'gagal' && <p role="alert" className="rounded-lg bg-rose-50 p-2.5 text-sm text-rose-700 ring-1 ring-rose-200">Unggahan gagal, belum ada yang tersimpan di tahap ini. {galat}</p>}
+        {files.length > valid.length && <p className="text-xs text-amber-800">{files.length - valid.length} file tidak akan diunggah (lihat keterangan merah). Batas {BATAS_MB} MB per file.</p>}
+        {!files.length && <p className="text-sm text-ink-mute">Tidak ada file dipilih.</p>}
+      </div>
+    </Sheet>
+  )
+}
+
 export function AksiBaris({ project, sub, onPanel, onTugas, kecil }) {
   const { user, data, processStage, claimSub, notify } = useApp()
   const [busy, setBusy] = useState('')
@@ -991,19 +1047,11 @@ export function AksiBaris({ project, sub, onPanel, onTugas, kecil }) {
   const rumit = stage.fields.some((f) => f.required && !ISIAN_SEDERHANA.has(f.type)) || stage.fields.some((f) => f.required && f.type !== 'file' && !isi(f))
     || ['siap_kirim', 'cs_final', 'kirim'].includes(stage.key) || stage.key === 'proses_vendor' || (stage.print && perluAffidavit(project, sub))
   const kurangFile = fileFields.filter((f) => f.required && !isi(f))
-  const unggah = async (f, files) => {
-    if (!files.length) return
-    setBusy('unggah')
-    try {
-      const up = await uploadProjectFiles(files.map((file) => ({ file, name: file.name, sub_id: sub.id })), { branch: project.branch, invoice: project.invoice_no, by: user.name })
-      const list = [...fieldFiles(sub.data, f.key), ...up]
-      await processStage(project, sub.id, { [f.key]: list[0], [`${f.key}_list`]: list }, false)
-      notify(`${up.length} file diunggah`)
-    } catch (er) { notify(er.message, 'err') } finally { setBusy('') }
-  }
+  const [dialog, setDialog] = useState(null) // { f, files } → jendela konfirmasi unggah
   const lanjut = async (e) => {
     e.stopPropagation()
     if (rumit || kurangFile.length) return onPanel?.()
+    if (busy) return
     setBusy('aksi')
     try { await processStage(project, sub.id, {}, true); notify(`${sub.title}: ${stage.label} selesai`) } catch (er) { notify(er.message, 'err') } finally { setBusy('') }
   }
@@ -1011,11 +1059,12 @@ export function AksiBaris({ project, sub, onPanel, onTugas, kecil }) {
     <span className="flex flex-wrap items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()} data-aksi-baris-sub>
       {!rumit && fileFields.slice(0, 1).map((f) => (
         <label key={f.key} className={cx(biru, 'cursor-pointer')} title={f.label} data-aksi="baris-unggah">
-          {busy === 'unggah' ? <Loader2 className="h-4 w-4 animate-spin" /> : isi(f) ? <Check className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+          {isi(f) ? <Check className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
           {isi(f) ? `${fieldFiles(sub.data, f.key).length} file` : 'Upload'}
-          <input type="file" multiple className="hidden" accept={f.accept || 'image/*,application/pdf,.doc,.docx'} onChange={(e) => { const fl = [...e.target.files]; e.target.value = ''; unggah(f, fl) }} aria-label={f.label} />
+          <input type="file" multiple className="hidden" accept={f.accept || 'image/*,application/pdf,.doc,.docx'} onChange={(e) => { const fl = [...e.target.files]; e.target.value = ''; if (fl.length) setDialog({ f, files: fl }) }} aria-label={`${f.label} · ${sub.title}`} />
         </label>
       ))}
+      {dialog && <UnggahDialog project={project} sub={sub} field={dialog.f} awal={dialog.files} onClose={() => setDialog(null)} />}
       <button type="button" onClick={lanjut} disabled={!!busy} className={utama} title={rumit ? 'Isi data tahap ini' : kurangFile.length ? `Upload dulu: ${kurangFile.map((f) => f.label).join(', ')}` : stage.action} data-aksi="baris-lanjut">
         {busy === 'aksi' && <Loader2 className="h-4 w-4 animate-spin" />}{/^upload/i.test(labelPendek(stage.action)) && fileFields.length ? 'Lanjut' : (labelPendek(stage.action) || 'Proses')}
       </button>

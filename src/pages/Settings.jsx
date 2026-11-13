@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { zonaPengguna } from '../lib/zona.js'
 import { Plus, Trash2, Pencil, Store, Phone, MapPin, Landmark, Tags, StickyNote, ArrowDownLeft, ArrowUpRight, CheckCircle2, CircleDashed, RotateCcw, Eye, EyeOff } from 'lucide-react'
 import { PAYMENT_TERMS, termOf, SUMBER_DANA, sumberLabel } from '../config/workflows.js'
 import { useApp } from '../lib/store.jsx'
@@ -34,6 +35,7 @@ function Pindah({ ke, judul, teks, tombol }) {
   )
 }
 
+import { KeAtas, TombolTambah } from '../components/SlotAtas.jsx'
 import { AksesApostilleSettings } from '../components/CentangApostille.jsx'
 
 export default function Settings() {
@@ -60,7 +62,7 @@ export default function Settings() {
 
   return (
     <div className="space-y-3">
-      <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">Pengaturan</h1>
+      <h1 className="text-[17px] font-extrabold leading-tight tracking-tight">Pengaturan</h1>
       <div className="grid gap-3 md:grid-cols-[200px_minmax(0,1fr)] md:items-start">
         {/* Daftar kiri 2 kelompok (desktop) / baris chip geser (HP) */}
         <nav aria-label="Bagian pengaturan" data-nav-pengaturan className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] md:sticky md:top-[calc(var(--appbar)+8px)] md:mx-0 md:flex-col md:gap-0 md:overflow-visible md:rounded-2xl md:bg-white md:p-2 md:ring-1 md:ring-slate-200">
@@ -235,7 +237,7 @@ function ProfilData() {
         <p className="text-xs font-bold uppercase tracking-wide text-ink-mute">Data yang diatur admin</p>
         <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
           {[['Peran', roleLabel(user)], ['Cabang', branchLabel(user)], ['Status', user.active === false ? 'Nonaktif' : isFreelance(user) ? 'Freelance' : 'Aktif'],
-            ['ID pegawai', user.id], ['Zona waktu', 'WITA (Asia/Makassar)']].map(([k, v]) => (
+            ['ID pegawai', user.id], ['Zona waktu', zonaPengguna(user).label]].map(([k, v]) => (
             <div key={k} className="rounded-xl bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-mute">{k}</p>
               <p className="truncate text-sm font-semibold text-ink">{v}</p>
@@ -555,7 +557,7 @@ export function PettyCash({ intent, onIntentDone }) {
  * Pencarian, filter, dan urutan TIDAK hilang saat pop-up edit dibuka/ditutup,
  * karena keadaannya disimpan di komponen ini, bukan di dalam pop-up.
  */
-function CrudList({ table, rows, columns, empty, blank, renderForm, title, prepare, wide, kolom, filter, cariLabel, aksiBaris }) {
+function CrudList({ table, rows, columns, empty, blank, renderForm, title, prepare, wide, kolom, filter, cariLabel, aksiBaris, keAtas }) {
   const { save, remove, notify, ask } = useApp()
   const [edit, setEdit] = useState(null)
   const [pilihFilter, setPilihFilter] = useState({})
@@ -577,8 +579,8 @@ function CrudList({ table, rows, columns, empty, blank, renderForm, title, prepa
         <>
           {/* Toolbar: tambah · cari · filter — tinggi kontrol 34px */}
           <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={() => setEdit(blank())}><Plus className="h-4 w-4" />Tambah {title}</Button>
-            <CariTabel value={cari} onChange={setCari} label={cariLabel || `Cari ${title.toLowerCase()}`} className="basis-56" />
+            {keAtas ? <KeAtas slot="tambah"><TombolTambah label={title} onClick={() => setEdit(blank())} /></KeAtas> : <Button onClick={() => setEdit(blank())}><Plus className="h-4 w-4" />Tambah {title}</Button>}
+            <CariTabel atas={keAtas} value={cari} onChange={setCari} label={cariLabel || `Cari ${title.toLowerCase()}`} className="basis-56" />
             {(filter || []).map((f) => (
               <select key={f.key} value={pilihFilter[f.key] || ''} aria-label={f.aria || f.label}
                 onChange={(e) => setPilihFilter((v) => ({ ...v, [f.key]: e.target.value }))}
@@ -712,7 +714,7 @@ function Couriers() {
   )
 }
 
-export function Vendors() {
+export function Vendors({ keAtas } = {}) {
   const { data } = useApp()
   const rows = data.people.filter((p) => p.type === 'vendor')
   const listEdit = (e, set, key, blank) => {
@@ -748,7 +750,7 @@ export function Vendors() {
       cocok: (r, v) => PAYMENT_TERMS[termOf(r)].short === v },
   ]
   return (
-    <CrudList table="people" rows={rows} title="Vendor" empty="Belum ada vendor" wide
+    <CrudList table="people" rows={rows} title="Vendor" empty="Belum ada vendor" wide keAtas={keAtas}
       kolom={KOLOM_VENDOR_SET} filter={FILTER_VENDOR} cariLabel="Cari vendor, bahasa, layanan…"
       prepare={(e) => ({
         ...e,

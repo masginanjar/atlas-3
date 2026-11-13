@@ -21,6 +21,7 @@ import { scopeByBranch, invoiceLabel } from '../config/access.js'
 import { docListOf } from '../config/workflows.js'
 import { PASANGAN, valid, tanggalDari, namaDefault, jenisDefault, barisRegistrasi, OPSI_JENIS, KUNCI_JENIS } from '../lib/registrasi.js'
 import { db } from '../lib/db.js'
+import { CariTabel } from '../components/TabelSortir.jsx'
 import { go } from '../lib/router.js'
 
 /** Boleh menerbitkan & mengubah isian register. */
@@ -272,10 +273,7 @@ export default function Register() {
         {filter.map(([k, l]) => <button key={k} type="button" onClick={() => setCepat(k)} aria-pressed={cepat === k}
           className={cx('h-8 whitespace-nowrap rounded-md px-2.5', cepat === k ? 'bg-ink text-white' : k === 'menunggu' && menunggu.length ? 'text-amber-700 hover:bg-amber-50' : 'text-ink-soft hover:bg-slate-50')}>{l}</button>)}
       </span>
-      <label className={cx('relative block', hp ? 'w-full' : 'w-[260px] shrink-0')}>
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-mute" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari nomor, invoice, nama…" aria-label="Cari register" className={cx('w-full rounded-lg border-0 bg-white pl-8 pr-2 ring-1 ring-slate-200 focus:ring-2 focus:ring-brand', hp ? 'h-11 text-[14px]' : 'h-9 text-[12.5px]')} />
-      </label>
+      <CariTabel atas value={q} onChange={setQ} label="Cari nomor, invoice, nama…" />
       <TombolRapikan n={ditahan.size} onClick={rapikan} />
       <span className="ml-auto flex gap-2">
         {cepat === 'menunggu'
@@ -301,7 +299,7 @@ export default function Register() {
 
   if (hp) return (
     <div className="flex min-w-0 flex-col gap-3.5" data-halaman-register>
-      <h1 className="text-2xl font-extrabold tracking-tight">Nomor Register</h1>
+      <h1 className="text-[17px] font-extrabold leading-tight tracking-tight">Nomor Register</h1>
       <div className="min-w-0 overflow-hidden rounded-2xl border border-[#DADDE8] bg-white dark:border-white/10 dark:bg-white/5">
       {atas}
       <ul className="divide-y divide-slate-200 bg-white text-[12.5px]">
@@ -327,7 +325,7 @@ export default function Register() {
   const th = 'px-3 py-2 font-semibold'
   return (
     <div className="flex min-w-0 flex-col gap-3.5" data-halaman-register>
-      <h1 className="text-2xl font-extrabold tracking-tight">Nomor Register</h1>
+      <h1 className="text-[17px] font-extrabold leading-tight tracking-tight">Nomor Register</h1>
       <div className="min-w-0 overflow-hidden rounded-2xl border border-[#DADDE8] bg-white dark:border-white/10 dark:bg-white/5">
       {atas}
       <div className="overflow-x-auto bg-white">

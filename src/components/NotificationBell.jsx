@@ -17,7 +17,15 @@ import { isPengumuman, masihTersemat, KartuPengumuman, PopupPengumuman } from '.
 //  LONCENG NOTIFIKASI — panel dua tab: Notifikasi (sistem) & Ping (antar-role).
 // ============================================================
 
-export default function NotificationBell() {
+/** Jumlah notifikasi belum dibaca (untuk lencana tab Menu di HP). */
+export function useJumlahNotif() {
+  const { user, myNotifications, myPings } = useApp()
+  const sholat = useNotifSholat(user.id)
+  const belum = (n) => !(n.read_by || []).includes(user.id)
+  return myNotifications.filter(belum).length + myPings.filter(belum).length + sholat.list.filter((x) => !x.read).length
+}
+
+export default function NotificationBell({ posisi, berlabel, tanpaPopup } = {}) {
   const { user, data, myNotifications, markRead: markReadDb, myPings, markPingRead } = useApp()
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState('notif')
@@ -77,7 +85,8 @@ export default function NotificationBell() {
   const pingDone = (p) => { const pr = data.projects.find((x) => x.id === p.project_id); const s = pr?.sub_projects?.find((x) => x.id === p.sub_id); return s ? s.stage === DONE : !!pr && pr.sub_projects?.every((x) => x.stage === DONE) }
 
   const panel = open && createPortal(
-    <div ref={panelRef} role="dialog" aria-label="Notifikasi" className="fixed inset-x-2 top-[3.5rem] z-[85] flex max-h-[min(80vh,640px)] flex-col overflow-hidden rounded-3xl bg-white shadow-[0_24px_60px_-20px_rgba(14,21,64,0.35)] ring-1 ring-slate-200/80 sm:inset-x-auto sm:right-4 sm:w-[440px]">
+    <div ref={panelRef} role="dialog" aria-label="Notifikasi" className={cx('fixed inset-x-2 top-[3.5rem] z-[85] flex max-h-[min(80vh,640px)] flex-col overflow-hidden rounded-3xl bg-white shadow-[0_24px_60px_-20px_rgba(14,21,64,0.35)] ring-1 ring-slate-200/80 sm:inset-x-auto sm:w-[440px]',
+      posisi === 'kiri' ? 'sm:bottom-4 sm:left-[248px] sm:top-auto' : posisi === 'rel' ? 'sm:bottom-4 sm:left-[72px] sm:top-auto' : 'sm:right-4')}>
       {/* Baris judul: tombol suara & tutup ikut di sini supaya baris tab tidak sesak di HP */}
       <div className="flex items-center gap-2 px-4 pt-3">
         <h3 className="text-base font-bold text-ink">Notifikasi</h3>
@@ -156,13 +165,17 @@ export default function NotificationBell() {
 
   return (
     <div className="relative">
-      <button ref={btnRef} type="button" onClick={() => setOpen((o) => !o)} aria-label={`Notifikasi (${total} belum dibaca)`} aria-expanded={open}
-        className={cx('relative grid h-11 w-11 place-items-center rounded-xl bg-white ring-1 ring-slate-200 hover:bg-slate-50', open && 'ring-brand')}>
-        <Bell className={cx('h-4 w-4', total ? 'text-brand' : 'text-ink-soft')} />
-        {total > 0 && <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">{total}</span>}
+      <button ref={btnRef} type="button" onClick={() => setOpen((o) => !o)} aria-label={`Notifikasi (${total} belum dibaca)`} title="Notifikasi" aria-expanded={open} aria-haspopup="dialog" data-tombol-notif
+        className={cx('relative flex h-11 min-w-11 items-center justify-center gap-2.5 rounded-xl transition', berlabel ? 'w-full justify-start px-3 text-sm font-semibold text-[#141B34] hover:bg-[#F3F4F9] dark:text-slate-100 dark:hover:bg-white/10' : 'w-11 bg-white ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-white/5 dark:ring-white/10', open && 'ring-1 ring-brand')}>
+        <span className="relative grid place-items-center">
+          <Bell className={cx(berlabel ? 'h-5 w-5' : 'h-4 w-4', total ? 'text-brand' : berlabel ? '' : 'text-ink-soft')} aria-hidden="true" />
+          {total > 0 && !berlabel && <span className="absolute -right-3 -top-3 grid h-4 min-w-4 place-items-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">{total > 99 ? '99+' : total}</span>}
+        </span>
+        {berlabel && <span className="min-w-0 flex-1 truncate text-left">Notifikasi</span>}
+        {berlabel && total > 0 && <span className="rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white">{total > 99 ? '99+' : total}</span>}
       </button>
       {panel}
-      {!user._hantu && <PingPopup pings={unreadP} userOf={userOf} canOpen={canOpen} onRead={markPingRead} uid={user.id} />}
+      {!user._hantu && !tanpaPopup && <PingPopup pings={unreadP} userOf={userOf} canOpen={canOpen} onRead={markPingRead} uid={user.id} />}
     </div>
   )
 }

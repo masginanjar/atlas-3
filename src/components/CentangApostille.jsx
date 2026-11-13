@@ -111,7 +111,7 @@ export default function CentangApostille({ p, sb, label, bulat, onPanel }) {
         const on = cur.includes(it)
         const opsi = (f.opsional || []).includes(it)
         return (
-          <button key={it} type="button" onClick={(e) => toggle(e, it)} disabled={!boleh || !!sibuk} aria-pressed={on} title={`${it}${opsi ? ' (opsional)' : ''}${f.itemForm?.[it]?.length && !on ? ' — butuh isian/berkas, buka detail' : ''}`}
+          <button key={it} type="button" onClick={(e) => toggle(e, it)} disabled={!boleh || !!sibuk} aria-pressed={on} title={`${it}${opsi ? ' (opsional)' : ''}${f.itemForm?.[it]?.length && !on ? ' — butuh isian/berkas, buka panel kerja' : ''}`}
             data-centang={it}
             className={cx('inline-flex h-7 items-center gap-1 rounded-full px-2 text-[10.5px] font-bold ring-1 transition',
               on ? 'bg-emerald-500 text-white ring-emerald-500' : opsi ? 'bg-white text-ink-mute ring-slate-200' : 'bg-white text-ink-soft ring-slate-300',
@@ -122,7 +122,7 @@ export default function CentangApostille({ p, sb, label, bulat, onPanel }) {
         )
       })}
       {boleh && (
-        <button type="button" onClick={(e) => { stop(e); go(`projects/${p.id}`) }} title={lengkap ? 'Semua langkah selesai — unggah hasil lalu Selesai' : 'Buka detail untuk unggah hasil & selesaikan'}
+        <button type="button" onClick={(e) => { stop(e); if (onPanel) onPanel(); else go(`projects/${p.id}`) }} title={lengkap ? 'Semua langkah selesai — unggah hasil lalu Selesai' : 'Buka panel kerja untuk unggah hasil & selesaikan'}
           data-aksi="apostille-selesai"
           className={cx('inline-flex h-7 items-center gap-1 rounded-full px-2 text-[10.5px] font-bold ring-1', lengkap ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-mute ring-slate-200')}>
           <Flag className="h-3 w-3" />Selesai

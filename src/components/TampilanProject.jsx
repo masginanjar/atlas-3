@@ -47,7 +47,7 @@ function Judul({ children }) { return <p className="mt-3 px-1.5 text-[10.5px] fo
  *  view — 'list' | 'tabel'; kolom — { COLUMNS, colsAktif, saveCols, semua } (opsional)
  *  current/apply — untuk tampilan tersimpan
  */
-export function TampilanPanel({ pref, setPref, zoom, setZoom, density, setDensity, setFull, view, kolom, kolomTabel, current, apply, close, hp }) {
+export function TampilanPanel({ pref, setPref, zoom, setZoom, density, setDensity, setFull, view, setView, kolom, kolomTabel, current, apply, close, hp }) {
   const { notify } = useApp()
   const set = (k, v) => setPref({ ...pref, [k]: v })
   const zi = ZOOM_STEPS.indexOf(zoom) === -1 ? ZOOM_STEPS.indexOf(100) : ZOOM_STEPS.indexOf(zoom)
@@ -67,6 +67,14 @@ export function TampilanPanel({ pref, setPref, zoom, setZoom, density, setDensit
 
   return (
     <div className={cx('space-y-0.5', hp && 'pb-2')} data-menu-tampilan>
+      {setView && (
+        <div className="mb-2 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1" role="group" aria-label="Bentuk daftar" data-saklar-view>
+          {[['list', 'Kartu'], ['tabel', 'Tabel']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setView(k)} aria-pressed={view === k} data-view={k}
+              className={cx('h-10 rounded-lg text-[13px] font-bold transition', view === k ? 'bg-white text-ink shadow-sm ring-1 ring-slate-200' : 'text-ink-mute hover:text-ink')}>{l}</button>
+          ))}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2 pb-1">
         <button type="button" onClick={() => { setFull(true); close?.() }} data-tampilan="layar-penuh"
           className="flex min-h-[72px] flex-col items-start gap-1 rounded-xl p-3 text-left ring-1 ring-slate-200 hover:ring-brand">
@@ -176,7 +184,7 @@ export default function TampilanMenu({ compact, ...props }) {
   return (
     <>
       <button type="button" onClick={() => setSheet(true)} aria-label="Tampilan" data-aksi="tampilan"
-        className={cx('relative grid shrink-0 place-items-center sm:hidden', compact ? 'h-8 w-8 rounded-full bg-white/15 text-white' : cx('h-10 w-10 rounded-xl bg-white ring-1 ring-slate-200', aktif ? 'text-brand' : 'text-ink-mute'))}>
+        className={cx('relative grid shrink-0 place-items-center sm:hidden', compact ? 'h-8 w-8 rounded-full bg-white/15 text-white' : cx('h-11 w-11 rounded-[10px] bg-white ring-1 ring-slate-200', aktif ? 'text-brand' : 'text-ink-mute'))}>
         <Settings2 className="h-4 w-4" />{aktif && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-brand" />}
       </button>
       <div className="hidden sm:block">
@@ -184,8 +192,8 @@ export default function TampilanMenu({ compact, ...props }) {
           compact
             ? <button type="button" onClick={toggle} aria-expanded={open} aria-label="Tampilan" data-aksi="tampilan" className="grid h-8 w-8 place-items-center rounded-full bg-white/15 text-white hover:bg-white/25"><Settings2 className="h-4 w-4" /></button>
             : <button type="button" onClick={toggle} aria-expanded={open} data-aksi="tampilan"
-              className={cx('flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-white px-3 text-[13px] font-semibold ring-1 transition', open ? 'text-brand ring-brand' : 'text-ink-soft ring-slate-200 hover:text-brand')}>
-              <Settings2 className="h-4 w-4" />Tampilan<ChevronDown className="h-3.5 w-3.5 opacity-60" />
+              className={cx('flex h-11 shrink-0 items-center gap-1.5 rounded-[10px] bg-white px-3 text-[13px] font-semibold ring-1 transition md:h-9 dark:bg-white/5', open ? 'text-brand ring-brand' : 'text-ink-soft ring-slate-200 hover:text-brand')}>
+              <Settings2 className="h-4 w-4" />Tampilan{props.setView && <span className="font-medium text-ink-mute">· {props.view === 'tabel' ? 'Tabel' : 'Kartu'}</span>}<ChevronDown className="h-3.5 w-3.5 opacity-60" />
             </button>
         )}>
           {({ close }) => <TampilanPanel {...props} close={close} />}

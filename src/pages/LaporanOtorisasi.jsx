@@ -62,7 +62,7 @@ export default function LaporanOtorisasi() {
 
   return (
     <div className="flex min-w-0 flex-col gap-3.5" data-halaman-laporan-oto>
-      <h1 className="text-2xl font-extrabold tracking-tight">Laporan Otorisasi</h1>
+      <h1 className="text-[17px] font-extrabold leading-tight tracking-tight">Laporan Otorisasi</h1>
       <div className="min-w-0 overflow-hidden rounded-2xl border border-[#DADDE8] bg-white dark:border-white/10 dark:bg-white/5">
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-[var(--klasik-latar)] px-3 py-2 text-[12.5px]" data-klasik-filter>
         <span className="flex items-center rounded-lg bg-white ring-1 ring-slate-200">
@@ -72,8 +72,8 @@ export default function LaporanOtorisasi() {
         </span>
         <span className="text-ink-mute">Terjemahan tersumpah Indonesia ⇄ Inggris / Belanda</span>
         <span className="ml-auto flex gap-2">
-          <button type="button" disabled={!grup.length || !!sibuk} onClick={() => jalan('pdf-all', () => unduhPdf(grup, ym, tarifOf))} data-aksi="pdf-semua" className={cx(tombol, 'h-9 bg-white text-ink ring-1 ring-slate-300')}>{ikon('pdf-all', FileText)}PDF{semuaOrang ? ' semua' : ''}</button>
-          <button type="button" disabled={!grup.length || !!sibuk} onClick={() => jalan('xls-all', () => unduhExcel(grup, ym, tarifOf))} data-aksi="excel-semua" className={cx(tombol, 'h-9 bg-white text-ink ring-1 ring-slate-300')}>{ikon('xls-all', Download)}Excel{semuaOrang ? ' semua' : ''}</button>
+          <button type="button" disabled={!grup.length || !!sibuk} onClick={() => jalan('pdf-all', () => unduhPdf(grup, ym, bolehTarif ? tarifOf : null))} data-aksi="pdf-semua" className={cx(tombol, 'h-9 bg-white text-ink ring-1 ring-slate-300')}>{ikon('pdf-all', FileText)}PDF{semuaOrang ? ' semua' : ''}</button>
+          <button type="button" disabled={!grup.length || !!sibuk} onClick={() => jalan('xls-all', () => unduhExcel(grup, ym, bolehTarif ? tarifOf : null))} data-aksi="excel-semua" className={cx(tombol, 'h-9 bg-white text-ink ring-1 ring-slate-300')}>{ikon('xls-all', Download)}Excel{semuaOrang ? ' semua' : ''}</button>
         </span>
       </div>
 
@@ -87,7 +87,7 @@ export default function LaporanOtorisasi() {
                   <th className={th}>Otorisator</th><th className={cx(th, 'text-right')}>Dokumen</th>
                   {ARAH_OTO.map((a) => <th key={a} className={cx(th, 'text-right')}>{PENDEK[a]} <span className="normal-case">hlm</span></th>)}
                   <th className={cx(th, 'text-right')}>Total hlm</th>
-                  <th className={th}>Tarif / hlm (EN · NL)</th><th className={cx(th, 'text-right')}>Biaya</th>
+                  {bolehTarif && <><th className={th}>Tarif / hlm (EN · NL)</th><th className={cx(th, 'text-right')}>Biaya</th></>}
                   <th className={th} />
                 </tr>
               </thead>
@@ -100,19 +100,21 @@ export default function LaporanOtorisasi() {
                       <td className="px-3 py-2.5 text-right tabular-nums">{angka(o.dok)}</td>
                       {ARAH_OTO.map((a) => <td key={a} className={cx('px-3 py-2.5 text-right tabular-nums', !o.arah[a] && 'text-ink-mute')}>{o.arah[a] ? angka(o.arah[a]) : '—'}</td>)}
                       <td className="px-3 py-2.5 text-right text-[14px] font-extrabold tabular-nums">{angka(o.hlm)}</td>
+                      {bolehTarif && <>
                       <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
                         {['Inggris', 'Belanda'].map((g) => {
                           const t = Number(tarif[`${o.oto}|${g}`]) || 0
-                          return bolehTarif
+                          return true
                             ? <input key={`${g}:${t}`} defaultValue={t || ''} onBlur={(e) => { if ((Number(e.target.value.replace(/\D/g, '')) || 0) !== t) simpanTarif(o.oto, g, o.nama, e.target.value) }} inputMode="numeric" placeholder={g === 'Inggris' ? 'EN Rp' : 'NL Rp'} aria-label={`Tarif ${g} ${o.nama}`} title={`Tarif per halaman ${g}`} className="mr-1 h-8 w-[78px] rounded-md border-0 px-2 text-[12px] font-bold ring-1 ring-slate-300 focus:ring-2 focus:ring-brand" />
                             : <span key={g} className="mr-2 text-[12px] text-ink-mute">{g === 'Inggris' ? 'EN' : 'NL'} {t ? rupiah(t) : '—'}</span>
                         })}
                       </td>
                       <td className="px-3 py-2.5 text-right font-bold tabular-nums">{biayaOf(o) ? rupiah(biayaOf(o)) : <span className="text-ink-mute">Rp —</span>}</td>
+                      </>}
                       <td className="px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
                         <span className="flex justify-end gap-1">
-                          <button type="button" disabled={!!sibuk} onClick={() => jalan(`pdf:${o.oto}`, () => unduhPdf(grupOrang(o), ym, tarifOf))} data-aksi="pdf" className={cx(tombol, 'bg-slate-100 text-ink')}>{ikon(`pdf:${o.oto}`, FileText)}PDF</button>
-                          <button type="button" disabled={!!sibuk} onClick={() => jalan(`xls:${o.oto}`, () => unduhExcel(grupOrang(o), ym, tarifOf))} data-aksi="excel" className={cx(tombol, 'bg-slate-100 text-ink')}>{ikon(`xls:${o.oto}`, Download)}Excel</button>
+                          <button type="button" disabled={!!sibuk} onClick={() => jalan(`pdf:${o.oto}`, () => unduhPdf(grupOrang(o), ym, bolehTarif ? tarifOf : null))} data-aksi="pdf" className={cx(tombol, 'bg-slate-100 text-ink')}>{ikon(`pdf:${o.oto}`, FileText)}PDF</button>
+                          <button type="button" disabled={!!sibuk} onClick={() => jalan(`xls:${o.oto}`, () => unduhExcel(grupOrang(o), ym, bolehTarif ? tarifOf : null))} data-aksi="excel" className={cx(tombol, 'bg-slate-100 text-ink')}>{ikon(`xls:${o.oto}`, Download)}Excel</button>
                           {semuaOrang && <button type="button" disabled={!!sibuk} onClick={() => kirim(o)} data-aksi="kirim-staf" className={cx(tombol, 'bg-emerald-600 text-white')}>{ikon(`kirim:${o.oto}`, Send)}Kirim</button>}
                         </span>
                       </td>
@@ -124,7 +126,7 @@ export default function LaporanOtorisasi() {
                     <td className="px-3 py-2">Total</td><td className="px-3 py-2 text-right tabular-nums">{angka(tot.dok)}</td>
                     {ARAH_OTO.map((a) => <td key={a} className="px-3 py-2 text-right tabular-nums">{angka(orang.reduce((s, o) => s + (o.arah[a] || 0), 0))}</td>)}
                     <td className="px-3 py-2 text-right tabular-nums">{angka(tot.hlm)}</td>
-                    <td /><td className="px-3 py-2 text-right tabular-nums">{tot.biaya ? rupiah(tot.biaya) : 'Rp —'}</td>
+                    {bolehTarif && <><td /><td className="px-3 py-2 text-right tabular-nums">{tot.biaya ? rupiah(tot.biaya) : 'Rp —'}</td></>}
                     <td />
                   </tr>
                 )}

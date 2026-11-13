@@ -187,7 +187,7 @@ export default function Penugasan() {
     <div className="space-y-3">
       {/* judul + periode */}
       <div className="flex items-center gap-2" data-alat>
-        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Penugasan</h1>
+        <h1 className="text-[17px] font-extrabold leading-tight tracking-tight flex items-center gap-2">Penugasan</h1>
         <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-rose-700 ring-1 ring-rose-200" data-perlu-n>{rowsAll.length} perlu penerjemah</span>
         <div className="ml-auto"><PilihPeriode range={range} setRange={setRange} pilihan={PERIODE_PENUGASAN()} label="Deadline" /></div>
       </div>

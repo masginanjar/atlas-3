@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { Home, LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, Stamp, ReceiptText, StickyNote, AlarmClock, CalendarDays, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store, Handshake, Minimize2, Maximize2, Building2, Server, Rocket, Hash, ClipboardList } from 'lucide-react'
 import PindahBooks from './components/PindahBooks.jsx'
 import SidebarMenu from './components/SidebarMenu.jsx'
+import PanelDummy from './components/PanelDummy.jsx'
 import { useApp } from './lib/store.jsx'
 import { MODE, storageError, db } from './lib/db.js'
 import { AlertTriangle } from 'lucide-react'
@@ -42,6 +43,7 @@ const Dokumen = lazy(() => import('./pages/Dokumen.jsx'))
 const MitraPage = lazy(() => import('./pages/Mitra.jsx'))
 const Penugasan = lazy(() => import('./pages/Penugasan.jsx'))
 import GlobalSearch from './components/GlobalSearch.jsx'
+import { SlotProvider, BarisAtas, KeAtas } from './components/SlotAtas.jsx'
 import { useFokus, toggleFokus } from './lib/fokus.js'
 import NotificationBell from './components/NotificationBell.jsx'
 import { TombolHantu, PitaHantu } from './components/ModeHantu.jsx'
@@ -85,8 +87,11 @@ const KANTOR_ROLES = ['superadmin', 'direktur', 'supervisor', 'admin_pusat', 'cs
 const peranDi = (roles) => (u) => roles.includes(u?.role)
 // Susunan menu mengikuti CANVAS ATLAS. Item "segera" = bagian ATLAS Books yang belum jadi.
 const MENU = [
-  { id: 'utama', label: 'Utama', icon: Home, children: [
+  // Beranda & Dashboard berdiri sendiri (bukan submenu "Utama") — 13 Nov
+  { id: 'beranda', label: 'Beranda', icon: Home, children: [
     { key: 'beranda', label: 'Beranda', icon: Home, show: canSeeBeranda },
+  ] },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, children: [
     { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, bar: true },
   ] },
   { id: 'penjualan', label: 'Penjualan', icon: ReceiptText, children: [
@@ -182,8 +187,8 @@ export default function App() {
     return (
       <select value={nilai} onChange={(e) => { setActiveRole(e.target.value); window.location.hash = '/dashboard' }} aria-label="Ganti peran" title="Ganti peran" data-ganti-peran={mode}
         className={cx('min-w-0 cursor-pointer truncate rounded-lg border-0 pl-3 pr-8 text-sm font-bold ring-1 focus:ring-2 focus:ring-brand',
-          mode === 'pc' ? 'hidden h-9 max-w-[220px] xl:block' : 'h-11 flex-1',
-          user._actor ? 'bg-amber-400 text-ink ring-amber-400' : mode === 'pc' ? 'bg-white/10 text-white ring-white/20 [&>option]:text-ink' : 'bg-violet-50 text-violet-800 ring-violet-200')}>
+          mode === 'sb' ? 'h-10 w-full' : 'h-11 flex-1',
+          user._actor ? 'bg-amber-400 text-ink ring-amber-400' : 'bg-violet-50 text-violet-800 ring-violet-200')}>
         {peranAsli.map((r) => <option key={r} value={r}>Peran: {roleLabel(asli, r)}</option>)}
         {daftarPersona.map((p) => <option key={p.id} value={`as:${p.id}`}>Sebagai: {p.name} · {roleLabel(p)}</option>)}
       </select>
@@ -252,6 +257,7 @@ export default function App() {
 
   return (
     <PanelProvider>
+    <SlotProvider>
     <div className="min-h-screen">
         {/* ============================================================
             HEADER ATAS — susunan mengikuti pola Zoho Books:
@@ -263,87 +269,47 @@ export default function App() {
            ============================================================ */}
         <PitaHantu />
         <PengingatSholat />
-        <header className="app-head sticky top-0 z-30 flex h-[var(--appbar)] items-center gap-1.5 border-b px-2 sm:gap-2 sm:px-3 md:px-4"
-          style={{ background: 'var(--head)', color: 'var(--head-ink)', borderColor: 'var(--head-line)' }}>
-          {/* Logo + nama aplikasi, sejajar lebar sidebar */}
-          <a href="#/dashboard" aria-label="Atlas Alfa 5.0 — ke Dashboard"
-            className="flex h-11 min-w-11 shrink-0 items-center gap-2.5 rounded-lg md:pr-1">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[var(--brand)] text-sm font-black text-white">A</span>
-            <span className="hidden whitespace-nowrap font-display text-[17px] font-bold tracking-tight lg:inline"
-              style={{ color: 'var(--head-ink)' }}>Atlas Alfa <span style={{ color: 'var(--head-mute)' }}>5.0</span></span>
-          </a>
-
-          <span className="hidden h-6 w-px shrink-0 md:block" style={{ background: 'var(--head-line)' }} />
-
-          {/* Pencarian — melebar mengikuti ruang yang tersisa */}
-          {alatSendiri ? <span className="flex-1" /> : (
-            <div className="min-w-[132px] max-w-[420px] flex-1 basis-[132px] sm:basis-[180px]" data-headbtn>
-              <GlobalSearch pill />
-            </div>
-          )}
-
-          <span className="hidden flex-1 xl:block" />
-          <JamZona className="hidden shrink-0 md:flex lg:hidden" />
-
-          {/* Cabang / organisasi aktif */}
-          {branchPicker && !alatSendiri ? (
-            <label className="relative hidden shrink-0 items-center xl:flex">
-              <span className="sr-only">Filter cabang</span>
-              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} aria-label="Filter cabang" title="Filter cabang"
-                className="h-11 max-w-[160px] cursor-pointer truncate rounded-lg border-0 bg-transparent pl-2 pr-7 text-sm font-semibold focus:ring-2 focus:ring-[var(--brand)] md:h-9"
-                style={{ color: 'var(--head-ink)' }}>
-                {branchOptions.map((b) => <option key={b} value={b} className="text-ink">{b === 'Semua' ? (can.seeAllBranches(user) ? 'Semua Cabang' : 'Semua cabang saya') : b}</option>)}
-              </select>
-            </label>
-          ) : (
-            <span className="hidden shrink-0 px-2 text-sm font-semibold xl:inline" style={{ color: 'var(--head-ink)' }}>{placeOf(user)}</span>
-          )}
-          {gantiPeran('pc')}
-
-          <span className="hidden h-6 w-px shrink-0 xl:block" style={{ background: 'var(--head-line)' }} />
-
-          {/* Tombol tambah — satu-satunya pintu "buat baru" di desktop; di HP lewat tab Buat */}
-          <span className="hidden shrink-0 md:block"><HeadAdd /></span>
-          {/* Mode fokus dihapus atas permintaan Pak (9 Nov) */}
-
-          <span data-headbtn className="hidden shrink-0 xl:block"><TeamPresence /></span>
-          <SaklarMode klasik={false} />
-          <span data-headbtn className="shrink-0"><TombolHantu /></span>
-          <span data-headbtn className="shrink-0"><NotificationBell /></span>
-          <span data-headbtn className="min-w-0 shrink-0"><HeaderUser /></span>
-          <span data-headbtn className="hidden shrink-0 sm:block"><AppsMenu user={user} /></span>
-
-          {MODE === 'demo' && (
-            <span className="hidden shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide 2xl:inline"
-              style={{ background: 'var(--head-hover)', color: 'var(--head-mute)' }}>Demo</span>
-          )}
-        </header>
       <div className="md:flex">
       {/* Rel ikon 64 px (K3) — menu lengkap ada di "Lainnya" */}
-      <RelIkon menu={menuTerlihat(user).map((g) => (g.children ? { ...g, children: g.children.filter((n) => !n.segera && !n.samping) } : g))} flat={navItems(user)} page={page} ctx={{ user, data, branchFilter, extra: { unlinkedInvoices, chatTotals } }} />
-      <SidebarMenu menu={menuTerlihat(user)} page={page} param={param} ctx={{ user, data, branchFilter, extra: { unlinkedInvoices, chatTotals } }} />
-
-      <div className="min-w-0 flex-1">
-        {/* Top bar */}
-        {/* Baris kedua (di bawah lg): filter cabang & peran */}
-        {((branchPicker && !alatSendiri) || (!user._hantu && (rolesOf(user).length > 1 || personaList.length > 0 || user._actor))) && (
-          <div className="flex min-w-0 items-center gap-2 px-3 pt-2 xl:hidden md:px-4">
-            {branchPicker && !alatSendiri && (
-              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} aria-label="Filter cabang"
-                className="h-11 min-w-0 flex-1 truncate rounded-lg border-0 bg-white pl-3 pr-8 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-brand">
+      <RelIkon menu={menuTerlihat(user).map((g) => (g.children ? { ...g, children: g.children.filter((n) => !n.segera && !n.samping) } : g))} flat={navItems(user)} page={page} ctx={{ user, data, branchFilter, extra: { unlinkedInvoices, chatTotals } }}
+        atas={<LogoAtlas ringkas />} profil={<><NotificationBell posisi="rel" tanpaPopup /><HeaderUser atas rel /></>} />
+      <SidebarMenu menu={menuTerlihat(user)} page={page} param={param} ctx={{ user, data, branchFilter, extra: { unlinkedInvoices, chatTotals } }}
+        atas={(rel) => rel ? <LogoAtlas ringkas /> : (
+          <div className="flex flex-col gap-2" data-sidebar-atas>
+            <LogoAtlas />
+            {branchPicker && !alatSendiri ? (
+              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} aria-label="Filter cabang" title="Filter cabang"
+                className="h-10 w-full cursor-pointer truncate rounded-xl border-0 bg-[#F3F4F9] pl-3 pr-8 text-sm font-semibold text-[#141B34] focus:ring-2 focus:ring-brand dark:bg-white/5 dark:text-slate-100">
                 {branchOptions.map((b) => <option key={b} value={b}>{b === 'Semua' ? (can.seeAllBranches(user) ? 'Semua Cabang' : 'Semua cabang saya') : b}</option>)}
               </select>
-            )}
-            {gantiPeran('hp')}
+            ) : <span className="px-3 text-sm font-semibold text-[#5E6380]" data-tempat>{placeOf(user)}</span>}
+            {gantiPeran('sb')}
           </div>
         )}
+        profil={(rel) => rel ? <><NotificationBell posisi="rel" /><HeaderUser atas rel /></> : <div className="flex items-center gap-1.5"><div className="min-w-0 flex-1"><HeaderUser atas lebar /></div><NotificationBell posisi="kiri" /></div>}
+        alatBawah={(rel) => <><TeamPresence kiriBawah rel={rel} /><TombolHantu kiriBawah rel={rel} /></>} />
+
+      <div className="min-w-0 flex-1">
         {storeErr && <div role="alert" className="flex flex-wrap items-center gap-2 bg-rose-600 px-4 py-2 text-xs font-semibold text-white md:px-8"><AlertTriangle className="h-4 w-4 shrink-0" />
           <span className="min-w-0 flex-1">{storeErr === 'quota' ? 'Penyimpanan browser penuh — perubahan terakhir TIDAK tersimpan.' : 'Penyimpanan browser diblokir — perubahan tidak tersimpan. Periksa pengaturan privasi browser (mode privat / cookie diblokir).'}</span>
           {storeErr === 'quota' && <button type="button" onClick={async () => { const f = await db.cleanup?.(); notify(f ? `Dibersihkan ${Math.round(f / 1024)} KB — coba simpan lagi` : 'Tidak ada sisa data lama; gunakan Reset data demo di Setting → Integrasi') }} className="rounded-lg bg-white/15 px-2.5 py-1 ring-1 ring-white/40 hover:bg-white/25">Bersihkan penyimpanan</button>}
           <a href="#/settings" className="rounded-lg bg-white/15 px-2.5 py-1 ring-1 ring-white/40 hover:bg-white/25">Setting</a>
         </div>}
 
-        <main className="mx-auto w-full max-w-5xl px-3 pb-28 pt-4 sm:px-4 md:px-6 md:pb-12 md:pt-5 xl:max-w-[1280px] xl:px-8 2xl:max-w-[1440px]">
+        <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-4 md:px-6 md:pb-12 md:pt-6 xl:max-w-[1280px] 2xl:max-w-[1440px]">
+          {/* Baris atas isi halaman: pencarian (kiri) · tombol tambah (kanan) — bukan top bar global */}
+          <BarisAtas cariBawaan={<GlobalSearch kotak placeholder={CARI_HALAMAN[page] || 'Cari invoice, pelanggan, menu…'} />} tambahBawaan={<HeadAdd />} />
+          {((branchPicker && !alatSendiri) || (!user._hantu && (rolesOf(user).length > 1 || personaList.length > 0 || user._actor))) && (
+          <KeAtas slot="sesudah"><div className="flex min-w-0 items-center gap-2 lg:hidden" data-baris-cabang>
+            {branchPicker && !alatSendiri && (
+              <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} aria-label="Filter cabang"
+                className="h-11 min-w-0 max-w-[220px] flex-1 truncate rounded-xl border-0 bg-white pl-3 pr-8 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-brand">
+                {branchOptions.map((b) => <option key={b} value={b}>{b === 'Semua' ? (can.seeAllBranches(user) ? 'Semua Cabang' : 'Semua cabang saya') : b}</option>)}
+              </select>
+            )}
+            {gantiPeran('hp')}
+          </div></KeAtas>
+          )}
 
           <Suspense fallback={<div className="grid place-items-center py-24"><Loader2 className="h-5 w-5 animate-spin text-brand" /></div>}>{view}</Suspense>
         </main>
@@ -359,8 +325,8 @@ export default function App() {
       <TabBawah flat={navItems(user)} page={page} ctx={{ user, data, branchFilter, extra: { unlinkedInvoices, chatTotals } }} onMenu={() => setMore(true)} menuOpen={more} />
       <Sheet open={more} onClose={() => setMore(false)} title="Menu">
         {/* Jam WIB & WITA — di layar kecil header tidak muat, jadi ditaruh di sini */}
+        <div className="mb-3 flex items-center gap-2" data-menu-profil><div className="min-w-0 flex-1"><HeaderUser lebar /></div><NotificationBell tanpaPopup /><TombolHantu /></div>
         <JamZona tema="kartu" className="mb-3 flex justify-center rounded-xl bg-slate-50 py-2 ring-1 ring-slate-200" />
-        <div className="mb-3 flex items-center gap-2 rounded-xl bg-ink px-3 py-2 text-white" data-saklar-hp><span className="text-[12px] font-semibold">Mode tampilan</span><span className="ml-auto"><SaklarMode klasik={false} selalu /></span></div>
         <ul className="grid grid-cols-2 gap-2">
           {navItems(user).map((n) => {
             const b = n.badge ? n.badge(user, data, branchFilter, { unlinkedInvoices, chatTotals }) : 0
@@ -385,6 +351,7 @@ export default function App() {
         <p className="text-sm text-ink-soft">{confirmState?.msg}</p>
       </Sheet>
     </div>
+    </SlotProvider>
     </PanelProvider>
   )
 }
@@ -411,28 +378,42 @@ function PilFokus() {
     </button>
   )
 }
+/** Logo + nama aplikasi (di bagian atas menu samping). */
+function LogoAtlas({ ringkas }) {
+  return (
+    <a href="#/dashboard" aria-label="ATLAS 5.0 — ke Dashboard" title="ATLAS 5.0" data-logo
+      className={cx('flex h-11 shrink-0 items-center rounded-xl font-display font-extrabold tracking-tight text-[#141B34] dark:text-white', ringkas ? 'w-11 justify-center text-[11px] leading-none' : 'gap-2 px-2 text-lg')}>
+      {ringkas ? <span className="text-center">ATLAS<br /><span className="text-[#5E6380]">5.0</span></span> : <>ATLAS <span className="text-[#5E6380]">5.0</span></>}
+      {!ringkas && MODE === 'demo' && <span className="ml-auto rounded-full bg-[#F3F4F9] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#5E6380] dark:bg-white/10">Demo</span>}
+    </a>
+  )
+}
+/** Placeholder pencarian bawaan per halaman (halaman dengan pencarian sendiri memakai miliknya). */
+const CARI_HALAMAN = { dashboard: 'Cari invoice, pelanggan, menu…', keuangan: 'Cari invoice, pengajuan, vendor…', agenda: 'Cari invoice, catatan, pengingat…', settings: 'Cari menu atau pengaturan…', penugasan: 'Cari invoice atau penerjemah…' }
 function HeadAdd() {
   const { user } = useApp()
   const { open } = usePanel()
   const items = PANEL_ORDER.map((k) => [k, PANELS[k]]).filter(([, p]) => p.allow(user))
   if (!items.length) return null
   return (
-    <Popover label="Buat baru" align="right" width="min-w-[220px]"
+    <Popover label="Buat baru" align="right" width="w-[260px]"
       button={({ open: o, toggle }) => (
-        <button type="button" onClick={toggle} aria-expanded={o} aria-label="Buat baru" title="Buat baru"
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[var(--brand)] text-white transition hover:opacity-90 md:h-9 md:w-9">
-          <Plus className="h-[18px] w-[18px]" />
+        <button type="button" onClick={toggle} aria-expanded={o} aria-haspopup="menu" aria-label="Buat baru" title="Buat baru" data-aksi="buat-baru"
+          className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-[10px] bg-[#141B34] md:h-9 md:min-w-9 px-3 text-sm font-semibold text-white transition hover:opacity-90 sm:px-4 dark:bg-[var(--brand)]">
+          <Plus className="h-[18px] w-[18px]" aria-hidden="true" /><span className="hidden sm:inline">Buat</span>
         </button>
       )}>
       {({ close }) => (
         <div className="space-y-0.5">
           {items.map(([k, p]) => (
             <button key={k} type="button"
-              onClick={() => { close(); if (k === 'project') go('projects/new'); else open(k) }}
+              onClick={() => { close(); open(k) }}
               className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-semibold text-ink-soft hover:bg-slate-50 hover:text-ink">
               <p.icon className="h-4 w-4 text-ink-mute" />{p.label}
             </button>
           ))}
+          {/* Tambah Dummy (Superadmin, hanya di demo) */}
+          <div className="border-t border-slate-200 pt-1"><PanelDummy ringkas /></div>
         </div>
       )}
     </Popover>

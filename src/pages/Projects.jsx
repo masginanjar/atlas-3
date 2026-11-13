@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { go } from '../lib/router.js'
 import { Plus, Minus, Search, FolderOpen, Banknote, CalendarClock, Layers, LayoutGrid, List, ChevronRight, ChevronDown, Sparkles, StickyNote, Printer, AlertTriangle, Eye, X, Save, Rows2, Rows3, Rows4, Maximize2, Minimize2, Table2, MoreHorizontal, Columns3, Bookmark } from 'lucide-react'
 import FileManager, { fieldFiles, collect as collectFiles } from '../components/FileManager.jsx'
@@ -31,6 +31,11 @@ import { WaktuDibuat, PrioPill, DeadlinePill, CabangPrint, eksekutorOf, dibuatBa
 import LayarKerja from './LayarKerja.jsx'
 import TugaskanPenerjemah from '../components/TugaskanPenerjemah.jsx'
 import { coordinatorFor } from '../config/access.js'
+import { PingButton } from '../components/Ping.jsx'
+import SalinInvoice from '../components/SalinInvoice.jsx'
+import { KeAtas, TombolTambah } from '../components/SlotAtas.jsx'
+import { ArrowUpDown, Check } from 'lucide-react'
+import { usePanel } from '../components/WorkspacePanel.jsx'
 
 /** Order bahasa Mandarin (direkap Akunting — tanpa koordinator, tiap orang order sendiri). */
 const adaMandarin = (p) => (p.sub_projects || []).some((x) => foreignLang(x) === 'Mandarin')
@@ -38,12 +43,15 @@ const adaMandarin = (p) => (p.sub_projects || []).some((x) => foreignLang(x) ===
 const adaVendor = (p) => (p.sub_projects || []).some((x) => x.translator_kind === 'vendor' || x.data?.vendor || ['persetujuan', 'pembayaran', ...VENDOR_PAID_STAGES].includes(x.stage))
 
 export default function Projects({ tabAwal }) {
-  const { user, data, branchFilter, setBranchFilter } = useApp()
+  const { user, data, branchFilter, setBranchFilter, notify } = useApp()
+  const { open: bukaPanel } = usePanel()
   const projectOf = (id) => data.projects.find((x) => x.id === id) // versi terbaru dari store
   // Staf Apostille langsung ke chip Apostille (K6: My Apostille jadi tab di Project)
-  const [tab, setTab] = useState(() => tabAwal || (user?.role === 'staf_apostille' ? 'apostille' : 'all'))
-  const [q, setQ] = useState('')
-  const [status, setStatus] = useState('aktif')
+  // Konteks daftar (chip, cari, status, filter) diingat selama tab browser terbuka → kembali dari detail tetap sama
+  const sesi = useMemo(() => { try { return JSON.parse(sessionStorage.getItem('atlas-proj-sesi') || '{}') || {} } catch { return {} } }, [])
+  const [tab, setTab] = useState(() => tabAwal || sesi.tab || (user?.role === 'staf_apostille' ? 'apostille' : 'all'))
+  const [q, setQ] = useState(() => sesi.q || '')
+  const [status, setStatus] = useState(() => sesi.status || 'aktif')
   // Pencarian/filter/urutan tabel disimpan di sini, bukan di dalam tabelnya,
   // supaya tidak hilang saat panel detail dibuka-tutup atau setelah cetak.
   const [tableState, setTableState] = useState(() => { let v = 'deadline'; try { v = localStorage.getItem('atlas-sort') || 'deadline' } catch { /* abaikan */ } return { q: '', sortKey: v === 'baru' ? 'timestamp' : 'deadline', sortDir: v === 'baru' ? 'desc' : 'asc', filters: {}, shownN: 36 } })
@@ -59,9 +67,9 @@ export default function Projects({ tabAwal }) {
     setTableState((t) => ({ ...t, sortKey: v === 'baru' ? 'timestamp' : 'deadline', sortDir: v === 'baru' ? 'desc' : 'asc' }))
   }
   // filter deadline dari judul kolom: null | {kind:'today'|'tomorrow'|'range', from, to}
-  const [dlFilter, setDlFilter] = useState(null)
+  const [dlFilter, setDlFilter] = useState(() => sesi.dlFilter || null)
   // filter Cabang / Lokasi Print dari judul kolom: { branch: ''|nama, print: ''|nama }
-  const [bpFilter, setBpFilter] = useState({ branch: '', print: '' })
+  const [bpFilter, setBpFilter] = useState(() => sesi.bpFilter || { branch: '', print: '' })
 
   const scoped = useMemo(() => scopeByBranch(user, data.projects, branchFilter), [user, data.projects, branchFilter])
   const finScoped = useMemo(() => (can.seeAllFinance(user) ? scoped : scoped.filter((p) => branchesOf(user).includes(p.branch))), [scoped, user])
@@ -69,9 +77,15 @@ export default function Projects({ tabAwal }) {
     .filter((s) => ['persetujuan', 'pembayaran', ...VENDOR_PAID_STAGES].includes(s.stage) || (s.data?.bukti_transfer))
     .map((s) => ({ ...s, project: p }))), [finScoped])
 
-  const [prFilter, setPrFilter] = useState('') // filter prioritas (judul kolom)
+  const [prFilter, setPrFilter] = useState(() => sesi.prFilter || '') // filter prioritas (judul kolom)
   // chip cepat: 'hambatan' = lewat tenggat / tenggat hari ini; 'saya' = project yang saya buat / CS-nya saya
-  const [cepat, setCepat] = useState('')
+  const [cepat, setCepat] = useState(() => sesi.cepat || '')
+  useEffect(() => { try { sessionStorage.setItem('atlas-proj-sesi', JSON.stringify({ tab, q, status, cepat, dlFilter, bpFilter, prFilter, y: sesi.y })) } catch { /* abaikan */ } }, [tab, q, status, cepat, dlFilter, bpFilter, prFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    // pulihkan posisi gulir, dan simpan posisi terakhir saat meninggalkan halaman Project
+    if (sesi.y) setTimeout(() => window.scrollTo(0, sesi.y), 120)
+    return () => { try { const v = JSON.parse(sessionStorage.getItem('atlas-proj-sesi') || '{}'); sessionStorage.setItem('atlas-proj-sesi', JSON.stringify({ ...v, y: window.scrollY })) } catch { /* abaikan */ } }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const [detailFor, setDetailFor] = useState(null) // panel kanan: detail project
   const [langkahFor, setLangkahFor] = useState(null) // slide samping: kerjakan langkah berikutnya { p, subId }
   const [tugasFor, setTugasFor] = useState(null) // popup kecil: tetapkan penerjemah + kapasitas di tanggal deadline
@@ -120,6 +134,17 @@ export default function Projects({ tabAwal }) {
   // project lewat deadline & belum selesai — dihitung untuk ringkasan; urutannya ikut aturan di atas (paling akhir)
   const late = useMemo(() => list.filter((p) => !isDone(p) && daysLeft(p.about?.deadline) < 0), [list])
   const rest = list
+  // Beri tahu bila project keluar dari daftar karena aksi (bukan karena filter diganti pengguna)
+  const jejak = useRef(null)
+  useEffect(() => {
+    const kunci = JSON.stringify([tab, q, status, dlFilter, bpFilter, prFilter, cepat, branchFilter])
+    const ids = new Set(list.map((p) => p.id)); const prev = jejak.current
+    jejak.current = { kunci, ids }
+    if (!prev || prev.kunci !== kunci) return
+    const hilang = [...prev.ids].filter((id) => !ids.has(id)).map((id) => data.projects.find((x) => x.id === id)).filter(Boolean)
+    if (!hilang.length || hilang.length > 3) return
+    for (const p of hilang) notify(`${invoiceLabel(p.invoice_no)} keluar dari daftar ini${isDone(p) ? ' karena sudah Selesai — pilih status "Selesai"/"Semua" untuk melihatnya' : ' karena tidak lagi cocok dengan filter'}.`)
+  }, [list]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // pengatur tampilan daftar: kepadatan baris, ukuran huruf, dan mode layar penuh
   const [density, setDensity] = useDensity()
@@ -156,6 +181,20 @@ export default function Projects({ tabAwal }) {
     ...(vendorKoordinator(user).length ? [{ value: 'koordinator', label: 'Koordinator', count: dasarStatus.filter((p) => (p.sub_projects || []).some((x) => diKoordinasi(user, x))).length }] : []),
     ...(user.role === 'akunting' ? [{ value: 'mandarin', label: 'Order Mandarin', count: dasarStatus.filter(adaMandarin).length }] : []),
   ]
+  // Filter yang sedang aktif (tampil di ujung kanan baris chip, atau di bawah toolbar bila chip disembunyikan)
+  const filterAktif = [
+            tab !== 'all' && { label: `Jenis: ${tabs.find((t) => t.value === tab)?.label || tab}`, clear: () => setTab('all') },
+            cepat && { label: cepat === 'hambatan' ? 'Hanya hambatan' : cepat === 'pilih' ? 'Perlu pilih penerjemah' : 'Hanya project saya', clear: () => setCepat('') },
+            sort !== 'deadline' && { label: 'Urut: terbaru', clear: () => setSort('deadline') },
+            q.trim() && { label: `Cari: "${q.trim()}"`, clear: () => setQ('') },
+            status !== 'aktif' && { label: `Status: ${status === 'selesai' ? 'Selesai' : 'Semua'}`, clear: () => setStatus('aktif') },
+            dlFilter && { label: `Deadline: ${dlFilterLabel(dlFilter)}`, clear: () => setDlFilter(null) },
+            prFilter && { label: `Prioritas: ${prFilter}`, clear: () => setPrFilter('') },
+            branchFilter !== 'Semua' && { label: `Cabang: ${branchFilter}`, clear: () => setBranchFilter('Semua') },
+            bpFilter.print && { label: `Print: ${bpFilter.print}`, clear: () => setBpFilter((f) => ({ ...f, print: '' })) },
+          ].filter(Boolean)
+  const resetFilter = () => { setTab('all'); setCepat(''); setQ(''); setStatus('aktif'); setSort('deadline'); setDlFilter(null); setPrFilter(''); setBpFilter({ branch: '', print: '' }) }
+  const bisaSaringTop = !worker // baris chip tampil → filter aktif ikut di baris chip
 
   return (
     <div className="space-y-3">
@@ -176,7 +215,7 @@ export default function Projects({ tabAwal }) {
           </div>
         )
         const menuTampilan = (
-          <TampilanMenu pref={pref} setPref={setPref} zoom={zoom} setZoom={setZoom} density={density} setDensity={setDensity} setFull={setFull} view={view}
+          <TampilanMenu setView={setView} pref={pref} setPref={setPref} zoom={zoom} setZoom={setZoom} density={density} setDensity={setDensity} setFull={setFull} view={view}
             kolom={{ COLUMNS: COLUMNS.filter((c) => !(worker ? SEMBUNYI_LIST : []).includes(c.key)), colsAktif, saveCols, semua: ALL_COLS.filter((k) => !(worker ? SEMBUNYI_LIST : []).includes(k)) }}
             kolomTabel={TABLE_COLS.filter((c) => !(worker ? SEMBUNYI_TABEL : []).includes(c.key))}
             current={{ name: namaView, tab, q, status, sort, cepat, dlFilter, prFilter, bpFilter, cols: colsAktif, view }} apply={terapkanView} />
@@ -210,79 +249,99 @@ export default function Projects({ tabAwal }) {
         )
         const ringkasSaringan = [status === 'aktif' ? 'Aktif' : status === 'selesai' ? 'Selesai' : 'Semua status', tab !== 'all' ? (tabs.find((t) => t.value === tab)?.label || tab) : null, cepat === 'hambatan' ? 'Hambatan' : cepat === 'pilih' ? 'Perlu pilih penerjemah' : cepat === 'saya' ? 'Saya' : null, dlFilter ? `Deadline ${dlFilterLabel(dlFilter)}` : null, `urut ${sort === 'baru' ? 'terbaru' : 'deadline'}`].filter(Boolean).join(' › ')
 
-        // --- toolbar disembunyikan: satu baris tipis ---
-        if (!pref.toolbar && adaToolbar) {
-          return (
-            <div className="flex items-center gap-2 rounded-xl bg-white px-3 py-1.5 ring-1 ring-slate-200" data-toolbar-tipis>
-              <button type="button" onClick={() => setPref({ ...pref, toolbar: true })} className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-xs text-ink-soft hover:text-brand" title="Tampilkan toolbar">
-                <b className="shrink-0 text-ink">Project</b><span className="shrink-0 whitespace-nowrap text-ink-mute">· {list.length}{status === 'aktif' ? ' aktif' : ''}</span>
-                <span className="hidden min-w-0 truncate sm:inline">· {ringkasSaringan}</span>
-                <span className="ml-1 shrink-0 whitespace-nowrap font-bold text-brand">toolbar ▾</span>
-              </button>
-              {saklarView}{menuTampilan}
-            </div>
-          )
-        }
-
-        const pil = (on) => (on ? 'bg-[#141B34] text-white border-[#141B34]' : 'bg-white text-[#5E6380] border-[#E7E8F0] hover:border-[#B9BDD0] hover:text-[#141B34]')
-        const seg = (on) => cx('min-h-[38px] rounded-[10px] px-3 text-[13px] font-semibold transition', on ? 'bg-[#141B34] text-white' : 'text-[#5E6380] hover:text-[#141B34]')
-        const chip = (on, extra) => cx('inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] border px-3 text-[13px] font-semibold transition', extra || pil(on))
-        const n = (v, on) => <span className={cx('text-xs font-bold tabular-nums', on ? 'opacity-80' : 'opacity-75')}>{v}</span>
+        // Toolbar diciutkan = baris chip disembunyikan; baris 1 & tombol ciut/buka TIDAK berpindah tempat
+        // ---- Toolbar ringkas (pola bersama): baris 1 = cari · Filter · Urutan · Tampilan … + Project; baris 2 = judul · Jenis ▾ · pintasan ----
+        const KONTROL = 'inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[10px] border border-[#D9DBE7] bg-white px-3 text-[13px] font-semibold text-[#141B34] transition hover:border-[#B9BDD0] md:h-9 dark:border-white/15 dark:bg-white/5 dark:text-slate-100'
+        const pintas = (on, warn) => cx('inline-flex h-11 shrink-0 items-center gap-1 whitespace-nowrap rounded-[8px] border px-2.5 text-[12.5px] font-semibold transition md:h-8',
+          on ? 'border-[#141B34] bg-[#141B34] text-white' : warn ? 'border-[#FFEDE3] bg-[#FFEDE3] text-[#B43D0E] hover:border-[#F2C4AE]' : 'border-[#E7E8F0] bg-white text-[#3F4566] hover:border-[#B9BDD0] hover:text-[#141B34] dark:border-white/10 dark:bg-white/5 dark:text-slate-200')
+        const n = (v, on) => <span className={cx('text-xs font-bold tabular-nums', on ? 'opacity-80' : 'opacity-70')}>{v}</span>
+        const namaJenis = (t) => t.label.replace('Terjemahan Non Tersumpah', 'Non Tersumpah').replace('Terjemahan Tersumpah', 'Tersumpah').replace('Pengajuan Vendor', 'Vendor').replace('Apostille/Legalisasi', 'Apostille')
+        const jenisAktif = tabs.find((t) => t.value === tab) || tabs[0]
+        const nPilih = scoped.filter((p) => !isDone(p) && (p.sub_projects || []).some((x) => x.stage === 'pilih_penerjemah')).length
+        // Pintasan kondisi kerja (maks. 4). Angka = jumlah project AKTIF (sebelum filter lain) — sama dengan angka di menu Jenis.
+        const pintasan = [
+          { key: 'hari-ini', label: 'Hari ini', nilai: nHariIni, on: dlFilter?.kind === 'today', klik: () => setDlFilter(dlFilter?.kind === 'today' ? null : { kind: 'today', from: dayKey(), to: dayKey() }) },
+          { key: 'hambatan', label: 'Hambatan', nilai: nHambatan, warn: true, on: cepat === 'hambatan', klik: () => setCepat(cepat === 'hambatan' ? '' : 'hambatan') },
+          ['direktur', 'supervisor', 'superadmin'].includes(user.role) && { key: 'pilih', label: 'Pilih penerjemah', nilai: nPilih, on: cepat === 'pilih', klik: () => setCepat(cepat === 'pilih' ? '' : 'pilih') },
+          !can.seeAllBranches(user) && { key: 'saya', label: 'Project saya', nilai: nSaya, on: cepat === 'saya', klik: () => setCepat(cepat === 'saya' ? '' : 'saya') },
+        ].filter(Boolean).slice(0, 4)
+        // Chip filter yang TIDAK sudah terlihat di Jenis ▾ / pintasan / Urutan (tidak diulang)
+        const chipLain = filterAktif.filter((c) => !/^(Jenis:|Hanya hambatan|Perlu pilih|Hanya project saya|Urut:|Deadline: Hari ini|Cari:)/.test(c.label))
+        const urutan = (
+          <Popover label="Urutkan" width="w-[220px]" button={({ open: o, toggle }) => (
+            <button type="button" onClick={toggle} aria-expanded={o} aria-haspopup="menu" aria-label={`Urutkan: ${sort === 'baru' ? 'Terbaru' : 'Deadline terdekat'}`} data-urut className={cx(KONTROL, o && 'border-brand text-brand')}>
+              <ArrowUpDown className="h-4 w-4 text-[#5E6380]" aria-hidden="true" /><span className="hidden sm:inline">{sort === 'baru' ? 'Terbaru' : 'Deadline ↑'}</span><ChevronDown className="h-3.5 w-3.5 opacity-60" aria-hidden="true" />
+            </button>
+          )}>
+            {({ close }) => (
+              <div role="menu" aria-label="Urutkan" className="space-y-0.5">
+                {[['deadline', 'Deadline terdekat ↑', 'Hari ini dulu, yang terlambat di akhir'], ['baru', 'Terbaru', 'Project yang paling baru dibuat dulu']].map(([k, l, ket]) => (
+                  <button key={k} type="button" role="menuitemradio" aria-checked={sort === k} data-urut-pilihan={k} onClick={() => { setSort(k); close() }}
+                    className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left hover:bg-slate-50">
+                    <Check className={cx('mt-0.5 h-4 w-4 shrink-0', sort === k ? 'text-brand' : 'opacity-0')} aria-hidden="true" />
+                    <span><b className="block text-[13px] text-ink">{l}</b><span className="text-[11px] text-ink-mute">{ket}</span></span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Popover>
+        )
+        const menuJenis = (
+          <Popover label="Jenis layanan" align="left" width="w-[260px]" button={({ open: o, toggle }) => (
+            <button type="button" onClick={toggle} aria-expanded={o} aria-haspopup="menu" aria-label={`Jenis layanan: ${namaJenis(jenisAktif)}`} data-menu-jenis
+              className={cx('inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[8px] border px-2.5 text-[12.5px] font-semibold transition md:h-8', tab !== 'all' ? 'border-[#141B34] bg-[#141B34] text-white' : 'border-[#D9DBE7] bg-white text-[#141B34] hover:border-[#B9BDD0] dark:border-white/15 dark:bg-white/5 dark:text-slate-100')}>
+              <span className={cx('font-medium', tab !== 'all' ? 'text-white/70' : 'text-[#5E6380]')}>Jenis:</span>{namaJenis(jenisAktif)}{n(jenisAktif.count, tab !== 'all')}<ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
+            </button>
+          )}>
+            {({ close }) => (
+              <div role="menu" aria-label="Jenis layanan" className="space-y-0.5" data-chip-project>
+                {tabs.map((t) => (
+                  <button key={t.value} type="button" role="menuitemradio" aria-checked={tab === t.value} data-chip={t.value} onClick={() => { setTab(t.value); close() }}
+                    className={cx('flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] hover:bg-slate-50', tab === t.value ? 'font-bold text-ink' : 'font-semibold text-ink-soft')}>
+                    <Check className={cx('h-4 w-4 shrink-0', tab === t.value ? 'text-brand' : 'opacity-0')} aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate">{namaJenis(t)}</span><span className="text-xs font-bold tabular-nums text-ink-mute">{t.count}</span>
+                  </button>
+                ))}
+                <p className="border-t border-slate-100 px-2.5 pt-2 text-[10.5px] text-ink-mute">Angka = jumlah project {status === 'aktif' ? 'aktif' : status === 'selesai' ? 'selesai' : ''} per jenis, sebelum filter lain.</p>
+              </div>
+            )}
+          </Popover>
+        )
         return (
           <>
-            {/* Baris alat (CANVAS ATLAS): cari · Filter · jumlah · urut · tampilan · atur · Project baru · sembunyikan */}
-            <div className="flex flex-wrap items-center gap-2.5" data-alat>
+            {/* Baris 1 (di baris atas halaman): cari · Filter · Urutan · Tampilan · ciutkan … + Project */}
+            <div className="flex flex-wrap items-center gap-2 empty:hidden" data-alat>
               {worker && <h1 className="mr-1 text-xl font-extrabold tracking-tight">Project</h1>}
               {worker && <p className="text-sm text-[#5E6380]">Dokumen yang ditugaskan kepada Anda</p>}
-              {bisaSaring && (
-                <div className="relative flex min-h-11 min-w-0 max-w-[320px] flex-[1_1_180px] items-center gap-2 rounded-xl border border-[#D9DBE7] bg-white px-3">
+              {bisaSaring && <KeAtas slot="cari">
+                <div className="relative flex h-11 w-full min-w-0 items-center gap-2 rounded-[10px] border border-[#D9DBE7] bg-white px-3 md:h-9 dark:border-white/15 dark:bg-white/5">
                   <Search className="h-[18px] w-[18px] shrink-0 text-[#5E6380]" aria-hidden="true" />
-                  <input type="search" aria-label="Cari project" placeholder="Cari invoice, pelanggan" value={q} onChange={(e) => setQ(e.target.value)} className="h-10 min-w-0 flex-1 border-0 bg-transparent p-0 text-sm text-[#141B34] outline-none placeholder:text-[#8A8FA8] focus:ring-0" />
+                  <input type="search" aria-label="Cari project" placeholder="Cari invoice atau pelanggan…" value={q} onChange={(e) => setQ(e.target.value)} className="h-full min-w-0 flex-1 border-0 !bg-transparent p-0 text-sm text-[#141B34] !shadow-none outline-none !ring-0 placeholder:text-[#8A8FA8] focus:ring-0 dark:text-slate-100" />
                 </div>
-              )}
-              {bisaSaring && filterBtn}
-              {!worker && <span className="mr-1.5 hidden text-sm font-semibold text-[#5E6380] 2xl:inline" data-jumlah>{list.length} project</span>}
-              <span className="min-w-0 flex-1" />
-              {bisaSaring && (
-                <div className="hidden rounded-xl border border-[#E7E8F0] bg-white p-[3px] sm:flex" role="group" aria-label="Urutkan" data-urut>
-                  {[['deadline', 'Deadline'], ['baru', 'Terbaru']].map(([k, l]) => <button key={k} type="button" onClick={() => setSort(k)} aria-pressed={sort === k} data-urut-pilihan={k} className={seg(sort === k)}>{l}</button>)}
-                </div>
-              )}
-              {adaToolbar && (
-                <div className="flex rounded-xl border border-[#E7E8F0] bg-white p-[3px]" role="group" aria-label="Tampilan daftar" data-saklar-view>
-                  {[['list', 'Kartu'], ['tabel', 'Tabel']].map(([k, l]) => <button key={k} type="button" onClick={() => setView(k)} aria-pressed={view === k} className={seg(view === k)}>{l}</button>)}
-                </div>
-              )}
-              {adaToolbar && menuTampilan}
-              {!worker && <button type="button" onClick={() => go('projects/new')} data-aksi="project-baru"
-                className="hidden min-h-11 items-center gap-2 rounded-xl bg-[#141B34] px-4 text-sm font-semibold text-white hover:opacity-90 sm:inline-flex">Project baru<Plus className="h-[18px] w-[18px]" aria-hidden="true" /></button>}
-              {adaToolbar && <button type="button" onClick={() => setPref({ ...pref, toolbar: false })} aria-label="Sembunyikan toolbar" title="Sembunyikan toolbar"
-                className="hidden h-11 w-11 place-items-center rounded-xl border border-[#D9DBE7] bg-white text-[#141B34] hover:bg-[#F3F4F9] sm:grid"><ChevronDown className="h-5 w-5 rotate-180" aria-hidden="true" /></button>}
+              </KeAtas>}
+              <KeAtas slot="sesudah"><div className="flex flex-wrap items-center gap-2" data-alat-atas>
+                {bisaSaring && filterBtn}
+                {bisaSaring && urutan}
+                {adaToolbar && menuTampilan}
+                {adaToolbar && <button type="button" onClick={() => setPref({ ...pref, toolbar: pref.toolbar === false })} aria-expanded={pref.toolbar !== false} aria-label={pref.toolbar === false ? 'Tampilkan baris jenis & pintasan' : 'Ciutkan toolbar'} title={pref.toolbar === false ? 'Tampilkan baris jenis & pintasan' : 'Ciutkan toolbar'} data-aksi="ciut-toolbar"
+                  className={cx(KONTROL, 'hidden w-11 justify-center px-0 sm:inline-flex md:w-9')}><ChevronDown className={cx('h-4 w-4 transition-transform duration-300', pref.toolbar !== false && 'rotate-180')} aria-hidden="true" /></button>}
+              </div></KeAtas>
+              {!worker && can.editProject(user) && <KeAtas slot="tambah"><TombolTambah label="Project" data="project-baru" onClick={() => bukaPanel('project')} /></KeAtas>}
             </div>
             {worker && <KapasitasSaya />}
 
-            {/* Kartu putih: jenis project + saringan cepat */}
-            {bisaSaring && !worker && pref.panel !== false && (
-              <div className="rounded-[20px] bg-white p-3.5 dark:bg-white/5" data-panel-chip>
-                <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible" role="tablist" aria-label="Jenis project" data-chip-project>
-                  {tabs.map((t) => {
-                    const on = tab === t.value && !cepat
-                    return (
-                      <button key={t.value} type="button" role="tab" aria-selected={on} onClick={() => { setTab(t.value); setCepat('') }} data-chip={t.value} className={chip(on)}>
-                        {t.label.replace('Terjemahan Non Tersumpah', 'Non Tersumpah').replace('Terjemahan Tersumpah', 'Tersumpah').replace('Pengajuan Vendor', 'Vendor').replace('Apostille/Legalisasi', 'Apostille')}{n(t.count, on)}
-                      </button>
-                    )
-                  })}
-                  <span className="ml-2.5" aria-hidden="true" />
-                  <button type="button" onClick={() => setDlFilter(dlFilter?.kind === 'today' ? null : { kind: 'today', from: dayKey(), to: dayKey() })} aria-pressed={dlFilter?.kind === 'today'} data-chip="hari-ini" className={chip(dlFilter?.kind === 'today')}>Hari ini{n(nHariIni, dlFilter?.kind === 'today')}</button>
-                  <button type="button" onClick={() => { setCepat(cepat === 'hambatan' ? '' : 'hambatan'); setTab('all') }} aria-pressed={cepat === 'hambatan'} data-chip="hambatan"
-                    className={chip(cepat === 'hambatan', cepat === 'hambatan' ? null : 'border-[#FFEDE3] bg-[#FFEDE3] text-[#B43D0E] hover:border-[#F2C4AE]')}>Hambatan{n(nHambatan, cepat === 'hambatan')}</button>
-                  {['direktur', 'supervisor', 'superadmin'].includes(user.role) && (() => { const nPilih = scoped.filter((p) => !isDone(p) && (p.sub_projects || []).some((x) => x.stage === 'pilih_penerjemah')).length; return (
-                    <button type="button" onClick={() => { setTab('all'); setCepat(cepat === 'pilih' ? '' : 'pilih') }} aria-pressed={cepat === 'pilih'} data-chip="pilih" className={chip(cepat === 'pilih')}>Pilih penerjemah{n(nPilih, cepat === 'pilih')}</button>) })()}
-                  {!can.seeAllBranches(user) && (
-                    <button type="button" onClick={() => { setCepat(cepat === 'saya' ? '' : 'saya'); setTab('all') }} aria-pressed={cepat === 'saya'} data-chip="saya" className={chip(cepat === 'saya')}>Saya{n(nSaya, cepat === 'saya')}</button>
-                  )}
+            {/* Baris 2: judul · jumlah hasil · Jenis ▾ · pintasan kondisi · filter lain yang aktif */}
+            {bisaSaring && !worker && pref.panel !== false && pref.toolbar !== false && (
+              <div className="-mt-1 -mx-4 flex min-w-0 flex-nowrap items-center gap-x-2 gap-y-1.5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&::-webkit-scrollbar]:hidden" data-panel-chip>
+                <h1 className="mr-1 hidden items-baseline gap-1.5 whitespace-nowrap text-[15px] sm:flex font-extrabold tracking-tight text-[#141B34] dark:text-white">Project<span className="text-[13px] font-semibold text-[#5E6380]" data-jumlah>· {list.length} hasil</span></h1>
+                {menuJenis}
+                <span className="mx-0.5 hidden h-5 w-px bg-[#E7E8F0] sm:block" aria-hidden="true" />
+                <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:min-w-0 sm:shrink sm:overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Pintasan kondisi kerja">
+                  {pintasan.map((x) => (
+                    <button key={x.key} type="button" onClick={x.klik} aria-pressed={x.on} data-chip={x.key} className={pintas(x.on, x.warn)}>{x.label}{n(x.nilai, x.on)}</button>
+                  ))}
                 </div>
+                {chipLain.length > 0 && <div className="ml-auto hidden min-w-0 items-center sm:flex" data-filter-aktif><FilterChips chips={chipLain} reset={resetFilter} ringkas /></div>}
               </div>
             )}
           </>
@@ -301,23 +360,13 @@ export default function Projects({ tabAwal }) {
       {worker && !fullView ? null : (
         <>
           {(tab === 'koordinator' || tab === 'mandarin') && <InfoKoordinator tab={tab} list={list} />}
-          <FilterChips chips={[
-            tab !== 'all' && { label: `Jenis: ${tabs.find((t) => t.value === tab)?.label || tab}`, clear: () => setTab('all') },
-            cepat && { label: cepat === 'hambatan' ? 'Hanya hambatan' : cepat === 'pilih' ? 'Perlu pilih penerjemah' : 'Hanya project saya', clear: () => setCepat('') },
-            sort !== 'deadline' && { label: 'Urut: terbaru', clear: () => setSort('deadline') },
-            q.trim() && { label: `Cari: "${q.trim()}"`, clear: () => setQ('') },
-            status !== 'aktif' && { label: `Status: ${status === 'selesai' ? 'Selesai' : 'Semua'}`, clear: () => setStatus('aktif') },
-            dlFilter && { label: `Deadline: ${dlFilterLabel(dlFilter)}`, clear: () => setDlFilter(null) },
-            prFilter && { label: `Prioritas: ${prFilter}`, clear: () => setPrFilter('') },
-            branchFilter !== 'Semua' && { label: `Cabang: ${branchFilter}`, clear: () => setBranchFilter('Semua') },
-            bpFilter.print && { label: `Print: ${bpFilter.print}`, clear: () => setBpFilter((f) => ({ ...f, print: '' })) },
-          ].filter(Boolean)} reset={() => { setTab('all'); setCepat(''); setQ(''); setStatus('aktif'); setSort('deadline'); setDlFilter(null); setPrFilter(''); setBpFilter({ branch: '', print: '' }) }} />
+          {!(bisaSaringTop && pref.panel !== false && pref.toolbar !== false) && <FilterChips chips={filterAktif} reset={resetFilter} />}
 
           <ZoomArea zoom={zoom} full={full} onClose={() => setFull(false)} count={list.length} kelas={kelasPref(pref)}
             tools={full ? <TampilanMenu compact pref={pref} setPref={setPref} zoom={zoom} setZoom={setZoom} density={density} setDensity={setDensity} setFull={setFull} view={view}
               current={{ name: namaView, tab, q, status, sort, cepat, dlFilter, prFilter, bpFilter, cols: colsAktif, view }} apply={terapkanView} /> : null}>
           {list.length === 0 && !(view === 'list' && (dlFilter || bpFilter.branch || bpFilter.print || q || tab !== 'all')) ? (
-            <Card><Empty icon={FolderOpen} title={worker ? 'Belum ada project untuk Anda' : 'Belum ada project'} text={worker ? 'Project akan muncul di sini begitu ada yang ditugaskan kepada Anda.' : 'Buat project baru dari invoice Zoho.'} action={worker ? null : <Button onClick={() => go('projects/new')}><Plus className="h-4 w-4" />Project Baru</Button>} /></Card>
+            <Card><Empty icon={FolderOpen} title={worker ? 'Belum ada project untuk Anda' : 'Belum ada project'} text={worker ? 'Project akan muncul di sini begitu ada yang ditugaskan kepada Anda.' : 'Buat project baru dari invoice Zoho.'} action={worker || !can.editProject(user) ? null : <Button onClick={() => bukaPanel('project')}><Plus className="h-4 w-4" />Project Baru</Button>} /></Card>
           ) : view === 'list' ? <ProjectList status={status} setStatus={setStatus} statusOpsi={[['aktif', `Aktif ${scoped.filter((p) => !isDone(p)).length}`], ['selesai', 'Selesai'], ['semua', 'Semua']].map(([key, label]) => ({ key, label }))} pref={{ ...pref, grup: pref.grup && sort === 'deadline' }} list={rest.slice(0, shownN)} nLate={late.length} dlFilter={dlFilter} setDlFilter={setDlFilter} prFilter={prFilter} setPrFilter={setPrFilter} cols={colsAktif} detailFor={detailFor} setDetailFor={setDetailFor} filesFor={filesFor} setFilesFor={setFilesFor} onLangkah={bukaLangkah} bpFilter={bpFilter} setBpFilter={setBpFilter} options={{ branches: [...new Set(scoped.map((p) => p.branch))].sort(), prints: [...new Set(scoped.map((p) => p.about?.print_location || p.branch))].sort() }} /> : (
             <ProjectSpreadsheet pref={pref} list={list} detailFor={detailFor} state={tableState} setState={setTableState} hideCols={worker ? SEMBUNYI_TABEL : []} tanpaCari renderIsi={worker ? undefined : (p) => <ProjectExpand p={p} onLangkah={bukaLangkah} />}
               kepalaAksi={worker ? 'Aksi' : <span className="inline-flex items-center gap-2">Aksi<select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Status project" data-status-tabel className="h-7 rounded-lg border-0 bg-[#141B34] py-0 pl-2 pr-7 text-xs font-bold text-white focus:ring-2 focus:ring-[#4169E1]">{[['aktif', `Aktif ${scoped.filter((p) => !isDone(p)).length}`], ['selesai', 'Selesai'], ['semua', 'Semua']].map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></span>}
@@ -327,7 +376,7 @@ export default function Projects({ tabAwal }) {
               renderAksi={(p) => { const ctx = { users: data.users, people: data.people, user, worker }; const langkah = langkahBerikutnya(p, user, ctx); return (
                 <span className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                   {!worker && <TombolLangkah p={p} langkah={langkah} onBuka={bukaLangkah} />}
-                  <button type="button" onClick={() => { setFilesFor(null); setDetailFor(p) }} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} title="Lihat detail project (panel samping)" data-aksi="detail" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand"><Eye className="h-4 w-4" /></button>
+                  <button type="button" onClick={() => { setFilesFor(null); setDetailFor(p) }} aria-label={`Lihat detail project ${invoiceLabel(p.invoice_no)}`} title="Lihat detail project (panel samping)" data-aksi="detail" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand"><Eye className="h-4 w-4" /></button>
                   <button type="button" onClick={() => setFilesFor(p)} aria-label={`File ${invoiceLabel(p.invoice_no)}`} title="Folder file project" data-aksi="file" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-ink-mute ring-1 ring-slate-200 hover:text-brand"><FolderOpen className="h-4 w-4" /></button>
                 </span>) }} />
           )}
@@ -339,7 +388,7 @@ export default function Projects({ tabAwal }) {
       {filesFor && (
         <Sheet open side onClose={() => setFilesFor(null)} title="File Project" subtitle={`${invoiceLabel(filesFor.invoice_no)} · ${filesFor.customer?.name || ''}`}
           footer={<><Button variant="outline" className="flex-1 sm:flex-none sm:px-6" onClick={() => setFilesFor(null)}>Tutup</Button><span className="flex-1" />
-            <Button variant="outline" size="sm" onClick={() => { setDetailFor(filesFor); setFilesFor(null) }}><Eye className="h-3.5 w-3.5" />Detail project</Button></>}>
+            </>}>
           <FileManager project={projectOf(filesFor.id) || filesFor} />
         </Sheet>
       )}
@@ -419,7 +468,7 @@ function ProjectCard({ p, onOpen, active }) {
   const done = isDone(p)
   return (
     <div className="relative">
-    <button type="button" onClick={onOpen} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} className="block w-full text-left">
+    <button type="button" onClick={onOpen} aria-label={`Lihat detail project ${invoiceLabel(p.invoice_no)}`} className="block w-full text-left">
       <Card className={cx('h-full p-4 pb-0 transition hover:-translate-y-0.5 hover:shadow-md', active && 'ring-2 ring-brand')}>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -448,11 +497,15 @@ function ProjectCard({ p, onOpen, active }) {
 /** Tombol langkah berikutnya — label & tujuan dari lib/langkah.js. */
 function TombolLangkah({ p, langkah, hp, onBuka, canvas }) {
   const nada = { kerja: 'bg-ink text-white ring-ink hover:bg-brand hover:ring-brand', ping: 'bg-amber-50 text-amber-800 ring-amber-200 hover:bg-amber-100', acc: 'bg-violet-50 text-violet-700 ring-violet-200 hover:bg-violet-100', transfer: 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100', buka: 'bg-white text-ink-soft ring-slate-200 hover:text-brand hover:ring-brand' }
-  const tuju = () => {
-    if (langkah.jenis === 'acc' || langkah.jenis === 'transfer') return go('keuangan')
-    if (onBuka) return onBuka(p, langkah.sub?.id, true) // slide dari samping — tanpa pindah halaman
-    go(`projects/${p.id}${langkah.sub ? `/${langkah.sub.id}` : ''}`)
+  // Ping: penerima + pesan dipilih di jendela kecil, dikirim dari sini (tanpa pindah halaman)
+  if (langkah.jenis === 'ping' && langkah.sub) {
+    const st = stagesOf(flowOf(langkah.sub, p)).find((x) => x.key === langkah.sub.stage)
+    return <span onClick={(e) => e.stopPropagation()} className="shrink-0"><PingButton project={p} sub={langkah.sub} stage={st} label="Ping" className={canvas ? '!h-7 !min-h-0 !rounded-lg !border-0 !bg-[#DFF1FB] !px-2 !text-xs !font-bold !text-[#0B5C8A]' : '!h-8'} /></span>
   }
+  // Tidak ada yang bisa saya kerjakan → jelaskan siapa yang ditunggu (bukan tombol)
+  if (langkah.jenis === 'buka') return <span className="min-w-0 truncate text-xs text-[#5E6380]" title={`${langkah.tahap} · menunggu ${langkah.pic || 'tim'}`}>Menunggu {langkah.pic || 'tim'}</span>
+  // Kerja / ACC / Transfer → dikerjakan di halaman Project (panel kerja / layar kerja), tidak membuka Detail
+  const tuju = (e) => { e?.stopPropagation(); onBuka?.(p, langkah.sub?.id, true) }
   return (
     <button type="button" onClick={tuju} data-aksi="langkah" data-jenis={langkah.jenis} title={`${langkah.tahap}${langkah.berikut ? ` → ${langkah.berikut}` : ''}`}
       className={canvas ? 'h-7 min-w-0 truncate whitespace-nowrap rounded-lg bg-[#DFF1FB] px-2 text-xs font-bold text-[#0B5C8A] transition hover:bg-[#cbe7f7]'
@@ -471,7 +524,7 @@ function AksiLainnya({ p, hp, open, toggle, detailAktif, onDetail, onFiles, file
       aktif ? 'bg-brand-soft text-brand ring-brand/30' : 'bg-white text-ink-mute ring-slate-200 hover:text-brand')
   return (
     <span className="flex shrink-0 items-center gap-1" data-aksi="ikon-baris">
-      <button type="button" onClick={onDetail} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} title="Lihat detail project (panel samping)" className={btn(detailAktif)} data-aksi="detail"><Eye className="h-4 w-4" /></button>
+      <button type="button" onClick={onDetail} aria-label={`Lihat detail project ${invoiceLabel(p.invoice_no)}`} title="Lihat detail project (panel samping)" className={btn(detailAktif)} data-aksi="detail"><Eye className="h-4 w-4" /></button>
       <button type="button" onClick={onFiles} aria-label={`File ${invoiceLabel(p.invoice_no)}`} title={`Folder file project${fileCount ? ` (${fileCount})` : ''}`} className={cx(btn(false), 'relative')} data-aksi="file"><FolderOpen className="h-4 w-4" />{fileCount > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-brand px-1 text-[9px] font-bold leading-[14px] text-white">{fileCount}</span>}</button>
       <button type="button" onClick={toggle} aria-expanded={open} aria-label={`Rincian ${invoiceLabel(p.invoice_no)}`} title="Buka/tutup rincian sub project" className={btn(open)} data-aksi="rincian"><ChevronDown className={cx('h-4 w-4 transition', open && 'rotate-180')} /></button>
     </span>
@@ -489,17 +542,17 @@ function currentStage(p) {
 
 
 /** Chip filter aktif — satu baris ringkas dengan tombol hapus & reset. */
-function FilterChips({ chips, reset }) {
+function FilterChips({ chips, reset, ringkas }) {
   if (!chips.length) return null
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className={cx('flex items-center gap-1.5', ringkas ? 'flex-nowrap' : 'flex-wrap')}>
       {chips.map((c, i) => (
-        <span key={i} className="inline-flex items-center gap-1 rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-semibold text-brand ring-1 ring-brand/20">
+        <span key={i} className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-semibold text-brand ring-1 ring-brand/20">
           {c.label}
           <button type="button" onClick={c.clear} aria-label={`Hapus filter ${c.label}`} className="rounded-full p-0.5 hover:bg-brand/15"><X className="h-3 w-3" /></button>
         </span>
       ))}
-      <button type="button" onClick={reset} className="text-[11px] font-semibold text-ink-mute hover:text-rose-600 hover:underline">Reset semua</button>
+      <button type="button" onClick={reset} className="shrink-0 whitespace-nowrap px-1 text-[11px] font-semibold text-ink-mute hover:text-rose-600 hover:underline">{ringkas ? 'Reset' : 'Reset semua'}</button>
     </div>
   )
 }
@@ -621,7 +674,7 @@ function ProjectTable({ list, cols, detailFor, onDetail, onFiles }) {
               <td data-label="Aksi" className="px-3 py-2.5">
                 <span className="flex items-center gap-1.5">
                   <button type="button" onClick={() => onDetail(p)} title="Detail project (panel kanan)"
-                    aria-label={`Detail ${invoiceLabel(p.invoice_no)}`}
+                    aria-label={`Lihat detail project ${invoiceLabel(p.invoice_no)}`}
                     className={cx('grid h-11 w-11 place-items-center rounded-lg ring-1 transition md:h-7 md:w-7',
                       detailFor?.id === p.id ? 'bg-brand text-white ring-brand' : 'bg-white text-brand ring-brand/30 hover:bg-brand hover:text-white')}>
                     <Eye className="h-4 w-4" />
@@ -700,8 +753,11 @@ export const COLUMNS = [
   // Tata letak CANVAS ATLAS (12 Nov 2026): kartu per baris, maks 2 baris per sel (utama + pendukung).
   { key: 'invoice', label: 'Invoice', w: 'minmax(152px,136fr)', cls: 'flex min-w-0 flex-col gap-[3px]',
     cell: (p) => <>
-      <a href={`#/projects/${p.id}`} onClick={(e) => e.stopPropagation()} data-inv={dibuatBaru(p) ? 'baru' : 'lama'}
-        className={cx('max-w-full self-start truncate rounded-md text-base font-bold leading-[26px] tabular-nums text-[#141B34] hover:underline', dibuatBaru(p) && '-ml-1.5 bg-[#E2F5E8] px-1.5')}>{invoiceLabel(p.invoice_no)}</a>
+      <span className="flex min-w-0 max-w-full items-center gap-0.5 self-start">
+        <span data-inv={dibuatBaru(p) ? 'baru' : 'lama'} title={invoiceLabel(p.invoice_no)}
+          className={cx('min-w-0 truncate rounded-md text-base font-bold leading-[26px] tabular-nums text-[#141B34]', dibuatBaru(p) && '-ml-1.5 bg-[#E2F5E8] px-1.5')}>{invoiceLabel(p.invoice_no)}</span>
+        <SalinInvoice no={invoiceLabel(p.invoice_no)} />
+      </span>
       <WaktuDibuat p={p} />
     </> },
   { key: 'pelanggan', label: 'Pelanggan', w: 'minmax(0,142fr)', cls: 'flex min-w-0 flex-col gap-[3px]',
@@ -717,8 +773,8 @@ export const COLUMNS = [
     cell: (p) => <CabangPrint p={p} /> },
   { key: 'eksekutor', label: 'Eksekutor', w: 'minmax(0,112fr)', cls: 'flex min-w-0 flex-col gap-[3px]',
     cell: (p, { ctx }) => { const e = eksekutorOf(p, ctx); return <>
-      <span className="truncate text-sm font-semibold leading-[26px]" title={e.lay}>{e.lay}</span>
-      <span className="truncate text-xs text-[#5E6380]" title={e.eks}>{e.eks}</span>
+      <span className={cx('truncate text-sm leading-[26px]', e.eks === '—' ? 'text-[#8A8FA8]' : 'font-semibold')} title={e.eks}>{e.eks === '—' ? 'Belum ada' : e.eks}</span>
+      <span className="truncate text-xs text-[#5E6380]" title={e.lay}>{e.lay}</span>
     </> } },
   { key: 'tahap', label: 'Tahap', w: 'minmax(0,138fr)', cls: 'flex min-w-0 flex-col gap-[3px]',
     cell: (p, { prog, langkah }) => <>
@@ -782,11 +838,11 @@ function ProjectList({ status = 'aktif', setStatus = () => {}, statusOpsi = [], 
                 </div>
                 {/* HP: kartu 4 baris — (1) invoice · prioritas · tenggat, (2) pelanggan, (3) arah bahasa · dok · hlm · cabang, (4) tahap ▸ berikutnya + progres, lalu tombol */}
                 <div className="flex flex-col gap-2.5 py-3.5 xl:hidden" data-kartu-hp>
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className={cx('min-w-0 truncate text-[15px] font-bold tabular-nums', dibuatBaru(p) && '-ml-1.5 rounded-md bg-[#E2F5E8] px-1.5')}>{invoiceLabel(p.invoice_no)}</span>
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
+                    <span className="flex shrink-0 items-center gap-0.5"><span className={cx('whitespace-nowrap text-[15px] font-bold tabular-nums', dibuatBaru(p) && '-ml-1.5 rounded-md bg-[#E2F5E8] px-1.5')}>{invoiceLabel(p.invoice_no)}</span><SalinInvoice no={invoiceLabel(p.invoice_no)} /></span>
                     <PrioPill p={p.about?.priority || 'Normal'} />
                     <span className="flex-1" />
-                    {(() => { const d = infoDeadline(p); return d ? <span className="inline-flex min-h-6 shrink-0 items-center whitespace-nowrap rounded-full px-2.5 text-xs font-bold" style={{ background: d.bg, color: d.fg }}>{d.sisa === 'Hari ini' ? 'Hari Ini' : d.sisa === 'Besok' ? 'Besok' : d.tgl.replace(/ \d\d\.\d\d$/, '')}</span> : null })()}
+                    {(() => { const d = infoDeadline(p); return d ? <span className="inline-flex min-h-6 shrink-0 items-center whitespace-nowrap rounded-full px-2.5 text-xs font-bold" style={{ background: d.bg, color: d.fg }}>{d.sisa === 'Hari ini' ? 'Hari Ini' : d.sisa === 'Besok' ? 'Besok' : d.lewat ? d.sisa : d.tgl.replace(/ \d\d\.\d\d$/, '')}</span> : null })()}
                   </div>
                   <span className="flex min-w-0 items-center gap-1.5 text-[15px] font-semibold"><span className="min-w-0 truncate">{p.customer?.name}</span><NoteIcon note={p.about?.notes} /></span>
                   <span className="min-w-0 truncate text-[13px] text-[#5E6380]">{[!ctx.worker && p.branch, !ctx.worker && `Print ${p.about?.print_location || p.branch}`, (p.sub_projects || [])[0] ? (() => { const sb = p.sub_projects[0]; const t = sb.type || 'jasa_lain'; const v = sb.translator_kind === 'vendor' || sb.executor_kind === 'vendor' || !!sb.data?.vendor; return t === 'terjemahan' ? (v ? 'VEN-TR' : 'TIM-TR') : t === 'terjemahan_nt' ? 'Non Tersumpah' : ['apostille', 'legalisasi'].includes(t) ? (v ? 'VEN-AL' : 'TIM-AL') : 'Jasa Lain' })() : null, eksekutorOf(p, ctx).lay].filter(Boolean).join(' · ')}</span>
@@ -797,7 +853,7 @@ function ProjectList({ status = 'aktif', setStatus = () => {}, statusOpsi = [], 
                     {!ctx.worker && !open.has(p.id) && langkah.jenis !== 'buka' && <span className="shrink-0">{langkah.jenis === 'kerja' && langkah.sub
                       ? <AksiBaris kecil project={p} sub={langkah.sub} onPanel={() => bukaKerja(p, langkah.sub.id)} onTugas={() => onLangkah(p, langkah.sub.id, true)} />
                       : <TombolLangkah p={p} langkah={langkah} onBuka={onLangkah} canvas />}</span>}
-                    <button type="button" onClick={() => { setFilesFor(null); setDetailFor(p) }} aria-label={`Detail ${invoiceLabel(p.invoice_no)}`} data-aksi="detail" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] text-[#141B34] hover:bg-[#F3F4F9]"><Eye className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => { setFilesFor(null); setDetailFor(p) }} aria-label={`Lihat detail project ${invoiceLabel(p.invoice_no)}`} data-aksi="detail" className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] text-[#141B34] hover:bg-[#F3F4F9]"><Eye className="h-4 w-4" /></button>
                     <button type="button" onClick={() => setFilesFor(p)} aria-label={`File ${invoiceLabel(p.invoice_no)}`} className="grid h-11 w-11 shrink-0 place-items-center rounded-[10px] text-[#141B34] hover:bg-[#F3F4F9]"><FolderOpen className="h-4 w-4" /></button>
                   </div>
                 </div>
@@ -843,7 +899,7 @@ function ProjectList({ status = 'aktif', setStatus = () => {}, statusOpsi = [], 
           </span>
         </div>
       </div>
-      {dlFilter && <div className="flex items-center gap-2 border-b border-slate-100 bg-brand-soft/40 px-4 py-1.5 text-xs lg:hidden"><span className="font-semibold text-brand">Deadline: {dlFilterLabel(dlFilter)}</span><button type="button" onClick={() => setDlFilter(null)} className="ml-auto font-semibold text-ink-mute hover:text-rose-600">Hapus</button></div>}
+      {dlFilter && dlFilter.kind !== 'today' && <div className="flex items-center gap-2 border-b border-slate-100 bg-brand-soft/40 px-4 py-1.5 text-xs lg:hidden"><span className="font-semibold text-brand">Deadline: {dlFilterLabel(dlFilter)}</span><button type="button" onClick={() => setDlFilter(null)} className="ml-auto font-semibold text-ink-mute hover:text-rose-600">Hapus</button></div>}
       <Sheet open={dlOpen} onClose={() => setDlOpen(false)} title="Filter deadline"
         footer={<><Button variant="outline" className="flex-1" onClick={() => pick(null)}>Tampilkan semua</Button><Button className="flex-[2]" onClick={() => pick({ kind: 'range', from: range.from <= range.to ? range.from : range.to, to: range.from <= range.to ? range.to : range.from })}>Terapkan rentang</Button></>}>
         <div className="space-y-3">

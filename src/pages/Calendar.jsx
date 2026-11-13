@@ -106,7 +106,7 @@ export default function Calendar({ embedded, onPick }) {
   return (
     <div className="space-y-3">
       {!embedded && <div>
-        <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight"><CalendarDays className="h-5 w-5 text-ink-mute" />Linimasa</h1>
+        <h1 className="text-[17px] font-extrabold leading-tight tracking-tight flex items-center gap-2"><CalendarDays className="h-5 w-5 text-ink-mute" />Linimasa</h1>
         <p className="text-sm text-ink-soft">Deadline project, to-do, dan pengingat dalam satu tampilan — sumbernya data yang sama.</p>
       </div>}
 

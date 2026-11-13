@@ -1,5 +1,6 @@
 import PindahBooks from './PindahBooks.jsx'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { UserRound, MessageSquareDot, BellOff, SlidersHorizontal, Palette, HelpCircle, LogOut, Check, ChevronRight, Sun, Moon } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { roleLabel, placeOf, isMultiBranch, branchesOf, isFreelance } from '../config/access.js'
@@ -12,13 +13,15 @@ const STATUS_PRESETS = ['Sedang fokus', 'Sedang meeting', 'Di luar kantor', 'Sia
 const MUTES = [['30', '30 menit'], ['60', '1 jam'], ['240', '4 jam'], ['today', 'Sampai besok pagi'], ['off', 'Nyalakan lagi']]
 
 /** Menu profil di pojok kanan atas: status, senyap, preferensi, tema, bantuan, keluar. */
-export default function HeaderUser() {
+export default function HeaderUser({ atas, rel, lebar } = {}) {
   const { user, data, updateProfile, signOut, notify } = useApp()
   const [open, setOpen] = useState(false)
   const [sub, setSub] = useState('') // '', 'status', 'mute', 'theme'
   const [draft, setDraft] = useState('')
   const box = useRef(null)
   const btn = useRef(null)
+  const menuRef = useRef(null)
+  const [pos, setPos] = useState(null)
 
   const row = data.users.find((u) => u.id === user.id) || user
   const st = STATUS[statusOf(row)] || STATUS.offline
@@ -26,11 +29,11 @@ export default function HeaderUser() {
 
   useEffect(() => {
     if (!open) return
-    const away = (e) => { if (box.current && !box.current.contains(e.target)) { setOpen(false); setSub('') } }
+    const away = (e) => { if (box.current && !box.current.contains(e.target) && !(menuRef.current && menuRef.current.contains(e.target))) { setOpen(false); setSub('') } }
     const key = (e) => {
       if (e.key === 'Escape') { if (sub) setSub(''); else { setOpen(false); btn.current?.focus() } }
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-        const items = [...(box.current?.querySelectorAll('[data-menu-item]:not(:disabled)') || [])]
+        const items = [...((menuRef.current || box.current)?.querySelectorAll('[data-menu-item]:not(:disabled)') || [])]
         if (!items.length) return
         e.preventDefault()
         const i = items.indexOf(document.activeElement)
@@ -69,21 +72,26 @@ export default function HeaderUser() {
 
   return (
     <div className="relative" ref={box}>
-      <button ref={btn} type="button" onClick={() => { setOpen((v) => !v); setSub('') }} aria-expanded={open} aria-haspopup="menu"
+      <button ref={btn} type="button" onClick={() => {
+          // Di menu samping: menu profil dibuka di lapisan teratas (tidak tertutup / bocor isi sidebar)
+          if (atas && btn.current) { const r = btn.current.getBoundingClientRect(); setPos(rel ? { left: r.right + 10, bottom: Math.max(8, window.innerHeight - r.bottom) } : { left: r.left, bottom: window.innerHeight - r.top + 6, width: 272 }) }
+          setOpen((v) => !v); setSub('')
+        }} aria-expanded={open} aria-haspopup="menu"
         aria-label={`Profil ${user.display_name || user.name}`} title={user.display_name || user.name}
-        className={cx('flex h-11 min-w-11 items-center gap-2 rounded-xl p-1 pr-2 ring-1 transition', open ? 'bg-ink/5 ring-ink/20' : 'ring-transparent hover:bg-white hover:ring-slate-200')}>
+        className={cx('flex h-11 min-w-11 items-center gap-2 rounded-xl p-1 ring-1 transition', lebar ? 'w-full pr-2' : rel ? '' : 'pr-2', open ? 'bg-ink/5 ring-ink/20' : 'ring-transparent hover:bg-white hover:ring-slate-200 dark:hover:bg-white/10')} data-tombol-profil>
         <span className="relative">
           <Avatar user={row} size={30} ring={false} className="ring-1 ring-slate-200" />
           <span className={cx('absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white', st.dot)} />
         </span>
-        <span className="hidden min-w-0 text-left lg:block">
-          <span className="block max-w-[120px] truncate text-[12px] font-bold leading-tight text-ink">{(user.display_name || user.name).replace(/\s*\([^)]*\)/g, '')}</span>
-          <span className="block max-w-[120px] truncate text-[10px] leading-tight text-ink-mute">{roleLabel(user)}</span>
+        <span className={cx('min-w-0 text-left', rel ? 'hidden' : lebar ? 'block flex-1' : 'hidden lg:block')}>
+          <span className="block max-w-[150px] truncate text-[12px] font-bold leading-tight text-ink">{(user.display_name || user.name).replace(/\s*\([^)]*\)/g, '')}</span>
+          <span className="block max-w-[150px] truncate text-[10px] leading-tight text-ink-mute">{roleLabel(user)}</span>
         </span>
       </button>
 
-      {open && (
-        <div role="menu" aria-label="Menu profil" className="absolute right-0 top-[calc(100%+6px)] z-50 w-[min(272px,92vw)] rounded-2xl bg-white p-2 shadow-card ring-1 ring-slate-200">
+      {open && (atas && pos ? (m) => createPortal(m, document.body) : (m) => m)(
+        <div ref={menuRef} role="menu" aria-label="Menu profil" style={atas && pos ? { position: 'fixed', left: pos.left, bottom: pos.bottom, width: pos.width || 272, maxHeight: 'calc(100dvh - 16px)', overflowY: 'auto' } : undefined}
+          className={cx(atas && pos ? 'z-[300]' : 'absolute right-0 top-[calc(100%+6px)] z-50 w-[min(272px,92vw)]', 'rounded-2xl bg-white p-2 shadow-[0_18px_48px_-12px_rgba(14,21,64,0.35)] ring-1 ring-slate-200 dark:bg-[#1A2033] dark:ring-white/10')}>
           <div className="flex items-start gap-2.5 rounded-xl bg-slate-50 p-2.5">
             <Avatar user={row} size={36} ring={false} className="ring-1 ring-slate-200" />
             <div className="min-w-0 flex-1">

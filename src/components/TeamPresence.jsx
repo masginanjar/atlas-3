@@ -75,7 +75,7 @@ function Row({ r, now, onChat }) {
 }
 
 /** Tim Aktif — popover kecil di header, tidak menutupi halaman dan tidak merebut fokus. */
-export default function TeamPresence() {
+export default function TeamPresence({ kiriBawah, rel } = {}) {
   const { user, data } = useApp()
   const [now, setNow] = useState(() => Date.now())
   const [q, setQ] = useState('')
@@ -88,13 +88,14 @@ export default function TeamPresence() {
   const shown = rows.filter((r) => (!role || r.role === role) && (!q.trim() || r.name.toLowerCase().includes(q.trim().toLowerCase())))
 
   return (
-    <Popover label="Tim Aktif" width="w-[min(360px,92vw)]" panelClass="max-sm:fixed max-sm:inset-x-2 max-sm:top-[calc(var(--appbar)+4px)] max-sm:w-auto"
+    <Popover label="Tim Aktif" width="w-[min(360px,92vw)]" atas={kiriBawah} align={kiriBawah ? 'left' : 'right'} panelClass={kiriBawah ? cx('bottom-4 max-h-[80vh] overflow-y-auto', rel ? 'left-[72px]' : 'left-[248px]') : 'max-sm:fixed max-sm:inset-x-2 max-sm:top-[calc(var(--appbar)+4px)] max-sm:w-auto'}
       button={({ open, toggle }) => (
         <button type="button" onClick={toggle} aria-expanded={open} aria-label={`Tim Aktif — ${online} online`} title="Tim Aktif"
-          className={cx('flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-semibold ring-1 transition', open ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:text-brand')}>
+          className={cx('flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-xl px-2.5 text-xs font-semibold ring-1 transition', open ? 'bg-ink text-white ring-ink' : 'bg-white text-ink-soft ring-slate-200 hover:text-brand', kiriBawah && !rel && 'w-full justify-start px-3 text-[13px]', rel && 'relative w-11 px-0')}>
           <Users className="h-4 w-4" />
-          <span className="tabular-nums">{online}</span>
-          <span className={cx('h-1.5 w-1.5 rounded-full', online ? 'bg-emerald-500' : 'bg-slate-300')} />
+          {kiriBawah && !rel && <span>Tim aktif</span>}
+          <span className={cx('tabular-nums', rel && 'absolute -right-1 -top-1 min-w-[18px] rounded-full bg-emerald-600 px-1 text-[10px] leading-[18px] text-white')}>{online}</span>
+          <span className={cx('h-1.5 w-1.5 rounded-full', rel && 'hidden', online ? 'bg-emerald-500' : 'bg-slate-300')} />
         </button>
       )}>
       {({ close }) => (

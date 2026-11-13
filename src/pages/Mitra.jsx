@@ -5,6 +5,7 @@ import { Button, Card, Empty, Field, Input, Select, Sheet, Textarea, cx } from '
 import { useTabel, Th, CariTabel } from '../components/TabelSortir.jsx'
 import { BRANCHES, branchesOf } from '../config/access.js'
 import { canSeeMitra, canEditMitra, mitraSemuaCabang, mitraTerlihat, mitraBaru, cekMitra, JENIS_MITRA, STATUS_MITRA } from '../lib/mitra.js'
+import { KeAtas, TombolTambah } from '../components/SlotAtas.jsx'
 import { tgl } from '../lib/format.js'
 
 export { canSeeMitra }
@@ -64,19 +65,16 @@ export default function Mitra() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-xl font-extrabold tracking-tight sm:text-2xl">Mitra</h1>
-          <p className="text-sm text-ink-mute">{semuaCabang ? 'Kemitraan seluruh cabang — diisi manual oleh CS masing-masing' : `Kemitraan cabang ${cabangSaya.join(', ')} — diisi manual oleh CS`}</p>
+          <h1 className="text-[17px] font-extrabold leading-tight tracking-tight" title={semuaCabang ? 'Kemitraan seluruh cabang — diisi manual oleh CS masing-masing' : `Kemitraan cabang ${cabangSaya.join(', ')} — diisi manual oleh CS`}>Mitra</h1>
         </div>
         {bolehUbah && (
-          <Button onClick={() => setForm(mitraBaru(semuaCabang ? (branchFilter !== 'Semua' ? branchFilter : '') : cabangSaya[0]))} data-aksi="mitra-baru">
-            <Plus className="h-4 w-4" />Mitra Baru
-          </Button>
+          <KeAtas slot="tambah"><TombolTambah label="Mitra" onClick={() => setForm(mitraBaru(semuaCabang ? (branchFilter !== 'Semua' ? branchFilter : '') : cabangSaya[0]))} data="mitra-baru" /></KeAtas>
         )}
       </div>
 
       <Card className="overflow-hidden">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-slate-50/70 px-3 py-2">
-          <CariTabel value={cari} onChange={setCari} label="Cari mitra" className="min-w-0 flex-1 basis-full sm:basis-56" />
+          <CariTabel atas value={cari} onChange={setCari} label="Cari mitra…" />
           <select value={fJenis} onChange={(e) => setFJenis(e.target.value)} aria-label="Filter jenis"
             className="h-[34px] min-w-0 rounded-lg border-0 bg-white px-2.5 text-[13px] font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-brand">
             <option value="">Semua jenis</option>{JENIS_MITRA.map((j) => <option key={j} value={j}>{j}</option>)}

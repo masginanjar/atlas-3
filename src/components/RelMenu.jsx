@@ -1,3 +1,4 @@
+import { useJumlahNotif } from './NotificationBell.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { LayoutGrid, Plus, Search, X, Maximize2, Minimize2 } from 'lucide-react'
@@ -51,7 +52,7 @@ function RelItem({ icon: Icon, label, aktif, badge, onClick, href, title, dataNa
  * Rel ikon desktop (≥768 px). `menu` = hasil menuTerlihat(user) dari App.jsx
  * (induk + anak yang boleh), `flat` = daftar ratanya.
  */
-export function RelIkon({ menu, flat, page, ctx }) {
+export function RelIkon({ menu, flat, page, ctx, atas, profil }) {
   const [lainnya, setLainnya] = useState(false)
   const utama = RAIL_KEYS.map((k) => flat.find((n) => n.key === k)).filter(Boolean)
   const sisa = flat.filter((n) => !RAIL_KEYS.includes(n.key) && n.key !== 'settings')
@@ -61,7 +62,8 @@ export function RelIkon({ menu, flat, page, ctx }) {
   useEffect(() => { setLainnya(false) }, [page])
   return (
     <aside style={{ background: 'var(--nav)', color: 'var(--nav-ink)', borderRight: '1px solid var(--nav-line)' }}
-      className="sticky top-[var(--appbar)] hidden h-[calc(100dvh-var(--appbar))] w-16 shrink-0 flex-col items-stretch gap-0.5 px-1.5 py-2 md:flex lg:hidden" data-rel-ikon>
+      className="sticky top-0 hidden h-[100dvh] w-16 shrink-0 flex-col items-stretch gap-0.5 px-1.5 py-2 md:flex lg:hidden" data-rel-ikon>
+      {atas && <div className="mb-1 flex justify-center">{atas}</div>}
       <nav className="flex flex-col gap-0.5" aria-label="Menu utama">
         {utama.map((n) => <RelItem key={n.key} icon={n.icon} label={RAIL_LABEL[n.key] || n.label} href={`#/${n.key}`} aktif={page === n.key} badge={badgeOf(n, ctx)} />)}
         {sisa.length > 0 && <RelItem icon={LayoutGrid} label="Lainnya" onClick={() => setLainnya((v) => !v)} aktif={lainnya || diLainnya} badge={badgeSisa} title="Menu lainnya" dataNav="lainnya" />}
@@ -69,6 +71,7 @@ export function RelIkon({ menu, flat, page, ctx }) {
       <div className="mt-auto flex flex-col items-center gap-1">
         <RelLayarPenuh />
         {setting && <RelItem icon={setting.icon} label="Pengaturan" href="#/settings" aktif={page === 'settings'} />}
+        {profil && <div className="flex flex-col items-center gap-1 border-t pt-1.5" style={{ borderColor: 'var(--nav-line)' }} data-profil-bawah>{profil}</div>}
       </div>
       {lainnya && <PanelLainnya menu={menu} page={page} ctx={ctx} onClose={() => setLainnya(false)} />}
     </aside>
@@ -146,6 +149,7 @@ export function TabBawah({ flat, page, ctx, onMenu, menuOpen }) {
   const { user } = useApp()
   const { open } = usePanel()
   const [buat, setBuat] = useState(false)
+  const nNotif = useJumlahNotif() // notifikasi & profil ada di sheet Menu (tanpa top bar)
   const kiri = ['dashboard', 'projects'].map((k) => flat.find((n) => n.key === k)).filter(Boolean)
   const kanan = ['agenda'].map((k) => flat.find((n) => n.key === k)).filter(Boolean)
   const items = PANEL_ORDER.map((k) => [k, PANELS[k]]).filter(([, p]) => p.allow(user))
@@ -169,15 +173,15 @@ export function TabBawah({ flat, page, ctx, onMenu, menuOpen }) {
           </button>
         ) : <span />}
         {kanan.map((n) => <Tab key={n.key} n={n} />)}
-        <button type="button" onClick={onMenu} data-tab="menu" className={cx('flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-semibold', menuOpen ? 'text-brand' : 'text-ink-mute')}>
-          <span className="grid h-7 w-11 place-items-center rounded-full"><LayoutGrid className="h-5 w-5" /></span>Menu
+        <button type="button" onClick={onMenu} data-tab="menu" aria-label={nNotif ? `Menu, profil & notifikasi (${nNotif} belum dibaca)` : 'Menu, profil & notifikasi'} className={cx('flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-semibold', menuOpen ? 'text-brand' : 'text-ink-mute')}>
+          <span className="relative grid h-7 w-11 place-items-center rounded-full"><LayoutGrid className="h-5 w-5" />{nNotif > 0 && <span className="absolute -right-0.5 -top-1 min-w-[16px] rounded-full bg-rose-600 px-1 text-center text-[10px] font-bold leading-4 text-white">{nNotif > 99 ? '99+' : nNotif}</span>}</span>Menu
         </button>
       </nav>
       <Sheet open={buat} onClose={() => setBuat(false)} title="Buat baru">
         <ul className="space-y-1" data-sheet-buat>
           {items.map(([k, p]) => (
             <li key={k}>
-              <button type="button" onClick={() => { setBuat(false); if (k === 'project') go('projects/new'); else open(k) }}
+              <button type="button" onClick={() => { setBuat(false); open(k) }}
                 className="flex min-h-[48px] w-full items-center gap-3 rounded-xl bg-white px-3 text-left text-sm font-semibold text-ink ring-1 ring-slate-200 hover:ring-brand">
                 <p.icon className="h-5 w-5 text-ink-mute" />{p.label}
               </button>

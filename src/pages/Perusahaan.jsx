@@ -521,7 +521,7 @@ export default function Perusahaan({ tab: tabAwal }) {
     <div className="min-w-0 space-y-4" data-perusahaan ref={ref}>
       <div>
         <p className="text-xs text-ink-mute">Lainnya › <b className="text-ink-soft">Perusahaan</b></p>
-        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Perusahaan</h1>
+        <h1 className="text-[17px] font-extrabold leading-tight tracking-tight flex items-center gap-2">Perusahaan</h1>
       </div>
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 text-[13px] font-bold [scrollbar-width:none]" role="tablist">
         {TABS.map(([k, l, I]) => (

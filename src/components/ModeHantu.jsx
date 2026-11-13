@@ -49,16 +49,16 @@ export function DaftarHantu({ onPilih, close }) {
 }
 
 /** Tombol hantu di header — hanya untuk Superadmin. */
-export function TombolHantu() {
+export function TombolHantu({ kiriBawah, rel } = {}) {
   const { bolehHantu, setHantu, user } = useApp()
   if (!bolehHantu) return null
   return (
-    <Popover label="Mode hantu" align="right" width="min-w-[300px]"
+    <Popover label="Mode hantu" align={kiriBawah ? 'left' : 'right'} atas={kiriBawah} width="min-w-[300px]" panelClass={kiriBawah ? cx('bottom-4 max-h-[80vh] overflow-y-auto', rel ? 'left-[72px]' : 'left-[248px]') : ''}
       button={({ open, toggle }) => (
         <button type="button" onClick={toggle} aria-expanded={open} aria-label="Mode hantu — lihat sebagai pengguna lain" title="Mode hantu — lihat sebagai pengguna lain"
           data-aksi="mode-hantu"
-          className={cx('grid h-11 w-11 shrink-0 place-items-center rounded-lg transition md:h-9 md:w-9', user._hantu ? 'bg-violet-600 text-white' : 'hover:bg-[var(--head-hover)]')}
-          style={user._hantu ? undefined : { color: 'var(--head-mute)' }}>
+          className={cx('grid h-11 w-11 shrink-0 place-items-center rounded-lg transition', !kiriBawah && 'md:h-9 md:w-9', user._hantu ? 'bg-violet-600 text-white' : kiriBawah ? 'text-[#5E6380] ring-1 ring-[#E7E8F0] hover:bg-[#F3F4F9] dark:ring-white/10' : 'hover:bg-[var(--head-hover)]')}
+          style={user._hantu || kiriBawah ? undefined : { color: 'var(--head-mute)' }}>
           <Ghost className="h-[18px] w-[18px]" />
         </button>
       )}>

@@ -54,7 +54,7 @@ export function sisaWaktu(p) {
   if (Number.isNaN(ms) || Math.abs(ms) > 864e5) return ''
   const m = Math.round(Math.abs(ms) / 6e4); const j = Math.floor(m / 60); const mn = m % 60
   const t = j ? `${j} j${mn ? ` ${mn} m` : ''}` : `${mn} m`
-  return ms >= 0 ? `sisa ${t}` : `lewat ${t}`
+  return ms >= 0 ? `sisa ${t}` : `Terlambat ${j ? `${j} jam` : `${mn} mnt`}`
 }
 /** Porsi waktu SLA yang sudah terpakai (0–1) dari created_at → deadline. */
 export function porsiSla(p) {

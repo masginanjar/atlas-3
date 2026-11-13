@@ -40,7 +40,7 @@ export function pingTargets(stage, sub, project, users, me) {
 const defaultMessage = (stage, sub) => `Mohon bantu tindak lanjuti tahap ${stage?.label || 'ini'} untuk ${sub?.title || 'dokumen ini'} agar proses bisa dilanjutkan. Terima kasih 🙏`
 
 /** Tombol "Kirim Ping" + lembar kirim. Ditampilkan pada pekerjaan yang menunggu role lain. */
-export function PingButton({ project, sub, stage, size = 'sm', className }) {
+export function PingButton({ project, sub, stage, size = 'sm', className, label = 'Kirim Ping' }) {
   const { user, data, sendPing, lastPingTo, notify, PING_COOLDOWN_MS, PING_DAILY_MAX } = useApp()
   const [open, setOpen] = useState(false)
   const [to, setTo] = useState('')
@@ -65,7 +65,7 @@ export function PingButton({ project, sub, stage, size = 'sm', className }) {
   const d = daysLeft(project.about?.deadline)
   return (
     <>
-      <Button size={size} variant="outline" className={className} onClick={start} title="Kirim pengingat ke PIC tahap ini"><BellRing className="h-3.5 w-3.5 text-brand" />Kirim Ping</Button>
+      <Button size={size} variant="outline" className={className} onClick={start} title={`Kirim pengingat ke PIC tahap ${stage?.label || 'ini'}`} aria-label={`Kirim ping · ${project.invoice_no || ''} · ${sub?.title || ''}`} aria-haspopup="dialog"><BellRing className="h-3.5 w-3.5 text-brand" />{label}</Button>
       <Sheet open={open} onClose={() => setOpen(false)} title="Kirim Ping"
         footer={<><Button variant="outline" className="flex-1" onClick={() => setOpen(false)}>Batal</Button>
           <Button className="flex-[2]" disabled={busy || !target || cooling || maxed} onClick={send}><Send className="h-4 w-4" />{maxed ? 'Batas harian tercapai' : cooling ? `Tunggu ${Math.ceil(waitMs / 60000)} mnt` : 'Kirim Ping'}</Button></>}>

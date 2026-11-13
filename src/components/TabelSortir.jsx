@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ArrowUp, ArrowDown, Search, X } from 'lucide-react'
 import { cx } from './ui.jsx'
+import { KeAtas } from './SlotAtas.jsx'
 
 /**
  * Sortir & saring untuk tabel biasa di seluruh aplikasi.
@@ -69,7 +70,17 @@ export function Th({ kolom: c, sortKey, sortDir, onKlik, className }) {
 }
 
 /** Kolom cari ringkas untuk toolbar tabel — tinggi 34px. */
-export function CariTabel({ value, onChange, label = 'Cari di tabel', className }) {
+export function CariTabel({ value, onChange, label = 'Cari di tabel', className, atas }) {
+  // atas: dipindah ke baris atas isi halaman (kiri), gaya seragam dengan pencarian halaman lain
+  if (atas) return (
+    <KeAtas slot="cari">
+      <span className="relative flex h-11 w-full min-w-0 items-center gap-2 rounded-[10px] md:h-9 border border-[#D9DBE7] bg-white px-3 dark:border-white/15 dark:bg-white/5" data-cari-halaman>
+        <Search className="h-[18px] w-[18px] shrink-0 text-[#5E6380]" aria-hidden="true" />
+        <input type="search" value={value} onChange={(e) => onChange(e.target.value)} aria-label={label} placeholder={label}
+          className="h-full min-w-0 flex-1 border-0 !bg-transparent p-0 !ring-0 !shadow-none text-sm text-[#141B34] outline-none placeholder:text-[#8A8FA8] focus:ring-0 dark:text-slate-100" />
+      </span>
+    </KeAtas>
+  )
   return (
     <span className={cx('relative inline-block min-w-0', className)}>
       <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-mute" />

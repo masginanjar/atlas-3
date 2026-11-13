@@ -55,7 +55,7 @@ export default function RilisFitur() {
     <div className="mx-auto max-w-5xl space-y-4 pb-28" data-rilis-fitur>
       <PanelDummy />
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Rilis Fitur</h1>
+        <h1 className="text-[17px] font-extrabold leading-tight tracking-tight flex items-center gap-2">Rilis Fitur</h1>
         <span className={cx('rounded-full px-2.5 py-1 text-xs font-bold', v.aktif ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-ink-soft')}>{v.aktif ? 'Rilis bertahap AKTIF' : 'Belum aktif — tim melihat semua fitur'}</span>
         {row?.updated_by && <span className="text-xs text-ink-mute">Terakhir diubah {row.updated_by}{row.updated_at_local ? ` · ${new Date(row.updated_at_local).toLocaleString('id-ID', { timeZone: 'Asia/Makassar', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</span>}
       </div>

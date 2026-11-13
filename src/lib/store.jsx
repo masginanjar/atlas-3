@@ -322,7 +322,7 @@ export function AppProvider({ children }) {
     if (advance) {
       const kurangCeklist = (f) => (f.items || [])
         .filter((it) => !(f.opsional || []).includes(it) && !(merged[f.key] || []).includes(it))
-      const missing = stage.fields.filter((f) => f.required && (f.type === 'reg_numbers' ? !regComplete({ ...s, data: merged }) : f.type === 'checklist' ? kurangCeklist(f).length > 0 : (merged[f.key] === undefined || merged[f.key] === '' || merged[f.key] === null)))
+      const missing = stage.fields.filter((f) => f.required && (f.type === 'reg_numbers' ? (kodeArah(s) && !regComplete({ ...s, data: merged })) : f.type === 'checklist' ? kurangCeklist(f).length > 0 : (merged[f.key] === undefined || merged[f.key] === '' || merged[f.key] === null)))
       if (missing.length) {
         // Kalau yang kurang hanya langkah milik peran lain (mis. Bayar Pajak milik
         // Direktur), sebutkan siapa yang ditunggu — bukan "lengkapi" yang

@@ -334,7 +334,7 @@ export default function Affidavit() {
     <div className="mx-auto w-full max-w-7xl min-w-0 space-y-3 p-3 sm:p-4" data-affidavit>
       <div className="flex flex-wrap items-center gap-2">
         <div className="min-w-0 flex-1">
-          <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Affidavit — Stok Lembar</h1>
+          <h1 className="text-[17px] font-extrabold leading-tight tracking-tight flex items-center gap-2">Affidavit — Stok Lembar</h1>
           <p className="text-[11.5px] text-ink-soft">{pantau ? `${cabangSaya.length} cabang` : `Cabang ${cabangSaya.join(', ') || '—'}`} × 4 arah bahasa · ambang peringatan {AMBANG_RENDAH} lembar · stok berkurang otomatis setiap cetak</p>
         </div>
         {boleh && <Button size="sm" variant="outline" className="hidden sm:inline-flex" onClick={() => setIsiStok({ cabang: cabangSaya[0], arah: ARAH_AFFIDAVIT[0].key, sisa: null, pilih: true })}><Pencil className="h-3.5 w-3.5" />Isi stok</Button>}

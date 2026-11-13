@@ -46,7 +46,7 @@ export function PilihPeriode({ range, setRange, today = hariIni(), pilihan, clas
     <Popover label={label} width="min-w-[260px]" button={({ open, toggle }) => (
       <button type="button" onClick={toggle} aria-expanded={open} aria-label={`${label}: ${aktif}`} title={`${label} — pilih cepat atau tanggal sendiri`}
         data-pilih-periode
-        className={cx('flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-white px-3 text-[13px] font-semibold ring-1 transition',
+        className={cx('flex h-11 shrink-0 items-center gap-1.5 rounded-[10px] bg-white px-3 text-[13px] font-semibold ring-1 transition md:h-9 dark:bg-white/5',
           open ? 'text-brand ring-brand' : bawaan ? 'text-ink-mute ring-slate-200 hover:text-brand' : 'text-ink ring-slate-300 hover:text-brand', className)}>
         <CalendarRange className="h-4 w-4 shrink-0" />
         <span className="max-w-[130px] truncate">{aktif}</span>

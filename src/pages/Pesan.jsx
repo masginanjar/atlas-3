@@ -140,7 +140,7 @@ export default function Pesan({ peerParam }) {
   return (
     <div className="space-y-3">
       <div>
-        <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight"><MessageCircle className="h-5 w-5 text-ink-mute" />Pesan Masuk</h1>
+        <h1 className="text-[17px] font-extrabold leading-tight tracking-tight flex items-center gap-2"><MessageCircle className="h-5 w-5 text-ink-mute" />Pesan Masuk</h1>
         <p className="text-sm text-ink-soft">Koordinasi cepat antar anggota tim — teks, emoji, dan tautan project.</p>
       </div>
 

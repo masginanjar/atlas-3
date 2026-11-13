@@ -128,7 +128,7 @@ export default function MyReminders({ embedded }) {
     <div className="space-y-3">
       {!embedded && <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight"><AlarmClock className="h-5 w-5 text-ink-mute" />Pengingat</h1>
+          <h1 className="text-[17px] font-extrabold leading-tight tracking-tight flex items-center gap-2"><AlarmClock className="h-5 w-5 text-ink-mute" />Pengingat</h1>
           <p className="text-sm text-ink-soft">To-do pribadi, permintaan dari rekan, dan alarm — satu tempat. Terpisah dari tahapan project.</p>
         </div>
         <div className="flex gap-1.5">

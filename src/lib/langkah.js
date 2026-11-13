@@ -15,7 +15,7 @@ const PENDEK = {
   'Tetapkan Penerjemah': 'Tetapkan',
   'Kirim ke Staf Apostille': 'Kirim ke Staf',
   'Mulai Proses': 'Mulai',
-  'Tandai Sudah Dicetak': 'Sudah dicetak',
+  'Tandai Sudah Dicetak': 'Tandai sudah dicetak',
   'Upload Scan': 'Upload scan',
   'Dokumen Sudah Dikirim': 'Sudah dikirim',
   'Tandai Sudah Dibayar': 'Transfer',

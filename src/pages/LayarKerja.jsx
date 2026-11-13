@@ -8,7 +8,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronLeft, Search, Check } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { go } from '../lib/router.js'
 import { invoiceLabel } from '../config/access.js'
 import { DONE, flowOf, stagesOf, stageIndex, stageLabel } from '../config/workflows.js'
 import { infoDeadline, warnaKategori } from '../components/BarisCanvas.jsx'
@@ -119,9 +118,6 @@ export default function LayarKerja({ projectId, subId, daftar = [], onClose }) {
                 </section>
                 <section aria-label="Kerjakan" className="min-w-0 flex-[999_1_420px] overflow-hidden rounded-2xl bg-white dark:bg-white/5">
                   <SubProject key={akt.id} n={subs.indexOf(akt) + 1} project={project} sub={akt} compact tanpaTahap />
-                  <div className="flex flex-wrap gap-2 border-t border-[#EEF0F5] px-4 py-3">
-                    <button type="button" onClick={() => { onClose(); go(`projects/${project.id}`) }} className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#D9DBE7] px-4 text-sm font-semibold hover:bg-[#F6F7FB]">Detail project</button>
-                  </div>
                 </section>
               </div>
             )}

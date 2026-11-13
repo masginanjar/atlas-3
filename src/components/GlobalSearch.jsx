@@ -174,7 +174,7 @@ function Pratinjau({ r, nameOf }) {
   return <div className="p-4"><p className="text-[15px] font-extrabold">{r.title}</p><p className="text-[12px] text-ink-mute">{r.sub}</p><button type="button" onClick={r.open} className="mt-3 h-10 w-full rounded-lg bg-brand text-[12px] font-bold text-white">Buka ↵</button></div>
 }
 
-export default function GlobalSearch({ pill }) {
+export default function GlobalSearch({ pill, kotak, placeholder = 'Cari invoice, pelanggan, menu…' }) {
   const { user, data, branchFilter, invoices, nameOf } = useApp()
   const { open: openPanel } = usePanel()
   const [open, setOpen] = useState(false)
@@ -215,12 +215,19 @@ export default function GlobalSearch({ pill }) {
 
   return (
     <>
-      {pill ? (
+      {kotak ? (
+        <button type="button" onClick={() => setOpen(true)} title="Cari (Ctrl+K)" aria-label={placeholder.replace(/…$/, '')} data-cari-global
+          className="flex h-11 w-full min-w-0 items-center gap-2 rounded-[10px] border border-[#D9DBE7] md:h-9 bg-white px-3 text-left text-sm text-[#8A8FA8] transition hover:border-[#B9BCCF] dark:border-white/15 dark:bg-white/5">
+          <Search className="h-[18px] w-[18px] shrink-0 text-[#5E6380]" aria-hidden="true" />
+          <span className="min-w-0 flex-1 truncate">{placeholder}</span>
+          <span className="hidden shrink-0 rounded-md bg-[#F3F4F9] px-1.5 py-0.5 text-[10px] font-bold text-[#5E6380] sm:inline dark:bg-white/10">Ctrl K</span>
+        </button>
+      ) : pill ? (
         <button type="button" onClick={() => setOpen(true)} title="Cari (Ctrl+K)" aria-label="Cari"
           className="flex h-11 w-full items-center gap-2 rounded-full border px-3 text-left text-sm transition md:h-9"
           style={{ borderColor: 'var(--head-line)', color: 'var(--head-mute)' }}>
           <Search className="h-4 w-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">Cari project, faktur, pelanggan…</span>
+          <span className="min-w-0 flex-1 truncate">Cari…</span>
           <span className="hidden shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold sm:inline" style={{ background: 'var(--head-hover)' }}>Ctrl K</span>
         </button>
       ) : (

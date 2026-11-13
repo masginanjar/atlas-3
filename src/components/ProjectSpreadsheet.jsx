@@ -4,6 +4,7 @@ import { Eye, MoreHorizontal, Search, SlidersHorizontal, X, ArrowUp, ArrowDown, 
 import { useApp } from '../lib/store.jsx'
 import { Button, cx, bisaDitekan } from './ui.jsx'
 import { invoiceLabel } from '../config/access.js'
+import SalinInvoice from './SalinInvoice.jsx'
 import { tanggalJam, tanggal } from '../lib/waktu.js'
 import { projectRow, TABLE_COLS, sortRows, filterOptions, applyFilters, FILTER_LABEL } from '../lib/projectRow.js'
 import { stageLabel, flowOf } from '../config/workflows.js'
@@ -190,7 +191,7 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
     }
     if (key === 'invoice') return (
       <Lingkar warna={r.prioMendesak ? 'hitam' : ''} judul={r.prioMendesak ? `Prioritas ${r.prioritas}` : ''}>
-        <InvoiceNo project={r.p} />
+        <span className="inline-flex items-center gap-0.5"><InvoiceNo project={r.p} /><SalinInvoice no={invoiceLabel(r.invoice)} /></span>
       </Lingkar>)
     if (key === 'deadline') {
       const w = r.dlHariIni ? 'merah' : r.dlBesok ? 'oranye' : ''
@@ -273,7 +274,12 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
         <p className="rounded-2xl bg-white px-4 py-10 text-center text-sm text-ink-mute ring-1 ring-slate-200">Tidak ada project yang cocok.</p>
       ) : (
         <div ref={gulirRef} className={cx('min-w-0 max-w-full overflow-x-auto rounded-2xl bg-white ring-1 ring-slate-200', digulir && 'tabel-digulir')} data-digulir={digulir ? '1' : '0'}
-          onScroll={(e) => { const g = e.currentTarget.scrollLeft > 12; if (g !== digulir) setDigulir(g) }}>
+          onScroll={(e) => {
+            const el = e.currentTarget; const x = el.scrollLeft
+            // nilai 0–1 mengikuti jarak gulir → kolom invoice mengecil perlahan (tanpa render ulang React)
+            if (!el._raf) el._raf = requestAnimationFrame(() => { el._raf = 0; el.style.setProperty('--ciut', String(Math.min(1, Math.max(0, el.scrollLeft / 180)).toFixed(3))) })
+            const g = x > 12; if (g !== digulir) setDigulir(g)
+          }}>
           <table className={cx('w-max min-w-full border-collapse text-left align-top text-sm md:w-full', pref.ukuranTabel === 'kecil' && 'tabel-kecil', pref.ukuranTabel === 'besar' && 'tabel-besar')} data-tabel-hp="gulir" data-ukuran={pref.ukuranTabel || 'normal'}>
             <thead>
               <tr>
@@ -309,7 +315,7 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
                   <td data-label="Aksi" className="px-3 py-2.5 md:sticky md:right-0 md:z-10 md:bg-white md:shadow-[-8px_0_10px_-8px_rgba(15,23,42,.18)]">
                     {renderAksi ? renderAksi(r.p) : <span className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                       <button type="button" onClick={() => onDetail(r.p)} title="Lihat detail project"
-                        aria-label={`Lihat detail ${invoiceLabel(r.invoice)}`}
+                        aria-label={`Lihat detail project ${invoiceLabel(r.invoice)}`}
                         className={cx('grid h-11 w-11 place-items-center rounded-lg ring-1 transition md:h-7 md:w-7',
                           detailFor?.id === r.id ? 'bg-brand text-white ring-brand' : 'bg-white text-brand ring-brand/30 hover:bg-brand hover:text-white')}>
                         <Eye className="h-4 w-4" />

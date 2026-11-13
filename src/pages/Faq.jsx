@@ -7,6 +7,7 @@ import { tanggalJam } from '../lib/waktu.js'
 import { scopeByBranch, invoiceLabel } from '../config/access.js'
 import { statusOf } from '../lib/projectRow.js'
 import { MODE } from '../lib/db.js'
+import { KeAtas, TombolTambah } from '../components/SlotAtas.jsx'
 import { sb } from '../lib/supabase.js'
 
 // Live: staf tidak boleh mengubah baris F&Q langsung (RLS) — pemakaian, nilai & usulan lewat fungsi server.
@@ -271,23 +272,22 @@ export default function Faq() {
       <div className="-mx-1 rounded-2xl bg-ink px-4 pb-4 pt-4 text-white sm:mx-0 sm:px-6 sm:pb-5 sm:pt-5">
         <div className="flex flex-wrap items-center gap-2">
           <BookOpen className="h-5 w-5 shrink-0 text-white/70" aria-hidden="true" />
-          <h1 className="min-w-0 text-2xl font-extrabold tracking-tight">F&amp;Q · Panduan menjawab pelanggan</h1>
+          <h1 className="text-[17px] font-extrabold leading-tight tracking-tight min-w-0">F&amp;Q · Panduan menjawab pelanggan</h1>
           <span className="ml-auto hidden rounded-full bg-white/10 px-3 py-1 text-xs sm:inline">{terbit.length} panduan{hariLalu !== null ? ` · diperbarui ${hariLalu === 0 ? 'hari ini' : `${hariLalu} hari lalu`}` : ''}</span>
           {bolehUbah && (
-            <button type="button" onClick={() => { setEdit(kosong); setPratinjau(false) }}
-              className="flex min-h-[40px] items-center gap-1 rounded-lg bg-white px-3 text-xs font-bold text-ink hover:bg-slate-100">
-              <Plus className="h-3.5 w-3.5" />Panduan baru
-            </button>
+            <KeAtas slot="tambah"><TombolTambah label="Panduan" data="panduan-baru" onClick={() => { setEdit(kosong); setPratinjau(false) }} /></KeAtas>
           )}
         </div>
-        <label className="relative mt-3 block">
-          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" aria-hidden="true" />
+        <KeAtas slot="cari">
+        <label className="relative flex h-11 w-full min-w-0 items-center rounded-[10px] md:h-9 border border-[#D9DBE7] bg-white dark:border-white/15 dark:bg-white/5">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[#5E6380]" aria-hidden="true" />
           <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari: resi, transfer, revisi…" aria-label="Cari panduan"
-            className="h-12 w-full rounded-xl border-0 bg-white pl-10 pr-10 text-[15px] text-ink shadow-lg placeholder:text-ink-mute focus:ring-2 focus:ring-amber-400" />
+            className="h-full w-full rounded-[10px] border-0 !bg-transparent !shadow-none pl-10 pr-10 text-sm text-ink placeholder:text-[#8A8FA8] focus:ring-0" />
           {q
             ? <button type="button" onClick={() => { setQ(''); inputRef.current?.focus() }} aria-label="Hapus pencarian" className="absolute right-1 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center text-ink-mute"><X className="h-4 w-4" /></button>
             : <span className="absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-slate-200 px-1.5 text-[11px] text-ink-mute sm:block">/</span>}
         </label>
+        </KeAtas>
         {seringDicari.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
             <span className="text-white/60">Sering dicari:</span>

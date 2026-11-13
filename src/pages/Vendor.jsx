@@ -15,12 +15,12 @@ export default function Vendor() {
     return <Card><Empty icon={Lock} title="Halaman Vendor hanya untuk Superadmin" /></Card>
   }
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
+    <div className="w-full space-y-2">
       <div className="min-w-0">
-        <h1 className="flex items-center gap-2 text-lg font-bold text-ink"><Store className="h-5 w-5 text-brand" />Vendor</h1>
-        <p className="text-xs text-ink-soft">Data vendor, tarif layanan, termin pembayaran &amp; rekening. Sama dengan Setting → Vendor.</p>
+        <h1 className="text-[17px] font-extrabold leading-tight tracking-tight" title="Data vendor, tarif layanan, termin pembayaran & rekening. Sama dengan Setting → Vendor.">Vendor</h1>
+        
       </div>
-      <Vendors />
+      <Vendors keAtas />
     </div>
   )
 }

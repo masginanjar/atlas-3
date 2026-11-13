@@ -70,8 +70,9 @@ export async function unduhPdf(grup, ym, tarifOf) {
     doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text(nama, 18, 30)
     doc.setFontSize(12); doc.text(labelBulan(ym), W - 18, 30, { align: 'right' })
     const dok = gs.reduce((a, g) => a + g.dok, 0), hlm = gs.reduce((a, g) => a + g.hlm, 0)
-    const biaya = gs.reduce((a, g) => a + tarifOf(g) * g.hlm, 0)
-    const kotak = [['Total dokumen', angka(dok), ''], ['Total halaman', angka(hlm), ''], ...gs.map((g) => [g.grup, `${angka(g.hlm)} hlm`, `${g.dok} dokumen`]), ['Biaya', biaya ? rupiah(biaya) : 'Rp —', biaya ? '' : 'tarif belum diisi']]
+    const biaya = tarifOf ? gs.reduce((a, g) => a + tarifOf(g) * g.hlm, 0) : 0
+    // Biaya otorisasi hanya untuk Superadmin & Direktur (tarifOf null → kotak biaya tidak dicetak)
+    const kotak = [['Total dokumen', angka(dok), ''], ['Total halaman', angka(hlm), ''], ...gs.map((g) => [g.grup, `${angka(g.hlm)} hlm`, `${g.dok} dokumen`]), ...(tarifOf ? [['Biaya', biaya ? rupiah(biaya) : 'Rp —', biaya ? '' : 'tarif belum diisi']] : [])]
     const lw = (W - 28) / kotak.length
     kotak.forEach(([l, v, s], i) => {
       const x = 14 + i * lw
@@ -85,7 +86,7 @@ export async function unduhPdf(grup, ym, tarifOf) {
     let y = 70
     gs.forEach((g) => {
       doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...NAVY); doc.text(g.grup, 14, y)
-      doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139); doc.text(`— ${g.dok} dokumen · ${g.hlm} halaman${tarifOf(g) ? ` · ${rupiah(tarifOf(g))}/hlm = ${rupiah(tarifOf(g) * g.hlm)}` : ''}`, 14 + doc.getTextWidth(g.grup) + 2, y)
+      doc.setFont('helvetica', 'normal'); doc.setTextColor(100, 116, 139); doc.text(`— ${g.dok} dokumen · ${g.hlm} halaman${tarifOf?.(g) ? ` · ${rupiah(tarifOf(g))}/hlm = ${rupiah(tarifOf(g) * g.hlm)}` : ''}`, 14 + doc.getTextWidth(g.grup) + 2, y)
       autoTable(doc, {
         startY: y + 2, margin: { left: 14, right: 14 },
         head: [['No', 'Tanggal', 'No Invoice', 'Nama Klien', 'Dokumen', 'Arah', 'Hlm']],
@@ -117,16 +118,19 @@ export async function unduhExcel(grup, ym, tarifOf) {
   ring.mergeCells('A1:F1'); ring.getCell('A1').value = `Laporan Otorisasi — ${labelBulan(ym)}`
   Object.assign(ring.getCell('A1'), { font: { bold: true, size: 16, color: { argb: 'FFFFFFFF' } }, fill: navy, alignment: { vertical: 'middle', indent: 1 } }); ring.getRow(1).height = 32
   ring.getCell('A2').value = `247 Sworn Translator · dibuat dari ATLAS ${new Date().toLocaleDateString('id-ID')}`; ring.getCell('A2').font = { size: 9, color: { argb: 'FF64748B' } }
-  ring.addRow([]); const h = ring.addRow(['Otorisator', 'Bahasa', 'Dokumen', 'Halaman', 'Tarif / hlm', 'Biaya'])
+  const pakaiBiaya = !!tarifOf // tarif & biaya hanya untuk Superadmin & Direktur
+  ring.addRow([]); const h = ring.addRow(pakaiBiaya ? ['Otorisator', 'Bahasa', 'Dokumen', 'Halaman', 'Tarif / hlm', 'Biaya'] : ['Otorisator', 'Bahasa', 'Dokumen', 'Halaman'])
   h.eachCell((c) => { c.font = { bold: true, color: { argb: 'FF3F4A73' } }; c.fill = kepala; c.border = kotak })
   grup.forEach((g) => {
-    const r = ring.addRow([g.nama, g.grup, g.dok, g.hlm, tarifOf(g) || null, null])
-    r.getCell(6).value = { formula: `IF(ISNUMBER(E${r.number}),E${r.number}*D${r.number},"")` }
-    r.getCell(5).numFmt = r.getCell(6).numFmt = '"Rp "#,##0'
+    const r = ring.addRow(pakaiBiaya ? [g.nama, g.grup, g.dok, g.hlm, tarifOf(g) || null, null] : [g.nama, g.grup, g.dok, g.hlm])
+    if (pakaiBiaya) {
+      r.getCell(6).value = { formula: `IF(ISNUMBER(E${r.number}),E${r.number}*D${r.number},"")` }
+      r.getCell(5).numFmt = r.getCell(6).numFmt = '"Rp "#,##0'
+    }
     r.eachCell({ includeEmpty: true }, (c) => { c.border = kotak; c.fill = abu })
   })
-  const t = ring.addRow(['Total', '', grup.reduce((a, g) => a + g.dok, 0), grup.reduce((a, g) => a + g.hlm, 0), '', null])
-  t.getCell(6).value = { formula: `SUM(F5:F${t.number - 1})` }; t.getCell(6).numFmt = '"Rp "#,##0'
+  const t = ring.addRow(pakaiBiaya ? ['Total', '', grup.reduce((a, g) => a + g.dok, 0), grup.reduce((a, g) => a + g.hlm, 0), '', null] : ['Total', '', grup.reduce((a, g) => a + g.dok, 0), grup.reduce((a, g) => a + g.hlm, 0)])
+  if (pakaiBiaya) { t.getCell(6).value = { formula: `SUM(F5:F${t.number - 1})` }; t.getCell(6).numFmt = '"Rp "#,##0' }
   t.eachCell({ includeEmpty: true }, (c) => { c.fill = navy; c.font = { bold: true, color: { argb: 'FFFFFFFF' } } })
   ring.columns = [{ width: 24 }, { width: 12 }, { width: 11 }, { width: 11 }, { width: 14 }, { width: 16 }]
   const bln3 = labelBulan(ym).split(' ')

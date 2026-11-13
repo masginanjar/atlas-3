@@ -93,23 +93,16 @@ export default function Pelanggan() {
   const totalProject = rows.reduce((n, r) => n + r.jml, 0)
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 p-4">
-      <div className="min-w-0">
-        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Pelanggan</h1>
-        <p className="text-xs text-ink-soft">
-          {rows.length} pelanggan dari {totalProject} project. Dirangkum otomatis dari project — tidak ada data terpisah yang perlu diisi.
-        </p>
-      </div>
-
-      {/* Toolbar: cari · filter cabang — tinggi kontrol 34px */}
-      <div className="flex flex-wrap items-center gap-2">
-        <CariTabel value={q} onChange={setQ} label="Cari nama, email, telepon, cabang…" className="basis-64" />
+    <div className="w-full space-y-3">
+      {/* Baris 2 ringkas: judul · jumlah · filter cabang */}
+      <div className="flex flex-wrap items-center gap-2" data-baris-dua>
+        <h1 className="text-[17px] font-extrabold leading-tight tracking-tight" title="Dirangkum otomatis dari project — tidak ada data terpisah yang perlu diisi.">Pelanggan <span className="text-[13px] font-semibold text-[#5E6380]">· {baris.length} dari {rows.length} ({totalProject} project)</span></h1>
+        <CariTabel atas value={q} onChange={setQ} label="Cari nama, email, telepon, cabang…" />
         <select value={fCabang} onChange={(e) => setFCabang(e.target.value)} aria-label="Filter cabang"
-          className="h-[34px] w-auto max-w-full rounded-lg border-0 bg-white pl-2.5 pr-7 text-[13px] font-semibold text-ink ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-brand">
+          className="h-11 w-auto max-w-full rounded-[10px] border-0 bg-white pl-2.5 pr-7 text-[13px] font-semibold text-ink ring-1 ring-[#D9DBE7] focus:outline-none focus:ring-2 focus:ring-brand md:h-8">
           <option value="">Semua cabang</option>
           {cabangAda.map((b) => <option key={b} value={b}>{b}</option>)}
         </select>
-        <span className="ml-auto text-[11px] text-ink-mute">{baris.length} dari {rows.length} pelanggan</span>
       </div>
 
       {!baris.length ? (

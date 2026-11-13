@@ -3,6 +3,7 @@ import { Tags, Pencil, Check, Plus, Trash2, AlertTriangle, Copy } from 'lucide-r
 import { useApp } from '../lib/store.jsx'
 import { Button, Card, cx } from '../components/ui.jsx'
 import { canEditHarga, KATEGORI, SATUAN, rupiah, belumDiisi } from '../lib/harga.js'
+import { KeAtas } from '../components/SlotAtas.jsx'
 import { useTabel, Th, CariTabel } from '../components/TabelSortir.jsx'
 
 /** Satu angka harga — "Belum diisi" bila kosong, supaya tidak ada yang salah menawar. */
@@ -70,23 +71,16 @@ export default function DaftarHarga() {
 
   return (
     <div className="min-w-0 space-y-4">
-      <header className="flex min-w-0 flex-wrap items-center gap-2">
-        <Tags className="h-5 w-5 shrink-0 text-ink-mute" aria-hidden="true" />
-        <h1 className="min-w-0 text-lg font-bold">Katalog</h1>
-        {bolehUbah && (
-          <Button size="sm" variant={sunting ? 'solid' : 'outline'} className="ml-auto" onClick={() => setSunting((v) => !v)}>
-            {sunting ? <><Check className="h-3.5 w-3.5" />Selesai</> : <><Pencil className="h-3.5 w-3.5" />Ubah harga</>}
-          </Button>
-        )}
-      </header>
+      {bolehUbah && <KeAtas slot="tambah">
+        <button type="button" onClick={() => setSunting((v) => !v)} aria-pressed={sunting} data-aksi="ubah-harga"
+          className={cx('inline-flex h-11 shrink-0 items-center gap-2 rounded-[10px] px-3 text-sm font-semibold transition md:h-9 sm:px-4', sunting ? 'bg-emerald-600 text-white' : 'bg-[#141B34] text-white hover:opacity-90 dark:bg-[var(--brand)]')}>
+          {sunting ? <><Check className="h-4 w-4" aria-hidden="true" />Selesai</> : <><Pencil className="h-4 w-4" aria-hidden="true" />Ubah harga</>}
+        </button>
+      </KeAtas>}
 
-      <p className="rounded-2xl bg-slate-50 p-4 text-sm leading-relaxed text-ink-soft ring-1 ring-slate-200">
-        Harga jual ke pelanggan — panduan saat menawarkan. Bisa dilihat semua staf;
-        yang mengubah hanya Superadmin dan Direktur.
-      </p>
 
       {kosong > 0 && (
-        <p className="flex items-start gap-2 rounded-2xl bg-amber-50 p-4 text-sm leading-relaxed text-amber-900 ring-1 ring-amber-300">
+        <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-[13px] leading-snug text-amber-900 ring-1 ring-amber-300">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <span>
             <b>{kosong} layanan belum ada harganya.</b> Jangan dipakai menawar ke pelanggan sebelum diisi —
@@ -95,16 +89,17 @@ export default function DaftarHarga() {
         </p>
       )}
 
-      {/* Toolbar: cari · filter kategori — tinggi kontrol 34px */}
-      <div className="flex flex-wrap items-center gap-2">
-        <CariTabel value={cari} onChange={setCari} label="Cari layanan, kategori, catatan…" className="basis-60" />
+      {/* Baris 2 ringkas: judul · filter */}
+      <div className="flex flex-wrap items-center gap-2" data-baris-dua>
+        <h1 className="text-[17px] font-extrabold leading-tight tracking-tight" title="Harga jual ke pelanggan — panduan saat menawarkan. Bisa dilihat semua staf; yang mengubah hanya Superadmin dan Direktur.">Katalog</h1>
+        <CariTabel atas value={cari} onChange={setCari} label="Cari layanan, kategori, catatan…" />
         <select value={fKat} onChange={(e) => setFKat(e.target.value)} aria-label="Filter kategori"
-          className="h-[34px] w-auto max-w-full rounded-lg border-0 bg-white pl-2.5 pr-7 text-[13px] font-semibold text-ink ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-brand">
+          className="h-11 w-auto max-w-full rounded-[10px] border-0 bg-white pl-2.5 pr-7 text-[13px] font-semibold text-ink ring-1 ring-[#D9DBE7] focus:outline-none focus:ring-2 focus:ring-brand md:h-8">
           <option value="">Semua kategori</option>
           {kategoriAda.map((k) => <option key={k} value={k}>{k}</option>)}
         </select>
         <select value={fIsi} onChange={(e) => setFIsi(e.target.value)} aria-label="Filter kelengkapan harga"
-          className="h-[34px] w-auto max-w-full rounded-lg border-0 bg-white pl-2.5 pr-7 text-[13px] font-semibold text-ink ring-1 ring-slate-200 focus:outline-none focus:ring-2 focus:ring-brand">
+          className="h-11 w-auto max-w-full rounded-[10px] border-0 bg-white pl-2.5 pr-7 text-[13px] font-semibold text-ink ring-1 ring-[#D9DBE7] focus:outline-none focus:ring-2 focus:ring-brand md:h-8">
           <option value="">Semua harga</option>
           <option value="ada">Sudah ada harga</option>
           <option value="kosong">Belum diisi</option>

@@ -379,7 +379,7 @@ export default function Dokumen() {
   return (
     <div className="mx-auto w-full max-w-[1400px] space-y-2 p-0 sm:p-1" data-dokumen-explorer>
       <div className="flex items-center gap-2">
-        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Dokumen</h1>
+        <h1 className="text-[17px] font-extrabold leading-tight tracking-tight flex items-center gap-2">Dokumen</h1>
         <span className="text-[11px] text-ink-mute">{berkas.length} berkas · {kb(totalSize)}</span>
         <Button size="sm" variant="outline" className="ml-auto lg:hidden" onClick={() => setPohonHp(true)}><PanelLeft className="h-3.5 w-3.5" />Folder</Button>
       </div>
@@ -416,9 +416,8 @@ export default function Dokumen() {
             {!cepatAktif && aktif.jenis === 'project' && <><ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-mute" /><button type="button" onClick={() => pergi(() => setSubAktif(''))} className="max-w-[260px] shrink-0 truncate rounded px-1 font-semibold hover:bg-slate-100">{labelProject(projectAktif || {})}</button></>}
             {!cepatAktif && subNama && <><ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-mute" /><span className="shrink-0 font-semibold">{subNama}</span></>}
           </nav>
-          <div className="hidden w-[240px] shrink-0 sm:block"><CariTabel value={cari} onChange={setCari} label={`Cari di ${cepatAktif ? 'akses cepat' : judulFolder}…`} /></div>
+          <CariTabel atas value={cari} onChange={setCari} label={`Cari di ${cepatAktif ? 'akses cepat' : judulFolder}…`} />
         </div>
-        <div className="sm:hidden border-b border-slate-200 p-2"><CariTabel value={cari} onChange={setCari} label="Cari berkas…" /></div>
 
         <div className="flex min-h-[480px]">
           {/* panel navigasi */}

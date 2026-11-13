@@ -217,7 +217,7 @@ export default function Monitoring() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Monitoring</h1>
+        <h1 className="text-[17px] font-extrabold leading-tight tracking-tight flex items-center gap-2">Monitoring</h1>
         <p className="text-[13px] text-ink-mute">Daftar tugas & pekerjaan tiap orang. Klik baris untuk melihat rincian tugasnya. Hanya terlihat oleh Superadmin.</p>
       </div>
       <Card className="flex flex-wrap items-center gap-2 px-4 py-2.5">

@@ -151,7 +151,7 @@ export default function Invoices() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2" data-alat>
-        <h1 className="mr-1 flex items-center gap-2 text-2xl font-extrabold tracking-tight">Faktur</h1>
+        <h1 className="text-[17px] font-extrabold leading-tight tracking-tight mr-1 flex items-center gap-2">Faktur</h1>
         <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]" role="tablist" aria-label="Status project" data-tab-faktur>
           {TABS.map(([k, label, n]) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)} data-tab-faktur-item={k}
@@ -161,7 +161,7 @@ export default function Invoices() {
           ))}
         </div>
         <div className="ml-auto flex min-w-0 basis-full flex-wrap items-center justify-end gap-2 sm:flex-1 sm:basis-auto sm:flex-nowrap" data-toolbar-faktur>
-          <CariTabel value={cari} onChange={setCari} label="Cari no. invoice atau nama pelanggan…" className="min-w-0 flex-1 basis-full sm:max-w-[260px] sm:basis-auto" />
+          <CariTabel atas value={cari} onChange={setCari} label="Cari invoice atau pelanggan…" />
           <PilihPeriode range={invoiceRange} setRange={setInvoiceRange} pilihan={periodeFaktur()} label="Periode" />
           <FilterLainnya aktif={[branchFilter !== 'Semua', fStatus].filter(Boolean).length} onReset={() => { setBranchFilter('Semua'); setFStatus('') }}>
             {(can.seeAllBranches(user) || branchesOf(user).length > 1) && <label className="block text-xs font-semibold text-ink-soft">Cabang

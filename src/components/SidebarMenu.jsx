@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { cx } from './ui.jsx'
 
 // ============================================================
@@ -26,14 +26,68 @@ function Jam({ zona, label }) {
   )
 }
 
-export default function SidebarMenu({ menu, page, param, ctx, bawah }) {
+const KUNCI_SEMBUNYI = 'atlas-sidebar-sembunyi'
+const bacaSembunyi = () => { try { return localStorage.getItem(KUNCI_SEMBUNYI) === '1' } catch { return false } }
+
+export default function SidebarMenu({ menu, page, param, ctx, bawah, alatBawah, atas, profil }) {
+  // Menu kiri bisa disembunyikan (ikon di pojok atas); pilihan diingat di browser ini
+  const [sembunyi, setSembunyi] = useState(bacaSembunyi)
+  const [layang, setLayang] = useState('') // grup yang daftar menunya sedang terbuka di samping rel ikon
+  const tukar = () => setSembunyi((v) => { try { localStorage.setItem(KUNCI_SEMBUNYI, v ? '0' : '1') } catch { /* abaikan */ } return !v })
   const grupAktif = menu.find((g) => (g.children || [g]).some((n) => aktifItem(n, page, param)))
   const [buka, setBuka] = useState(grupAktif?.id || 'utama')
   useEffect(() => { if (grupAktif) setBuka(grupAktif.id) }, [grupAktif?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const btn = 'flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 text-left text-sm'
+  if (sembunyi) return (
+    <aside data-sidebar data-sidebar-sembunyi className="sticky top-0 z-30 hidden h-[100dvh] w-[64px] shrink-0 flex-col items-center gap-1 border-r border-[#E7E8F0] bg-white py-3 text-[#141B34] lg:flex dark:border-white/10 dark:bg-[#121729] dark:text-slate-100">
+      {atas && <div className="mb-1 flex flex-col items-center">{atas(true)}</div>}
+      <nav aria-label="Menu ATLAS (ringkas)" className="flex flex-col items-center gap-1">
+        {menu.map((g) => {
+          const anak = (g.children || [g]).filter((n) => !n.segera)
+          if (!anak.length) return null
+          const Ikon = g.icon || anak[0].icon
+          const on = anak.some((n) => aktifItem(n, page, param))
+          const b = anak.reduce((t, n) => t + badgeOf(n, ctx), 0)
+          const kls = cx('relative grid h-11 w-11 place-items-center rounded-xl', on ? 'bg-[var(--brand)] text-white' : 'text-[#141B34] hover:bg-[#F3F4F9] dark:text-slate-100 dark:hover:bg-white/10')
+          const lencana = b > 0 && <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-rose-600 px-1 text-center text-[10px] font-bold leading-[18px] text-white">{b > 99 ? '99+' : b}</span>
+          if (anak.length === 1) return (
+            <a key={g.id || anak[0].key} href={hrefOf(anak[0])} title={anak[0].label} aria-label={anak[0].label} aria-current={on ? 'page' : undefined} data-nav="rel" className={kls}><Ikon className="h-5 w-5" aria-hidden="true" />{lencana}</a>
+          )
+          const terbuka = layang === g.id
+          return (
+            <div key={g.id} className="relative">
+              <button type="button" onClick={() => setLayang(terbuka ? '' : g.id)} title={g.label} aria-label={g.label} aria-expanded={terbuka} data-grup-rel={g.id} className={kls}><Ikon className="h-5 w-5" aria-hidden="true" />{lencana}</button>
+              {terbuka && (
+                <div className="absolute left-[52px] top-0 z-40 flex w-52 flex-col gap-0.5 rounded-xl border border-[#DADDE8] bg-white p-1.5 shadow-xl dark:border-white/10 dark:bg-[#1A2033]" role="menu" aria-label={g.label}>
+                  <span className="px-2.5 pb-1 pt-1 text-[11px] font-bold uppercase tracking-wide text-[#5E6380]">{g.label}</span>
+                  {anak.map((n) => { const a = aktifItem(n, page, param); const bb = badgeOf(n, ctx); return (
+                    <a key={n.key + (n.sub || '')} href={hrefOf(n)} role="menuitem" onClick={() => setLayang('')} aria-current={a ? 'page' : undefined}
+                      className={cx('flex min-h-[40px] items-center gap-2 rounded-lg px-2.5 text-sm', a ? 'bg-[#F3F4F9] font-bold dark:bg-white/10' : 'hover:bg-[#F3F4F9] dark:hover:bg-white/5')}>
+                      <span className="min-w-0 flex-1 truncate">{n.label}</span>{bb > 0 && <span className="rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white">{bb > 99 ? '99+' : bb}</span>}
+                    </a>
+                  ) })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </nav>
+      <div className="mt-auto flex flex-col items-center gap-1.5" data-alat-bawah>
+        {alatBawah?.(true)}
+        {profil && <div className="flex flex-col items-center gap-1.5 border-t border-[#E7E8F0] pt-1.5 dark:border-white/10" data-profil-bawah>{profil(true)}</div>}
+      </div>
+      {layang && <button type="button" aria-label="Tutup menu" tabIndex={-1} onClick={() => setLayang('')} className="fixed inset-0 z-30 cursor-default" />}
+      <button type="button" onClick={tukar} title="Tampilkan menu" aria-label="Tampilkan menu" aria-expanded="false" data-aksi="tampilkan-menu"
+        className="relative z-40 grid h-11 w-11 place-items-center rounded-xl text-[#5E6380] hover:bg-[#F3F4F9] hover:text-[#141B34] dark:hover:bg-white/10"><PanelLeftOpen className="h-5 w-5" /></button>
+    </aside>
+  )
   return (
-    <aside data-sidebar className="sticky top-[var(--appbar)] hidden h-[calc(100dvh-var(--appbar))] w-[240px] shrink-0 flex-col gap-4 overflow-y-auto border-r border-[#E7E8F0] bg-white px-3 py-4 text-[#141B34] lg:flex dark:border-white/10 dark:bg-[#121729] dark:text-slate-100">
-      <nav aria-label="Menu ATLAS" className="flex flex-col gap-1">
+    <aside data-sidebar className="sticky top-0 hidden h-[100dvh] max-h-[100dvh] w-[240px] shrink-0 flex-col overflow-hidden border-r border-[#E7E8F0] bg-white py-4 text-[#141B34] lg:flex dark:border-white/10 dark:bg-[#121729] dark:text-slate-100">
+      {/* 1) Atas — tetap */}
+      {atas && <div className="shrink-0 px-3 pb-3" data-sidebar-bagian="atas">{atas(false)}</div>}
+      {/* 2) Tengah — hanya bagian ini yang bergulir; overscroll-contain: tidak ikut menggulir halaman */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 [scrollbar-width:thin]" data-sidebar-bagian="menu">
+      <nav aria-label="Menu ATLAS" className="flex flex-col gap-1 pb-2">
         {menu.map((g) => {
           const anak = g.children || [g]
           if (anak.length === 1 && !anak[0].segera) {
@@ -84,8 +138,14 @@ export default function SidebarMenu({ menu, page, param, ctx, bawah }) {
           )
         })}
       </nav>
-      <div className="mt-auto flex flex-col gap-3">
+      </div>
+      {/* 3) Bawah — tetap, ruang nyata di layout (bukan fixed) */}
+      <div className="flex shrink-0 flex-col gap-3 border-t border-[#E7E8F0] px-3 pt-3 dark:border-white/10" data-sidebar-bagian="bawah">
+        {alatBawah && <div className="flex items-center gap-2 [&>*:first-child]:min-w-0 [&>*:first-child]:flex-1" data-alat-bawah>{alatBawah(false)}</div>}
+        {profil && <div className="flex flex-col gap-1 border-t border-[#E7E8F0] pt-3 dark:border-white/10" data-profil-bawah>{profil(false)}</div>}
         <div className="flex gap-2" role="group" aria-label="Jam"><Jam zona="Asia/Makassar" label="WITA" /><Jam zona="Asia/Jakarta" label="WIB" /></div>
+        <button type="button" onClick={tukar} title="Sembunyikan menu" aria-label="Sembunyikan menu" aria-expanded="true" data-aksi="sembunyikan-menu"
+          className="flex min-h-[40px] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[13px] font-semibold text-[#5E6380] hover:bg-[#F3F4F9] hover:text-[#141B34] dark:hover:bg-white/10"><PanelLeftClose className="h-[18px] w-[18px]" />Sembunyikan menu</button>
         {bawah}
       </div>
     </aside>

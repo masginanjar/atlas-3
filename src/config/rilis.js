@@ -9,11 +9,12 @@
 
 /** Menu yang bisa diatur, dikelompokkan per tahap rilis yang direncanakan. */
 export const FITUR = [
+  { key: 'beranda', label: 'Beranda', tahap: 1, ket: 'Sapaan, jadwal sholat, info ringan' },
+  { key: 'dashboard', label: 'Dashboard', tahap: 1, ket: 'Ringkasan kerja & angka penting tiap peran' },
   { key: 'projects', label: 'Project', tahap: 1, ket: 'Daftar & proses project (termasuk Apostille)' },
   { key: 'keuangan', label: 'Keuangan', tahap: 1, ket: 'Pengajuan & statusnya' },
   { key: 'otorisasi', label: 'Laporan Otorisasi', tahap: 1, ket: 'Rekap bulanan otorisator, unduh PDF/Excel' },
   { key: 'register', label: 'Nomor Register', tahap: 1, ket: 'Admin Pusat menerbitkan nomor; daftar untuk input Pak Arifin' },
-  { key: 'dashboard', label: 'Dashboard', tahap: 1, ket: 'Beranda kerja penerjemah / pelaksana' },
   { key: 'jadwal', label: 'Jadwal', tahap: 2, ket: 'Shift Bali, Jakarta, Semarang & cuti' },
   { key: 'pesan', label: 'Pesan Masuk', tahap: 2 },
   { key: 'agenda', label: 'Agenda', tahap: 2, ket: 'Pengingat, tugas, kalender' },
@@ -27,7 +28,6 @@ export const FITUR = [
   { key: 'mitra', label: 'Mitra', tahap: 3 },
   { key: 'penugasan', label: 'Penugasan', tahap: 3 },
   { key: 'affidavit', label: 'Affidavit', tahap: 3 },
-  { key: 'beranda', label: 'Beranda', tahap: 4, ket: 'Sapaan, jadwal sholat, info ringan' },
   { key: 'perusahaan', label: 'Perusahaan', tahap: 4 },
 ]
 export const STATUS_FITUR = [['tersembunyi', 'Tersembunyi'], ['uji', 'Uji coba'], ['aktif', 'Aktif']]

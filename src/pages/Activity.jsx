@@ -8,6 +8,7 @@ import ActivityList from '../components/ActivityList.jsx'
 import { Card, Empty, Input, Select, cx } from '../components/ui.jsx'
 import { PilihPeriode, FilterLainnya, ChipAktif } from '../components/ToolbarRingkas.jsx'
 
+import { CariTabel } from '../components/TabelSortir.jsx'
 import { canSeeAllActivity } from '../config/menuAccess.js'
 export { canSeeAllActivity }
 
@@ -44,10 +45,9 @@ export default function Activity() {
   const byKind = Object.keys(ACTIVITY_KINDS).map((k) => [k, shown.filter((a) => a.kind === k).length])
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-extrabold tracking-tight">Riwayat Aktivitas</h1>
-        <p className="text-[13px] text-ink-mute">Aktivitas semua orang — project, alur kerja, file, keuangan &amp; pengaturan.<span className="hidden sm:inline"> Hanya terlihat oleh Superadmin &amp; Direktur.</span></p>
+        <h1 className="text-[17px] font-extrabold leading-tight tracking-tight flex items-center gap-2">Riwayat Aktivitas</h1>
       </div>
       <Card className="overflow-hidden">
         <div className="space-y-2 border-b border-slate-100 p-3">
@@ -55,10 +55,7 @@ export default function Activity() {
               Dulu tiga baris (5 tombol periode, 2 kolom tanggal, 5 saringan) —
               fungsinya sama persis, hanya yang jarang dipakai dipindah ke "Filter". */}
           <div className="flex flex-wrap items-center gap-2">
-            <label className="relative min-w-[160px] flex-1">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari invoice, nama, aksi…" className="!pl-8 text-sm" aria-label="Cari aktivitas" />
-            </label>
+            <CariTabel atas value={q} onChange={setQ} label="Cari invoice, nama, aksi…" />
             <PilihPeriode range={range} setRange={setRange} today={today} />
             <FilterLainnya aktif={[who, role, kind, branch].filter(Boolean).length}
               onReset={() => { setWho(''); setRole(''); setKind(''); setBranch('') }}>

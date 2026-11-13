@@ -7,6 +7,7 @@ import { Button, Card, cx } from '../components/ui.jsx'
 import TimeAgo from '../components/TimeAgo.jsx'
 
 import { myNotes, projectNotes } from '../lib/personal.js'
+import { CariTabel } from '../components/TabelSortir.jsx'
 import { invoiceLabel } from '../config/access.js'
 export { myNotes, projectNotes }
 
@@ -47,7 +48,7 @@ export default function Notes({ embedded }) {
     <div className="space-y-3">
       {!embedded && <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 font-display text-2xl font-extrabold tracking-tight"><StickyNote className="h-5 w-5 text-ink-mute" />Catatan</h1>
+          <h1 className="text-[17px] font-extrabold leading-tight tracking-tight flex items-center gap-2"><StickyNote className="h-5 w-5 text-ink-mute" />Catatan</h1>
           <p className="text-sm text-ink-soft">Catatan pribadi Anda. Tidak terlihat oleh rekan lain kecuali Anda bagikan.</p>
         </div>
         <Button size="sm" variant="dark" onClick={() => open('note')}><Plus className="h-3.5 w-3.5" />Catatan Baru</Button>
@@ -61,11 +62,7 @@ export default function Notes({ embedded }) {
       </div>
 
       <div className="flex flex-wrap gap-1.5">
-        <label className="relative min-w-[200px] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari judul, isi, atau tag…" aria-label="Cari catatan"
-            className="w-full rounded-xl border-0 bg-white py-2.5 pl-9 pr-3 text-sm ring-1 ring-slate-200 focus:ring-2 focus:ring-brand" />
-        </label>
+        <CariTabel atas value={q} onChange={setQ} label="Cari judul, isi, atau tag…" />
         {tags.length > 0 && (
           <select value={tag} onChange={(e) => setTag(e.target.value)} aria-label="Filter tag"
             className="rounded-xl border-0 bg-white py-2.5 pl-3 pr-8 text-sm font-semibold ring-1 ring-slate-200 focus:ring-2 focus:ring-brand">

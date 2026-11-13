@@ -197,24 +197,26 @@ export function IconField({ icon: Icon, title, required, className, children }) 
  * Popover kecil untuk pilihan sederhana (pengaturan kolom, tampilan tersimpan, tema).
  * Bukan untuk formulir panjang — gunakan Sheet untuk itu.
  */
-export function Popover({ button, children, align = 'right', label, width = 'min-w-[240px]', panelClass = '' }) {
+export function Popover({ button, children, align = 'right', label, width = 'min-w-[240px]', panelClass = '', atas }) {
   const [open, setOpen] = useState(false)
   const box = useRef(null)
+  const panel = useRef(null)
   useEffect(() => {
     if (!open) return
-    const away = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false) }
+    const away = (e) => { if (box.current && !box.current.contains(e.target) && !(panel.current && panel.current.contains(e.target))) setOpen(false) }
     const esc = (e) => e.key === 'Escape' && setOpen(false)
     document.addEventListener('mousedown', away); window.addEventListener('keydown', esc)
     return () => { document.removeEventListener('mousedown', away); window.removeEventListener('keydown', esc) }
   }, [open])
+  const isi = open && (
+    <div ref={panel} role="dialog" aria-label={label} className={cx(atas ? 'fixed z-[300]' : 'absolute top-[calc(100%+6px)] z-50', 'rounded-2xl bg-white p-3 shadow-card ring-1 ring-slate-200', width, !atas && (align === 'right' ? 'right-0' : 'left-0'), panelClass)}>
+      {children({ close: () => setOpen(false) })}
+    </div>
+  )
   return (
     <div className="relative" ref={box}>
       {button({ open, toggle: () => setOpen((v) => !v) })}
-      {open && (
-        <div role="dialog" aria-label={label} className={cx('absolute top-[calc(100%+6px)] z-50 rounded-2xl bg-white p-3 shadow-card ring-1 ring-slate-200', width, align === 'right' ? 'right-0' : 'left-0', panelClass)}>
-          {children({ close: () => setOpen(false) })}
-        </div>
-      )}
+      {atas ? isi && createPortal(isi, document.body) : isi}
     </div>
   )
 }
