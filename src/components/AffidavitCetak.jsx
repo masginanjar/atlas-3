@@ -52,7 +52,7 @@ export default function AffidavitCetak({ project, sub }) {
   }
 
   return (
-    <div className="rounded-xl bg-indigo-50 p-3 ring-1 ring-indigo-200">
+    <div className="rounded-xl bg-indigo-50 p-3 ring-1 ring-indigo-200" data-affidavit>
       <div className="flex flex-wrap items-center gap-2">
         <FileStack className="h-4 w-4 shrink-0 text-indigo-600" />
         <p className="min-w-0 flex-1 text-xs font-bold text-indigo-900">
@@ -83,7 +83,7 @@ export default function AffidavitCetak({ project, sub }) {
         </div>
       ) : (
         <>
-          <div className="mt-2 flex flex-wrap items-end gap-2">
+          <div className="mt-2 flex flex-wrap items-end gap-2" data-affidavit-isi>
             <label className="min-w-0 basis-28">
               <span className="block text-[11px] font-semibold text-indigo-900">Jumlah salinan</span>
               <Input type="number" min="1" value={salinan} onChange={(e) => setSalinan(e.target.value)}
@@ -105,7 +105,7 @@ export default function AffidavitCetak({ project, sub }) {
         </>
       )}
 
-      <p className="mt-1.5 text-[11px] text-indigo-700">
+      <p className="mt-1.5 text-[11px] text-indigo-700" data-affidavit-ket>
         Stok berkurang hanya saat tombol di atas ditekan, setelah kertas benar-benar keluar.
         Preview, unduh PDF, dan membuka lalu membatalkan dialog printer tidak mengurangi stok.
       </p>

@@ -493,3 +493,61 @@ body { font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
 .rounded-2xl { border-radius: 20px; } .rounded-xl { border-radius: 14px; }
 [data-mode-klasik] .rounded-lg { border-radius: 12px; }
 [data-klasik-tabel] > thead { color: #3F4563; }
+
+/* ===== Panel kerja ringkas di isi baris: isian ke samping (1–4 kolom), padat ===== */
+[data-ringkas-grid] {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px 12px;
+  align-items: end;
+}
+[data-ringkas-grid] > * { grid-column: 1 / -1; min-width: 0; }
+[data-ringkas-grid] > label { grid-column: auto; }
+[data-ringkas-grid] > label:has(textarea) { grid-column: span 2; }
+[data-ringkas-grid] [data-field-label] { margin-bottom: 4px; font-size: 12px; }
+[data-ringkas-grid] [data-hint] { margin-top: 2px; font-size: 11px; }
+[data-ringkas-grid] input:not([type=checkbox]):not([type=radio]):not([type=file]),
+[data-ringkas-grid] select { min-height: 0 !important; height: 38px; padding-top: 6px; padding-bottom: 6px; font-size: 13.5px; }
+[data-ringkas-grid] textarea { min-height: 38px !important; height: 38px; padding-top: 8px; padding-bottom: 8px; font-size: 13.5px; resize: vertical; }
+[data-ringkas-grid] > [data-tombol-tahap] { grid-column: 1 / -1; justify-self: end; flex-wrap: nowrap; }
+[data-ringkas-grid] > label:has([data-registrasi-dok]), [data-ringkas-grid] > label:has([data-checklist]) { grid-column: 1 / -1; }
+[data-ringkas-grid] > label:has(input[type=file]) { grid-column: auto; }
+[data-ringkas-grid] label .border-dashed { padding-top: 8px; padding-bottom: 8px; }
+[data-ringkas-grid] > [data-total] { grid-column: auto; height: 38px; padding: 0 12px; }
+[data-ringkas-grid] > [data-total] span:last-child { font-size: 15px; }
+@media (max-width: 480px) { [data-ringkas-grid] > label:has(textarea), [data-ringkas-grid] > label:has(input[type=file]) { grid-column: 1 / -1; } }
+[data-ringkas-grid] [data-hint] { display: none; }
+@media (min-width: 900px) {
+  [data-ringkas-grid] > [data-tombol-tahap] { grid-column-start: span 2; grid-column-end: -1; align-self: end; }
+}
+/* blok cetak + affidavit dipadatkan */
+[data-ringkas-grid] [data-blok-cetak] { padding: 8px 10px; gap: 6px; }
+[data-ringkas-grid] [data-cetak-judul] { flex-basis: auto; flex: 1 1 260px; }
+[data-ringkas-grid] [data-cetak-judul] > p { display: none; }
+[data-ringkas-grid] [data-affidavit] { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 10px; }
+[data-ringkas-grid] [data-affidavit] > div:first-child { flex: 1 1 240px; }
+[data-ringkas-grid] [data-affidavit-isi] { margin-top: 0; flex-wrap: nowrap; }
+[data-ringkas-grid] [data-affidavit-isi] label { flex-basis: auto; display: flex; align-items: center; gap: 6px; }
+[data-ringkas-grid] [data-affidavit-isi] label > span { white-space: nowrap; }
+[data-ringkas-grid] [data-affidavit-isi] label input { width: 64px; margin-top: 0; }
+[data-ringkas-grid] [data-affidavit] > p { margin-top: 0; }
+[data-ringkas-grid] [data-affidavit-ket], [data-ringkas-grid] [data-info-ping] { display: none; }
+[data-ringkas-grid] > [data-alasan-lewati] { grid-column: span 2; }
+@media (max-width: 480px) { [data-ringkas-grid] > [data-alasan-lewati] { grid-column: 1 / -1; } }
+/* ringkasan pengajuan & rekening: satu-dua baris mendatar */
+[data-ringkas-grid] [data-ringkasan-pengajuan] { padding: 6px 12px; }
+[data-ringkas-grid] [data-ringkasan-pengajuan] dl { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 18px; }
+[data-ringkas-grid] [data-ringkasan-pengajuan] dl > * { margin: 0 !important; border: 0 !important; padding: 0 !important; }
+[data-ringkas-grid] [data-ringkasan-pengajuan] dl > div > dt { width: auto; }
+[data-ringkas-grid] [data-ringkasan-pengajuan] dl > div > dd { flex: none; }
+[data-ringkas-grid] > label:has([data-rekening]) { grid-column: 1 / -1; }
+[data-ringkas-grid] [data-rekening] { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding: 6px 12px; }
+[data-ringkas-grid] [data-rekening] dd { margin-right: 14px; }
+
+/* teks panjang disembunyikan di panel ringkas: tombol jadi ikon (nama tetap terbaca screen reader lewat title/aria) */
+[data-ringkas-grid] [data-teks-panjang] { display: none; }
+[data-ringkas-grid] > [data-blok-sumber] { grid-column: auto; padding: 4px 6px; flex-wrap: nowrap; height: 38px; }
+[data-ringkas-grid] > [data-blok-sumber] [data-cetak-judul] { flex: 1 1 auto; min-width: 0; overflow: hidden; }
+[data-ringkas-grid] [data-blok-cetak] button:not([data-cetak-judul] *):not([data-affidavit] *), [data-ringkas-grid] [data-blok-cetak] a:not([data-cetak-judul] *) { font-size: 0; gap: 0; padding-left: 9px; padding-right: 9px; }
+[data-ringkas-grid] [data-blok-cetak] button:not([data-cetak-judul] *):not([data-affidavit] *) svg, [data-ringkas-grid] [data-blok-cetak] a:not([data-cetak-judul] *) svg { width: 16px; height: 16px; }
+[data-ringkas-grid] label .border-dashed { padding: 0 10px; height: 38px; }

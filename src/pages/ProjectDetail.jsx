@@ -331,7 +331,7 @@ export function SubProject({ n, project, sub, compact, tanpaTahap, ringkas }) {
   )
   if (ringkas) return (
     <div data-sub-card={sub.id} data-panel-ringkas>
-      {['ap_int', 'lg_int'].includes(flow) && <BiayaPanel project={project} sub={sub} />}
+      {['ap_int', 'lg_int'].includes(flow) && <BiayaPanel project={project} sub={sub} ringkas />}
       {done ? <p className="px-4 py-3 text-[13px] font-semibold text-emerald-700">Sub project ini sudah selesai.</p> : <StagePanel project={project} sub={sub} stage={stages[idx]} ringkas />}
     </div>
   )
@@ -489,6 +489,13 @@ export function StagePanel({ project, sub, stage, ringkas }) {
     if (stage.fields.some((f) => f.type === 'vendor_account')) init.rekening = sub.data?.rekening || data.people.find((p) => p.id === sub.data?.vendor)?.accounts?.[0] || ''
     setVals(init)
   }, [stage.key, sub.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Centang proses (P D V B C S) diubah langsung dari bulatan di baris → ikutkan ke isian supaya tidak tertimpa nilai lama
+  const kunciCentang = stage.fields.filter((f) => f.type === 'checklist').map((f) => f.key)
+  const nilaiCentang = JSON.stringify(kunciCentang.map((k) => sub.data?.[k] ?? null))
+  useEffect(() => {
+    if (!kunciCentang.length) return
+    setVals((v) => ({ ...v, ...Object.fromEntries(kunciCentang.map((k) => [k, sub.data?.[k] ?? ''])) }))
+  }, [nilaiCentang]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const claim = activeClaim(sub)
   // Super Admin, Direktur & Admin Pusat boleh melanjutkan tahap tanpa menunggu role penanggung jawab (dengan alasan, tercatat di riwayat)
@@ -564,12 +571,12 @@ export function StagePanel({ project, sub, stage, ringkas }) {
 
   return (
     <div className={ringkas ? '' : 'mx-4 mb-3 rounded-xl ring-2 ring-brand/20'} data-kotak-berikutnya="kerja">
-      {ringkas ? (stage.hint || overriding) && <p className={cx('mx-3 mt-3 rounded-lg px-3 py-2 text-[12.5px]', overriding ? 'bg-amber-100 font-semibold text-amber-900' : 'bg-[#F3F4F9] text-[#4A4F6A]')}>{overriding ? 'Mode lanjutkan tanpa menunggu role' : stage.hint}</p>
+      {ringkas ? null
       : <div className={cx('rounded-t-xl px-3 py-2', overriding ? 'bg-amber-100' : 'bg-brand-soft')}><p className={cx('text-xs font-bold', overriding ? 'text-amber-900' : 'text-brand')}><span className="font-semibold opacity-70">Sekarang:</span> {stage.label}{overriding && ' · Mode lanjutkan tanpa menunggu role'}<span className="ml-2 font-semibold opacity-70">Langkah berikutnya (Anda):</span> {stage.action || 'Simpan'}</p>{stage.hint && <p className="text-[11px] text-ink-soft">{stage.hint}</p>}</div>}
       <RevisionNote sub={sub} className="mx-3 mt-3 rounded-xl" />
       <TolakNote sub={sub} className="mx-3 mt-3 rounded-xl" />
       <GantiNote sub={sub} className="mx-3 mt-3 rounded-xl" />
-      <div className="space-y-3 p-3">
+      <div className={ringkas ? 'p-3' : 'space-y-3 p-3'} data-ringkas-grid={ringkas ? '' : undefined}>
         {stage.claimable && claim && (
           <div className="flex items-center gap-2 rounded-lg bg-violet-50 px-3 py-2 text-xs text-violet-900 ring-1 ring-violet-200">
             <Hand className="h-4 w-4" /><span className="flex-1">Sedang diproses oleh <b>{claim.name}</b> sejak {jam(claim.at)}</span>
@@ -578,18 +585,18 @@ export function StagePanel({ project, sub, stage, ringkas }) {
         )}
         {stage.showSource && (
           sub.data?.dokumen_sumber ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
-              <div className="min-w-0 basis-full"><p className="text-[11px] font-semibold text-ink-mute">Dokumen sumber dari CS</p><FileChip file={sub.data.dokumen_sumber} />{sub.data.dokumen_id && <><p className="mt-1.5 text-[11px] font-semibold text-ink-mute">ID / dokumen pemohon</p><FileChip file={sub.data.dokumen_id} /></>}</div>
+            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200" data-blok-cetak data-blok-sumber>
+              <div className="min-w-0 basis-full" data-cetak-judul><p className="text-[11px] font-semibold text-ink-mute">Dokumen sumber dari CS</p><FileChip file={sub.data.dokumen_sumber} />{sub.data.dokumen_id && <><p className="mt-1.5 text-[11px] font-semibold text-ink-mute">ID / dokumen pemohon</p><FileChip file={sub.data.dokumen_id} /></>}</div>
               <Button size="sm" variant="outline" onClick={async () => { try { const f = sub.data.dokumen_sumber; await saveBlob(f.name, f.url?.startsWith('data:') ? dataUrlToBlob(f.url) : await drive.blob(f)) } catch (e) { notify(e.message, 'err') } }}><Download className="h-3.5 w-3.5" />Download Dokumen Sumber</Button>
               <Button size="sm" variant="outline" onClick={() => setPreviewFile(sub.data.dokumen_sumber)}><Eye className="h-3.5 w-3.5" />Preview</Button>
               {previewFile && !stage.print && <FilePreview file={previewFile} onClose={() => setPreviewFile(null)} />}
             </div>
-          ) : <p className="text-xs text-ink-mute">Dokumen sumber belum diunggah CS.</p>
+          ) : !ringkas && <p className="text-xs text-ink-mute">Dokumen sumber belum diunggah CS.</p>
         )}
         {stage.print && (
           printDoc ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
-              <div className="min-w-0 basis-full"><p className="text-[11px] font-semibold text-ink-mute">Dokumen untuk dicetak · lokasi Print: {project.about?.print_location || project.branch}</p><FileChip file={printDoc} /></div>
+            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200" data-blok-cetak>
+              <div className="min-w-0 basis-full" data-cetak-judul><p className="text-[11px] font-semibold text-ink-mute">Dokumen untuk dicetak · lokasi Print: {project.about?.print_location || project.branch}</p><FileChip file={printDoc} /></div>
               <Button size="sm" variant="outline" onClick={async () => { try { await saveBlob(printDoc.name, await getBlob()) } catch (e) { notify(e.message, 'err') } }}><Download className="h-3.5 w-3.5" />Download Dokumen</Button>
               {isPdf && <Button size="sm" variant="outline" onClick={() => setPreviewFile(printDoc)}><Eye className="h-3.5 w-3.5" />Preview</Button>}
               {isPdf && <Button size="sm" variant="dark" onClick={doPrint}><Printer className="h-3.5 w-3.5" />Print</Button>}
@@ -638,7 +645,7 @@ export function StagePanel({ project, sub, stage, ringkas }) {
             <Select value={v} onChange={(e) => set(e.target.value)}><option value="">Tanpa ongkir</option>{f.options.map((o) => <option key={o}>{o}</option>)}</Select>
           </Field>
           if (f.type === 'computed') return (
-            <div key={f.key} className="flex items-center justify-between rounded-xl bg-ink px-4 py-3 text-white">
+            <div key={f.key} data-total className="flex items-center justify-between rounded-xl bg-ink px-4 py-3 text-white">
               <span className="text-xs font-semibold uppercase tracking-wide text-white/70">{f.label}</span>
               <span className="text-lg font-extrabold tabular-nums">{rupiah((Number(vals.vendor_cost) || 0) + (Number(vals.ongkir_cost) || 0))}</span>
             </div>
@@ -648,14 +655,14 @@ export function StagePanel({ project, sub, stage, ringkas }) {
             return (
               <Field key={f.key} label="Rekening Penerima" required={f.required} hint={!acc ? 'Vendor belum punya rekening — isi di Setting → Vendor' : 'Dari Setting → Vendor (rekening utama)'}>
                 {acc ? (
-                  <dl className="grid grid-cols-[90px_1fr] gap-x-3 gap-y-1 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-slate-300">
+                  <dl className="grid grid-cols-[90px_1fr] gap-x-3 gap-y-1 rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-slate-300" data-rekening>
                     <dt className="text-ink-mute">Bank</dt><dd><CopyText text={acc.bank} label="Bank" strong /></dd>
                     <dt className="text-ink-mute">No. Rekening</dt><dd><CopyText text={acc.number} label="No. Rekening" strong mono /></dd>
                     <dt className="text-ink-mute">Penerima</dt><dd><CopyText text={acc.holder} label="Nama Penerima" /></dd>
                     <dt className="text-ink-mute">No. Invoice</dt><dd><CopyText text={invoiceLabel(project.invoice_no)} label="No. Invoice" /></dd>
                     <dt className="text-ink-mute">Pelanggan</dt><dd><CopyText text={project.customer?.name} label="Nama Pelanggan" /></dd>
                   </dl>
-                ) : <span />}
+                ) : <span className="block rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] font-semibold text-amber-900">Rekening vendor belum ada</span>}
               </Field>
             )
           }
@@ -664,7 +671,7 @@ export function StagePanel({ project, sub, stage, ringkas }) {
             <Input type="number" inputMode="numeric" min="0" value={v} onChange={(e) => set(e.target.value)} placeholder="0" />
           </Field>
           if (f.type === 'date') return <Field key={f.key} label={f.label} required={f.required}><Input type="date" value={v} onChange={(e) => set(e.target.value)} /></Field>
-          if (f.type === 'checklist') return (
+          if (f.type === 'checklist') return ringkas ? null : (
             <ChecklistProses key={f.key} f={f} nilai={v} setNilai={set} project={project} sub={sub} user={user} />
           )
           if (f.type === 'reg_numbers') {
@@ -688,29 +695,34 @@ export function StagePanel({ project, sub, stage, ringkas }) {
         )}
         {needDelivery && <DeliveryChecklist project={project} sub={sub} />}
         {needDelivery && !delivery.ok && <p className="text-[11px] font-semibold text-amber-800">{delivery.reason}</p>}
-        {perluLembar && !lembarTercatat && <p className="text-[11px] font-semibold text-amber-800">Catat dulu pemakaian lembar affidavit di atas sebelum menandai sudah dicetak.</p>}
+        {perluLembar && !lembarTercatat && !ringkas && <p className="text-[11px] font-semibold text-amber-800">Catat dulu pemakaian lembar affidavit di atas sebelum menandai sudah dicetak.</p>}
         {overriding && (
-          <div className="mb-1 flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 p-2.5 text-[11px] text-ink-soft ring-1 ring-slate-200"><span className="min-w-0 flex-1">Tahap ini milik role lain — Anda bisa mengingatkan PIC-nya tanpa mengubah status.</span><PingButton project={project} sub={sub} stage={stage} /></div>
+          <div className="mb-1 flex flex-wrap items-center gap-2 rounded-xl bg-slate-50 p-2.5 text-[11px] text-ink-soft ring-1 ring-slate-200" data-info-ping><span className="min-w-0 flex-1">Tahap ini milik role lain — Anda bisa mengingatkan PIC-nya tanpa mengubah status.</span><PingButton project={project} sub={sub} stage={stage} /></div>
         )}
-        {overriding && (
+        {overriding && ringkas && (
+          <label className="block" data-alasan-lewati><Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Alasan lanjutkan sendiri (wajib)" title={`Melewati proses role ${stage.roles.filter((r) => r !== 'superadmin').map((r) => ROLES[r].label).join(' / ')} — dicatat di riwayat`} aria-label="Alasan melewati proses" aria-invalid={!reason.trim()} className="!bg-amber-50" /></label>
+        )}
+        {overriding && !ringkas && (
           <div className="rounded-xl bg-amber-50 p-3 ring-1 ring-amber-200">
             <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-amber-900"><FastForward className="h-3.5 w-3.5" />Melewati proses role {stage.roles.filter((r) => r !== 'superadmin').map((r) => ROLES[r].label).join(' / ')}</p>
             <p className="mb-2 text-[11px] text-amber-800">Kelengkapan data tahap ini tetap wajib. Tindakan dicatat di riwayat: pelaksana, waktu, tahap asal → tujuan, dan alasan.</p>
             <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Alasan melewati proses (wajib)" aria-label="Alasan melewati proses" aria-invalid={!reason.trim()} />
           </div>
         )}
-        {!overriding && (stage.key === 'persetujuan' || stage.key === 'pembayaran') && <div className="flex justify-end pt-1"><RejectPengajuan project={project} sub={sub} /></div>}
+        {!overriding && !ringkas && (stage.key === 'persetujuan' || stage.key === 'pembayaran') && <div className="flex justify-end pt-1"><RejectPengajuan project={project} sub={sub} /></div>}
         {/* Penerjemahan: Direktur bisa mengganti penerjemah, penerjemahnya sendiri bisa menolak — dua-duanya wajib pakai alasan */}
-        {stage.key === 'penerjemahan' && (
+        {stage.key === 'penerjemahan' && !ringkas && (
           <div className="flex flex-wrap justify-end gap-2 pt-1">
             <TolakTugasBtn project={project} sub={sub} />
             <GantiPenerjemahBtn project={project} sub={sub} />
           </div>
         )}
-        <div className="flex gap-2 pt-1">
-          {overrideMode && <Button variant="outline" onClick={() => { setOverrideMode(false); setReason('') }}>Batal</Button>}
-          {stage.fields.length > 0 && !overriding && <Button variant="outline" className="flex-1" loading={busy === 'save'} disabled={!!uploading} onClick={() => run(false)}>Simpan</Button>}
-          <Button className="flex-[2]" loading={busy === 'go'} disabled={!!uploading || (needDelivery && !delivery.ok) || (perluLembar && !lembarTercatat) || (overriding && !reason.trim())} onClick={() => run(true)} variant={overriding ? 'dark' : 'primary'}>{overriding ? 'Lanjutkan ke Tahap Berikutnya' : stage.action} →</Button>
+        <div className={ringkas ? 'flex flex-wrap items-center justify-end gap-2' : 'flex gap-2 pt-1'} data-tombol-tahap>
+          {ringkas && stage.key === 'penerjemahan' && <><TolakTugasBtn project={project} sub={sub} /><GantiPenerjemahBtn project={project} sub={sub} /></>}
+          {ringkas && !overriding && (stage.key === 'persetujuan' || stage.key === 'pembayaran') && <RejectPengajuan project={project} sub={sub} />}
+          {overrideMode && <Button size={ringkas ? 'sm' : undefined} variant="outline" onClick={() => { setOverrideMode(false); setReason('') }}>Batal</Button>}
+          {stage.fields.length > 0 && !overriding && <Button size={ringkas ? 'sm' : undefined} variant="outline" className={ringkas ? '' : 'flex-1'} loading={busy === 'save'} disabled={!!uploading} onClick={() => run(false)}>Simpan</Button>}
+          <Button size={ringkas ? 'sm' : undefined} title={stage.hint} className={ringkas ? '' : 'flex-[2]'} loading={busy === 'go'} disabled={!!uploading || (needDelivery && !delivery.ok) || (perluLembar && !lembarTercatat) || (overriding && !reason.trim())} onClick={() => run(true)} variant={overriding ? 'dark' : 'primary'}>{overriding ? 'Lanjutkan ke Tahap Berikutnya' : stage.action} →</Button>
         </div>
       </div>
     </div>
@@ -860,12 +872,12 @@ function StageFiles({ project, sub, list, onChange, onBusy, accept }) {
       )}
       <div className="flex flex-wrap gap-2">
         <label className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 px-3 py-3 text-xs font-semibold text-ink-soft hover:border-brand hover:text-brand">
-          {busy ? <><Loader2 className="h-4 w-4 animate-spin" />{busy}</> : <><Upload className="h-4 w-4" />{list.length ? 'Tambah file' : 'Pilih / foto file'} (bisa banyak)</>}
+          {busy ? <><Loader2 className="h-4 w-4 animate-spin" />{busy}</> : <><Upload className="h-4 w-4" />{list.length ? 'Tambah file' : 'Pilih / foto file'}<span data-teks-panjang>&nbsp;(bisa banyak)</span></>}
           <input type="file" multiple className="hidden" accept={accept || 'image/*,application/pdf,.doc,.docx'} onChange={(e) => { const fl = [...e.target.files]; e.target.value = ''; add(fl) }} aria-label="Upload file tahap" />
         </label>
         <button type="button" disabled={!pool.length} onClick={() => setPick(pick ? null : new Set())}
           className="flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-xs font-semibold text-ink-soft ring-1 ring-slate-200 hover:text-brand hover:ring-brand disabled:opacity-40" title={pool.length ? 'Pakai file yang sudah ada di File Project' : 'Belum ada file lain di File Project'}>
-          <FolderOpen className="h-4 w-4" />Ambil dari File Project{pool.length ? ` (${pool.length})` : ''}
+          <FolderOpen className="h-4 w-4" /><span data-teks-panjang>Ambil dari File Project{pool.length ? ` (${pool.length})` : ''}</span>
         </button>
       </div>
       {pick && (
@@ -932,23 +944,17 @@ function RegNumbersField({ f, sub, project, vals, setVals, projects }) {
   const setNo = (i, v) => setVals((o) => { const n = [...(Array.isArray(o.reg_numbers) ? o.reg_numbers : [])]; n[i] = v.replace(/\D/g, '').slice(0, 14); return { ...o, reg_numbers: n } })
   const setNama = (i, v) => setVals((o) => { const n = [...(Array.isArray(o.reg_names) ? o.reg_names : [])]; n[i] = v; return { ...o, reg_names: n } })
   return (
-    <Field label={f.label} required={f.required} hint={dipesan ? 'Nomor sudah dibuat otomatis saat ACC dan sudah dipesan (tidak dipakai dokumen lain). Cek jenis & nama dalam dokumen, lalu Terbitkan.' : kode ? `Arah ${sub.lang_from} → ${sub.lang_to} · kode ${kode} · kode unik 6 angka berlanjut untuk semua arah` : 'Arah bahasa ini tidak memakai nomor registrasi otomatis — isi manual bila perlu.'}>
+    <Field label={f.label} required={f.required} hint={dipesan ? 'Nomor sudah dipesan saat ACC. Cek nama dalam dokumen, lalu Terbitkan.' : kode ? `Arah ${sub.lang_from} → ${sub.lang_to} · kode ${kode} · kode unik 6 angka berlanjut untuk semua arah` : 'Arah bahasa ini tidak memakai nomor registrasi otomatis — isi manual bila perlu.'}>
       {!dipesan && <div className="mb-2 flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={ambil} disabled={busy || !kode} data-aksi="ambil-nomor-registrasi">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}{cur.some(Boolean) ? 'Ambil nomor ulang' : 'Ambil nomor'}</Button>
         {err && <span className="text-xs text-rose-700">{err}</span>}
       </div>}
-      <ol className="space-y-2">{list.map((name, i) => (
-        <li key={i} className="rounded-xl bg-white px-3 py-2 ring-1 ring-slate-200" data-registrasi-dok>
-          <div className="flex items-center gap-2">
+      <ol className="space-y-1.5">{list.map((name, i) => (
+        <li key={i} className="grid grid-cols-[24px_minmax(0,1fr)] items-center gap-x-2 gap-y-1 rounded-lg bg-white px-2 py-1.5 ring-1 ring-slate-200 lg:grid-cols-[24px_minmax(0,1fr)_190px_minmax(0,1fr)]" data-registrasi-dok>
             <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-soft text-[11px] font-bold text-brand">{i + 1}</span>
-            <span className="min-w-0 flex-1 truncate text-sm font-semibold" title={name}>{name}</span>
-          </div>
-          <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
-            <label className="block"><span className="text-[11px] text-ink-mute">No. registrasi</span>
-              <Input value={cur[i] || ''} readOnly={dipesan} onChange={(e) => setNo(i, e.target.value)} inputMode="numeric" placeholder="14 angka" className="!py-1.5 font-mono text-sm tracking-wide" aria-label={`Nomor registrasi dokumen ${i + 1}`} /></label>
-            <label className="block"><span className="text-[11px] text-ink-mute">Nama dalam dokumen</span>
-              <Input value={names[i] ?? ''} onChange={(e) => setNama(i, e.target.value)} placeholder={project.customer?.name || 'Nama pada dokumen'} className="!py-1.5 text-sm" aria-label={`Nama dalam dokumen ${i + 1}`} /></label>
-          </div>
+            <span className="min-w-0 truncate text-sm font-semibold" title={name}>{name}</span>
+            <Input value={cur[i] || ''} readOnly={dipesan} onChange={(e) => setNo(i, e.target.value)} inputMode="numeric" placeholder="No. registrasi (14 angka)" title="No. registrasi" className="col-start-2 !h-9 !py-1 font-mono text-sm tracking-wide lg:col-start-auto" aria-label={`Nomor registrasi dokumen ${i + 1}`} />
+            <Input value={names[i] ?? ''} onChange={(e) => setNama(i, e.target.value)} placeholder={`Nama dalam dokumen${project.customer?.name ? ` (${project.customer.name})` : ''}`} title="Nama dalam dokumen" className="col-start-2 !h-9 !py-1 text-sm lg:col-start-auto" aria-label={`Nama dalam dokumen ${i + 1}`} />
         </li>
       ))}</ol>
     </Field>

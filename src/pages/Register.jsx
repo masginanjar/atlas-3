@@ -208,13 +208,33 @@ export default function Register() {
     const ok = await copyText(tsv)
     notify(ok ? `${terbit.length} baris disalin — tempel ke Sheet / sistem` : 'Gagal menyalin', ok ? 'ok' : 'err')
   }
+  // Format file upload sistem (contoh "247 (ENG - INA) 21 Oktober 2026.xlsx"): sheet "Upload",
+  // kolom No | No Registrasi (teks) | Tanggal | Jenis Dokumen | Nama dalam Dokumen | Bahasa.
+  // Satu file per arah bahasa + tanggal.
   const unduh = async () => {
-    const XLSX = await import('xlsx')
-    const ws = XLSX.utils.aoa_to_sheet([['No. Invoice', 'No Registrasi', 'Tanggal', 'Jenis Dokumen', 'Nama dalam Dokumen'],
-      ...terbit.map((r) => [r.invoice, r.no, tglInggris(r.tanggal), r.jenis, r.nama])])
-    ws['!cols'] = [{ wch: 16 }, { wch: 17 }, { wch: 30 }, { wch: 36 }, { wch: 26 }]
-    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Register')
-    XLSX.writeFile(wb, `Nomor-Register-${cepat === 'semua' ? 'semua' : hari}.xlsx`)
+    const { default: ExcelJS } = await import('exceljs')
+    const BAHASA = { 'ID-EN': ['Indonesian - English', 'INA - ENG'], 'EN-ID': ['English - Indonesian', 'ENG - INA'], 'ID-NL': ['Indonesian - Dutch', 'INA - NLD'], 'NL-ID': ['Dutch - Indonesian', 'NLD - INA'] }
+    const BLN = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+    const grup = new Map()
+    for (const r of [...terbit].sort((a, b) => `${a.tanggal}|${a.no}`.localeCompare(`${b.tanggal}|${b.no}`))) {
+      const k = `${r.arah}|${r.tanggal}`; if (!grup.has(k)) grup.set(k, []); grup.get(k).push(r)
+    }
+    let n = 0
+    for (const [k, list] of grup) {
+      const [arah, tgl] = k.split('|')
+      const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Upload')
+      ws.columns = [{ width: 5.43 }, { width: 24.57 }, { width: 32.29 }, { width: 69.86 }, { width: 48.14 }, { width: 24.71 }]
+      ws.addRow(['No', 'No Registrasi', 'Tanggal', 'Jenis Dokumen', 'Nama dalam Dokumen', 'Bahasa']).font = { bold: true }
+      list.forEach((r, i) => ws.addRow([i + 1, String(r.no), tglInggris(r.tanggal), r.jenis || '', r.nama || '', BAHASA[arah]?.[0] || arah]))
+      ws.getColumn(2).numFmt = '@'
+      const buf = await wb.xlsx.writeBuffer()
+      const [y, m, d] = String(tgl).split('-')
+      const nama = `247 (${BAHASA[arah]?.[1] || arah}) ${Number(d)} ${BLN[Number(m) - 1] || ''} ${y}.xlsx`
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); a.download = nama
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000)
+      n += 1; if (n < grup.size) await new Promise((ok) => setTimeout(ok, 400))
+    }
+    notify(n > 1 ? `${n} file Excel diunduh (per arah bahasa & tanggal)` : 'File Excel diunduh')
   }
   const tandai = (no) => setDiinput((old) => { const x = new Set(old); if (x.has(no)) x.delete(no); else x.add(no); simpanInput(x); return x })
   const salin = async (no) => notify((await copyText(no)) ? `${no} disalin` : 'Gagal menyalin')

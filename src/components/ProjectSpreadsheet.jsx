@@ -109,7 +109,15 @@ function BarisSub({ subs, kolom }) {
   )
 }
 
-export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles, onPrint, state, setState, hideCols = [], renderAksi, pref = {}, tanpaCari, kepalaAksi }) {
+export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles, onPrint, state, setState, hideCols = [], renderAksi, pref = {}, tanpaCari, kepalaAksi, renderIsi }) {
+  // lebar area tabel yang terlihat → isi baris (sub project) selalu pas kiri-kanan, tidak melebar ke kanan
+  const gulirRef = useRef(null)
+  const [lebarTampak, setLebarTampak] = useState(0)
+  useEffect(() => {
+    const el = gulirRef.current; if (!el || typeof ResizeObserver === 'undefined') return undefined
+    const ro = new ResizeObserver(() => setLebarTampak(el.clientWidth)); ro.observe(el); setLebarTampak(el.clientWidth)
+    return () => ro.disconnect()
+  })
   // Kolom yang disembunyikan untuk peran tertentu (mis. pelaksana freelance tidak punya cabang),
   // lalu pilihan pengguna (Tampilan › Kolom tabel).
   const KOLOM = TABLE_COLS.filter((c) => !hideCols.includes(c.key)).filter((c) => !pref.tabelCols || c.key === 'invoice' || pref.tabelCols.includes(c.key))
@@ -264,7 +272,7 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
       {hasil.length === 0 ? (
         <p className="rounded-2xl bg-white px-4 py-10 text-center text-sm text-ink-mute ring-1 ring-slate-200">Tidak ada project yang cocok.</p>
       ) : (
-        <div className={cx('min-w-0 max-w-full overflow-x-auto rounded-2xl bg-white ring-1 ring-slate-200', digulir && 'tabel-digulir')} data-digulir={digulir ? '1' : '0'}
+        <div ref={gulirRef} className={cx('min-w-0 max-w-full overflow-x-auto rounded-2xl bg-white ring-1 ring-slate-200', digulir && 'tabel-digulir')} data-digulir={digulir ? '1' : '0'}
           onScroll={(e) => { const g = e.currentTarget.scrollLeft > 12; if (g !== digulir) setDigulir(g) }}>
           <table className={cx('w-max min-w-full border-collapse text-left align-top text-sm md:w-full', pref.ukuranTabel === 'kecil' && 'tabel-kecil', pref.ukuranTabel === 'besar' && 'tabel-besar')} data-tabel-hp="gulir" data-ukuran={pref.ukuranTabel || 'normal'}>
             <thead>
@@ -330,7 +338,8 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
                 return [...out, tr, (
                   <tr key={`${r.id}-sub`} className="border-b border-slate-100 bg-slate-50/70">
                     <td colSpan={KOLOM.length + 1} className="p-0">
-                      <BarisSub kolom={KOLOM} subs={(r.subs || []).map((x) => ({
+                      <div className="sticky left-0 min-w-0 overflow-hidden" style={lebarTampak ? { width: lebarTampak } : undefined} data-isi-baris-tabel>
+                      {renderIsi ? renderIsi(r.p) : <BarisSub kolom={KOLOM} subs={(r.subs || []).map((x) => ({
                         id: x.id, raw: x, p: r.p, judul: x.title, kategori: (SUB_TYPES[x.type] || SUB_TYPES.jasa_lain).label,
                         arah: x.lang_from && x.lang_to ? `${x.lang_from} → ${x.lang_to}` : '',
                         orang: namaUser(x.data?.translator || x.translator || x.data?.vendor || ''),
@@ -338,7 +347,8 @@ export default function ProjectSpreadsheet({ list, detailFor, onDetail, onFiles,
                         hal: x.docs?.length ? x.docs.reduce((a, d) => a + (Number(d.pages) || 0), 0) : (Number(x.pages) || 0),
                         // nama tahap yang terbaca, bukan kode mentah ('siap_print')
                         tahap: x.stage ? stageLabel(flowOf(x, r.p), x.stage) : '',
-                      }))} />
+                      }))} />}
+                      </div>
                     </td>
                   </tr>
                 )]

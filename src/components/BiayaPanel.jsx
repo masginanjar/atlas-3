@@ -7,7 +7,7 @@ import { Button, Input, cx } from './ui.jsx'
 import { rupiah } from '../lib/format.js'
 
 /** Biaya Apostille/Legalisasi — hanya Direktur/Direktur yang bisa mengisi; staf tidak melihat panel ini. */
-export default function BiayaPanel({ project, sub }) {
+export default function BiayaPanel({ project, sub, ringkas }) {
   const { user, saveBiaya, notify } = useApp()
   const editable = can.editBiaya(user)
   const [proses, setProses] = useState(sub.data?.biaya_proses ?? '')
@@ -28,6 +28,22 @@ export default function BiayaPanel({ project, sub }) {
     } catch (e) { notify(e.message, 'err') } finally { setBusy(false) }
   }
 
+  if (ringkas) return (
+    <div className="flex flex-wrap items-center gap-2 border-b border-[#E7E8F0] px-3 py-2" data-biaya-ringkas>
+      <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold"><Calculator className="h-4 w-4 text-amber-700" />Biaya {sub.type === 'legalisasi' ? 'legalisasi' : 'apostille'}</span>
+      <Input type="number" inputMode="numeric" min="0" disabled={!editable} value={proses} onChange={(e) => setProses(e.target.value)} placeholder="0" aria-label="Biaya proses" title="Dicatat ke Petty Cash Apostille" className="!h-9 !w-32 text-right" />
+      {lain.map((x, i) => (
+        <span key={i} className="inline-flex items-center gap-1">
+          <Input disabled={!editable} value={x.ket} onChange={(e) => upd(i, { ket: e.target.value })} placeholder="Biaya lain" aria-label={`Keterangan biaya lain ${i + 1}`} className="!h-9 !w-28" />
+          <Input type="number" inputMode="numeric" min="0" disabled={!editable} value={x.nominal} onChange={(e) => upd(i, { nominal: e.target.value })} placeholder="0" aria-label={`Nominal biaya lain ${i + 1}`} className="!h-9 !w-24 text-right" />
+          {editable && <button type="button" onClick={() => setLain((a) => a.filter((_, j) => j !== i))} className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600" aria-label="Hapus biaya lain"><Trash2 className="h-4 w-4" /></button>}
+        </span>
+      ))}
+      {editable && <button type="button" onClick={() => setLain((a) => [...a, { ket: '', nominal: '' }])} title="Tambah biaya lain" aria-label="Tambah biaya lain" className="grid h-9 w-9 place-items-center rounded-lg text-amber-800 ring-1 ring-amber-200 hover:bg-amber-50"><Plus className="h-4 w-4" /></button>}
+      <span className="ml-auto text-[13px] text-[#5E6380]">Total <b className={cx('tabular-nums text-[#141B34]', dirty && 'text-amber-700')}>{rupiah(total)}</b></span>
+      {editable && dirty && <Button size="sm" loading={busy} onClick={submit}>Simpan biaya</Button>}
+    </div>
+  )
   return (
     <div className="mx-4 mb-3 rounded-xl bg-amber-50/70 p-3 ring-1 ring-amber-200">
       <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-amber-900">

@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
+import { cx } from './ui.jsx'
 import { useApp } from '../lib/store.jsx'
 import { flowOf } from '../config/workflows.js'
 import { invoiceLabel } from '../config/access.js'
@@ -66,7 +67,7 @@ export default function TugaskanPenerjemah({ p, sub, onClose = () => {}, onLainn
           <strong className="text-[13px] font-semibold">Kapasitas penerjemah</strong>
           <span className="whitespace-nowrap text-xs text-[#5E6380]">Deadline {tglTeks}</span>
         </div>
-        <div role="radiogroup" aria-label="Pilih penerjemah" className="flex flex-col gap-1" data-daftar-kapasitas>
+        <div role="radiogroup" aria-label="Pilih penerjemah" className={inline ? 'grid gap-1.5 sm:grid-cols-2 2xl:grid-cols-3' : 'flex flex-col gap-1'} data-daftar-kapasitas>
           {baris.map((b) => { const on = pilih === b.u.id; const dipin = !!pin[b.u.id]; return (
             <div key={b.u.id} className="grid grid-cols-[30px_minmax(0,1fr)] items-center gap-1">
               <button type="button" aria-pressed={dipin} onClick={() => tukarPin(b.u.id)} title={(dipin ? 'Lepas sematan ' : 'Sematkan di atas: ') + nama(b.u)} aria-label={(dipin ? 'Lepas sematan ' : 'Sematkan di atas: ') + nama(b.u)}
@@ -74,20 +75,20 @@ export default function TugaskanPenerjemah({ p, sub, onClose = () => {}, onLainn
                 <svg width="15" height="15" viewBox="0 0 24 24" fill={dipin ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 4h6l-1 6 3 3v2H7v-2l3-3-1-6z" /><path d="M12 15v6" /></svg>
               </button>
               <button type="button" role="radio" aria-checked={on} onClick={() => setPilih(b.u.id)} data-pilih-penerjemah={b.u.id}
-                className="grid min-h-[44px] grid-cols-[minmax(64px,84px)_minmax(0,1fr)_auto] items-center gap-x-2.5 rounded-[10px] border-2 px-2.5 text-left sm:grid-cols-[84px_minmax(0,1fr)_78px_100px]"
+                className={cx('grid grid-cols-[minmax(64px,84px)_minmax(0,1fr)_auto] items-center gap-x-2.5 rounded-[10px] border-2 px-2.5 text-left', inline ? 'min-h-[40px] sm:grid-cols-[76px_minmax(0,1fr)_auto]' : 'min-h-[44px] sm:grid-cols-[84px_minmax(0,1fr)_78px_100px]')}
                 style={{ borderColor: on ? '#4169E1' : '#E7E8F0', background: on ? '#F3F6FF' : '#FFFFFF' }}>
                 <span className="truncate text-[13px] font-bold">{nama(b.u)}</span>
                 <span role="img" aria-label={`Terisi ${b.pc} persen`} className="block h-2 overflow-hidden rounded bg-[#EEF0F5]"><span className="block h-full rounded" style={{ width: `${Math.min(100, b.pc)}%`, background: b.fg }} /></span>
-                <span className="hidden whitespace-nowrap text-xs tabular-nums text-[#5E6380] sm:block">{b.isi}/{b.maks} Hal</span>
+                {!inline && <span className="hidden whitespace-nowrap text-xs tabular-nums text-[#5E6380] sm:block">{b.isi}/{b.maks} Hal</span>}
                 <span className="justify-self-end whitespace-nowrap rounded-full px-2 py-0.5 text-[11.5px] font-bold" style={{ background: b.bg, color: b.fg }}>
-                  <span className="sm:hidden">{b.isi}/{b.maks} · </span>{b.ket}
+                  <span className={inline ? '' : 'sm:hidden'}>{b.isi}/{b.maks}{inline ? '' : ' · '}</span>{!inline && b.ket}
                 </span>
               </button>
             </div>
           ) })}
           {!baris.length && <p className="rounded-xl bg-[#F3F4F9] px-3 py-3 text-[13px] text-[#5E6380]">Belum ada penerjemah aktif.</p>}
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+        <div className="flex flex-wrap items-center justify-end gap-2 pt-1" data-kaki-tugaskan>
           {onLainnya && <button type="button" onClick={onLainnya} className="mr-auto min-h-[44px] rounded-[10px] px-2 text-[13px] font-semibold text-[#0B5C8A] hover:underline">Vendor / koordinator…</button>}
           {!inline && <button type="button" onClick={onClose} className="min-h-[44px] rounded-[10px] border border-[#D9DBE7] bg-white px-4 text-[13px] font-semibold">Batal</button>}
           <button type="button" onClick={tetapkan} disabled={!pilih || sibuk} data-aksi="tetapkan-penerjemah"
@@ -97,7 +98,7 @@ export default function TugaskanPenerjemah({ p, sub, onClose = () => {}, onLainn
         </div>
     </>
   )
-  if (inline) return <div className="flex flex-col gap-3 p-3" data-tugaskan-inline>{isi}</div>
+  if (inline) return <div className="flex flex-col gap-2 p-3" data-tugaskan-inline>{isi}</div>
   return createPortal(
     <div className="fixed inset-0 z-[200] flex items-end justify-center bg-[#141B34]/30 p-2 sm:items-center" onMouseDown={(e) => e.target === e.currentTarget && onClose()} data-tugaskan-penerjemah>
       <div role="dialog" aria-modal="true" aria-labelledby="tg-judul" className="flex max-h-[90vh] w-[500px] max-w-full flex-col gap-3 overflow-y-auto rounded-2xl border border-[#DADDE8] bg-white p-[18px] text-[#141B34] shadow-[0_18px_48px_rgba(20,27,52,0.28)]">

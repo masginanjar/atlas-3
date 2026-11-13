@@ -92,7 +92,7 @@ export function PengajuanSummary({ sub, className }) {
     ['Ongkir', d.ongkir_to || 'Tanpa ongkir', rupiah(d.ongkir_cost)],
   ]
   return (
-    <div className={cx('rounded-xl bg-white p-3 ring-1 ring-slate-200', className)}>
+    <div className={cx('rounded-xl bg-white p-3 ring-1 ring-slate-200', className)} data-ringkasan-pengajuan>
       <dl className="space-y-1.5 text-sm">
         {rows.map(([k, v, amt]) => (
           <div key={k} className="flex items-baseline gap-2">
