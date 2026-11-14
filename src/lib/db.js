@@ -67,6 +67,20 @@ function migrate(m) {
     set('u-cs-bdg', { koordinator: [dedi.id] })
     m.koordinator_v1 = true; changed = true
   }
+  // Contoh untuk Upload Bukti Transfer Massal (14 Nov 2026): pengajuan "Perlu transfer" berbagai sumber dana
+  if (!m.bukti_massal_v1 || !(m.requests || []).some((r) => r.id === 'rq-bm-1')) {
+    const now = new Date().toISOString()
+    const R = (id, kind, branch, amount, purpose, dana, who, extra = {}) => ({ id, kind, branch, amount, purpose, status: 'disetujui', sumber_dana: dana, requested_by: who[0], requested_name: who[1],
+      recipient: { bank: '', number: '', holder: '' }, attachment: null, project_id: null, fund: null, created_at: now,
+      approved_by: 'u-dir', approved_name: 'Fina (Direktur)', approved_at: now, history: [{ at: now, by: who[1], action: 'Diajukan' }, { at: now, by: 'Fina (Direktur)', action: `ACC · dana ${dana}` }], ...extra })
+    m.requests = [...(m.requests || []),
+      R('rq-bm-1', 'lain', 'Bali', 1250000, 'Servis AC ruang CS Bali', 'ATS', ['u-cs-bali', 'Nikita (CS Bali)'], { recipient: { bank: 'BCA', number: '7720381122', holder: 'CV Sejuk Abadi' } }),
+      R('rq-bm-2', 'lain', 'Jakarta', 750000, 'Kurir dokumen ke Kemenkumham (pagi)', 'ATI', ['u-cs-jkt', 'Rika (CS Jakarta)'], { recipient: { bank: 'BCA', number: '5430998811', holder: 'Andi Pratama' } }),
+      R('rq-bm-3', 'lain', 'Jakarta', 750000, 'Kurir dokumen ke Kemenkumham (sore)', 'ATI', ['u-cs-jkt', 'Rika (CS Jakarta)'], { recipient: { bank: 'BCA', number: '5430998811', holder: 'Andi Pratama' } }),
+      R('rq-bm-4', 'topup', 'Batam', 3000000, 'Top up petty cash Batam', 'PTI', ['u-cs-btm', 'Gean (CS Batam)'], { fund: 'Batam' }),
+    ]
+    m.bukti_massal_v1 = true; changed = true
+  }
   // foto profil tim (hanya bila belum ada foto unggahan)
   for (const x of m.users || []) { const f = fotoTim(x.name); if (f && (!x.avatar || x.avatar_tim)) { if (x.avatar !== f) { x.avatar = f; x.avatar_tim = true; changed = true } } }
   set('u-ot-lukas', { otorisator_level: 'staf' })

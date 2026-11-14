@@ -34,6 +34,20 @@ const Badge = ({ cls, children }) => <span className={cx('inline-flex items-cent
 export const KindBadge = ({ kind }) => { const k = REQ_KINDS[kind] ?? REQ_KINDS.lain; return <Badge cls={k.tone}><k.icon className="h-3 w-3" />{k.label}</Badge> }
 export const ReqStatus = ({ status }) => { const [l, c] = REQ_STATUS[status] ?? REQ_STATUS.menunggu; return <Badge cls={c}>{l}</Badge> }
 
+/**
+ * Tandai pengajuan sudah ditransfer (dipakai tombol "Tandai ditransfer" DAN Upload Bukti Transfer Massal).
+ * Simpan bukti + status dibayar, top up → saldo petty cash bertambah, kabari pemohon.
+ */
+export async function tandaiDibayar({ r, file, date, user, save, catatan }) {
+  if (r.status !== 'disetujui') throw new Error('Pengajuan ini tidak berstatus Perlu transfer')
+  if (r.bukti_transfer) throw new Error('Pengajuan ini sudah punya bukti transfer')
+  const hist = [...(r.history || []), { at: new Date().toISOString(), by: user.name, action: catatan ? `Dibayar · ${catatan}` : 'Dibayar' }]
+  await save('requests', { ...r, status: 'dibayar', bukti_transfer: file, paid_date: date || new Date().toISOString().slice(0, 10), paid_by: user.id, paid_name: user.name, paid_at: new Date().toISOString(), history: hist })
+  if (r.kind === 'topup') await save('petty_cash', { branch: r.fund || r.branch, type: 'in', amount: Number(r.amount), note: `Top up (pengajuan ${r.requested_name})${r.purpose ? ` — ${r.purpose}` : ''}`, project_id: null, request_id: r.id, by: user.name })
+  const text = r.kind === 'topup' ? `sudah ditransfer — saldo ${pettyLabel(r.fund || r.branch)} bertambah` : 'sudah dibayar — bukti transfer tersedia'
+  await save('notifications', { to_user: r.requested_by, kind: 'payment', text: `Pengajuan ${REQ_KINDS[r.kind]?.label} ${rupiah(r.amount)}: ${text}`, by: user.name, read_by: [] }).catch(() => {})
+}
+
 /** Pengajuan umum yang boleh dilihat user. */
 export function scopeRequests(user, all = [], branchFilter = 'Semua') {
   if (can.seeAllFinance(user)) return all.filter((r) => branchFilter === 'Semua' || r.branch === branchFilter)
@@ -103,9 +117,7 @@ export function RequestBoard({ bare, tab: tabProp, onTab, subtab, kanan }) {
     const f = get(r.id); if (!f.file) return notify('Upload bukti transfer dulu', 'err')
     set(r.id, { busy: true })
     try {
-      await save('requests', { ...r, status: 'dibayar', bukti_transfer: f.file, paid_date: f.date, paid_by: user.id, paid_name: user.name, paid_at: new Date().toISOString(), history: hist(r, 'Dibayar') })
-      if (r.kind === 'topup') await save('petty_cash', { branch: r.fund || r.branch, type: 'in', amount: Number(r.amount), note: `Top up (pengajuan ${r.requested_name})${r.purpose ? ` — ${r.purpose}` : ''}`, project_id: null, request_id: r.id, by: user.name })
-      await msg(r, r.kind === 'topup' ? `sudah ditransfer — saldo ${pettyLabel(r.fund || r.branch)} bertambah` : 'sudah dibayar — bukti transfer tersedia', { to_user: r.requested_by, kind: 'payment' })
+      await tandaiDibayar({ r, file: f.file, date: f.date, user, save })
       notify(r.kind === 'topup' ? 'Dibayar · saldo petty cash bertambah' : 'Pengajuan dibayar'); set(r.id, { busy: false })
     } catch (e) { notify(e.message, 'err'); set(r.id, { busy: false }) }
   }

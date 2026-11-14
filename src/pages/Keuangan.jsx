@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Wallet, Lock, Plus, ArrowUpRight, ArrowDownLeft, FilePlus2, ChevronDown } from 'lucide-react'
+import { useEffect, useState, lazy, Suspense } from 'react'
+import { Wallet, Lock, Plus, ArrowUpRight, ArrowDownLeft, FilePlus2, ChevronDown, Images } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { can, APOSTILLE_FUND, pettyAccountsOf } from '../config/access.js'
 import { useDashStats, FinanceGroup } from './Dashboard.jsx'
@@ -14,6 +14,7 @@ import Pengajuan from './Pengajuan.jsx'
 
 import { KeAtas, KELAS_PLUS } from '../components/SlotAtas.jsx'
 import { canSeeKeuangan } from '../config/menuAccess.js'
+const BuktiMassal = lazy(() => import('../components/BuktiMassal.jsx'))
 export { canSeeKeuangan }
 
 /**
@@ -28,6 +29,7 @@ export default function Keuangan({ tab }) {
   const accounts = pettyAccountsOf(user).filter((k) => k === APOSTILLE_FUND || branchFilter === 'Semua' || k === branchFilter)
   const host = useSubTabHost()
   const [sheet, setSheet] = useState(false)
+  const [massal, setMassal] = useState(false)
   const [sub, setSub] = useState(null)        // sub-tab awal yang diminta (mis. dari Perlu Anda)
   const [intent, setIntent] = useState(null)  // { jenis: 'in'|'out', kas, nominal } → dibuka PettyCash
 
@@ -53,11 +55,13 @@ export default function Keuangan({ tab }) {
   const buka = (jenis, kas, nominal) => {
     setSheet(false)
     if (jenis === 'ajukan') return open('pengajuan')
+    if (jenis === 'massal') { pilih('pengajuan', 'disetujui'); return setMassal(true) }
     setIntent({ jenis, kas, nominal, t: Date.now() }); pilih('petty')
   }
   const opsi = [
     bisaCatat && ['out', 'Pengeluaran / dana keluar', 'Biaya project, operasional, kurir…', ArrowUpRight, 'bg-rose-50 text-rose-700'],
     bisaTopUp && ['in', 'Top up / dana masuk', 'Isi saldo petty cash dari PT', ArrowDownLeft, 'bg-emerald-50 text-emerald-700'],
+    ['superadmin', 'akunting'].includes(user.role) && ['massal', 'Upload Bukti Transfer Massal', 'Screenshot internet banking → bukti tiap pengajuan', Images, 'bg-sky-50 text-sky-700'],
     bisaAjukan && ['ajukan', 'Pengajuan baru', 'Minta ACC Direktur: top up, refund, biaya lain', FilePlus2, 'bg-amber-50 text-amber-800'],
   ].filter(Boolean)
 
@@ -97,6 +101,7 @@ export default function Keuangan({ tab }) {
         </div>
       </SubTabProvider>
 
+      {massal && <Suspense fallback={null}><BuktiMassal open onClose={() => setMassal(false)} /></Suspense>}
       <Sheet open={sheet} onClose={() => setSheet(false)} title="Catat / ajukan">
         <MenuCatat opsi={opsi} onPilih={buka} besar />
       </Sheet>
