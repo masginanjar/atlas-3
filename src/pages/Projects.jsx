@@ -256,7 +256,12 @@ export default function Projects({ tabAwal }) {
           on ? 'border-[#141B34] bg-[#141B34] text-white' : warn ? 'border-[#FFEDE3] bg-[#FFEDE3] text-[#B43D0E] hover:border-[#F2C4AE]' : 'border-[#E7E8F0] bg-white text-[#3F4566] hover:border-[#B9BDD0] hover:text-[#141B34] dark:border-white/10 dark:bg-white/5 dark:text-slate-200')
         const n = (v, on) => <span className={cx('text-xs font-bold tabular-nums', on ? 'opacity-80' : 'opacity-70')}>{v}</span>
         const namaJenis = (t) => t.label.replace('Terjemahan Non Tersumpah', 'Non Tersumpah').replace('Terjemahan Tersumpah', 'Tersumpah').replace('Pengajuan Vendor', 'Vendor').replace('Apostille/Legalisasi', 'Apostille')
-        const jenisAktif = tabs.find((t) => t.value === tab) || tabs[0]
+        // Jenis yang dikeluarkan dari menu Jenis ▾ → tampil sebagai chip sendiri setelah pintasan
+        const JENIS_LUAR = ['koordinator', 'apostille']
+        const jenisLuar = JENIS_LUAR.map((v) => tabs.find((t) => t.value === v)).filter(Boolean)
+        const tabsMenu = tabs.filter((t) => !JENIS_LUAR.includes(t.value))
+        const jenisDiMenu = !JENIS_LUAR.includes(tab) && tab !== 'all'
+        const jenisAktif = jenisDiMenu ? (tabs.find((t) => t.value === tab) || tabs[0]) : tabs[0]
         const nPilih = scoped.filter((p) => !isDone(p) && (p.sub_projects || []).some((x) => x.stage === 'pilih_penerjemah')).length
         // Pintasan kondisi kerja (maks. 4). Angka = jumlah project AKTIF (sebelum filter lain) — sama dengan angka di menu Jenis.
         const pintasan = [
@@ -289,13 +294,13 @@ export default function Projects({ tabAwal }) {
         const menuJenis = (
           <Popover label="Jenis layanan" align="left" width="w-[260px]" button={({ open: o, toggle }) => (
             <button type="button" onClick={toggle} aria-expanded={o} aria-haspopup="menu" aria-label={`Jenis layanan: ${namaJenis(jenisAktif)}`} data-menu-jenis
-              className={cx('inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[8px] border px-2.5 text-[12.5px] font-semibold transition md:h-8', tab !== 'all' ? 'border-[#141B34] bg-[#141B34] text-white' : 'border-[#D9DBE7] bg-white text-[#141B34] hover:border-[#B9BDD0] dark:border-white/15 dark:bg-white/5 dark:text-slate-100')}>
-              <span className={cx('font-medium', tab !== 'all' ? 'text-white/70' : 'text-[#5E6380]')}>Jenis:</span>{namaJenis(jenisAktif)}{n(jenisAktif.count, tab !== 'all')}<ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
+              className={cx('inline-flex h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[8px] border px-2.5 text-[12.5px] font-semibold transition md:h-8', jenisDiMenu ? 'border-[#141B34] bg-[#141B34] text-white' : 'border-[#D9DBE7] bg-white text-[#141B34] hover:border-[#B9BDD0] dark:border-white/15 dark:bg-white/5 dark:text-slate-100')}>
+              <span className={cx('font-medium', jenisDiMenu ? 'text-white/70' : 'text-[#5E6380]')}>Jenis:</span>{namaJenis(jenisAktif)}{n(jenisAktif.count, jenisDiMenu)}<ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
             </button>
           )}>
             {({ close }) => (
               <div role="menu" aria-label="Jenis layanan" className="space-y-0.5" data-chip-project>
-                {tabs.map((t) => (
+                {tabsMenu.map((t) => (
                   <button key={t.value} type="button" role="menuitemradio" aria-checked={tab === t.value} data-chip={t.value} onClick={() => { setTab(t.value); close() }}
                     className={cx('flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] hover:bg-slate-50', tab === t.value ? 'font-bold text-ink' : 'font-semibold text-ink-soft')}>
                     <Check className={cx('h-4 w-4 shrink-0', tab === t.value ? 'text-brand' : 'opacity-0')} aria-hidden="true" />
@@ -339,6 +344,9 @@ export default function Projects({ tabAwal }) {
                 <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:min-w-0 sm:shrink sm:overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="group" aria-label="Pintasan kondisi kerja">
                   {pintasan.map((x) => (
                     <button key={x.key} type="button" onClick={x.klik} aria-pressed={x.on} data-chip={x.key} className={pintas(x.on, x.warn)}>{x.label}{n(x.nilai, x.on)}</button>
+                  ))}
+                  {jenisLuar.map((t) => (
+                    <button key={t.value} type="button" onClick={() => setTab(tab === t.value ? 'all' : t.value)} aria-pressed={tab === t.value} data-chip={t.value} data-jenis-luar className={pintas(tab === t.value)}>{namaJenis(t)}{n(t.count, tab === t.value)}</button>
                   ))}
                 </div>
                 {chipLain.length > 0 && <div className="ml-auto hidden min-w-0 items-center sm:flex" data-filter-aktif><FilterChips chips={chipLain} reset={resetFilter} ringkas /></div>}

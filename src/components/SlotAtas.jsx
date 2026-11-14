@@ -116,7 +116,7 @@ export function BarisAtas({ cariBawaan, tambahBawaan, ikonLain }) {
   return (
     <div className="mb-3 flex min-h-11 flex-wrap items-center gap-2 md:min-h-8" data-baris-atas>
       <div ref={c.pasang.sesudah} className="flex min-w-0 flex-wrap items-center gap-2 empty:hidden" data-slot="sesudah" />
-      <div className="relative ml-auto flex shrink-0 items-center gap-1.5" data-ikon-atas>
+      <div className="relative ml-auto flex shrink-0 items-center gap-0.5 md:gap-1.5" data-ikon-atas>
         <CariMelebar c={c} bawaan={cariBawaan} />
         {ikonLain}
         <div ref={c.pasang.tambah} className="flex shrink-0 items-center" data-slot="tambah">

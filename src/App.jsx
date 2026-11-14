@@ -44,7 +44,7 @@ const MitraPage = lazy(() => import('./pages/Mitra.jsx'))
 const Penugasan = lazy(() => import('./pages/Penugasan.jsx'))
 import GlobalSearch from './components/GlobalSearch.jsx'
 import MenuHP, { catatKunjungan } from './components/MenuHP.jsx'
-import { SlotProvider, BarisAtas, KeAtas, KELAS_PLUS } from './components/SlotAtas.jsx'
+import { SlotProvider, BarisAtas, KeAtas, KELAS_PLUS, IKON_ATAS } from './components/SlotAtas.jsx'
 import { useFokus, toggleFokus } from './lib/fokus.js'
 import NotificationBell from './components/NotificationBell.jsx'
 import { TombolHantu, PitaHantu } from './components/ModeHantu.jsx'
@@ -301,7 +301,7 @@ export default function App() {
 
         <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-4 md:px-6 md:pb-12 md:pt-6 xl:max-w-[1280px] 2xl:max-w-[1440px]">
           {/* Baris atas isi halaman: pencarian (kiri) · tombol tambah (kanan) — bukan top bar global */}
-          <BarisAtas cariBawaan={<GlobalSearch ikon placeholder={CARI_HALAMAN[page] || 'Cari invoice, pelanggan, menu…'} />} tambahBawaan={<HeadAdd />} ikonLain={<><TeamPresence ikon /><NotificationBell ikon /><TombolHantu ikon /></>} />
+          <BarisAtas cariBawaan={<GlobalSearch ikon placeholder={CARI_HALAMAN[page] || 'Cari invoice, pelanggan, menu…'} />} tambahBawaan={<HeadAdd />} ikonLain={<><PintasAtas page={page} /><TeamPresence ikon /><NotificationBell ikon /><TombolHantu ikon /></>} />
           {((branchPicker && !alatSendiri) || (!user._hantu && (rolesOf(user).length > 1 || personaList.length > 0 || user._actor))) && (
           <KeAtas slot="sesudah"><div className="flex min-w-0 items-center gap-2 lg:hidden" data-baris-cabang>
             {branchPicker && !alatSendiri && (
@@ -348,6 +348,20 @@ export default function App() {
     </SlotProvider>
     </PanelProvider>
   )
+}
+
+/** Pintasan halaman di kumpulan ikon kanan atas: Project & Pengajuan (setelah ikon cari). */
+function PintasAtas({ page }) {
+  const item = [
+    { href: '#/projects', label: 'Project', icon: FolderKanban, aktif: page === 'projects' },
+    { href: '#/pengajuan', label: 'Pengajuan', icon: Wallet, aktif: page === 'pengajuan' },
+  ]
+  return item.map(({ href, label, icon: Ikon, aktif }) => (
+    <a key={href} href={href} aria-label={label} title={label} aria-current={aktif ? 'page' : undefined} data-pintas={label}
+      className={IKON_ATAS + (aktif ? ' bg-[#E9EBF3] text-[#141B34] dark:bg-white/10 dark:text-white' : '')}>
+      <Ikon className="h-[17px] w-[17px]" aria-hidden="true" />
+    </a>
+  ))
 }
 
 /** Tombol tambah di header — satu-satunya pintu membuat project/catatan/to-do/pengingat/pengajuan (K7). */
