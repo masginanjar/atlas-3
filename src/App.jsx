@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { Home, LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, Stamp, ReceiptText, StickyNote, AlarmClock, CalendarDays, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store, Handshake, Minimize2, Maximize2, Building2, Server, Rocket, Hash, ClipboardList } from 'lucide-react'
+import { Home, LayoutDashboard, FolderKanban, Settings as Cog, LogOut, Loader2, History, MonitorCheck, Wallet, Stamp, ReceiptText, StickyNote, AlarmClock, CalendarDays, Plus, Users, LayoutGrid, HardDrive, Tags, MessageCircle, BookOpen, FileStack, CalendarRange, Store, Handshake, Minimize2, Maximize2, Building2, Server, Rocket, Hash, ClipboardList, Truck } from 'lucide-react'
 import PindahBooks from './components/PindahBooks.jsx'
 import SidebarMenu from './components/SidebarMenu.jsx'
 import PanelDummy from './components/PanelDummy.jsx'
@@ -68,6 +68,7 @@ import { SaklarMode, useKlasik } from './components/klasikSaklar.jsx'
 const KlasikApp = lazy(() => import('./components/ModeKlasik.jsx').then((m) => ({ default: m.KlasikApp })))
 import { pasangPenangkapError } from './lib/monitor.js'
 import { pasangRilis } from './config/rilis.js'
+const Pengiriman = lazy(() => import('./pages/Pengiriman.jsx'))
 const RilisFitur = lazy(() => import('./pages/RilisFitur.jsx'))
 pasangPenangkapError()
 import { tabAgendaDari } from './pages/Agenda.jsx'
@@ -122,6 +123,11 @@ const MENU = [
     { id: 'keu-tagihan', key: 'keuangan', sub: 'tagihan', label: 'Tagihan Vendor', samping: true, show: canSeeKeuangan },
     { key: 'vendor', label: 'Vendor', icon: Store, show: canSeeVendor },
     { key: 'laporan-keuangan', label: 'Laporan', segera: true, show: peranDi(['superadmin', 'akunting']) },
+  ] },
+  { id: 'pengiriman', label: 'Pengiriman', icon: Truck, children: [
+    { key: 'pengiriman', label: 'Daftar Kiriman', icon: Truck, subOnly: true, show: peranDi(['superadmin', 'direktur', 'admin_pusat', 'akunting', 'supervisor']) },
+    { id: 'kirim-alamat', key: 'pengiriman', sub: 'alamat', label: 'Alamat Pengirim', samping: true, show: peranDi(['superadmin', 'direktur', 'admin_pusat', 'supervisor']) },
+    { id: 'kirim-kurir', key: 'pengiriman', sub: 'kurir', label: 'Kurir', samping: true, show: peranDi(['superadmin', 'direktur', 'admin_pusat', 'supervisor']) },
   ] },
   { id: 'agenda', label: 'Agenda', icon: CalendarRange, children: [
     ...(CHAT_ENABLED ? [{ key: 'pesan', label: 'Pesan Masuk', icon: MessageCircle, bar: true, badge: (u, d, bf, x) => x.chatTotals?.msg || 0 }] : []),
@@ -224,6 +230,7 @@ export default function App() {
     : page === 'rilis-fitur' && canMonitor(user) ? <RilisFitur />
     : page === 'pelanggan' ? <Pelanggan />
     : page === 'dokumen' ? <Dokumen />
+    : page === 'pengiriman' ? <Pengiriman tab={param} />
     : page === 'vendor' ? <VendorPage />
     : page === 'mitra' ? <MitraPage />
     : page === 'penugasan' ? <Penugasan />

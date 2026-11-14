@@ -2,6 +2,7 @@ import { CheckCircle2, Circle, PackageCheck } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import ResiFields from './ResiFields.jsx'
 import { CourierSelect } from './Courier.jsx'
+import KirimEverpro from './KirimEverpro.jsx'
 
 // ============================================================
 //  ARTI "SELESAI" PER METODE PENGIRIMAN
@@ -74,6 +75,7 @@ export default function DeliveryChecklist({ project, sub }) {
           </li>
         )
       })}</ol>
+      {t === 'courier' && <KirimEverpro project={project} />}
     </div>
   )
 }

@@ -8,6 +8,15 @@
 
 export const CHANGELOG = [
   {
+    id: 8, tanggal: '2026-11-14', judul: 'Kirim dokumen lewat Everpro langsung dari ATLAS',
+    poin: [
+      { teks: 'Project → Alamat Pengiriman → Pesan Kurir: cek ongkir semua kurir, pilih jadwal jemput atau antar ke agen, resi terbit otomatis.' },
+      { teks: 'Setelah resi terbit: salin resi, kirim resi ke pelanggan lewat WhatsApp, Cetak label, dan Lacak paket. Status ikut berubah sendiri; paket diterima → tahap kirim Selesai.' },
+      { teks: 'Pilih kurir kini lewat popup yang lebih lega.' },
+      { teks: 'Menu baru Pengiriman: Daftar Kiriman (semua kiriman Everpro — saring status, cari resi/penerima, cetak banyak label sekaligus, lacak, unduh Excel), Alamat Pengirim per cabang, dan Kurir.', peran: ['superadmin', 'direktur', 'admin_pusat', 'akunting', 'supervisor'] },
+    ],
+  },
+  {
     id: 7, tanggal: '2026-11-14', judul: 'Unduh Excel, pasang ATLAS di HP, & catatan versi',
     poin: [
       { teks: 'ATLAS bisa dipasang seperti aplikasi di HP & laptop — menu profil → Pasang aplikasi.' },

@@ -83,7 +83,7 @@ export default function Settings() {
       {tab === 'profil' && <Profile />}
       {tab === 'petty' && <Pindah ke="#/keuangan/petty" judul="Petty Cash sekarang ada di Keuangan" teks="Catat pengeluaran, lihat saldo, dan ajukan top up dari satu tempat: Keuangan → Petty Cash." tombol="Buka Keuangan → Petty Cash" />}
       {tab === 'people' && <People />}
-      {tab === 'kurir' && <Couriers />}
+      {tab === 'kurir' && <div className="space-y-4"><AlamatKirim /><Couriers /></div>}
       {tab === 'vendor' && <Pindah ke="#/vendor" judul="Data Vendor sekarang ada di Penjualan" teks="Daftar vendor, bahasa/layanan, termin, dan rekening dikelola di Penjualan → Vendor." tombol="Buka Penjualan → Vendor" />}
       {tab === 'users' && <Users />}
       {tab === 'file' && <><FileRules />{can.manageUsers(user) && <PortalSettings />}</>}
@@ -676,7 +676,77 @@ function People() {
   )
 }
 
-function Couriers() {
+/** Alamat pengirim per cabang (asal kiriman Everpro = cabang lokasi Print). */
+function BarisAsal({ a, pakai }) {
+  const teks = `${a.nama} ${a.alamat} ${a.lokasi}`.toLowerCase()
+  const [b, setB] = useState(() => BRANCHES.find((x) => teks.includes(x.toLowerCase())) || BRANCHES[0])
+  return (
+    <li className="rounded-xl p-2.5 text-sm ring-1 ring-slate-200" data-asal-everpro>
+      <p className="font-semibold">{a.nama}</p>
+      <p className="text-ink-soft">{[a.alamat, a.catatan].filter(Boolean).join(' · ')}</p>
+      <p className="text-[12px] text-ink-mute">{a.lokasi} · kode pos {a.kodepos || <b className="text-amber-700">belum pasti{a.kandidat?.length ? ` (pilihan Everpro: ${a.kandidat.map((k) => k.postal_code).join(' / ')})` : ''} — isi manual</b>} · {a.telp} · dipakai {a.jumlah}×</p>
+      <div className="mt-2 flex items-center gap-1.5">
+        <Select value={b} onChange={(e) => setB(e.target.value)} className="w-40" aria-label="Cabang">{BRANCHES.map((x) => <option key={x}>{x}</option>)}</Select>
+        <Button size="sm" onClick={() => pakai(b)}>Pakai</Button>
+      </div>
+    </li>
+  )
+}
+
+export function AlamatKirim() {
+  const { data, save, notify } = useApp()
+  const row = (data.app_settings || []).find((x) => x.key === 'alamat_kirim')
+  const [f, setF] = useState(() => row?.cabang || {})
+  useEffect(() => { if (row?.cabang) setF(row.cabang) }, [row?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [busy, setBusy] = useState(false)
+  const set = (b, k, v) => setF((x) => ({ ...x, [b]: { ...(x[b] || {}), [k]: v } }))
+  const simpan = async () => {
+    for (const [b, a] of Object.entries(f)) if (a?.kodepos && !/^\d{5}$/.test(String(a.kodepos).trim())) return notify(`Kode pos ${b} harus 5 angka`, 'err')
+    setBusy(true)
+    try { await save('app_settings', { ...(row || { key: 'alamat_kirim' }), cabang: f }); notify('Alamat pengirim disimpan') } catch (e) { notify(e.message, 'err') } finally { setBusy(false) }
+  }
+  const lengkap = (a) => a?.alamat && a?.telp && /^\d{5}$/.test(String(a?.kodepos || '').trim())
+  const [tarik, setTarik] = useState(null)
+  const tarikEverpro = async () => {
+    setTarik('muat'); const { panggil } = await import('../components/KirimEverpro.jsx'); const x = await panggil('asal', {})
+    if (!x.ok) { setTarik(null); return notify(x.alasan || 'Gagal menarik dari Everpro', 'err') }
+    setTarik(x.alamat || [])
+  }
+  return (
+    <Card className="p-4" data-alamat-kirim>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <h2 className="mr-auto text-sm font-extrabold">Alamat pengirim per cabang · Everpro</h2>
+        <Button size="sm" variant="outline" loading={tarik === 'muat'} onClick={tarikEverpro} data-aksi="tarik-everpro">Tarik dari Everpro</Button>
+        <Button size="sm" loading={busy} onClick={simpan}>Simpan</Button>
+      </div>
+      {Array.isArray(tarik) && (
+        <Sheet open onClose={() => setTarik(null)} title="Alamat dari riwayat Everpro" subtitle="Pilih cabang lalu Pakai — periksa lagi, kemudian Simpan">
+          {!tarik.length && <p className="text-sm text-ink-mute">Belum ada alamat pengirim di riwayat Everpro 180 hari terakhir.</p>}
+          <ul className="space-y-2">
+            {tarik.map((a, i) => <BarisAsal key={i} a={a} pakai={(b) => { setF((x) => ({ ...x, [b]: { nama: a.nama.trim(), alamat: [a.alamat, a.catatan, a.lokasi].filter(Boolean).join(', '), kodepos: a.kodepos || '', telp: a.telp } })); notify(`Dipakai untuk ${b} — tekan Simpan`) }} />)}
+          </ul>
+        </Sheet>
+      )}
+      <p className="mb-3 text-xs text-ink-mute">Dipakai untuk cek ongkir &amp; penjemputan kurir. Asal kiriman = cabang lokasi Print project. Cabang yang belum lengkap tidak bisa memesan kurir.</p>
+      <div className="space-y-2">
+        {BRANCHES.map((b) => {
+          const a = f[b] || {}
+          return (
+            <div key={b} className="grid gap-2 rounded-xl p-2.5 ring-1 ring-slate-200 md:grid-cols-[110px_minmax(0,1fr)_minmax(0,1.6fr)_96px_minmax(0,1fr)]" data-alamat-cabang={b}>
+              <p className="flex items-center gap-1.5 text-sm font-bold">{b}{lengkap(a) ? <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-label="lengkap" /> : <CircleDashed className="h-4 w-4 text-ink-mute" aria-label="belum lengkap" />}</p>
+              <Input value={a.nama || ''} onChange={(e) => set(b, 'nama', e.target.value)} placeholder="Nama pengirim (mis. 247 Sworn Translator)" aria-label={`Nama pengirim ${b}`} />
+              <Input value={a.alamat || ''} onChange={(e) => set(b, 'alamat', e.target.value)} placeholder="Alamat lengkap kantor" aria-label={`Alamat ${b}`} />
+              <Input value={a.kodepos || ''} onChange={(e) => set(b, 'kodepos', e.target.value.replace(/\D/g, '').slice(0, 5))} inputMode="numeric" placeholder="Kode pos" aria-label={`Kode pos ${b}`} />
+              <Input value={a.telp || ''} onChange={(e) => set(b, 'telp', e.target.value)} inputMode="tel" placeholder="No. HP kantor" aria-label={`No. HP ${b}`} />
+            </div>
+          )
+        })}
+      </div>
+    </Card>
+  )
+}
+
+export function Couriers() {
   const { data, notify } = useApp()
   const rows = [...(data.couriers || [])].sort((a, b) => (a.order ?? 99) - (b.order ?? 99))
   const onLogo = (e, set, file) => {

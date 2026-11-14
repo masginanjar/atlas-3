@@ -35,6 +35,7 @@ import VendorChat from '../components/VendorChat.jsx'
 import CustomerInfo from '../components/CustomerInfo.jsx'
 import ShareSheet from '../components/ShareSheet.jsx'
 import CustomerAccess from '../components/CustomerAccess.jsx'
+import KirimEverpro from '../components/KirimEverpro.jsx'
 import DeliveryChecklist, { DeliveryRule, deliveryOk, deliveryType } from '../components/Delivery.jsx'
 // Fitur Bagikan/Portal masih dalam pengerjaan — aktifkan setelah selesai diuji
 const SHARE_PORTAL_READY = import.meta.env.VITE_SHARE_PORTAL === '1'
@@ -194,6 +195,7 @@ export function TabDetailProject({ project, ringkas, tab: tabLuar, setTab: setTa
                 <DeliveryRule type={deliveryType(project, data.couriers)} />
                 <ResiFields about={project.about || {}}
                   onChange={async (patch) => { await save('projects', { ...project, about: { ...project.about, ...patch } }); notify('Info resi disimpan') }} />
+                {(deliveryType(project, data.couriers) === 'courier' || project.about?.everpro) && <KirimEverpro project={project} />}
               </div>
             </SectionCard>
           </div>

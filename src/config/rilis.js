@@ -21,6 +21,7 @@ export const FITUR = [
   { key: 'notes', label: 'Catatan', tahap: 2 },
   { key: 'faq', label: 'FAQ', tahap: 2 },
   { key: 'dokumen', label: 'Dokumen', tahap: 3 },
+  { key: 'pengiriman', label: 'Pengiriman', tahap: 3, ket: 'Semua kiriman Everpro: status, resi, cetak label, lacak' },
   { key: 'faktur', label: 'Faktur', tahap: 3 },
   { key: 'pelanggan', label: 'Pelanggan', tahap: 3 },
   { key: 'daftar-harga', label: 'Katalog', tahap: 3 },

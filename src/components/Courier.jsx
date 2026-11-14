@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { FileText, Store, Bike, Truck, Package, Plane, Ship, Car, ChevronDown, Check, MapPin, Send, Search } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
-import { cx } from './ui.jsx'
+import { cx, Sheet } from './ui.jsx'
 
 // Ikon bawaan yang bisa dipilih di Pengaturan Kurir (logo asli bisa diunggah sendiri)
 export const COURIER_ICONS = { file: FileText, store: Store, bike: Bike, truck: Truck, package: Package, plane: Plane, ship: Ship, car: Car, send: Send }
@@ -35,13 +35,6 @@ export function CourierSelect({ value, onChange, printLocation, disabled }) {
     ? list.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase()))
     : list
 
-  useEffect(() => {
-    if (!open) return
-    const close = (e) => { if (!ref.current?.contains(e.target)) setOpen(false) }
-    document.addEventListener('pointerdown', close)
-    return () => document.removeEventListener('pointerdown', close)
-  }, [open])
-
   // Buka → kosongkan pencarian lama dan arahkan kursor ke kolom cari.
   useEffect(() => {
     if (!open) { setQ(''); return }
@@ -72,35 +65,33 @@ export function CourierSelect({ value, onChange, printLocation, disabled }) {
         <p className="mt-1 flex items-center gap-1 text-[11px] text-ink-mute"><MapPin className="h-3 w-3" />Ambil di Kantor {printLocation || '—'}</p>
       )}
       {open && (
-        <div className="absolute z-20 mt-1 w-full max-w-full rounded-xl bg-white shadow-xl ring-1 ring-slate-200">
-          <div className="border-b border-slate-100 p-2">
+        <Sheet open onClose={() => setOpen(false)} title="Pilih kurir / metode pengiriman" subtitle={cur ? `Sekarang: ${cur.name}` : 'Syarat "Selesai" mengikuti metode yang dipilih'}>
+          <div className="space-y-3" data-popup-kurir>
             <label className="relative block min-w-0">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" aria-hidden="true" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-mute" aria-hidden="true" />
               <input ref={boxRef} value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={onKey}
                 placeholder="Cari kurir / ekspedisi…" aria-label="Cari kurir"
-                className="w-full max-w-full rounded-lg border-0 bg-slate-50 py-2 pl-8 pr-2.5 text-sm ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-brand" />
+                className="h-11 w-full rounded-xl border-0 bg-slate-50 pl-9 pr-3 text-sm ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-brand" />
             </label>
+            <ul role="listbox" className="grid gap-1.5 sm:grid-cols-2">
+              {cocok.map((c) => (
+                <li key={c.id}>
+                  <button type="button" role="option" aria-selected={c.id === value} onClick={() => { onChange(c.id); setOpen(false) }}
+                    className={cx('flex min-h-[52px] w-full items-center gap-3 rounded-xl px-3 py-2 text-left ring-1 transition', c.id === value ? 'bg-brand-soft ring-brand' : 'ring-slate-200 hover:ring-brand')}>
+                    <CourierLogo c={c} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{c.name}</span>
+                      <span className="block truncate text-[11px] text-ink-mute">{c.type === 'pickup' ? `Diambil di kantor ${printLocation || ''}` : c.type === 'softcopy' ? 'Tanpa pengiriman fisik' : c.type === 'vendor' ? 'Penerjemah/vendor kirim langsung' : 'Kurir / ekspedisi'}</span>
+                    </span>
+                    {c.id === value && <Check className="h-4 w-4 shrink-0 text-brand" />}
+                  </button>
+                </li>
+              ))}
+              {!list.length && <li className="col-span-full px-3 py-4 text-center text-xs text-ink-mute">Belum ada kurir — tambahkan di Setting → Kurir</li>}
+              {!!list.length && !cocok.length && <li className="col-span-full px-3 py-4 text-center text-xs text-ink-mute">Kurir tidak ditemukan</li>}
+            </ul>
           </div>
-        <ul role="listbox" className="max-h-60 w-full overflow-y-auto overscroll-contain p-1">
-          {cocok.map((c) => (
-            <li key={c.id}>
-              <button type="button" role="option" aria-selected={c.id === value} onClick={() => { onChange(c.id); setOpen(false) }}
-                className={cx('flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-slate-50', c.id === value && 'bg-brand-soft')}>
-                <CourierLogo c={c} />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold">{c.name}</span>
-                  {c.type === 'pickup' && <span className="block text-[11px] text-ink-mute">Kantor {printLocation || '—'}</span>}
-                  {c.type === 'softcopy' && <span className="block text-[11px] text-ink-mute">Tanpa pengiriman fisik</span>}
-                  {c.type === 'vendor' && <span className="block text-[11px] text-ink-mute">Penerjemah/vendor mengirim langsung — minta no. resi</span>}
-                </span>
-                {c.id === value && <Check className="h-4 w-4 text-brand" />}
-              </button>
-            </li>
-          ))}
-          {!list.length && <li className="px-3 py-4 text-center text-xs text-ink-mute">Belum ada kurir — tambahkan di Setting → Kurir</li>}
-          {!!list.length && !cocok.length && <li className="px-3 py-4 text-center text-xs text-ink-mute">Kurir tidak ditemukan</li>}
-        </ul>
-        </div>
+        </Sheet>
       )}
     </div>
   )

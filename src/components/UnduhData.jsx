@@ -100,7 +100,7 @@ const DATASET = [
 ]
 
 /** Buat 1 file Excel: satu sheet per data, judul tebal & dibekukan, filter, lebar kolom, angka uang berformat ribuan. */
-async function bukuExcel(daftar) {
+export async function bukuExcel(daftar) {
   const { default: ExcelJS } = await import('exceljs')
   const wb = new ExcelJS.Workbook(); wb.creator = 'ATLAS'; wb.created = new Date()
   for (const { judul, head, rows } of daftar) {
