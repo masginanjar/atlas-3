@@ -86,7 +86,7 @@ export default function NotificationBell({ posisi, berlabel, tanpaPopup, ikon } 
 
   const panel = open && createPortal(
     <div ref={panelRef} role="dialog" aria-label="Notifikasi" className={cx('fixed inset-x-2 top-[3.5rem] z-[85] flex max-h-[min(80vh,640px)] flex-col overflow-hidden rounded-3xl bg-white shadow-[0_24px_60px_-20px_rgba(14,21,64,0.35)] ring-1 ring-slate-200/80 sm:inset-x-auto sm:w-[440px]',
-      posisi === 'kiri' ? 'sm:bottom-4 sm:left-[248px] sm:top-auto' : posisi === 'rel' ? 'sm:bottom-4 sm:left-[72px] sm:top-auto' : 'sm:right-4')}>
+      posisi === 'kiri' ? 'sm:bottom-4 sm:left-[220px] sm:top-auto' : posisi === 'rel' ? 'sm:bottom-4 sm:left-[72px] sm:top-auto' : 'sm:right-4')}>
       {/* Baris judul: tombol suara & tutup ikut di sini supaya baris tab tidak sesak di HP */}
       <div className="flex items-center gap-2 px-4 pt-3">
         <h3 className="text-base font-bold text-ink">Notifikasi</h3>

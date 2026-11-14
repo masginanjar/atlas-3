@@ -88,7 +88,7 @@ export default function TeamPresence({ kiriBawah, rel, ikon } = {}) {
   const shown = rows.filter((r) => (!role || r.role === role) && (!q.trim() || r.name.toLowerCase().includes(q.trim().toLowerCase())))
 
   return (
-    <Popover label="Tim Aktif" width="w-[min(360px,92vw)]" atas={kiriBawah} align={kiriBawah ? 'left' : 'right'} panelClass={kiriBawah ? cx('bottom-4 max-h-[80vh] overflow-y-auto', rel ? 'left-[72px]' : 'left-[248px]') : 'max-sm:fixed max-sm:inset-x-2 max-sm:top-[64px] max-sm:w-auto'}
+    <Popover label="Tim Aktif" width="w-[min(360px,92vw)]" atas={kiriBawah} align={kiriBawah ? 'left' : 'right'} panelClass={kiriBawah ? cx('bottom-4 max-h-[80vh] overflow-y-auto', rel ? 'left-[72px]' : 'left-[220px]') : 'max-sm:fixed max-sm:inset-x-2 max-sm:top-[64px] max-sm:w-auto'}
       button={({ open, toggle }) => ikon ? (
         <button type="button" onClick={toggle} aria-expanded={open} aria-haspopup="dialog" aria-label={`Tim online — ${online} orang`} title={`Tim online · ${online}`} data-tombol-tim
           className={cx('relative grid h-11 w-11 shrink-0 place-items-center rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand md:h-8 md:w-8', open ? 'bg-[#E9EBF3] text-[#141B34] dark:bg-white/10 dark:text-white' : 'text-[#4A4F6A] hover:bg-[#E9EBF3] hover:text-[#141B34] dark:text-slate-300 dark:hover:bg-white/10')}>

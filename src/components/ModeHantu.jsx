@@ -53,7 +53,7 @@ export function TombolHantu({ kiriBawah, rel, ikon } = {}) {
   const { bolehHantu, setHantu, user } = useApp()
   if (!bolehHantu) return null
   return (
-    <Popover label="Mode hantu" align={kiriBawah ? 'left' : 'right'} atas={kiriBawah} width="min-w-[300px]" panelClass={kiriBawah ? cx('bottom-4 max-h-[80vh] overflow-y-auto', rel ? 'left-[72px]' : 'left-[248px]') : ''}
+    <Popover label="Mode hantu" align={kiriBawah ? 'left' : 'right'} atas={kiriBawah} width="min-w-[300px]" panelClass={kiriBawah ? cx('bottom-4 max-h-[80vh] overflow-y-auto', rel ? 'left-[72px]' : 'left-[220px]') : ''}
       button={({ open, toggle }) => (
         <button type="button" onClick={toggle} aria-expanded={open} aria-label="Mode hantu — lihat sebagai pengguna lain" title="Mode hantu — lihat sebagai pengguna lain"
           data-aksi="mode-hantu"

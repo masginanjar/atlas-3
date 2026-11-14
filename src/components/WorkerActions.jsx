@@ -439,21 +439,25 @@ function TaskRow({ project, sub, alt }) {
       {/* Baris ringkas, tiap kolom 2 baris (atas/bawah):
           No. invoice / Arah bahasa · Nama / Prioritas · Deadline / Jam · ▸ rincian dokumen · aksi */}
       {/* Desktop: grid 5 kolom */}
-      <div className="hidden gap-x-3 gap-y-1.5 px-4 py-2.5 lg:grid lg:grid-cols-[minmax(150px,1fr)_minmax(0,1.4fr)_215px_44px_auto] lg:items-center">
+      <div className="hidden gap-x-3 gap-y-1.5 px-4 py-2.5 lg:grid lg:grid-cols-[minmax(140px,1fr)_minmax(0,1.4fr)_minmax(110px,0.8fr)_190px_44px_250px] lg:items-center" data-baris-tugas>
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-ink"><CopyText text={invoiceLabel(project.invoice_no)} label="No. Invoice" strong /></p>
           <p className="truncate text-xs text-ink-mute" title={jenis}>{sub.lang_from ? <>{sub.lang_from} <span aria-hidden>→</span> <span className="font-semibold text-ink-soft">{sub.lang_to}</span></> : jenis}</p>
         </div>
         <div className="min-w-0">
-          <p className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-ink"><span className="truncate">{project.customer?.name}</span>{project.branch && <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-sky-50 px-1.5 py-px text-[11px] font-semibold text-sky-700 ring-1 ring-sky-200" title="Kota cabang" data-kota-cabang><MapPin className="h-3 w-3" />{project.branch}</span>}</p>
+          <p className="truncate text-sm font-semibold text-ink" title={project.customer?.name}>{project.customer?.name}</p>
           <p className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-mute"><PriorityBadge p={project.about?.priority} /><span className="truncate">{daftar.length} dok · {pages} hlm</span></p>
+        </div>
+        <div className="min-w-0" data-kolom-cabang>
+          <p className="truncate text-sm font-semibold text-ink" title="Cabang pemesan">{project.branch || '—'}</p>
+          <p className="truncate text-xs text-ink-mute" title="CS cabang">{csName(project) ? `CS ${csName(project)}` : 'CS —'}</p>
         </div>
         <DeadlineJam project={project} />
         <button type="button" onClick={() => setRinci((v) => !v)} aria-expanded={rinci} aria-label={rinci ? 'Tutup rincian dokumen' : 'Lihat rincian dokumen'} title="Rincian dokumen" data-aksi="rincian-dokumen"
           className={cx('grid h-11 w-11 shrink-0 place-items-center rounded-xl ring-1 transition lg:justify-self-center', rinci ? 'bg-brand-soft text-brand ring-brand' : 'bg-white text-ink-soft ring-slate-200 hover:bg-slate-50')}>
           <ChevronRight className={cx('h-4 w-4 transition-transform', rinci && 'rotate-90')} />
         </button>
-        <AksiTugas t={t} project={project} sub={sub} setOpen={setOpen} className="lg:justify-end" />
+        <AksiTugas t={t} project={project} sub={sub} setOpen={setOpen} className="flex-nowrap lg:justify-end" />
       </div>
       {/* HP: kartu 4 baris — invoice · prioritas · deadline / nama / arah · dok · hlm / status, lalu tombol */}
       <div className="space-y-1 px-3 py-2.5 lg:hidden" data-kartu-tugas>
@@ -461,7 +465,8 @@ function TaskRow({ project, sub, alt }) {
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5"><InvoiceNo project={project} /><PriorityBadge p={project.about?.priority} /></div>
           <div className="w-[118px] shrink-0 text-right [&>div>p]:text-right"><DeadlineJam project={project} /></div>
         </div>
-        <p className="flex min-w-0 items-center gap-1.5 text-[13px] font-bold text-ink"><span className="truncate">{project.customer?.name}</span>{project.branch && <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-sky-50 px-1.5 py-px text-[11px] font-semibold text-sky-700 ring-1 ring-sky-200" title="Kota cabang" data-kota-cabang><MapPin className="h-3 w-3" />{project.branch}</span>}</p>
+        <p className="truncate text-[13px] font-bold text-ink">{project.customer?.name}</p>
+        <p className="truncate text-xs text-ink-soft" data-kolom-cabang><span className="font-semibold">{project.branch || '—'}</span>{csName(project) ? ` · CS ${csName(project)}` : ''}</p>
         <p className="truncate text-xs text-ink-mute">{sub.lang_from ? <>{sub.lang_from} → <span className="font-semibold text-ink-soft">{sub.lang_to}</span></> : jenis} · {daftar.length} dok · {pages} hlm{t.stage.key !== 'penerjemahan' && (sub.data?.translator || sub.translator) ? <> · dari <b className="font-semibold text-ink-soft">{nameOf(sub.data?.translator || sub.translator)}</b></> : ''}</p>
         <StatusTugas t={t} sub={sub} />
         <div className="flex items-center gap-1.5 pt-1">

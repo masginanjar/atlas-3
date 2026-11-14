@@ -20,9 +20,9 @@ function Jam({ zona, label }) {
   const [t, setT] = useState(f)
   useEffect(() => { const id = setInterval(() => setT(f()), 30000); return () => clearInterval(id) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className="min-w-0 flex-1 rounded-xl px-2.5 py-2 ring-1 ring-[#E7E8F0] dark:ring-white/10">
-      <span className="block text-[11px] font-bold tracking-wide text-[#5E6380]">{label}</span>
-      <span className="block text-lg font-bold tabular-nums">{t}</span>
+    <div className="min-w-0 flex-1 rounded-lg px-2 py-1.5 ring-1 ring-[#E7E8F0] dark:ring-white/10">
+      <span className="block truncate text-[10px] font-bold tracking-wide text-[#5E6380]">{label}</span>
+      <span className="block text-base font-bold leading-tight tabular-nums">{t}</span>
     </div>
   )
 }
@@ -38,7 +38,7 @@ export default function SidebarMenu({ menu, page, param, ctx, bawah, alatBawah, 
   const grupAktif = menu.find((g) => (g.children || [g]).some((n) => aktifItem(n, page, param)))
   const [buka, setBuka] = useState(grupAktif?.id || 'utama')
   useEffect(() => { if (grupAktif) setBuka(grupAktif.id) }, [grupAktif?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const btn = 'flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3 text-left text-sm'
+  const btn = 'flex min-h-[38px] w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px]'
   if (sembunyi) return (
     <aside data-sidebar data-sidebar-sembunyi className="sticky top-0 z-30 hidden h-[100dvh] w-[64px] shrink-0 flex-col items-center gap-1 border-r border-[#E7E8F0] bg-white py-3 text-[#141B34] lg:flex dark:border-white/10 dark:bg-[#121729] dark:text-slate-100">
       {atas && <div className="mb-1 flex flex-col items-center">{atas(true)}</div>}
@@ -83,7 +83,7 @@ export default function SidebarMenu({ menu, page, param, ctx, bawah, alatBawah, 
     </aside>
   )
   return (
-    <aside data-sidebar className="sticky top-0 hidden h-[100dvh] max-h-[100dvh] w-[240px] shrink-0 flex-col overflow-hidden border-r border-[#E7E8F0] bg-white py-4 text-[#141B34] lg:flex dark:border-white/10 dark:bg-[#121729] dark:text-slate-100">
+    <aside data-sidebar className="sticky top-0 hidden h-[100dvh] max-h-[100dvh] w-[212px] shrink-0 flex-col overflow-hidden border-r border-[#E7E8F0] bg-white py-4 text-[#141B34] lg:flex dark:border-white/10 dark:bg-[#121729] dark:text-slate-100">
       {/* 1) Atas — tetap */}
       {atas && <div className="shrink-0 px-3 pb-3" data-sidebar-bagian="atas">{atas(false)}</div>}
       {/* 2) Tengah — hanya bagian ini yang bergulir; overscroll-contain: tidak ikut menggulir halaman */}
@@ -97,7 +97,7 @@ export default function SidebarMenu({ menu, page, param, ctx, bawah, alatBawah, 
             return (
               <a key={g.id || n.key} href={hrefOf(n)} aria-current={on ? 'page' : undefined} data-nav="samping" data-key={n.key}
                 className={cx(btn, 'font-semibold', on ? 'bg-[var(--brand)] text-white' : 'hover:bg-[#F3F4F9] dark:hover:bg-white/5')}>
-                <Ikon className="h-5 w-5 shrink-0" aria-hidden="true" /><span className="min-w-0 flex-1 truncate">{n.label}</span>
+                <Ikon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" /><span className="min-w-0 flex-1 truncate">{n.label}</span>
                 {b > 0 && <span className="rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white">{b > 99 ? '99+' : b}</span>}
               </a>
             )
@@ -109,13 +109,13 @@ export default function SidebarMenu({ menu, page, param, ctx, bawah, alatBawah, 
             <div key={g.id} className="flex flex-col gap-0.5">
               <button type="button" onClick={() => setBuka(terbuka ? '' : g.id)} aria-expanded={terbuka} data-grup={g.id}
                 className={cx(btn, 'font-semibold', isi && !terbuka ? 'bg-[#F3F4F9] dark:bg-white/5' : 'hover:bg-[#F3F4F9] dark:hover:bg-white/5')}>
-                <g.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                <g.icon className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
                 <span className="min-w-0 flex-1 truncate">{g.label}</span>
                 {!terbuka && totalB > 0 && <span className="rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white">{totalB > 99 ? '99+' : totalB}</span>}
                 <ChevronRight className={cx('h-4 w-4 text-[#5E6380] transition-transform', terbuka && 'rotate-90')} aria-hidden="true" />
               </button>
               {terbuka && (
-                <div className="flex flex-col gap-0.5 pl-8">
+                <div className="flex flex-col gap-0.5 pl-7">
                   {anak.map((n) => {
                     const on = aktifItem(n, page, param); const b = badgeOf(n, ctx)
                     if (n.segera) return (
@@ -146,7 +146,7 @@ export default function SidebarMenu({ menu, page, param, ctx, bawah, alatBawah, 
         {profil && <div className="flex flex-col gap-1 border-t border-[#E7E8F0] pt-3 dark:border-white/10" data-profil-bawah>{profil(false)}</div>}
         <div className="flex gap-2" role="group" aria-label="Jam">{jamKantor(ctx?.user, ctx?.branchFilter).map((j) => <Jam key={j.label} zona={j.tz} label={j.label.toUpperCase()} />)}</div>
         <button type="button" onClick={tukar} title="Sembunyikan menu" aria-label="Sembunyikan menu" aria-expanded="true" data-aksi="sembunyikan-menu"
-          className="flex min-h-[40px] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[13px] font-semibold text-[#5E6380] hover:bg-[#F3F4F9] hover:text-[#141B34] dark:hover:bg-white/10"><PanelLeftClose className="h-[18px] w-[18px]" />Sembunyikan menu</button>
+          className="flex min-h-[36px] w-full items-center gap-2.5 rounded-lg px-2.5 text-left text-[12.5px] font-semibold text-[#5E6380] hover:bg-[#F3F4F9] hover:text-[#141B34] dark:hover:bg-white/10"><PanelLeftClose className="h-[18px] w-[18px]" />Sembunyikan menu</button>
         {bawah}
       </div>
     </aside>

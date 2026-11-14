@@ -282,10 +282,10 @@ export default function App() {
             <LogoAtlas />
             {branchPicker && !alatSendiri ? (
               <select value={branchFilter} onChange={(e) => setBranchFilter(e.target.value)} aria-label="Filter cabang" title="Filter cabang"
-                className="h-10 w-full cursor-pointer truncate rounded-xl border-0 bg-[#F3F4F9] pl-3 pr-8 text-sm font-semibold text-[#141B34] focus:ring-2 focus:ring-brand dark:bg-white/5 dark:text-slate-100">
+                className="h-9 w-full cursor-pointer truncate rounded-lg border-0 bg-[#F3F4F9] pl-2.5 pr-8 text-[13px] font-semibold text-[#141B34] focus:ring-2 focus:ring-brand dark:bg-white/5 dark:text-slate-100">
                 {branchOptions.map((b) => <option key={b} value={b}>{b === 'Semua' ? (can.seeAllBranches(user) ? 'Semua Cabang' : 'Semua cabang saya') : b}</option>)}
               </select>
-            ) : <span className="px-3 text-sm font-semibold text-[#5E6380]" data-tempat>{placeOf(user)}</span>}
+            ) : <span className="px-2 text-[13px] font-semibold text-[#5E6380]" data-tempat>{placeOf(user)}</span>}
             {gantiPeran('sb')}
           </div>
         )}
@@ -376,7 +376,7 @@ function PilFokus() {
 function LogoAtlas({ ringkas }) {
   return (
     <a href="#/dashboard" aria-label="ATLAS 5.0 — ke Dashboard" title="ATLAS 5.0" data-logo
-      className={cx('flex h-11 shrink-0 items-center rounded-xl font-display font-extrabold tracking-tight text-[#141B34] dark:text-white', ringkas ? 'w-11 justify-center text-[11px] leading-none' : 'gap-2 px-2 text-lg')}>
+      className={cx('flex h-11 shrink-0 items-center rounded-xl font-display font-extrabold tracking-tight text-[#141B34] dark:text-white', ringkas ? 'w-11 justify-center text-[11px] leading-none' : 'gap-1.5 px-1.5 text-[15px]')}>
       {ringkas ? <span className="text-center">ATLAS<br /><span className="text-[#5E6380]">5.0</span></span> : <>ATLAS <span className="text-[#5E6380]">5.0</span></>}
       {!ringkas && MODE === 'demo' && <span className="ml-auto rounded-full bg-[#F3F4F9] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#5E6380] dark:bg-white/10">Demo</span>}
     </a>
