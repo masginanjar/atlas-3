@@ -216,7 +216,7 @@ export function AppProvider({ children }) {
   useEffect(() => {
     if (!baseUser || WORKER_ROLES.includes(baseUser.role)) return
     refreshInvoices()
-    const t = setInterval(refreshInvoices, 10 * 60000) // segarkan berkala; tidak membuat data ganda
+    const t = setInterval(refreshInvoices, 2 * 60000) // segarkan berkala; tidak membuat data ganda
     return () => clearInterval(t)
   }, [baseUser?.id, invoiceRange.from, invoiceRange.to]) // eslint-disable-line react-hooks/exhaustive-deps
   /** Invoice yang belum punya project (dipakai untuk angka di menu Faktur). */
@@ -226,6 +226,7 @@ export function AppProvider({ children }) {
     for (const p of data.projects) { if (p.zoho_invoice_id) have.add(`id:${p.zoho_invoice_id}`); if (p.invoice_no) have.add(`no:${String(p.invoice_no).toUpperCase()}`) }
     const mine = branchesOf(user); const all = can.seeAllBranches(user)
     return invoices.filter((i) => {
+      if (i.status !== 'paid' || (MODE !== 'demo' && String(i.date || '').slice(0, 10) < '2026-11-10')) return false // hanya faktur lunas sejak 10 Nov
       const b = i.branch || branchOfInvoice(i.invoice_no)
       if (!(all ? branchFilter === 'Semua' || b === branchFilter : b && mine.includes(b))) return false
       return !have.has(`id:${i.zoho_invoice_id}`) && !have.has(`no:${String(i.invoice_no).toUpperCase()}`)

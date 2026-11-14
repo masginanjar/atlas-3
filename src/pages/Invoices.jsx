@@ -1,3 +1,4 @@
+import { MODE } from '../lib/db.js'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCw, Plus, ExternalLink, AlertTriangle, Loader2, FileText } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
@@ -15,6 +16,9 @@ export { canSeeInvoices, canSeePayment } from '../config/menuAccess.js'
 import { PayBadge } from '../components/PayBadge.jsx'
 
 
+
+/** Faktur ATLAS dimulai dari tanggal ini (data Zoho sebelumnya tidak dipakai). */
+export const FAKTUR_MULAI = '2026-11-10'
 
 const tgl = (d) => (d ? new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '—')
 
@@ -72,7 +76,10 @@ export default function Invoices() {
     const mine = branchesOf(user)
     const { from, to } = invoiceRange || {}
     return all.filter((i) => {
+      // Hanya faktur LUNAS sejak 10 Nov 2026 (keputusan 14 Nov 2026); DP/belum bayar tidak tampil di sini.
+      if (i.status !== 'paid') return false
       const d = String(i.date || '').slice(0, 10)
+      if (MODE !== 'demo' && d < FAKTUR_MULAI) return false // demo memakai data contoh 1–5 Nov
       if (from && d < from) return false
       if (to && d > to) return false
       const b = i.branch || branchOfInvoice(i.invoice_no)
@@ -173,7 +180,7 @@ export default function Invoices() {
                 <option value="">Semua status</option>{statusAda.map((x) => <option key={x} value={x}>{x}</option>)}
               </select></label>
           </FilterLainnya>
-          <button type="button" onClick={() => load(true)} disabled={busy} aria-label="Segarkan faktur dari Zoho" title="Segarkan sekarang (otomatis tiap 10 menit)" data-aksi="segarkan-faktur"
+          <button type="button" onClick={() => load(true)} disabled={busy} aria-label="Segarkan faktur dari Zoho" title="Segarkan sekarang (faktur lunas baru masuk otomatis tiap beberapa menit)" data-aksi="segarkan-faktur"
             className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-ink-soft ring-1 ring-slate-200 hover:text-brand disabled:opacity-60 sm:h-10 sm:w-10">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </button>

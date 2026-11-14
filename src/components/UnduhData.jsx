@@ -5,6 +5,7 @@ import { Button, Input, cx } from './ui.jsx'
 import { saveBlob } from '../lib/download.js'
 import { BRANCHES, invoiceLabel } from '../config/access.js'
 import { DONE, progressOf, stageLabel, flowOf } from '../config/workflows.js'
+import { REQ_KINDS, REQ_STATUS, scopeRequests } from './Requests.jsx'
 import { SUB_TYPES } from '../config/subtypes.js'
 
 // ============================================================
@@ -24,9 +25,10 @@ const tahapKini = (p) => {
   const l = [...new Set(open.map((s) => stageLabel(flowOf(s, p), s.stage)))]
   return l.length > 1 ? `${l[0]} +${l.length - 1}` : l[0]
 }
-const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
-const keCsv = (head, rows) => '﻿' + [head, ...rows].map((r) => r.map(esc).join(';')).join('\r\n')
-const namaFile = (slug) => `${slug}-${new Date().toISOString().slice(0, 10)}.csv`
+const namaFile = (slug) => `ATLAS-${slug}-${new Date().toISOString().slice(0, 10)}.xlsx`
+const VB_STATUS = { menunggu: 'Menunggu ACC', disetujui: 'Disetujui — Menunggu Transfer', dibayar: 'Sudah Dibayar', ditolak: 'Ditolak' }
+/** Kolom berisi uang → format ribuan di Excel. */
+const UANG = /nominal|nilai|total/i
 
 /** Semua pilihan data. Tiap entri tahu cara menyaring & membentuk barisnya sendiri. */
 const DATASET = [
@@ -79,7 +81,42 @@ const DATASET = [
       && (!f.cabang || k.branch === f.cabang),
     baris: (k) => [hari(k.created_at), k.branch, k.type === 'in' ? 'Masuk' : 'Keluar', k.note || '', Math.round(Number(k.amount) || 0), k.by || ''],
   },
+  {
+    key: 'pengajuan', label: 'Pengajuan', ket: 'Top up, refund & pengajuan lain beserta statusnya',
+    head: ['Tanggal Diajukan', 'Jenis', 'Keterangan', 'Cabang', 'Pemohon', 'Nominal', 'Sumber Dana', 'Status', 'Bank Penerima', 'No. Rekening', 'Nama Penerima', 'Tanggal Bayar', 'Dibayar Oleh'],
+    ambil: ({ requests }) => requests,
+    saring: (q, f) => (!f.dari || hari(q.created_at) >= f.dari) && (!f.sampai || hari(q.created_at) <= f.sampai) && (!f.cabang || q.branch === f.cabang),
+    baris: (q) => [hari(q.created_at), REQ_KINDS[q.kind]?.label || q.kind, q.purpose || '', q.branch || '', q.requested_name || '', Math.round(Number(q.amount) || 0), q.sumber_dana || '',
+      (REQ_STATUS[q.status] || [q.status])[0], q.recipient?.bank || '', q.recipient?.number || '', q.recipient?.holder || '', hari(q.paid_date), q.paid_name || ''],
+  },
+  {
+    key: 'tagihan', label: 'Tagihan Vendor', ket: 'Tagihan vendor/penerjemah lepas & status bayarnya',
+    head: ['Tanggal', 'Vendor', 'No. Tagihan Vendor', 'Periode', 'Jml Order', 'Total', 'Sumber Dana', 'Status', 'Tanggal Bayar', 'Dibayar Oleh'],
+    ambil: ({ bills, people }) => bills.map((b) => ({ b, v: people.find((x) => x.id === b.vendor_id) })),
+    saring: ({ b }, f) => (!f.dari || hari(b.created_at) >= f.dari) && (!f.sampai || hari(b.created_at) <= f.sampai),
+    baris: ({ b, v }) => [hari(b.created_at), v?.name || '', b.vendor_invoice_no || '', b.period || '', (b.items || []).length, Math.round(Number(b.total) || 0), b.sumber_dana || '',
+      VB_STATUS[b.status] || b.status || '', hari(b.paid_date), b.paid_name || ''],
+  },
 ]
+
+/** Buat 1 file Excel: satu sheet per data, judul tebal & dibekukan, filter, lebar kolom, angka uang berformat ribuan. */
+async function bukuExcel(daftar) {
+  const { default: ExcelJS } = await import('exceljs')
+  const wb = new ExcelJS.Workbook(); wb.creator = 'ATLAS'; wb.created = new Date()
+  for (const { judul, head, rows } of daftar) {
+    const ws = wb.addWorksheet(judul.slice(0, 31), { views: [{ state: 'frozen', ySplit: 1 }] })
+    ws.addRow(head); rows.forEach((r) => ws.addRow(r))
+    const h = ws.getRow(1); h.font = { bold: true, color: { argb: 'FFFFFFFF' } }; h.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF141B34' } }; h.alignment = { vertical: 'middle' }; h.height = 20
+    head.forEach((t, i) => {
+      const col = ws.getColumn(i + 1)
+      const lebar = Math.max(String(t).length, ...rows.slice(0, 500).map((r) => String(r[i] ?? '').length))
+      col.width = Math.min(48, Math.max(10, lebar + 2))
+      if (UANG.test(t)) col.numFmt = '#,##0'
+    })
+    if (rows.length) ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: head.length } }
+  }
+  return new Blob([await wb.xlsx.writeBuffer()], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+}
 
 /** Saringan bersama untuk data yang berasal dari project. */
 function cocokProject(p, f) {
@@ -99,10 +136,13 @@ function cocokProject(p, f) {
  * Tombol + popup "Unduh Data". Dipakai di toolbar My Project; bisa dipasang
  * di halaman lain dengan komponen yang sama.
  */
-export default function UnduhData({ className, barisMenu }) {
+export default function UnduhData({ className, barisMenu, awal, buka: bukaLuar, onClose }) {
   const { data, user, notify } = useApp()
-  const [buka, setBuka] = useState(false)
+  const [bukaSendiri, setBuka] = useState(false)
+  const buka = bukaLuar ?? bukaSendiri
+  const tutup = () => { setBuka(false); onClose?.() }
   if (!canUnduhData(user)) return null
+  if (bukaLuar !== undefined) return buka ? <DialogUnduh data={data} user={user} notify={notify} awal={awal} onClose={tutup} /> : null
   return (
     <>
       {barisMenu ? (
@@ -116,16 +156,16 @@ export default function UnduhData({ className, barisMenu }) {
           <Download className="h-4 w-4" />
         </button>
       )}
-      {buka && <DialogUnduh data={data} notify={notify} onClose={() => setBuka(false)} />}
+      {buka && <DialogUnduh data={data} user={user} notify={notify} awal={awal} onClose={tutup} />}
     </>
   )
 }
 
-function DialogUnduh({ data, notify, onClose }) {
-  const [pilih, setPilih] = useState(['project'])
+function DialogUnduh({ data, user, notify, onClose, awal }) {
+  const [pilih, setPilih] = useState(awal || ['project'])
   const [f, setF] = useState({ dari: '', sampai: '', cabang: '', status: 'semua' })
   const [sibuk, setSibuk] = useState(false)
-  const sumber = useMemo(() => ({ projects: data.projects || [], users: data.users || [], petty: data.petty_cash || [] }), [data])
+  const sumber = useMemo(() => ({ projects: data.projects || [], users: data.users || [], petty: data.petty_cash || [], requests: scopeRequests(user, data.requests || [], 'Semua'), bills: data.vendor_bills || [], people: data.people || [] }), [data, user])
 
   // Jumlah baris tiap data — dihitung ulang tiap kali filter berubah supaya
   // terlihat dulu berapa banyak yang akan terunduh.
@@ -142,18 +182,10 @@ function DialogUnduh({ data, notify, onClose }) {
     if (!pilih.length) return notify('Pilih dulu data yang mau diunduh')
     setSibuk(true)
     try {
-      const berkas = DATASET.filter((d) => pilih.includes(d.key)).map((d) => ({
-        nama: namaFile(d.key),
-        isi: keCsv(d.head, d.ambil(sumber, f).filter((r) => d.saring(r, f)).map(d.baris)),
+      const daftar = DATASET.filter((d) => pilih.includes(d.key)).map((d) => ({
+        judul: d.label, head: d.head, rows: d.ambil(sumber, f).filter((r) => d.saring(r, f)).map(d.baris),
       }))
-      if (berkas.length === 1) {
-        await saveBlob(berkas[0].nama, new Blob([berkas[0].isi], { type: 'text/csv;charset=utf-8' }))
-      } else {
-        const JSZip = (await import('jszip')).default
-        const zip = new JSZip()
-        for (const b of berkas) zip.file(b.nama, b.isi)
-        await saveBlob(`unduh-data-${new Date().toISOString().slice(0, 10)}.zip`, await zip.generateAsync({ type: 'blob' }))
-      }
+      await saveBlob(namaFile(daftar.length === 1 ? pilih[0] : 'data'), await bukuExcel(daftar))
       notify(`${totalBaris} baris diunduh`)
       onClose()
     } catch (e) {
@@ -203,12 +235,12 @@ function DialogUnduh({ data, notify, onClose }) {
               <option value="semua">Semua</option><option value="aktif">Aktif</option><option value="selesai">Selesai</option>
             </select></label>
         </div>
-        <p className="mt-2 text-[11px] text-ink-mute">Tanggal memakai deadline project (kalau kosong: tanggal dibuat). Untuk Kas Kecil memakai tanggal transaksi.</p>
+        <p className="mt-2 text-[11px] text-ink-mute">Tanggal memakai deadline project (kalau kosong: tanggal dibuat). Kas Kecil, Pengajuan & Tagihan Vendor memakai tanggal transaksi/pengajuan. Beberapa data sekaligus = 1 file Excel dengan beberapa sheet.</p>
 
         <div className="mt-4 flex items-center gap-2">
           <span className="mr-auto text-xs font-semibold text-ink-mute" data-total>{pilih.length} data · {totalBaris} baris</span>
           <Button variant="outline" onClick={onClose}>Batal</Button>
-          <Button onClick={unduh} disabled={sibuk || !pilih.length}><Download className="h-4 w-4" />{sibuk ? 'Menyiapkan…' : pilih.length > 1 ? 'Unduh ZIP' : 'Unduh CSV'}</Button>
+          <Button onClick={unduh} disabled={sibuk || !pilih.length}><Download className="h-4 w-4" />{sibuk ? 'Menyiapkan…' : 'Unduh Excel'}</Button>
         </div>
       </div>
     </div>

@@ -44,6 +44,7 @@ const MitraPage = lazy(() => import('./pages/Mitra.jsx'))
 const Penugasan = lazy(() => import('./pages/Penugasan.jsx'))
 import GlobalSearch from './components/GlobalSearch.jsx'
 import MenuHP, { catatKunjungan } from './components/MenuHP.jsx'
+import YangBaru, { PanduanPasang } from './components/YangBaru.jsx'
 import { SlotProvider, BarisAtas, KeAtas, KELAS_PLUS, IKON_ATAS } from './components/SlotAtas.jsx'
 import { useFokus, toggleFokus } from './lib/fokus.js'
 import NotificationBell from './components/NotificationBell.jsx'
@@ -345,6 +346,8 @@ export default function App() {
         <p className="text-sm text-ink-soft">{confirmState?.msg}</p>
       </Sheet>
     </div>
+      <YangBaru />
+      <PanduanPasang />
     </SlotProvider>
     </PanelProvider>
   )
