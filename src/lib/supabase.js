@@ -26,7 +26,7 @@ const pesan = (e) => {
   return m || 'Gagal memproses data'
 }
 // Batas baris per tabel: riwayat panjang tidak perlu ditarik semua tiap kali aplikasi dibuka.
-const LIMIT = { activity_log: 400, perf_daily: 400, share_log: 150, notifications: 300, pings: 200, messages: 800, requests: 500, petty_cash: 1000 }
+const LIMIT = { activity_log: 400, perf_daily: 400, share_log: 150, notifications: 300, pings: 200, messages: 800, requests: 500, petty_cash: 1000, kirim: 3000, kirim_event: 1500, kirim_mutasi: 5000 }
 const flat = (r) => (r ? { id: r.id, created_at: r.created_at, updated_at: r.updated_at, ...(r.doc || {}) } : null)
 const split = (row) => { const { id, created_at, updated_at, ...doc } = row || {}; return { id, doc } }
 

@@ -24,7 +24,7 @@ const URL_ = import.meta.env.VITE_INSFORGE_URL
 // 'supabase' (live, Supabase) · 'live' (InsForge, lama) · 'demo' (localStorage)
 export const MODE = SUPABASE_READY ? 'supabase' : URL_ ? 'live' : 'demo'
 export const IS_LIVE = MODE !== 'demo'
-const ALL_TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings', 'notes', 'todos', 'reminders', 'messages', 'daftar_harga', 'faq', 'affidavit_stok', 'affidavit_pakai', 'affidavit_kirim', 'jadwal', 'cuti', 'mitra', 'kapasitas', 'perusahaan_dok', 'data_pribadi']
+const ALL_TABLES = ['users', 'people', 'projects', 'petty_cash', 'couriers', 'notifications', 'requests', 'perf_daily', 'share_links', 'share_log', 'vendor_bills', 'fund_balances', 'app_settings', 'activity_log', 'pings', 'notes', 'todos', 'reminders', 'messages', 'daftar_harga', 'faq', 'affidavit_stok', 'affidavit_pakai', 'affidavit_kirim', 'jadwal', 'cuti', 'mitra', 'kapasitas', 'perusahaan_dok', 'data_pribadi', 'kirim', 'kirim_alamat', 'kirim_templat', 'kirim_kendala', 'kirim_mutasi', 'kirim_event']
 // Chat dimatikan → `messages` tidak ikut dilanggan realtime maupun disegarkan.
 export const TABLES = CHAT_ENABLED ? ALL_TABLES : ALL_TABLES.filter((t) => t !== 'messages')
 
@@ -36,6 +36,7 @@ import { compactDemo } from './compactDemo.js'
 import { fotoTim } from './avatarTim.js'
 import { isiJadwalDemo } from './jadwalDemo.js'
 import { isFreelance } from '../config/access.js'
+import { isiKirimDemo } from './kirimDemo.js'
 const KEY = 'atlas-alfa-v24' // naikkan versi bila struktur data demo berubah
 let mem = null
 function load() {
@@ -58,6 +59,7 @@ function migrate(m) {
   const set = (id, patch) => { const x = u(id); if (x && Object.entries(patch).some(([k, v]) => JSON.stringify(x[k]) !== JSON.stringify(v))) { Object.assign(x, patch); changed = true } }
   set('u-ot-made', { otorisator_level: 'master' })
   if (isiJadwalDemo(m)) changed = true
+  if (isiKirimDemo(m)) changed = true
   // Koordinator vendor (10 Nov 2026): Emma → Pak Zenzia, Debby → Pak Dedi (Jerman)
   if (!m.koordinator_v1) {
     let dedi = (m.people || []).find((x) => x.type === 'vendor' && /dedi/i.test(x.name))

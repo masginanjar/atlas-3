@@ -12,6 +12,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 const LABEL: Record<string, string> = { WAITING: "Menunggu dijemput", "FAILED PICKUP": "Gagal dijemput", PICKEDUP: "Sudah dijemput kurir", "IN PROCESS RETURN": "Proses retur", DELIVERED: "Diterima pelanggan", REJECTED: "Ditolak", "IN TROUBLE": "Bermasalah", CANCELED: "Dibatalkan", RETURN: "Diretur", "LOST/BROKEN": "Hilang/rusak", "FORCE MAJEURE": "Force majeure" };
 const TAHAP_KIRIM = ["siap_kirim", "kirim", "dikirim"];
+const TAHAP: Record<string, string> = { WAITING: "menunggu_jemput", "FAILED PICKUP": "gagal_pickup", PICKEDUP: "dikirim", "IN PROCESS RETURN": "retur_proses", DELIVERED: "terkirim", REJECTED: "gagal_kirim", "IN TROUBLE": "kendala", CANCELED: "dibatalkan", RETURN: "dikembalikan", "LOST/BROKEN": "hilang_rusak", "FORCE MAJEURE": "force_majeure" };
+const AKHIR = ["terkirim", "dikembalikan", "dibatalkan", "hilang_rusak"];
 
 function sama(a: string, b: string) {
   if (a.length !== b.length) return false;
@@ -45,10 +47,40 @@ Deno.serve(async (req: Request) => {
   const { error } = await db.from("kirim_status_log").insert({ sumber: "everpro", jenis: ambil(body, ["type", "event", "callback_type"]) ?? (status ? "tracking" : "awb"), resi, order_ref: orderNo, status, raw: body });
   if (error) return json({ ok: false, alasan: "gagal menyimpan" }, 500);
 
+  // ---- modul Pengiriman: perbarui tabel kirim (anti dobel & urutan acak aman) ----
+  let projectDariKirim: string | null = null;
+  try {
+    let qk = db.from("kirim").select("id, doc");
+    qk = orderNo ? qk.eq("doc->everpro->>client_order_no", orderNo) : qk.eq("doc->everpro->>awb", String(resi ?? "-"));
+    const { data: kr } = await qk.limit(1);
+    const k = kr?.[0];
+    if (k) {
+      const d = k.doc as Record<string, any>; const now = new Date().toISOString();
+      if (d.jenis_kirim === "keluar" && d.project_id) projectDariKirim = String(d.project_id);
+      const baru: Record<string, any> = { ...d, everpro: { ...(d.everpro ?? {}), ...(resi ? { awb: resi } : {}) }, diperbarui_at: now, sumber_status: "Everpro" };
+      const kodeLama = d.status_everpro_kode ?? "";
+      if (status && status !== kodeLama) {
+        const t = TAHAP[status] ?? "perlu_dicek";
+        // status akhir tidak boleh mundur karena kabar lama yang datang terlambat
+        if (!(AKHIR.includes(String(d.tahap)) && !AKHIR.includes(t))) { baru.tahap = t; baru.status_everpro = status; baru.status_everpro_kode = status; }
+        if (status === "DELIVERED") baru.diterima_at = d.diterima_at || now;
+        if (status === "PICKEDUP") baru.dikirim_at = d.dikirim_at || now;
+        if (status === "CANCELED") baru.batal = { ...(d.batal ?? {}), dikonfirmasi_at: now, alasan_everpro: ambil(body, ["cancel_reason"]) };
+        baru.timeline = [{ waktu: now, status, keterangan: LABEL[status] ?? status, sumber: "Everpro (callback)", diterima_at: now }, ...(d.timeline ?? [])].slice(0, 80);
+        baru.riwayat = [...(d.riwayat ?? []), { at: now, by: "ATLAS (Everpro)", aksi: `Status dari Everpro: ${LABEL[status] ?? status}` }].slice(-200);
+        await db.from("kirim_event").insert({ doc: { kirim_id: k.id, cabang: d.cabang ?? "", waktu: now, status, keterangan: LABEL[status] ?? status, sumber: "Everpro (callback)", diterima_at: now, kunci: `${k.id}|cb|${status}|${resi ?? ""}` } }).then(() => null, () => null);
+      } else if (resi && resi !== d.everpro?.awb) {
+        if (["dibuat", "diproses"].includes(String(d.tahap))) baru.tahap = "menunggu_jemput";
+        baru.riwayat = [...(d.riwayat ?? []), { at: now, by: "ATLAS (Everpro)", aksi: `Resi terbit: ${resi}` }].slice(-200);
+      } else if (!resi) { /* kabar sama → abaikan */ }
+      await db.from("kirim").update({ doc: baru, updated_at: now }).eq("id", k.id);
+    }
+  } catch (_) { /* kabar sudah tercatat di log */ }
+
   // ---- perbarui project yang cocok (tidak menggagalkan callback bila tidak ketemu) ----
   try {
     let q = db.from("projects").select("id, doc");
-    q = orderNo ? q.eq("doc->about->everpro->>client_order_no", orderNo) : q.eq("doc->about->everpro->>awb", String(resi ?? "-"));
+    q = projectDariKirim ? q.eq("id", projectDariKirim) : orderNo ? q.eq("doc->about->everpro->>client_order_no", orderNo) : q.eq("doc->about->everpro->>awb", String(resi ?? "-"));
     const { data: rows } = await q.limit(1);
     const row = rows?.[0];
     if (row) {

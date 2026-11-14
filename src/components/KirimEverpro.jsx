@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import { resiOf } from '../lib/kirim.js'
 import { Truck, Loader2, Search, PackageCheck, MapPin, Copy, MessageCircle, RefreshCw, X, Clock, Printer } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { MODE, db } from '../lib/db.js'
 import { SUPABASE_URL } from '../lib/supabase.js'
 import { rupiah } from '../lib/format.js'
 import { Button, Input, Sheet, cx } from './ui.jsx'
+import { LogoKurir } from './kirim/bersama.jsx'
 
 // ============================================================
 //  KIRIM VIA EVERPRO — di tahap Siap Kirim (metode "Dikirim Kurir").
@@ -100,14 +102,7 @@ export default function KirimEverpro({ project }) {
   const waUrl = ev?.awb && waNomor(ship.phone || project.customer?.phone) ? `https://wa.me/${waNomor(ship.phone || project.customer?.phone)}?text=${encodeURIComponent(teksWa)}` : null
   const tandaiWa = async () => { try { await save('projects', { ...project, about: { ...project.about, everpro: { ...ev, wa_terkirim_at: new Date().toISOString() } } }) } catch { /* abaikan */ } }
 
-  if (!aktif) return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-sky-50 p-2.5 ring-1 ring-sky-200" data-everpro>
-      <Truck className="h-4 w-4 text-sky-700" aria-hidden="true" />
-      <span className="mr-auto text-xs font-semibold text-sky-900">Kirim lewat Everpro: cek ongkir, pesan kurir, resi otomatis{ev?.status === 'CANCELED' ? ' · pesanan sebelumnya dibatalkan' : ''}</span>
-      <Button size="sm" onClick={() => setBuka(true)} data-aksi="buka-everpro"><Truck className="h-4 w-4" />Pesan Kurir</Button>
-      {buka && <PesanKurir project={project} onClose={() => setBuka(false)} onDone={() => { setBuka(false); segarkan() }} />}
-    </div>
-  )
+  if (!aktif) return <PengirimanProject project={project} catatan={ev?.status === 'CANCELED' ? 'pesanan lama dibatalkan' : ''} />
   const [lbl, cls] = STATUS_KIRIM[ev.status] || [ev.status, 'bg-slate-100 text-slate-600 ring-slate-200']
   return (
     <div className="mt-2 space-y-2 rounded-xl bg-white p-2.5 ring-1 ring-slate-200" data-everpro data-status-kirim={ev.status}>
@@ -136,6 +131,32 @@ export default function KirimEverpro({ project }) {
     </div>
   )
 }
+
+/** Ringkas semua pengiriman (modul Pengiriman) milik project ini + tombol Buat Pengiriman. */
+function PengirimanProject({ project, catatan }) {
+  const { data, user } = useApp()
+  const rows = (data.kirim || []).filter((k) => k.project_id === project.id).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+  const bolehBuat = ['superadmin', 'direktur', 'admin_pusat', 'supervisor', 'cs', 'helper', 'staf_apostille'].includes(user?.role)
+  const buat = () => { try { sessionStorage.setItem('atlas-kirim-dari-project', JSON.stringify(project.id)) } catch { /* abaikan */ } window.location.hash = '/pengiriman/buat' }
+  return (
+    <div className="mt-2 space-y-1.5 rounded-xl bg-sky-50 p-2.5 ring-1 ring-sky-200" data-everpro>
+      <div className="flex flex-wrap items-center gap-2">
+        <Truck className="h-4 w-4 text-sky-700" aria-hidden="true" />
+        <span className="mr-auto text-xs font-semibold text-sky-900">Pengiriman Everpro{rows.length ? ` · ${rows.length}` : ''}{catatan ? ` · ${catatan}` : ''}</span>
+        {bolehBuat && <Button size="sm" onClick={buat} data-aksi="buat-pengiriman-project"><Truck className="h-4 w-4" />Buat Pengiriman</Button>}
+      </div>
+      {rows.map((k) => (
+        <a key={k.id} href={`#/pengiriman/${['draft', 'siap', 'gagal_order'].includes(k.tahap) ? `buat/${k.id}` : 'daftar'}`} className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-2 py-1.5 text-xs ring-1 ring-sky-100 hover:ring-brand" data-kirim-project>
+          <b>{k.kode}</b><span className="text-ink-mute">{k.jenis_kirim === 'masuk' ? 'dokumen masuk' : k.jenis_kirim === 'antar_cabang' ? 'antar-cabang' : k.jenis_kirim === 'ulang' ? 'kirim ulang' : 'ke pelanggan'}</span>
+          {k.kurir?.kurir && <LogoKurir nama={k.kurir.kurir} logo={k.kurir.logo} ukuran={20} />}<span>{k.kurir?.kurir} {k.kurir?.layanan}</span>{resiOf(k) && <span className="font-mono font-bold">{resiOf(k)}</span>}
+          <span className="ml-auto rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-700">{TAHAP_SINGKAT[k.tahap] || k.tahap}</span>
+        </a>
+      ))}
+      <p className="text-[11px] text-sky-900/70">Satu project bisa punya beberapa pengiriman. Status pengiriman terpisah dari status layanan.</p>
+    </div>
+  )
+}
+const TAHAP_SINGKAT = { draft: 'Draft', siap: 'Draft', gagal_order: 'Gagal dibuat', diproses: 'Diproses', dibuat: 'Menunggu resi', menunggu_jemput: 'Menunggu dijemput', gagal_pickup: 'Gagal pickup', dikirim: 'Dikirim', gagal_kirim: 'Gagal kirim', kendala: 'Kendala', retur_proses: 'Retur', batal_diajukan: 'Batal diajukan', terkirim: 'Terkirim', dikembalikan: 'Dikembalikan', hilang_rusak: 'Hilang/rusak', dibatalkan: 'Dibatalkan', perlu_dicek: 'Perlu dicek' }
 
 /** Tampilkan riwayat lacak apa adanya (bentuk data Everpro bisa berbeda per kurir). */
 export function Riwayat({ data }) {

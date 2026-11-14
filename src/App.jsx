@@ -5,7 +5,7 @@ import SidebarMenu from './components/SidebarMenu.jsx'
 import PanelDummy from './components/PanelDummy.jsx'
 import { useApp } from './lib/store.jsx'
 import { MODE, storageError, db } from './lib/db.js'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Calculator } from 'lucide-react'
 import { BRANCHES, ROLES, can, branchesOf, isMultiBranch, roleLabel, rolesOf, isFreelance, placeOf } from './config/access.js'
 import { go } from './lib/router.js'
 import { Toast, Sheet, Button, Popover, cx } from './components/ui.jsx'
@@ -125,9 +125,17 @@ const MENU = [
     { key: 'laporan-keuangan', label: 'Laporan', segera: true, show: peranDi(['superadmin', 'akunting']) },
   ] },
   { id: 'pengiriman', label: 'Pengiriman', icon: Truck, children: [
-    { key: 'pengiriman', label: 'Daftar Kiriman', icon: Truck, subOnly: true, show: peranDi(['superadmin', 'direktur', 'admin_pusat', 'akunting', 'supervisor']) },
-    { id: 'kirim-alamat', key: 'pengiriman', sub: 'alamat', label: 'Alamat Pengirim', samping: true, show: peranDi(['superadmin', 'direktur', 'admin_pusat', 'supervisor']) },
-    { id: 'kirim-kurir', key: 'pengiriman', sub: 'kurir', label: 'Kurir', samping: true, show: peranDi(['superadmin', 'direktur', 'admin_pusat', 'supervisor']) },
+    { key: 'pengiriman', label: 'Ringkasan', icon: Truck, subOnly: true, show: peranDi(['superadmin', 'direktur', 'admin_pusat', 'supervisor', 'cs', 'helper', 'staf_apostille']) },
+    { id: 'kirim-daftar', key: 'pengiriman', sub: 'daftar', label: 'Daftar Pengiriman', show: peranDi(['superadmin', 'direktur', 'admin_pusat', 'supervisor', 'cs', 'helper', 'staf_apostille']) },
+    { id: 'kirim-buat', key: 'pengiriman', sub: 'buat', label: 'Buat Pengiriman', show: peranDi(['superadmin', 'direktur', 'admin_pusat', 'supervisor', 'cs', 'helper', 'staf_apostille']) },
+    { id: 'kirim-ongkir', key: 'pengiriman', sub: 'ongkir', label: 'Cek Ongkir', show: peranDi(['superadmin', 'direktur', 'admin_pusat', 'supervisor', 'cs', 'helper', 'staf_apostille']) },
+    { id: 'kirim-draft', key: 'pengiriman', sub: 'draft', label: 'Draft & Impor', samping: true, show: peranDi(['superadmin', 'direktur', 'admin_pusat', 'supervisor', 'cs', 'helper', 'staf_apostille']) },
+    { id: 'kirim-alamat', key: 'pengiriman', sub: 'alamat', label: 'Buku Alamat & Cabang', samping: true, show: peranDi(['superadmin', 'direktur', 'admin_pusat', 'supervisor', 'cs', 'helper', 'staf_apostille']) },
+    { id: 'kirim-label', key: 'pengiriman', sub: 'label', label: 'Label & Serah Terima', samping: true, show: peranDi(['superadmin', 'direktur', 'admin_pusat', 'supervisor', 'cs', 'helper', 'staf_apostille']) },
+    { id: 'kirim-kendala', key: 'pengiriman', sub: 'kendala', label: 'Kendala, Retur & Klaim', samping: true, show: peranDi(['superadmin', 'direktur', 'admin_pusat', 'supervisor', 'cs', 'helper', 'staf_apostille']) },
+    { id: 'kirim-saldo', key: 'pengiriman', sub: 'saldo', label: 'Saldo & Mutasi', samping: true, show: peranDi(['superadmin', 'direktur', 'admin_pusat']) },
+    { id: 'kirim-laporan', key: 'pengiriman', sub: 'laporan', label: 'Laporan', samping: true, show: peranDi(['superadmin', 'direktur', 'admin_pusat']) },
+    { id: 'kirim-atur', key: 'pengiriman', sub: 'pengaturan', label: 'Pengaturan', samping: true, show: peranDi(['superadmin', 'direktur', 'admin_pusat']) },
   ] },
   { id: 'agenda', label: 'Agenda', icon: CalendarRange, children: [
     ...(CHAT_ENABLED ? [{ key: 'pesan', label: 'Pesan Masuk', icon: MessageCircle, bar: true, badge: (u, d, bf, x) => x.chatTotals?.msg || 0 }] : []),
@@ -230,7 +238,7 @@ export default function App() {
     : page === 'rilis-fitur' && canMonitor(user) ? <RilisFitur />
     : page === 'pelanggan' ? <Pelanggan />
     : page === 'dokumen' ? <Dokumen />
-    : page === 'pengiriman' ? <Pengiriman tab={param} />
+    : page === 'pengiriman' ? <Pengiriman tab={param} id={param2} />
     : page === 'vendor' ? <VendorPage />
     : page === 'mitra' ? <MitraPage />
     : page === 'penugasan' ? <Penugasan />
@@ -309,7 +317,7 @@ export default function App() {
 
         <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-4 md:px-6 md:pb-12 md:pt-6 xl:max-w-[1280px] 2xl:max-w-[1440px]">
           {/* Baris atas isi halaman: pencarian (kiri) · tombol tambah (kanan) — bukan top bar global */}
-          <BarisAtas cariBawaan={<GlobalSearch ikon placeholder={CARI_HALAMAN[page] || 'Cari invoice, pelanggan, menu…'} />} tambahBawaan={<HeadAdd />} ikonLain={<><PintasAtas page={page} /><TeamPresence ikon /><NotificationBell ikon /><TombolHantu ikon /></>} />
+          <BarisAtas cariBawaan={<GlobalSearch ikon placeholder={CARI_HALAMAN[page] || 'Cari invoice, pelanggan, menu…'} />} tambahBawaan={<HeadAdd />} ikonLain={<><PintasAtas page={page} param={param} user={user} /><TeamPresence ikon /><NotificationBell ikon /><TombolHantu ikon /></>} />
           {((branchPicker && !alatSendiri) || (!user._hantu && (rolesOf(user).length > 1 || personaList.length > 0 || user._actor))) && (
           <KeAtas slot="sesudah"><div className="flex min-w-0 items-center gap-2 lg:hidden" data-baris-cabang>
             {branchPicker && !alatSendiri && (
@@ -361,8 +369,9 @@ export default function App() {
 }
 
 /** Pintasan halaman di kumpulan ikon kanan atas: Project & Pengajuan (setelah ikon cari). */
-function PintasAtas({ page }) {
+function PintasAtas({ page, param, user }) {
   const item = [
+    ...(['superadmin', 'direktur', 'admin_pusat', 'supervisor', 'cs', 'helper', 'staf_apostille'].includes(user?.role) ? [{ href: '#/pengiriman/ongkir', label: 'Cek Ongkir', icon: Calculator, aktif: page === 'pengiriman' && param === 'ongkir' }] : []),
     { href: '#/projects', label: 'Project', icon: FolderKanban, aktif: page === 'projects' },
     { href: '#/pengajuan', label: 'Pengajuan', icon: Wallet, aktif: page === 'pengajuan' },
   ]

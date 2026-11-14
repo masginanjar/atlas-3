@@ -8,6 +8,23 @@
 
 export const CHANGELOG = [
   {
+    id: 10, tanggal: '2026-11-15', judul: 'Pengiriman: Pos Indonesia, DHL & ekspedisi lain',
+    poin: [
+      { teks: 'Buat Pengiriman bisa pakai Pos Indonesia, DHL, atau ekspedisi lain: isi resi, ongkir & foto struk. Ekspedisi bawaan mengikuti cabang.' },
+      { teks: 'Kiriman manual: tombol Perbarui status (tercatat siapa & kapan) dan Lacak di situs ekspedisi.' },
+      { teks: 'Top-up saldo Everpro dicatat lengkap dengan bukti. Saldo, laporan, pengaturan, tarik/impor data & pembatalan khusus Superadmin, Direktur & Admin Pusat.', peran: ['superadmin', 'direktur', 'admin_pusat'] },
+    ],
+  },
+  {
+    id: 9, tanggal: '2026-11-15', judul: 'Modul Pengiriman lengkap (Everpro)',
+    poin: [
+      { teks: 'Menu Pengiriman: Ringkasan, Daftar, Buat Pengiriman (5 langkah, draft tersimpan), Cek Ongkir, Draft & Impor, Buku Alamat, Label & Serah Terima, Kendala/Retur/Klaim, Laporan.' },
+      { teks: 'Dari detail project: tombol Buat Pengiriman. Satu project bisa punya beberapa pengiriman (dokumen masuk, hasil keluar, antar-cabang, kirim ulang).' },
+      { teks: 'Tarif dicek ulang sebelum memesan dan klik ganda tidak membuat order dobel.' },
+      { teks: 'Saldo & Mutasi: impor laporan Everpro, rekonsiliasi cashback/refund/selisih ongkir.', peran: ['superadmin', 'direktur', 'admin_pusat'] },
+    ],
+  },
+  {
     id: 8, tanggal: '2026-11-14', judul: 'Kirim dokumen lewat Everpro langsung dari ATLAS',
     poin: [
       { teks: 'Project → Alamat Pengiriman → Pesan Kurir: cek ongkir semua kurir, pilih jadwal jemput atau antar ke agen, resi terbit otomatis.' },

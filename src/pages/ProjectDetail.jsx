@@ -195,7 +195,7 @@ export function TabDetailProject({ project, ringkas, tab: tabLuar, setTab: setTa
                 <DeliveryRule type={deliveryType(project, data.couriers)} />
                 <ResiFields about={project.about || {}}
                   onChange={async (patch) => { await save('projects', { ...project, about: { ...project.about, ...patch } }); notify('Info resi disimpan') }} />
-                {(deliveryType(project, data.couriers) === 'courier' || project.about?.everpro) && <KirimEverpro project={project} />}
+                <KirimEverpro project={project} />
               </div>
             </SectionCard>
           </div>
