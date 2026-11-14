@@ -1,4 +1,3 @@
-import { useJumlahNotif } from './NotificationBell.jsx'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { LayoutGrid, Plus, Search, X, Maximize2, Minimize2 } from 'lucide-react'
@@ -149,7 +148,6 @@ export function TabBawah({ flat, page, ctx, onMenu, menuOpen }) {
   const { user } = useApp()
   const { open } = usePanel()
   const [buat, setBuat] = useState(false)
-  const nNotif = useJumlahNotif() // notifikasi & profil ada di sheet Menu (tanpa top bar)
   const kiri = ['dashboard', 'projects'].map((k) => flat.find((n) => n.key === k)).filter(Boolean)
   const kanan = ['agenda'].map((k) => flat.find((n) => n.key === k)).filter(Boolean)
   const items = PANEL_ORDER.map((k) => [k, PANELS[k]]).filter(([, p]) => p.allow(user))
@@ -173,8 +171,8 @@ export function TabBawah({ flat, page, ctx, onMenu, menuOpen }) {
           </button>
         ) : <span />}
         {kanan.map((n) => <Tab key={n.key} n={n} />)}
-        <button type="button" onClick={onMenu} data-tab="menu" aria-label={nNotif ? `Menu, profil & notifikasi (${nNotif} belum dibaca)` : 'Menu, profil & notifikasi'} className={cx('flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-semibold', menuOpen ? 'text-brand' : 'text-ink-mute')}>
-          <span className="relative grid h-7 w-11 place-items-center rounded-full"><LayoutGrid className="h-5 w-5" />{nNotif > 0 && <span className="absolute -right-0.5 -top-1 min-w-[16px] rounded-full bg-rose-600 px-1 text-center text-[10px] font-bold leading-4 text-white">{nNotif > 99 ? '99+' : nNotif}</span>}</span>Menu
+        <button type="button" onClick={onMenu} data-tab="menu" aria-label="Menu & profil" className={cx('flex min-h-[56px] flex-col items-center justify-center gap-0.5 py-2 text-[11px] font-semibold', menuOpen ? 'text-brand' : 'text-ink-mute')}>
+          <span className="relative grid h-7 w-11 place-items-center rounded-full"><LayoutGrid className="h-5 w-5" /></span>Menu
         </button>
       </nav>
       <Sheet open={buat} onClose={() => setBuat(false)} title="Buat baru">

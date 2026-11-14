@@ -25,7 +25,7 @@ export function useJumlahNotif() {
   return myNotifications.filter(belum).length + myPings.filter(belum).length + sholat.list.filter((x) => !x.read).length
 }
 
-export default function NotificationBell({ posisi, berlabel, tanpaPopup } = {}) {
+export default function NotificationBell({ posisi, berlabel, tanpaPopup, ikon } = {}) {
   const { user, data, myNotifications, markRead: markReadDb, myPings, markPingRead } = useApp()
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState('notif')
@@ -166,10 +166,11 @@ export default function NotificationBell({ posisi, berlabel, tanpaPopup } = {}) 
   return (
     <div className="relative">
       <button ref={btnRef} type="button" onClick={() => setOpen((o) => !o)} aria-label={`Notifikasi (${total} belum dibaca)`} title="Notifikasi" aria-expanded={open} aria-haspopup="dialog" data-tombol-notif
-        className={cx('relative flex h-11 min-w-11 items-center justify-center gap-2.5 rounded-xl transition', berlabel ? 'w-full justify-start px-3 text-sm font-semibold text-[#141B34] hover:bg-[#F3F4F9] dark:text-slate-100 dark:hover:bg-white/10' : 'w-11 bg-white ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-white/5 dark:ring-white/10', open && 'ring-1 ring-brand')}>
+        className={cx('relative flex h-11 min-w-11 items-center justify-center gap-2.5 rounded-xl transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand', ikon ? cx('w-11 !rounded-lg md:h-8 md:w-8 md:min-w-8', open ? 'bg-[#E9EBF3] text-[#141B34] dark:bg-white/10' : 'text-[#4A4F6A] hover:bg-[#E9EBF3] dark:text-slate-300 dark:hover:bg-white/10') : berlabel ? 'w-full justify-start px-3 text-sm font-semibold text-[#141B34] hover:bg-[#F3F4F9] dark:text-slate-100 dark:hover:bg-white/10' : 'w-11 bg-white ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-white/5 dark:ring-white/10', open && 'ring-1 ring-brand')}>
         <span className="relative grid place-items-center">
-          <Bell className={cx(berlabel ? 'h-5 w-5' : 'h-4 w-4', total ? 'text-brand' : berlabel ? '' : 'text-ink-soft')} aria-hidden="true" />
-          {total > 0 && !berlabel && <span className="absolute -right-3 -top-3 grid h-4 min-w-4 place-items-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">{total > 99 ? '99+' : total}</span>}
+          <Bell className={cx(berlabel ? 'h-5 w-5' : ikon ? 'h-[17px] w-[17px]' : 'h-4 w-4', total && !ikon ? 'text-brand' : berlabel || ikon ? '' : 'text-ink-soft')} aria-hidden="true" />
+          {total > 0 && ikon && <span className="absolute -right-2 -top-2 min-w-[15px] rounded-full bg-rose-600 px-[3px] text-center text-[9.5px] font-bold leading-[15px] text-white ring-2 ring-[#F3F4F9] dark:ring-[#0f1424]">{total > 99 ? '99+' : total}</span>}
+          {total > 0 && !berlabel && !ikon && <span className="absolute -right-3 -top-3 grid h-4 min-w-4 place-items-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">{total > 99 ? '99+' : total}</span>}
         </span>
         {berlabel && <span className="min-w-0 flex-1 truncate text-left">Notifikasi</span>}
         {berlabel && total > 0 && <span className="rounded-full bg-rose-600 px-1.5 text-[11px] font-bold text-white">{total > 99 ? '99+' : total}</span>}

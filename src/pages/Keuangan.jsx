@@ -12,7 +12,7 @@ import { MapTabs, SubTabProvider, useSubTabHost } from '../components/SubTab.jsx
 import { needsAction } from '../lib/badges.js'
 import Pengajuan from './Pengajuan.jsx'
 
-import { KeAtas } from '../components/SlotAtas.jsx'
+import { KeAtas, KELAS_PLUS } from '../components/SlotAtas.jsx'
 import { canSeeKeuangan } from '../config/menuAccess.js'
 export { canSeeKeuangan }
 
@@ -66,10 +66,10 @@ export default function Keuangan({ tab }) {
   const tombolTambah = opsi.length > 0 && (
     <>
       <button type="button" onClick={() => setSheet(true)} aria-label="Catat / ajukan" data-aksi="tambah-keuangan"
-        className="grid h-11 w-11 place-items-center rounded-xl bg-ink text-white shadow-sm sm:hidden"><Plus className="h-5 w-5" /></button>
+        className={cx(KELAS_PLUS, 'sm:hidden')}><Plus className="h-[17px] w-[17px]" /></button>
       <div className="hidden sm:block">
         <Popover label="Catat / ajukan" width="min-w-[280px]" button={({ toggle, open: o }) => (
-          <Button variant="dark" className="!h-9 !rounded-[10px]" onClick={toggle} aria-expanded={o} aria-haspopup="menu" data-aksi="tambah-keuangan"><Plus className="h-4 w-4" />Catat / Ajukan<ChevronDown className="h-3.5 w-3.5 opacity-70" /></Button>
+          <button type="button" className={KELAS_PLUS} onClick={toggle} aria-expanded={o} aria-haspopup="menu" aria-label="Buat… (catat / ajukan)" title="Buat… (catat / ajukan)" data-aksi="tambah-keuangan"><Plus className="h-[17px] w-[17px]" aria-hidden="true" /></button>
         )}>
           {({ close }) => <MenuCatat opsi={opsi} onPilih={(j) => { close(); buka(j) }} />}
         </Popover>

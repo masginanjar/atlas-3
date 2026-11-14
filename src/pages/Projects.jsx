@@ -251,7 +251,7 @@ export default function Projects({ tabAwal }) {
 
         // Toolbar diciutkan = baris chip disembunyikan; baris 1 & tombol ciut/buka TIDAK berpindah tempat
         // ---- Toolbar ringkas (pola bersama): baris 1 = cari · Filter · Urutan · Tampilan … + Project; baris 2 = judul · Jenis ▾ · pintasan ----
-        const KONTROL = 'inline-flex h-11 shrink-0 items-center gap-1.5 rounded-[10px] border border-[#D9DBE7] bg-white px-3 text-[13px] font-semibold text-[#141B34] transition hover:border-[#B9BDD0] md:h-9 dark:border-white/15 dark:bg-white/5 dark:text-slate-100'
+        const KONTROL = 'inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg border border-[#D9DBE7] bg-white px-2.5 text-[13px] font-semibold text-[#141B34] transition hover:border-[#B9BDD0] md:h-8 dark:border-white/15 dark:bg-white/5 dark:text-slate-100'
         const pintas = (on, warn) => cx('inline-flex h-11 shrink-0 items-center gap-1 whitespace-nowrap rounded-[8px] border px-2.5 text-[12.5px] font-semibold transition md:h-8',
           on ? 'border-[#141B34] bg-[#141B34] text-white' : warn ? 'border-[#FFEDE3] bg-[#FFEDE3] text-[#B43D0E] hover:border-[#F2C4AE]' : 'border-[#E7E8F0] bg-white text-[#3F4566] hover:border-[#B9BDD0] hover:text-[#141B34] dark:border-white/10 dark:bg-white/5 dark:text-slate-200')
         const n = (v, on) => <span className={cx('text-xs font-bold tabular-nums', on ? 'opacity-80' : 'opacity-70')}>{v}</span>
@@ -324,7 +324,7 @@ export default function Projects({ tabAwal }) {
                 {bisaSaring && urutan}
                 {adaToolbar && menuTampilan}
                 {adaToolbar && <button type="button" onClick={() => setPref({ ...pref, toolbar: pref.toolbar === false })} aria-expanded={pref.toolbar !== false} aria-label={pref.toolbar === false ? 'Tampilkan baris jenis & pintasan' : 'Ciutkan toolbar'} title={pref.toolbar === false ? 'Tampilkan baris jenis & pintasan' : 'Ciutkan toolbar'} data-aksi="ciut-toolbar"
-                  className={cx(KONTROL, 'hidden w-11 justify-center px-0 sm:inline-flex md:w-9')}><ChevronDown className={cx('h-4 w-4 transition-transform duration-300', pref.toolbar !== false && 'rotate-180')} aria-hidden="true" /></button>}
+                  className={cx(KONTROL, 'hidden w-11 justify-center px-0 sm:inline-flex md:w-8')}><ChevronDown className={cx('h-4 w-4 transition-transform duration-300', pref.toolbar !== false && 'rotate-180')} aria-hidden="true" /></button>}
               </div></KeAtas>
               {!worker && can.editProject(user) && <KeAtas slot="tambah"><TombolTambah label="Project" data="project-baru" onClick={() => bukaPanel('project')} /></KeAtas>}
             </div>

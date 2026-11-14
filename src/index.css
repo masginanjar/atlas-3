@@ -614,3 +614,6 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   box-shadow: 0 0 0 1px #3A4466, 0 18px 40px -8px rgba(0, 0, 0, .6) !important;
   background-color: var(--surface-2);
 }
+
+/* Pencarian kanan atas: sembunyikan tombol × bawaan browser (sudah ada tombol × sendiri) */
+[data-slot=cari] input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }

@@ -4,7 +4,7 @@ import MyReminders from './MyReminders.jsx'
 import Calendar from './Calendar.jsx'
 import Notes from './Notes.jsx'
 import { usePanel } from '../components/WorkspacePanel.jsx'
-import { KeAtas } from '../components/SlotAtas.jsx'
+import { KeAtas, KELAS_PLUS } from '../components/SlotAtas.jsx'
 import { Button, Sheet, Popover, cx } from '../components/ui.jsx'
 
 const Jadwal = lazy(() => import('./Jadwal.jsx'))
@@ -54,11 +54,11 @@ export default function Agenda({ tab: tabProp = 'kalender' }) {
         <KeAtas slot="tambah"><div className="flex items-center gap-1.5">
           {/* HP: satu tombol + → lembar pilihan */}
           <button type="button" onClick={() => setSheet(true)} aria-label="Tambah agenda" data-aksi="tambah-agenda"
-            className="grid h-11 w-11 place-items-center rounded-xl bg-[#141B34] text-white shadow-sm sm:hidden"><Plus className="h-5 w-5" /></button>
+            className={cx(KELAS_PLUS, 'sm:hidden')}><Plus className="h-5 w-5" /></button>
           {/* PC: menu kecil */}
           <div className="hidden sm:block">
             <Popover label="Tambah agenda" width="min-w-[260px]" button={({ toggle, open: o }) => (
-              <button type="button" onClick={toggle} aria-expanded={o} aria-haspopup="menu" data-aksi="tambah-agenda" className="inline-flex h-9 items-center gap-2 rounded-[10px] bg-[#141B34] px-4 text-sm font-semibold text-white hover:opacity-90 dark:bg-[var(--brand)]"><Plus className="h-[18px] w-[18px]" aria-hidden="true" />Agenda<ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" /></button>
+              <button type="button" onClick={toggle} aria-expanded={o} aria-haspopup="menu" aria-label="Buat…" title="Buat…" data-aksi="tambah-agenda" className={KELAS_PLUS}><Plus className="h-[17px] w-[17px]" aria-hidden="true" /></button>
             )}>
               {({ close }) => <MenuTambah onPilih={(j) => { close(); buat(j) }} labelTanggal={labelTanggal} />}
             </Popover>

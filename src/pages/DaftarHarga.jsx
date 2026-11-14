@@ -71,9 +71,9 @@ export default function DaftarHarga() {
 
   return (
     <div className="min-w-0 space-y-4">
-      {bolehUbah && <KeAtas slot="tambah">
+      {bolehUbah && <KeAtas slot="sesudah">
         <button type="button" onClick={() => setSunting((v) => !v)} aria-pressed={sunting} data-aksi="ubah-harga"
-          className={cx('inline-flex h-11 shrink-0 items-center gap-2 rounded-[10px] px-3 text-sm font-semibold transition md:h-9 sm:px-4', sunting ? 'bg-emerald-600 text-white' : 'bg-[#141B34] text-white hover:opacity-90 dark:bg-[var(--brand)]')}>
+          className={cx('inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg px-3 text-[13px] font-semibold ring-1 transition md:h-8', sunting ? 'bg-emerald-600 text-white ring-emerald-600' : 'bg-white text-[#141B34] ring-[#D9DBE7] hover:ring-[#B9BDD0] dark:bg-white/5 dark:text-slate-100')}>
           {sunting ? <><Check className="h-4 w-4" aria-hidden="true" />Selesai</> : <><Pencil className="h-4 w-4" aria-hidden="true" />Ubah harga</>}
         </button>
       </KeAtas>}

@@ -192,7 +192,7 @@ export default function TampilanMenu({ compact, ...props }) {
           compact
             ? <button type="button" onClick={toggle} aria-expanded={open} aria-label="Tampilan" data-aksi="tampilan" className="grid h-8 w-8 place-items-center rounded-full bg-white/15 text-white hover:bg-white/25"><Settings2 className="h-4 w-4" /></button>
             : <button type="button" onClick={toggle} aria-expanded={open} data-aksi="tampilan"
-              className={cx('flex h-11 shrink-0 items-center gap-1.5 rounded-[10px] bg-white px-3 text-[13px] font-semibold ring-1 transition md:h-9 dark:bg-white/5', open ? 'text-brand ring-brand' : 'text-ink-soft ring-slate-200 hover:text-brand')}>
+              className={cx('flex h-11 shrink-0 items-center gap-1.5 rounded-lg bg-white px-2.5 text-[13px] font-semibold ring-1 transition md:h-8 dark:bg-white/5', open ? 'text-brand ring-brand' : 'text-ink-soft ring-slate-200 hover:text-brand')}>
               <Settings2 className="h-4 w-4" />Tampilan{props.setView && <span className="font-medium text-ink-mute">· {props.view === 'tabel' ? 'Tabel' : 'Kartu'}</span>}<ChevronDown className="h-3.5 w-3.5 opacity-60" />
             </button>
         )}>

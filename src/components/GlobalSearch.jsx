@@ -174,7 +174,7 @@ function Pratinjau({ r, nameOf }) {
   return <div className="p-4"><p className="text-[15px] font-extrabold">{r.title}</p><p className="text-[12px] text-ink-mute">{r.sub}</p><button type="button" onClick={r.open} className="mt-3 h-10 w-full rounded-lg bg-brand text-[12px] font-bold text-white">Buka ↵</button></div>
 }
 
-export default function GlobalSearch({ pill, kotak, placeholder = 'Cari invoice, pelanggan, menu…' }) {
+export default function GlobalSearch({ pill, kotak, ikon, placeholder = 'Cari invoice, pelanggan, menu…' }) {
   const { user, data, branchFilter, invoices, nameOf } = useApp()
   const { open: openPanel } = usePanel()
   const [open, setOpen] = useState(false)
@@ -215,7 +215,12 @@ export default function GlobalSearch({ pill, kotak, placeholder = 'Cari invoice,
 
   return (
     <>
-      {kotak ? (
+      {ikon ? (
+        <button type="button" onClick={() => setOpen(true)} title={`${placeholder.replace(/…$/, '')} (Ctrl+K)`} aria-label={placeholder.replace(/…$/, '')} aria-haspopup="dialog" data-cari-global data-tombol-cari
+          className="relative grid h-11 w-11 shrink-0 place-items-center rounded-lg text-[#4A4F6A] transition hover:bg-[#E9EBF3] hover:text-[#141B34] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand md:h-8 md:w-8 dark:text-slate-300 dark:hover:bg-white/10">
+          <Search className="h-[17px] w-[17px]" aria-hidden="true" />
+        </button>
+      ) : kotak ? (
         <button type="button" onClick={() => setOpen(true)} title="Cari (Ctrl+K)" aria-label={placeholder.replace(/…$/, '')} data-cari-global
           className="flex h-11 w-full min-w-0 items-center gap-2 rounded-[10px] border border-[#D9DBE7] md:h-9 bg-white px-3 text-left text-sm text-[#8A8FA8] transition hover:border-[#B9BCCF] dark:border-white/15 dark:bg-white/5">
           <Search className="h-[18px] w-[18px] shrink-0 text-[#5E6380]" aria-hidden="true" />

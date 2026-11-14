@@ -43,7 +43,7 @@ const Dokumen = lazy(() => import('./pages/Dokumen.jsx'))
 const MitraPage = lazy(() => import('./pages/Mitra.jsx'))
 const Penugasan = lazy(() => import('./pages/Penugasan.jsx'))
 import GlobalSearch from './components/GlobalSearch.jsx'
-import { SlotProvider, BarisAtas, KeAtas } from './components/SlotAtas.jsx'
+import { SlotProvider, BarisAtas, KeAtas, KELAS_PLUS } from './components/SlotAtas.jsx'
 import { useFokus, toggleFokus } from './lib/fokus.js'
 import NotificationBell from './components/NotificationBell.jsx'
 import { TombolHantu, PitaHantu } from './components/ModeHantu.jsx'
@@ -272,7 +272,7 @@ export default function App() {
       <div className="md:flex">
       {/* Rel ikon 64 px (K3) — menu lengkap ada di "Lainnya" */}
       <RelIkon menu={menuTerlihat(user).map((g) => (g.children ? { ...g, children: g.children.filter((n) => !n.segera && !n.samping) } : g))} flat={navItems(user)} page={page} ctx={{ user, data, branchFilter, extra: { unlinkedInvoices, chatTotals } }}
-        atas={<LogoAtlas ringkas />} profil={<><NotificationBell posisi="rel" tanpaPopup /><HeaderUser atas rel /></>} />
+        atas={<LogoAtlas ringkas />} profil={<HeaderUser atas rel />} />
       <SidebarMenu menu={menuTerlihat(user)} page={page} param={param} ctx={{ user, data, branchFilter, extra: { unlinkedInvoices, chatTotals } }}
         atas={(rel) => rel ? <LogoAtlas ringkas /> : (
           <div className="flex flex-col gap-2" data-sidebar-atas>
@@ -286,8 +286,8 @@ export default function App() {
             {gantiPeran('sb')}
           </div>
         )}
-        profil={(rel) => rel ? <><NotificationBell posisi="rel" /><HeaderUser atas rel /></> : <div className="flex items-center gap-1.5"><div className="min-w-0 flex-1"><HeaderUser atas lebar /></div><NotificationBell posisi="kiri" /></div>}
-        alatBawah={(rel) => <><TeamPresence kiriBawah rel={rel} /><TombolHantu kiriBawah rel={rel} /></>} />
+        profil={(rel) => rel ? <HeaderUser atas rel /> : <HeaderUser atas lebar />}
+        alatBawah={(rel) => <TombolHantu kiriBawah rel={rel} />} />
 
       <div className="min-w-0 flex-1">
         {storeErr && <div role="alert" className="flex flex-wrap items-center gap-2 bg-rose-600 px-4 py-2 text-xs font-semibold text-white md:px-8"><AlertTriangle className="h-4 w-4 shrink-0" />
@@ -298,7 +298,7 @@ export default function App() {
 
         <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-4 md:px-6 md:pb-12 md:pt-6 xl:max-w-[1280px] 2xl:max-w-[1440px]">
           {/* Baris atas isi halaman: pencarian (kiri) · tombol tambah (kanan) — bukan top bar global */}
-          <BarisAtas cariBawaan={<GlobalSearch kotak placeholder={CARI_HALAMAN[page] || 'Cari invoice, pelanggan, menu…'} />} tambahBawaan={<HeadAdd />} />
+          <BarisAtas cariBawaan={<GlobalSearch ikon placeholder={CARI_HALAMAN[page] || 'Cari invoice, pelanggan, menu…'} />} tambahBawaan={<HeadAdd />} ikonLain={<><TeamPresence ikon /><NotificationBell ikon /></>} />
           {((branchPicker && !alatSendiri) || (!user._hantu && (rolesOf(user).length > 1 || personaList.length > 0 || user._actor))) && (
           <KeAtas slot="sesudah"><div className="flex min-w-0 items-center gap-2 lg:hidden" data-baris-cabang>
             {branchPicker && !alatSendiri && (
@@ -325,7 +325,7 @@ export default function App() {
       <TabBawah flat={navItems(user)} page={page} ctx={{ user, data, branchFilter, extra: { unlinkedInvoices, chatTotals } }} onMenu={() => setMore(true)} menuOpen={more} />
       <Sheet open={more} onClose={() => setMore(false)} title="Menu">
         {/* Jam WIB & WITA — di layar kecil header tidak muat, jadi ditaruh di sini */}
-        <div className="mb-3 flex items-center gap-2" data-menu-profil><div className="min-w-0 flex-1"><HeaderUser lebar /></div><NotificationBell tanpaPopup /><TombolHantu /></div>
+        <div className="mb-3 flex items-center gap-2" data-menu-profil><div className="min-w-0 flex-1"><HeaderUser lebar /></div><TombolHantu /></div>
         <JamZona tema="kartu" className="mb-3 flex justify-center rounded-xl bg-slate-50 py-2 ring-1 ring-slate-200" />
         <ul className="grid grid-cols-2 gap-2">
           {navItems(user).map((n) => {
@@ -398,9 +398,8 @@ function HeadAdd() {
   return (
     <Popover label="Buat baru" align="right" width="w-[260px]"
       button={({ open: o, toggle }) => (
-        <button type="button" onClick={toggle} aria-expanded={o} aria-haspopup="menu" aria-label="Buat baru" title="Buat baru" data-aksi="buat-baru"
-          className="inline-flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-[10px] bg-[#141B34] md:h-9 md:min-w-9 px-3 text-sm font-semibold text-white transition hover:opacity-90 sm:px-4 dark:bg-[var(--brand)]">
-          <Plus className="h-[18px] w-[18px]" aria-hidden="true" /><span className="hidden sm:inline">Buat</span>
+        <button type="button" onClick={toggle} aria-expanded={o} aria-haspopup="menu" aria-label="Buat…" title="Buat…" data-aksi="buat-baru" className={KELAS_PLUS}>
+          <Plus className="h-[17px] w-[17px]" aria-hidden="true" />
         </button>
       )}>
       {({ close }) => (
