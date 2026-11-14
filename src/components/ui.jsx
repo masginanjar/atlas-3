@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Loader2, AlertCircle, ChevronUp } from 'lucide-react'
 import { CATEGORIES, TONES } from '../config/workflows.js'
@@ -208,6 +208,17 @@ export function Popover({ button, children, align = 'right', label, width = 'min
     document.addEventListener('mousedown', away); window.addEventListener('keydown', esc)
     return () => { document.removeEventListener('mousedown', away); window.removeEventListener('keydown', esc) }
   }, [open])
+  // Jaga panel tetap di dalam layar: geser ke kanan/kiri bila terpotong, batasi lebar di layar sempit
+  useLayoutEffect(() => {
+    const el = panel.current
+    if (!open || !el || atas) return
+    el.style.transform = ''; el.style.maxWidth = `calc(100vw - 16px)`
+    const r = el.getBoundingClientRect()
+    let dx = 0
+    if (r.left < 8) dx = 8 - r.left
+    else if (r.right > window.innerWidth - 8) dx = window.innerWidth - 8 - r.right
+    if (dx) el.style.transform = `translateX(${Math.round(dx)}px)`
+  }, [open, atas])
   const isi = open && (
     <div ref={panel} role="dialog" aria-label={label} className={cx(atas ? 'fixed z-[300]' : 'absolute top-[calc(100%+6px)] z-50', 'rounded-2xl bg-white p-3 shadow-card ring-1 ring-slate-200', width, !atas && (align === 'right' ? 'right-0' : 'left-0'), panelClass)}>
       {children({ close: () => setOpen(false) })}

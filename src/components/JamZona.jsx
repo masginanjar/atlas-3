@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { jamDuaZona } from '../lib/waktu.js'
+import { jamDuaZona, jamDi } from '../lib/waktu.js'
 import { cx } from './ui.jsx'
 
 /**
@@ -11,7 +11,7 @@ import { cx } from './ui.jsx'
  * tema 'head'  → menempel di header atas (ikut warna header)
  * tema 'kartu' → dipakai di Sheet Menu versi mobile
  */
-export default function JamZona({ className, tema = 'head' }) {
+export default function JamZona({ className, tema = 'head', daftar }) {
   const [kini, setKini] = useState(() => new Date())
   useEffect(() => {
     let iv
@@ -29,7 +29,7 @@ export default function JamZona({ className, tema = 'head' }) {
     <div
       className={cx('items-center', head ? 'gap-2 2xl:gap-3' : 'gap-3', className)}
       aria-label="Jam WIB dan WITA" data-jam>
-      {jamDuaZona(kini).map(({ kode, jam }) => (
+      {(daftar ? daftar.map((d) => ({ kode: d.label, jam: jamDi(d.tz, kini) })) : jamDuaZona(kini)).map(({ kode, jam }) => (
         <span key={kode} className="flex items-baseline gap-1 whitespace-nowrap" data-jam-zona={kode}>
           <span className={cx('text-[10px] font-bold uppercase tracking-wide', !head && !nav && 'text-ink-mute')} style={warnaKode}>{kode}</span>
           <span className={cx('font-bold tabular-nums', head ? 'text-[13px] 2xl:text-sm' : nav ? 'text-[13px]' : 'text-sm text-ink')} style={warnaJam}>{jam}</span>

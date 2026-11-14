@@ -85,7 +85,7 @@ export function PilihPeriode({ range, setRange, today = hariIni(), pilihan, clas
  */
 export function FilterLainnya({ aktif = 0, onReset, children, label = 'Filter' }) {
   return (
-    <Popover label="Filter lainnya" width="min-w-[250px]" button={({ open, toggle }) => (
+    <Popover label="Filter lainnya" align="left" width="min-w-[250px]" button={({ open, toggle }) => (
       <button type="button" onClick={toggle} aria-expanded={open} aria-label={aktif ? `${label}, ${aktif} sedang aktif` : label}
         title="Saringan lain" data-filter-lainnya
         className={cx('flex h-11 shrink-0 items-center gap-1.5 rounded-lg bg-white px-2.5 text-[13px] font-semibold ring-1 transition md:h-8 dark:bg-white/5',

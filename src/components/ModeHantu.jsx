@@ -49,7 +49,7 @@ export function DaftarHantu({ onPilih, close }) {
 }
 
 /** Tombol hantu di header — hanya untuk Superadmin. */
-export function TombolHantu({ kiriBawah, rel } = {}) {
+export function TombolHantu({ kiriBawah, rel, ikon } = {}) {
   const { bolehHantu, setHantu, user } = useApp()
   if (!bolehHantu) return null
   return (
@@ -57,9 +57,10 @@ export function TombolHantu({ kiriBawah, rel } = {}) {
       button={({ open, toggle }) => (
         <button type="button" onClick={toggle} aria-expanded={open} aria-label="Mode hantu — lihat sebagai pengguna lain" title="Mode hantu — lihat sebagai pengguna lain"
           data-aksi="mode-hantu"
-          className={cx('grid h-11 w-11 shrink-0 place-items-center rounded-lg transition', !kiriBawah && 'md:h-9 md:w-9', user._hantu ? 'bg-violet-600 text-white' : kiriBawah ? 'text-[#5E6380] ring-1 ring-[#E7E8F0] hover:bg-[#F3F4F9] dark:ring-white/10' : 'hover:bg-[var(--head-hover)]')}
-          style={user._hantu || kiriBawah ? undefined : { color: 'var(--head-mute)' }}>
-          <Ghost className="h-[18px] w-[18px]" />
+          className={ikon ? cx('relative grid h-11 w-11 shrink-0 place-items-center rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand md:h-8 md:w-8', user._hantu ? 'bg-violet-600 text-white' : open ? 'bg-[#E9EBF3] text-[#141B34] dark:bg-white/10' : 'text-[#4A4F6A] hover:bg-[#E9EBF3] hover:text-[#141B34] dark:text-slate-300 dark:hover:bg-white/10')
+            : cx('grid h-11 w-11 shrink-0 place-items-center rounded-lg transition', !kiriBawah && 'md:h-9 md:w-9', user._hantu ? 'bg-violet-600 text-white' : kiriBawah ? 'text-[#5E6380] ring-1 ring-[#E7E8F0] hover:bg-[#F3F4F9] dark:ring-white/10' : 'hover:bg-white/10')}
+          style={user._hantu || kiriBawah || ikon ? undefined : { color: 'var(--head-mute)' }}>
+          <Ghost className={ikon ? 'h-[17px] w-[17px]' : 'h-[18px] w-[18px]'} aria-hidden="true" />
         </button>
       )}>
       {({ close }) => <DaftarHantu onPilih={setHantu} close={close} />}

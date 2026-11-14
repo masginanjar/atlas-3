@@ -4,6 +4,7 @@ import {
   FolderOpen, Folder, FileText, X, ChevronRight, Download, Eye, Upload, HardDrive,
   User2, Clock, MoreHorizontal, Pencil, Trash2, FileArchive, PanelLeft, Loader2,
   CornerUpLeft, Search,
+  Printer,
 } from 'lucide-react'
 import { useApp } from '../lib/store.jsx'
 import { Button, Card, Empty, Sheet, Input, cx } from '../components/ui.jsx'
@@ -17,6 +18,8 @@ import { drive } from '../lib/integrations.js'
 import { saveBlob, dataUrlToBlob } from '../lib/download.js'
 import { kindOf } from '../lib/printing.js'
 import { go } from '../lib/router.js'
+import MiniPratinjau from '../components/MiniPratinjau.jsx'
+import { printBlob } from '../lib/printing.js'
 import {
   kb, ekstensi, tanpaEkstensi, bolehUbah, bolehKosongkanTrash, labelProject, kemasZip, cocokCari, amanNama,
 } from '../lib/dokumen.js'
@@ -193,6 +196,10 @@ export default function Dokumen() {
 
   // ---------- tindakan berkas ----------
   const ambilBlob = async (f) => (f.url?.startsWith('data:') ? dataUrlToBlob(f.url) : drive.blob(f))
+  const cetak = async (f) => {
+    try { setSibuk(`Menyiapkan cetak ${f.name}…`); await printBlob(await ambilBlob(f), kindOf(f) === 'image' ? 'image' : 'pdf') }
+    catch (e) { notify(e?.message || `Gagal mencetak ${f.name}`, 'err') } finally { setSibuk('') }
+  }
 
   const unduh = async (f) => {
     try { setSibuk(`Menyiapkan ${f.name}…`); await saveBlob(f.name, await ambilBlob(f)); notify(`${f.name} diunduh`) }
@@ -360,8 +367,8 @@ export default function Dokumen() {
   const BarisFolder = ({ nama, sub, onBuka, data }) => (
     <tr className="cursor-default hover:bg-[#e5f1fb]" onDoubleClick={onBuka} data-folder={data}>
       <td className="px-3 py-1.5" />
-      <td className="py-1.5"><button type="button" onClick={onBuka} className="flex min-h-[28px] items-center gap-2 text-left"><IkonFolder /><span className="truncate font-medium text-ink">{nama}</span></button></td>
-      <td className="hidden text-ink-mute md:table-cell">{sub || ''}</td><td className="hidden text-ink-mute md:table-cell">Folder</td><td className="hidden md:table-cell" /><td className="hidden md:table-cell" />
+      <td className="overflow-hidden py-1.5 pr-3"><button type="button" onClick={onBuka} title={nama} className="flex min-h-[28px] w-full min-w-0 items-center gap-2 text-left"><IkonFolder /><span className="min-w-0 truncate font-medium text-ink">{nama}</span></button></td>
+      <td className="hidden text-ink-mute md:table-cell">{sub || ''}</td><td className="hidden text-ink-mute md:table-cell">Folder</td><td className="hidden md:table-cell" /><td className="hidden 2xl:table-cell" />
     </tr>
   )
   const KotakFolder = ({ nama, onBuka, data }) => (
@@ -400,7 +407,7 @@ export default function Dokumen() {
             <Alat icon={Trash2} label="Hapus permanen" bahaya hide={!bolehKosongkanTrash(user)} disabled={!terpilih.length} onClick={() => hapusPermanen(terpilih)} />
           </>) : <Alat icon={Trash2} label="Hapus" bahaya disabled={!terpilih.length || !terpilih.every((f) => bolehUbah(user, f.project))} onClick={() => keTrash(terpilih)} />}
           <span className="ml-auto flex shrink-0 items-center gap-0.5 rounded-md bg-white p-0.5 ring-1 ring-slate-200">
-            {[['detail', '☰ Detail'], ['ikon', '▦ Ikon']].map(([k, l]) => <button key={k} type="button" onClick={() => gantiTampil(k)} className={cx('h-8 rounded px-2.5 text-[12px] font-semibold', tampil === k ? 'bg-[#cce4f7] text-ink' : 'text-ink-soft')}>{l}</button>)}
+            {[['detail', '☰ Detail'], ['list', '≡ List'], ['ikon', '▦ Ikon']].map(([k, l]) => <button key={k} type="button" onClick={() => gantiTampil(k)} className={cx('h-8 rounded px-2.5 text-[12px] font-semibold', tampil === k ? 'bg-[#cce4f7] text-ink' : 'text-ink-soft')}>{l}</button>)}
           </span>
         </div>
         {/* bilah alamat */}
@@ -442,13 +449,34 @@ export default function Dokumen() {
             {jumlahItem === 0 ? (
               <Empty icon={FolderOpen} title={mencari ? 'Tidak ada berkas yang cocok' : aktif.jenis === 'trash' ? 'Sampah kosong' : 'Folder kosong'}
                 text={aktif.jenis === 'project' && bisaUbah ? 'Klik Unggah di atas untuk menambah berkas.' : ''} />
+            ) : tampil === 'list' ? (
+              /* List: ikon kecil + nama, mengalir ke beberapa kolom (seperti File Explorer) */
+              <ul className="columns-1 gap-x-4 p-2 text-[13px] sm:columns-2 lg:columns-3 xl:columns-4" data-tampil-list>
+                {folders.map((x) => (
+                  <li key={x.k} className="break-inside-avoid">
+                    <button type="button" onClick={x.onBuka} data-folder={x.data} className="flex min-h-9 w-full items-center gap-2 rounded px-2 text-left hover:bg-[#e5f1fb]" title={x.nama}>
+                      <IkonFolder /><span className="min-w-0 truncate">{x.nama}</span>
+                    </button>
+                  </li>
+                ))}
+                {listUtama.map((f) => (
+                  <li key={f.key} className="relative break-inside-avoid">
+                    <button type="button" onClick={(e) => klikBaris(f, e)} onDoubleClick={() => setPreview(f)} onContextMenu={(e) => { e.preventDefault(); setPilih(new Set([f.key])); setMenu(f.key) }} title={f.name}
+                      className={cx('flex min-h-9 w-full items-center gap-2 rounded px-2 text-left', pilih.has(f.key) ? 'bg-[#cce4f7]' : 'hover:bg-[#e5f1fb]')}>
+                      <IkonBerkas f={f} /><span className="min-w-0 truncate">{f.name}</span>
+                    </button>
+                    <MenuBerkas f={f} buka={menu === f.key} onTutup={() => setMenu('')} bisaUbah={aktif.jenis !== 'trash' && bolehUbah(user, f.project)}
+                      onPreview={() => setPreview(f)} onUnduh={() => unduh(f)} onRename={() => setRename({ f, nama: tanpaEkstensi(f.name) })} onTrash={() => keTrash([f])} onBuka={() => go(`projects/${f.project.id}`)} />
+                  </li>
+                ))}
+              </ul>
             ) : tampil === 'ikon' ? (
               <div className="flex flex-wrap content-start gap-1 p-3" data-tampil-ikon>
                 {folders.map((x) => <KotakFolder key={x.k} {...x} />)}
                 {listUtama.map((f) => (
                   <button key={f.key} type="button" onClick={(e) => klikBaris(f, e)} onDoubleClick={() => setPreview(f)} onContextMenu={(e) => { e.preventDefault(); setPilih(new Set([f.key])); setMenu(f.key) }}
                     className={cx('relative flex w-[104px] flex-col items-center gap-1 rounded-md p-2 text-center text-[11.5px]', pilih.has(f.key) ? 'bg-[#cce4f7]' : 'hover:bg-[#e5f1fb]')}>
-                    {kindOf(f) === 'image' && f.url ? <img src={f.url} alt="" className="h-[62px] w-[62px] rounded object-cover shadow" /> : <IkonBerkas f={f} besar />}
+                    {['pdf', 'image'].includes(kindOf(f)) ? <MiniPratinjau f={f} jenis={kindOf(f)} ambilBlob={ambilBlob} fallback={<IkonBerkas f={f} besar />} /> : <IkonBerkas f={f} besar />}
                     <span className="line-clamp-2 break-all">{f.name}</span>
                     <MenuBerkas f={f} buka={menu === f.key} onTutup={() => setMenu('')} bisaUbah={aktif.jenis !== 'trash' && bolehUbah(user, f.project)}
                       onPreview={() => setPreview(f)} onUnduh={() => unduh(f)} onRename={() => setRename({ f, nama: tanpaEkstensi(f.name) })} onTrash={() => keTrash([f])} onBuka={() => go(`projects/${f.project.id}`)} />
@@ -461,10 +489,10 @@ export default function Dokumen() {
                   <tr className="border-b border-slate-200">
                     <th className="w-9 px-3 py-1.5">{listUtama.length > 0 && <input type="checkbox" checked={semuaTerpilih} onChange={togglePilihSemua} aria-label="Pilih semua" className="h-4 w-4 rounded border-slate-300" />}</th>
                     <th className="py-1.5 font-normal"><button type="button" onClick={() => klikJudul('nama')}>Nama {sortKey === 'nama' ? (sortDir === 'asc' ? '▴' : '▾') : ''}</button></th>
-                    <th className="hidden w-[150px] font-normal md:table-cell"><button type="button" onClick={() => klikJudul('waktu')}>Tanggal diubah {sortKey === 'waktu' ? (sortDir === 'asc' ? '▴' : '▾') : ''}</button></th>
-                    <th className="hidden w-[120px] font-normal md:table-cell">Jenis</th>
-                    <th className="hidden w-[80px] font-normal md:table-cell"><button type="button" onClick={() => klikJudul('ukuran')}>Ukuran</button></th>
-                    <th className="hidden w-[130px] font-normal lg:table-cell">Oleh</th>
+                    <th className="hidden w-[24%] font-normal md:table-cell"><button type="button" onClick={() => klikJudul('waktu')}>Tanggal diubah {sortKey === 'waktu' ? (sortDir === 'asc' ? '▴' : '▾') : ''}</button></th>
+                    <th className="hidden w-[15%] font-normal md:table-cell">Jenis</th>
+                    <th className="hidden w-[11%] font-normal md:table-cell"><button type="button" onClick={() => klikJudul('ukuran')}>Ukuran</button></th>
+                    <th className="hidden w-[16%] font-normal 2xl:table-cell">Oleh</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -485,7 +513,7 @@ export default function Dokumen() {
                       <td className="hidden text-ink-soft md:table-cell">{f.uploaded_at ? tanggalJam(f.uploaded_at) : '—'}</td>
                       <td className="hidden text-ink-soft md:table-cell">{(JENIS[kindOf(f)] || JENIS.other)[1]}</td>
                       <td className="hidden text-ink-soft md:table-cell">{kb(Number(f.size) || 0)}</td>
-                      <td className="hidden truncate text-ink-soft lg:table-cell">{f.by || '—'}</td>
+                      <td className="hidden truncate text-ink-soft 2xl:table-cell">{f.by || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -503,9 +531,9 @@ export default function Dokumen() {
           <aside className="hidden w-[280px] shrink-0 border-l border-slate-200 p-4 xl:block" data-panel-detail>
             {fokus ? (
               <div className="space-y-3 text-[12.5px]">
-                <div className="grid h-[170px] place-items-center overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200">
-                  {kindOf(fokus) === 'image' && fokus.url ? <img src={fokus.url} alt="" className="max-h-full max-w-full object-contain" /> : <IkonBerkas f={fokus} besar />}
-                </div>
+                <button type="button" onClick={() => setPreview(fokus)} title="Buka pratinjau" className="grid h-[170px] w-full place-items-center overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200 hover:ring-[#0067c0]">
+                  {['pdf', 'image'].includes(kindOf(fokus)) ? <MiniPratinjau key={fokus.key} f={fokus} jenis={kindOf(fokus)} ambilBlob={ambilBlob} lebar={240} fallback={<IkonBerkas f={fokus} besar />} className="relative inline-block h-[154px] w-[118px] overflow-hidden rounded bg-white shadow ring-1 ring-black/10" /> : <IkonBerkas f={fokus} besar />}
+                </button>
                 <div><p className="break-all font-semibold text-ink">{fokus.name}</p><p className="text-ink-mute">{(JENIS[kindOf(fokus)] || JENIS.other)[1]} · {kb(Number(fokus.size) || 0)}</p></div>
                 <dl className="space-y-1.5 text-[12px]">
                   <div className="flex justify-between gap-2"><dt className="text-ink-mute">Project</dt><dd className="truncate font-semibold">{invoiceLabel(fokus.invoice)}</dd></div>
@@ -517,6 +545,7 @@ export default function Dokumen() {
                 <div className="grid grid-cols-2 gap-1.5 text-[12px] font-semibold">
                   <button type="button" onClick={() => setPreview(fokus)} className="h-9 rounded-md bg-[#0067c0] text-white">Buka</button>
                   <button type="button" onClick={() => unduh(fokus)} className="h-9 rounded-md ring-1 ring-slate-300">Unduh</button>
+                  {['pdf', 'image'].includes(kindOf(fokus)) && <button type="button" onClick={() => cetak(fokus)} disabled={!!sibuk} data-aksi="cetak-berkas" className="col-span-2 inline-flex h-9 items-center justify-center gap-1.5 rounded-md ring-1 ring-slate-300 disabled:opacity-50"><Printer className="h-4 w-4" aria-hidden="true" />Print</button>}
                   <button type="button" onClick={() => go(`projects/${fokus.project.id}`)} className="col-span-2 h-9 rounded-md ring-1 ring-slate-300">Buka project ↗</button>
                 </div>
               </div>

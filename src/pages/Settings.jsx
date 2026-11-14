@@ -19,6 +19,7 @@ import { cekUrl } from '../lib/custClient.js'
 import { ACCESS_DAYS } from '../lib/portalCust.js'
 import { COURIER_ICONS, COURIER_TYPES, CourierLogo } from '../components/Courier.jsx'
 import AvatarEditor from '../components/AvatarEditor.jsx'
+import DataPribadi from '../components/DataPribadi.jsx'
 import Avatar from '../components/Avatar.jsx'
 import { useTabel, Th, CariTabel } from '../components/TabelSortir.jsx'
 import LoginSettings from '../components/LoginSettings.jsx'
@@ -232,6 +233,8 @@ function ProfilData() {
           {dirty && <button type="button" onClick={() => setF({ name: row.name || '', display_name: row.display_name || '', phone: row.phone || '', languages: row.languages || [] })} className="text-xs font-semibold text-ink-mute hover:text-ink">Batalkan</button>}
         </div>
       </Card>
+
+      <DataPribadi target={row} />
 
       <Card className="space-y-3 p-5">
         <p className="text-xs font-bold uppercase tracking-wide text-ink-mute">Data yang diatur admin</p>
@@ -879,6 +882,7 @@ function SandiPengguna({ e, bukaAwal = false }) {
 function Users() {
   const { data, user } = useApp()
   const [sandiUntuk, setSandiUntuk] = useState(null)
+  const [pribadiUntuk, setPribadiUntuk] = useState(null)
   const KOLOM_USER = [
     { key: 'nama', label: 'Nama', sort: (r) => String(r.name || '').toLowerCase(),
       sel: (r) => <><span className={cx('block text-sm font-semibold', r.active === false && 'text-ink-mute line-through')}>{r.name}</span><span className="block truncate text-[11px] text-ink-mute">{r.email}</span></> },
@@ -894,9 +898,14 @@ function Users() {
   return (
     <>
     <CrudList table="users" rows={data.users} title="Pengguna" empty="Belum ada pengguna" kolom={KOLOM_USER} filter={FILTER_USER} cariLabel="Cari nama / email…"
-      aksiBaris={user.role === 'superadmin' ? (r) => (
+      aksiBaris={['superadmin', 'direktur'].includes(user.role) ? (r) => (
+        <span className="inline-flex gap-1">
+        <button type="button" onClick={() => setPribadiUntuk(r)} title="Data pribadi (rahasia)" data-aksi="data-pribadi"
+          className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[11px] font-semibold text-ink-soft ring-1 ring-slate-300 hover:bg-slate-50">Data pribadi</button>
+        {user.role === 'superadmin' && (
         <button type="button" onClick={() => setSandiUntuk(r)} title="Atur kata sandi" data-aksi="atur-sandi"
-          className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[11px] font-semibold text-brand ring-1 ring-brand/30 hover:bg-brand hover:text-white"><ShieldCheck className="h-3.5 w-3.5" />Atur sandi</button>
+          className="inline-flex h-8 items-center gap-1 whitespace-nowrap rounded-lg px-2 text-[11px] font-semibold text-brand ring-1 ring-brand/30 hover:bg-brand hover:text-white"><ShieldCheck className="h-3.5 w-3.5" />Atur sandi</button>)}
+        </span>
       ) : undefined}
       blank={() => ({ name: '', email: '', role: 'cs', branch: BRANCHES[0], active: true })}
       renderForm={(e, set) => (
@@ -943,6 +952,9 @@ function Users() {
           <SandiPengguna e={e} />
         </div>
       )} />
+      <Sheet open={!!pribadiUntuk} onClose={() => setPribadiUntuk(null)} title={`Data pribadi — ${pribadiUntuk?.name || ''}`}>
+        {pribadiUntuk && <DataPribadi target={pribadiUntuk} />}
+      </Sheet>
       <Sheet open={!!sandiUntuk} onClose={() => setSandiUntuk(null)} title={`Atur kata sandi — ${sandiUntuk?.name || ''}`}>
         {sandiUntuk && <SandiPengguna e={sandiUntuk} bukaAwal />}
       </Sheet>

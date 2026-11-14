@@ -43,6 +43,7 @@ const Dokumen = lazy(() => import('./pages/Dokumen.jsx'))
 const MitraPage = lazy(() => import('./pages/Mitra.jsx'))
 const Penugasan = lazy(() => import('./pages/Penugasan.jsx'))
 import GlobalSearch from './components/GlobalSearch.jsx'
+import MenuHP, { catatKunjungan } from './components/MenuHP.jsx'
 import { SlotProvider, BarisAtas, KeAtas, KELAS_PLUS } from './components/SlotAtas.jsx'
 import { useFokus, toggleFokus } from './lib/fokus.js'
 import NotificationBell from './components/NotificationBell.jsx'
@@ -57,6 +58,7 @@ import ChatDock from './components/ChatDock.jsx'
 import { CHAT_ENABLED } from './lib/flags.js'
 
 import JamZona from './components/JamZona.jsx'
+import { jamKantor } from './lib/zona.js'
 import NotifToast from './components/NotifToast.jsx'
 const VendorPage = lazy(() => import('./pages/Vendor.jsx'))
 import { usePanel, PANELS, PANEL_ORDER } from './components/WorkspacePanel.jsx'
@@ -158,6 +160,7 @@ export default function App() {
   useEffect(() => { if (setLogin) simpanCache({ ...DEFAULT_LOGIN, ...setLogin }) }, [setLogin])
   useDensity() // menerapkan kepadatan tersimpan ke seluruh aplikasi
   const [more, setMore] = useState(false)
+  useEffect(() => { if (user && rawPage && menuBoleh(user, rawPage)) catatKunjungan(rawPage) }, [rawPage, user?.id]) // eslint-disable-line react-hooks/exhaustive-deps -- untuk "Sering dipakai" di menu HP
   // pemilih cabang hanya untuk yang memang punya lebih dari satu cabang
   const branchPicker = !!user && (can.seeAllBranches(user) || isMultiBranch(user))
   const branchOptions = user ? ['Semua', ...(can.seeAllBranches(user) ? BRANCHES : branchesOf(user))] : []
@@ -287,7 +290,7 @@ export default function App() {
           </div>
         )}
         profil={(rel) => rel ? <HeaderUser atas rel /> : <HeaderUser atas lebar />}
-        alatBawah={(rel) => <TombolHantu kiriBawah rel={rel} />} />
+        />
 
       <div className="min-w-0 flex-1">
         {storeErr && <div role="alert" className="flex flex-wrap items-center gap-2 bg-rose-600 px-4 py-2 text-xs font-semibold text-white md:px-8"><AlertTriangle className="h-4 w-4 shrink-0" />
@@ -298,7 +301,7 @@ export default function App() {
 
         <main className="mx-auto w-full max-w-5xl px-4 pb-28 pt-4 md:px-6 md:pb-12 md:pt-6 xl:max-w-[1280px] 2xl:max-w-[1440px]">
           {/* Baris atas isi halaman: pencarian (kiri) · tombol tambah (kanan) — bukan top bar global */}
-          <BarisAtas cariBawaan={<GlobalSearch ikon placeholder={CARI_HALAMAN[page] || 'Cari invoice, pelanggan, menu…'} />} tambahBawaan={<HeadAdd />} ikonLain={<><TeamPresence ikon /><NotificationBell ikon /></>} />
+          <BarisAtas cariBawaan={<GlobalSearch ikon placeholder={CARI_HALAMAN[page] || 'Cari invoice, pelanggan, menu…'} />} tambahBawaan={<HeadAdd />} ikonLain={<><TeamPresence ikon /><NotificationBell ikon /><TombolHantu ikon /></>} />
           {((branchPicker && !alatSendiri) || (!user._hantu && (rolesOf(user).length > 1 || personaList.length > 0 || user._actor))) && (
           <KeAtas slot="sesudah"><div className="flex min-w-0 items-center gap-2 lg:hidden" data-baris-cabang>
             {branchPicker && !alatSendiri && (
@@ -325,22 +328,13 @@ export default function App() {
       <TabBawah flat={navItems(user)} page={page} ctx={{ user, data, branchFilter, extra: { unlinkedInvoices, chatTotals } }} onMenu={() => setMore(true)} menuOpen={more} />
       <Sheet open={more} onClose={() => setMore(false)} title="Menu">
         {/* Jam WIB & WITA — di layar kecil header tidak muat, jadi ditaruh di sini */}
-        <div className="mb-3 flex items-center gap-2" data-menu-profil><div className="min-w-0 flex-1"><HeaderUser lebar /></div><TombolHantu /></div>
-        <JamZona tema="kartu" className="mb-3 flex justify-center rounded-xl bg-slate-50 py-2 ring-1 ring-slate-200" />
-        <ul className="grid grid-cols-2 gap-2">
-          {navItems(user).map((n) => {
-            const b = n.badge ? n.badge(user, data, branchFilter, { unlinkedInvoices, chatTotals }) : 0
-            return (
-              <li key={n.key}>
-                <a href={`#/${n.key}`} onClick={() => setMore(false)}
-                  className={cx('flex items-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-semibold ring-1 transition', page === n.key ? 'bg-brand-soft text-brand ring-brand/30' : 'bg-white text-ink ring-slate-200')}>
-                  <n.icon className="h-4 w-4 text-ink-mute" /><span className="min-w-0 flex-1 truncate">{n.label}</span>
-                  {b > 0 && <span className="rounded-full bg-rose-500 px-1.5 text-[10px] font-bold text-white">{b}</span>}
-                </a>
-              </li>
-            )
-          })}
-        </ul>
+        {/* Profil · jam · mode hantu dalam satu baris */}
+        <div className="mb-4 flex items-center gap-2 rounded-2xl bg-slate-50 p-1.5 pr-2 dark:bg-white/5" data-menu-profil>
+          <div className="min-w-0 flex-1"><HeaderUser lebar /></div>
+          <JamZona tema="kartu" daftar={jamKantor(user, branchFilter)} className="flex flex-col !gap-0 text-right [&_[data-jam-zona]]:justify-end [&_[data-jam-zona]_span:last-child]:text-[13px]" />
+        </div>
+        <MenuHP grup={menuTerlihat(user)} user={user} page={page} onPilih={() => setMore(false)}
+          badgeOf={(n) => (n.badge ? n.badge(user, data, branchFilter, { unlinkedInvoices, chatTotals }) : 0)} />
       </Sheet>
       <Toast toast={toast} onClose={dismissToast} />
       <SessionGuard />

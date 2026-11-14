@@ -13,3 +13,11 @@ export function zonaPengguna(u) {
   if (zona.length > 1) return { tz: zona[0], label: zona.map((z) => LABEL[z].split(' ')[0]).join(' / ') + ' (beberapa cabang)' }
   return { tz: zona[0], label: LABEL[zona[0]] || zona[0] }
 }
+
+/** Dua jam di menu: kantor pusat (BALI) + kota cabang pengguna.
+ *  Tanpa cabang / cabangnya Bali → kota cabang yang dipilih di filter, kalau tidak ada → Jakarta (WIB). */
+export function jamKantor(user, branchFilter) {
+  const cab = [user?.branch, ...(Array.isArray(user?.branches) ? user.branches : [])].filter((c) => c && ZONA_CABANG[c])
+  const kota = cab.find((c) => c !== 'Bali') || (branchFilter && branchFilter !== 'Semua' && branchFilter !== 'Bali' && ZONA_CABANG[branchFilter] ? branchFilter : 'Jakarta')
+  return [{ label: 'Bali', tz: 'Asia/Makassar' }, { label: kota, tz: ZONA_CABANG[kota] || 'Asia/Jakarta' }]
+}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { cx } from './ui.jsx'
+import { jamKantor } from '../lib/zona.js'
 
 // ============================================================
 //  MENU SAMPING (desain CANVAS ATLAS · "Kerangka komputer")
@@ -143,7 +144,7 @@ export default function SidebarMenu({ menu, page, param, ctx, bawah, alatBawah, 
       <div className="flex shrink-0 flex-col gap-3 border-t border-[#E7E8F0] px-3 pt-3 dark:border-white/10" data-sidebar-bagian="bawah">
         {alatBawah && <div className="flex items-center gap-2 [&>*:first-child]:min-w-0 [&>*:first-child]:flex-1" data-alat-bawah>{alatBawah(false)}</div>}
         {profil && <div className="flex flex-col gap-1 border-t border-[#E7E8F0] pt-3 dark:border-white/10" data-profil-bawah>{profil(false)}</div>}
-        <div className="flex gap-2" role="group" aria-label="Jam"><Jam zona="Asia/Makassar" label="WITA" /><Jam zona="Asia/Jakarta" label="WIB" /></div>
+        <div className="flex gap-2" role="group" aria-label="Jam">{jamKantor(ctx?.user, ctx?.branchFilter).map((j) => <Jam key={j.label} zona={j.tz} label={j.label.toUpperCase()} />)}</div>
         <button type="button" onClick={tukar} title="Sembunyikan menu" aria-label="Sembunyikan menu" aria-expanded="true" data-aksi="sembunyikan-menu"
           className="flex min-h-[40px] w-full items-center gap-2.5 rounded-xl px-3 text-left text-[13px] font-semibold text-[#5E6380] hover:bg-[#F3F4F9] hover:text-[#141B34] dark:hover:bg-white/10"><PanelLeftClose className="h-[18px] w-[18px]" />Sembunyikan menu</button>
         {bawah}

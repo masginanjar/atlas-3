@@ -617,3 +617,7 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
 /* Pencarian kanan atas: sembunyikan tombol × bawaan browser (sudah ada tombol × sendiri) */
 [data-slot=cari] input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; display: none; }
+
+/* Menu di DALAM panel melayang (mis. Jenis ▾, Urutkan di Popover) tidak diberi bingkai/bayangan kedua */
+:is([role="menu"], [role="dialog"], [data-melayang]) [role="menu"],
+[data-theme="dark"] :is([role="menu"], [role="dialog"], [data-melayang]) [role="menu"] { border: 0 !important; box-shadow: none !important; outline: 0; }

@@ -1,13 +1,13 @@
 import { useMemo, useRef, useState } from 'react'
-import { InvoiceNo } from './badges.jsx'
-import { FileText, FileImage, Upload, Download, Trash2, Pencil, Check, X, Archive, Loader2, FolderOpen, Eye, Printer, ChevronRight } from 'lucide-react'
+import { Upload, Download, Trash2, Pencil, Check, X, Archive, Loader2, FolderOpen, Eye, Printer, ChevronRight } from 'lucide-react'
+import MiniPratinjau from './MiniPratinjau.jsx'
 import FilePreview from './FilePreview.jsx'
 import { canPreview, kindOf, printBlob } from '../lib/printing.js'
 import { useApp } from '../lib/store.jsx'
 import { drive } from '../lib/integrations.js'
 import { saveBlob } from '../lib/download.js'
 import { stagesOf, flowOf } from '../config/workflows.js'
-import { Button, Card, Empty, Select, cx } from './ui.jsx'
+import { Card, Empty, cx } from './ui.jsx'
 import { jam, kb } from '../lib/format.js'
 import { useUploadNamer, nameTaken } from './UploadNamer.jsx'
 import { invoiceLabel } from '../config/access.js'
@@ -166,102 +166,148 @@ export default function FileManager({ project, readOnly }) {
   }
 
   const selList = all.filter((f) => selected.has(f.key))
+  const satu = selList.length === 1 ? selList[0] : null
+
+  // ---- Tampilan ala File Explorer (sama dengan halaman Dokumen) ----
+  const [tampil, setTampil] = useState(() => { try { return localStorage.getItem('atlas-dok-tampil') || 'detail' } catch { return 'detail' } })
+  const gantiTampil = (v) => { setTampil(v); try { localStorage.setItem('atlas-dok-tampil', v) } catch { /* abaikan */ } }
+  const diAkar = folder === 'all'
+  const isiFolder = (id) => all.filter((f) => (id === 'umum' ? !f.subId : f.subId === id))
+  const daftarFolder = diAkar ? [{ id: 'umum', nama: 'Umum' }, ...subs.map((sb, i) => ({ id: sb.id, nama: `Sub ${i + 1} · ${sb.title}` }))].map((x) => ({ ...x, n: isiFolder(x.id).length })) : []
+  const berkas = diAkar ? [] : shown
+  const buka = (id) => { setFolder(id); setSelected(new Set()) }
+  const klik = (f, e) => { if (e.ctrlKey || e.metaKey || e.shiftKey) toggle(f.key); else setSelected(new Set([f.key])) }
+  const JENIS = { pdf: ['PDF', 'Dokumen PDF', 'bg-rose-600'], image: ['IMG', 'Gambar', 'bg-sky-500'], docx: ['DOC', 'Dokumen Word', 'bg-blue-600'], sheet: ['XLS', 'Lembar kerja', 'bg-emerald-600'], text: ['TXT', 'Teks', 'bg-slate-500'], other: ['FILE', 'Berkas', 'bg-slate-400'] }
+  const IkonBerkas = ({ f, besar }) => { const [t, , w] = JENIS[kindOf(f)] || JENIS.other; return <span className={cx('inline-grid shrink-0 place-items-center rounded-[3px] font-extrabold text-white', w, besar ? 'h-[62px] w-[48px] text-[11px] shadow' : 'h-[18px] w-[15px] text-[6px]')}>{t}</span> }
+  const IkonFolder = ({ besar }) => <span className={cx('relative inline-block shrink-0 rounded-[3px] bg-gradient-to-b from-[#ffd666] to-[#f5b942]', besar ? 'h-[52px] w-[68px]' : 'h-[14px] w-[18px]')}><span className={cx('absolute left-0 rounded-t-[3px] bg-[#f5b942]', besar ? '-top-2 h-2.5 w-7' : '-top-[3px] h-1 w-2')} /></span>
+  const Alat = ({ icon: I, label, onClick, disabled, bahaya, hide }) => hide ? null : (
+    <button type="button" onClick={onClick} disabled={disabled} title={label}
+      className={cx('inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] transition disabled:opacity-40', bahaya ? 'text-rose-600 hover:bg-rose-50' : 'text-ink hover:bg-white')}>
+      <I className="h-4 w-4" aria-hidden="true" /><span className="hidden sm:inline">{label}</span>
+    </button>
+  )
+  const NamaAtauUbah = ({ f }) => renaming === f.key ? (
+    <form className="flex items-center gap-1" onSubmit={(e) => { e.preventDefault(); doRename(f) }} onClick={(e) => e.stopPropagation()}>
+      <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)} aria-label="Nama file baru"
+        className="w-full rounded bg-white px-1.5 py-0.5 text-[13px] ring-2 ring-[#0067c0] focus:outline-none" />
+      <button className="rounded p-1 text-emerald-600" aria-label="Simpan nama"><Check className="h-4 w-4" /></button>
+      <button type="button" onClick={() => setRenaming(null)} className="rounded p-1 text-ink-mute" aria-label="Batal"><X className="h-4 w-4" /></button>
+    </form>
+  ) : <span className="min-w-0 truncate" title={f.name}>{f.name}</span>
+  const bukaPratinjau = (f) => { if (canPreview(f)) setPreview(f); else download(f) }
 
   return (
-    <Card className="overflow-hidden">
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 p-4">
-        <div className="mr-auto">
-          <h2 className="font-bold">File Project <span className="text-ink-mute">({all.length})</span></h2>
-          <p className="text-[11px] text-ink-mute">Google Drive · ATLAS / {project.branch} / {invoiceLabel(project.invoice_no)}</p>
-        </div>
-        <Button size="sm" variant="outline" onClick={() => downloadZip()} disabled={!all.length || !!busy}><Archive className="h-3.5 w-3.5" />Download ZIP</Button>
+    <Card className="overflow-hidden" data-file-explorer>
+      {/* Judul */}
+      <div className="flex flex-wrap items-baseline gap-x-2 px-4 pb-2 pt-3">
+        <h2 className="text-[15px] font-bold">File Project</h2>
+        <span className="text-[12px] text-ink-mute">{all.length} berkas · {kb(all.reduce((a, f) => a + (Number(f.size) || 0), 0))}</span>
       </div>
 
-      {/* Folder aktif: breadcrumb + pemilih + upload. Yang dilihat = tujuan upload. */}
-      <div className="space-y-2 bg-slate-50 px-4 py-3">
-        <nav aria-label="Lokasi folder" className="flex min-w-0 flex-wrap items-center gap-1 text-xs">
-          <button type="button" onClick={() => setFolder('all')}
-            className={cx('rounded px-1 font-semibold', folder === 'all' ? 'text-ink' : 'text-brand hover:underline')}>File Project</button>
-          <ChevronRight className="h-3 w-3 shrink-0 text-ink-mute" aria-hidden="true" />
-          <span className="min-w-0 max-w-full truncate font-semibold tabular-nums text-ink"><InvoiceNo project={project} /></span>
-          {folder !== 'all' && (
-            <>
-              <ChevronRight className="h-3 w-3 shrink-0 text-ink-mute" aria-hidden="true" />
-              <span className="min-w-0 max-w-full truncate font-semibold text-ink">{folderLabel}</span>
-            </>
-          )}
+      {/* Bilah perintah (sama dengan halaman Dokumen) */}
+      <div className="flex flex-wrap items-center gap-0.5 border-y border-slate-200 bg-[#f3f3f3] px-2 py-1 dark:border-white/10 dark:bg-white/5" role="toolbar" aria-label="Perintah berkas">
+        {!readOnly && <Alat icon={Upload} label="Unggah" onClick={() => inputRef.current?.click()} disabled={!!busy} />}
+        <span className="mx-1 h-5 w-px bg-slate-300" aria-hidden="true" />
+        <Alat icon={Download} label={selList.length > 1 ? `Unduh ${selList.length} (ZIP)` : 'Unduh'} disabled={!selList.length || !!busy} onClick={() => (satu ? download(satu) : downloadZip(selList, '-terpilih'))} />
+        <Alat icon={Archive} label="Unduh semua (ZIP)" disabled={!all.length || !!busy} onClick={() => downloadZip()} />
+        <Alat icon={Printer} label="Print" disabled={!satu || !canPreview(satu) || !!busy} onClick={() => printFile(satu)} />
+        <Alat icon={Eye} label="Pratinjau" disabled={!satu || !canPreview(satu)} onClick={() => setPreview(satu)} />
+        {!readOnly && <Alat icon={Pencil} label="Ganti nama" disabled={!satu} onClick={() => startRename(satu)} />}
+        {!readOnly && <Alat icon={Trash2} label={selList.length > 1 ? `Hapus ${selList.length}` : 'Hapus'} bahaya disabled={!selList.length || !!busy} onClick={() => remove(selList)} />}
+        <div className="ml-auto flex items-center gap-0.5 rounded-md bg-white p-0.5 ring-1 ring-slate-200 dark:bg-white/5 dark:ring-white/10" role="group" aria-label="Tampilan">
+          {[['detail', '☰ Detail'], ['list', '≡ List'], ['ikon', '▦ Ikon']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => gantiTampil(k)} aria-pressed={tampil === k} className={cx('h-8 rounded px-2.5 text-[12px] font-semibold', tampil === k ? 'bg-[#cce4f7] text-ink' : 'text-ink-soft hover:bg-slate-50')}>{l}</button>
+          ))}
+        </div>
+        <input ref={inputRef} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} aria-label="Pilih satu atau beberapa file" />
+      </div>
+
+      {/* Bilah alamat */}
+      <div className="flex items-center gap-1 px-2 py-1.5">
+        <button type="button" onClick={() => buka('all')} disabled={diAkar} aria-label="Naik satu folder" className="grid h-8 w-8 place-items-center rounded text-ink-soft hover:bg-slate-100 disabled:opacity-30"><ChevronRight className="h-4 w-4 rotate-180" /></button>
+        <nav aria-label="Lokasi folder" className="flex min-h-9 min-w-0 flex-1 items-center gap-1 overflow-hidden rounded-md px-2 text-[13px] ring-1 ring-slate-200 dark:ring-white/10">
+          <IkonFolder />
+          <button type="button" onClick={() => buka('all')} className="shrink-0 rounded px-1 hover:bg-slate-100">File Project</button>
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-mute" aria-hidden="true" />
+          <span className={cx('shrink-0 px-1 tabular-nums', diAkar && 'font-semibold')}>{invoiceLabel(project.invoice_no)}</span>
+          {!diAkar && <><ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-mute" aria-hidden="true" /><span className="min-w-0 truncate px-1 font-semibold">{folderLabel}</span></>}
         </nav>
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <Select value={folder} onChange={(e) => { setFolder(e.target.value); setSelected(new Set()) }}
-            className="h-9 min-w-0 flex-1 bg-white py-1.5 text-xs sm:max-w-xs" aria-label="Pilih folder project">
-            <option value="all">Semua file</option>
-            <option value="umum">Umum</option>
-            {subs.map((s, i) => <option key={s.id} value={s.id}>Sub {i + 1} · {s.title}</option>)}
-          </Select>
-          <Button size="sm" onClick={() => inputRef.current?.click()} disabled={!!busy}><Upload className="h-3.5 w-3.5" />Upload File</Button>
-          <input ref={inputRef} type="file" multiple className="hidden" onChange={(e) => onUpload(e.target.files)} aria-label="Pilih satu atau beberapa file" />
-        </div>
-        <p className="text-[11px] leading-relaxed text-ink-mute">
-          Tersimpan ke <b>{folder === 'all' ? 'Umum' : folderLabel}</b>. Bisa pilih beberapa file sekaligus.
-        </p>
+        {busy && <span className="flex shrink-0 items-center gap-1.5 px-2 text-xs text-brand" aria-live="polite"><Loader2 className="h-3.5 w-3.5 animate-spin" />{busy}</span>}
       </div>
 
-      {/* Filter & aksi terpilih */}
-      <div className="flex flex-wrap items-center gap-2 px-4 pt-3">
-        {shown.length > 0 && (
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-ink-soft">
-            <input type="checkbox" checked={shown.every((f) => selected.has(f.key))}
-              onChange={(e) => setSelected(e.target.checked ? new Set(shown.map((f) => f.key)) : new Set())} />Pilih semua
-          </label>
-        )}
-        {selList.length > 0 && (
-          <div className="flex w-full gap-2 sm:ml-auto sm:w-auto">
-            <Button size="sm" disabled={!!busy} onClick={() => (selList.length === 1 ? download(selList[0]) : downloadZip(selList, '-terpilih'))}
-              title={selList.length === 1 ? 'Unduh file' : 'Unduh sebagai satu file ZIP'}>
-              <Download className="h-3.5 w-3.5" />Download {selList.length}<span className="hidden sm:inline"> terpilih</span>{selList.length > 1 ? ' (ZIP)' : ''}
-            </Button>
-            {!readOnly && <Button size="sm" variant="danger" disabled={!!busy} onClick={() => remove(selList)}><Trash2 className="h-3.5 w-3.5" />Hapus {selList.length}<span className="hidden sm:inline"> terpilih</span></Button>}
+      {/* Isi */}
+      <div className="min-h-[140px] border-t border-slate-100 dark:border-white/10" data-isi-explorer onDragOver={(e) => { if (!readOnly) e.preventDefault() }} onDrop={(e) => { if (readOnly) return; e.preventDefault(); onUpload(e.dataTransfer.files) }}>
+        {!daftarFolder.length && !berkas.length ? (
+          <Empty icon={FolderOpen} title="Folder ini kosong" text={readOnly ? '' : `Klik Unggah atau tarik berkas ke sini — tersimpan ke ${folderLabel}.`} />
+        ) : tampil === 'ikon' ? (
+          <div className="flex flex-wrap content-start gap-1 p-3" data-tampil-ikon>
+            {daftarFolder.map((x) => (
+              <button key={x.id} type="button" onClick={() => buka(x.id)} data-folder className="flex w-[104px] flex-col items-center gap-1 rounded-md p-2 text-center text-[11.5px] hover:bg-[#e5f1fb]">
+                <IkonFolder besar /><span className="line-clamp-2 break-all">{x.nama}</span><span className="text-[10.5px] text-ink-mute">{x.n} berkas</span>
+              </button>
+            ))}
+            {berkas.map((f) => (
+              <button key={f.key} type="button" onClick={(e) => klik(f, e)} onDoubleClick={() => bukaPratinjau(f)}
+                className={cx('flex w-[104px] flex-col items-center gap-1 rounded-md p-2 text-center text-[11.5px]', selected.has(f.key) ? 'bg-[#cce4f7]' : 'hover:bg-[#e5f1fb]')}>
+                {['pdf', 'image'].includes(kindOf(f)) ? <MiniPratinjau f={f} jenis={kindOf(f)} ambilBlob={(x) => drive.blob(x)} fallback={<IkonBerkas f={f} besar />} /> : <IkonBerkas f={f} besar />}
+                {renaming === f.key ? <NamaAtauUbah f={f} /> : <span className="line-clamp-2 break-all">{f.name}</span>}
+              </button>
+            ))}
           </div>
+        ) : tampil === 'list' ? (
+          <ul className="columns-1 gap-x-4 p-2 text-[13px] sm:columns-2 lg:columns-3" data-tampil-list>
+            {daftarFolder.map((x) => (
+              <li key={x.id} className="break-inside-avoid"><button type="button" onClick={() => buka(x.id)} data-folder className="flex min-h-9 w-full items-center gap-2 rounded px-2 text-left hover:bg-[#e5f1fb]"><IkonFolder /><span className="min-w-0 truncate">{x.nama}</span><span className="ml-auto text-[11px] text-ink-mute">{x.n}</span></button></li>
+            ))}
+            {berkas.map((f) => (
+              <li key={f.key} className="break-inside-avoid">
+                <button type="button" onClick={(e) => klik(f, e)} onDoubleClick={() => bukaPratinjau(f)} className={cx('flex min-h-9 w-full items-center gap-2 rounded px-2 text-left', selected.has(f.key) ? 'bg-[#cce4f7]' : 'hover:bg-[#e5f1fb]')}>
+                  <IkonBerkas f={f} /><NamaAtauUbah f={f} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <table className="w-full table-fixed text-[13px]" data-tampil-detail>
+            <thead className="text-left text-[12px] text-ink-soft">
+              <tr className="border-b border-slate-200 dark:border-white/10">
+                <th className="w-9 px-3 py-1.5">{berkas.length > 0 && <input type="checkbox" checked={berkas.every((f) => selected.has(f.key))} onChange={(e) => setSelected(e.target.checked ? new Set(berkas.map((f) => f.key)) : new Set())} aria-label="Pilih semua" className="h-4 w-4 rounded" />}</th>
+                <th className="py-1.5 font-normal">Nama</th>
+                <th className="hidden w-[26%] font-normal md:table-cell">Tanggal diubah</th>
+                <th className="hidden w-[17%] font-normal md:table-cell">Jenis</th>
+                <th className="hidden w-[13%] font-normal md:table-cell">Ukuran</th>
+              </tr>
+            </thead>
+            <tbody>
+              {daftarFolder.map((x) => (
+                <tr key={x.id} className="cursor-default hover:bg-[#e5f1fb]" onDoubleClick={() => buka(x.id)} data-folder>
+                  <td className="px-3 py-1.5" />
+                  <td className="overflow-hidden py-1.5 pr-3"><button type="button" onClick={() => buka(x.id)} title={x.nama} className="flex min-h-[28px] w-full min-w-0 items-center gap-2 text-left"><IkonFolder /><span className="min-w-0 truncate font-medium text-ink">{x.nama}</span></button></td>
+                  <td className="hidden text-ink-mute md:table-cell" /><td className="hidden text-ink-mute md:table-cell">Folder</td><td className="hidden text-ink-mute md:table-cell">{x.n} berkas</td>
+                </tr>
+              ))}
+              {berkas.map((f) => (
+                <tr key={f.key} onClick={(e) => { if (e.target.closest('input,button,form')) return; klik(f, e) }} onDoubleClick={() => bukaPratinjau(f)}
+                  className={cx('cursor-default', selected.has(f.key) ? 'bg-[#cce4f7]' : 'hover:bg-[#e5f1fb]')} data-berkas>
+                  <td className="px-3 py-1.5"><input type="checkbox" checked={selected.has(f.key)} onChange={() => toggle(f.key)} aria-label={`Pilih ${f.name}`} className="h-4 w-4 rounded" /></td>
+                  <td className="overflow-hidden py-1.5 pr-3"><span className="flex min-h-[28px] min-w-0 items-center gap-2"><IkonBerkas f={f} /><NamaAtauUbah f={f} /></span>
+                    <span className="block truncate pl-[23px] text-[11px] text-ink-mute md:hidden">{kb(f.size || 0)}{f.uploaded_at ? ` · ${jam(f.uploaded_at)}` : ''}</span></td>
+                  <td className="hidden truncate text-ink-mute md:table-cell">{f.uploaded_at ? jam(f.uploaded_at) : '—'}</td>
+                  <td className="hidden truncate text-ink-mute md:table-cell" title={f.source}>{(JENIS[kindOf(f)] || JENIS.other)[1]}</td>
+                  <td className="hidden text-ink-mute md:table-cell">{kb(f.size || 0)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
-        {busy && <span className="ml-auto flex items-center gap-1.5 text-xs text-brand"><Loader2 className="h-3.5 w-3.5 animate-spin" />{busy}</span>}
       </div>
 
-      {shown.length === 0 ? <Empty icon={FolderOpen} title="Belum ada file" text="Unggah dokumen dan kaitkan dengan sub project." /> : (
-        <ul className="mt-2 divide-y divide-slate-100">
-          {shown.map((f) => {
-            const Icon = /\.(png|jpe?g|webp|gif|heic)$/i.test(f.name) ? FileImage : FileText
-            return (
-              <li key={f.key} className={cx('flex items-center gap-3 px-4 py-2.5', selected.has(f.key) && 'bg-brand-soft/50')}>
-                <input type="checkbox" checked={selected.has(f.key)} onChange={() => toggle(f.key)} aria-label={`Pilih ${f.name}`} />
-                <Icon className="h-5 w-5 shrink-0 text-brand" />
-                <div className="min-w-0 flex-1">
-                  {renaming === f.key ? (
-                    <form className="flex items-center gap-1" onSubmit={(e) => { e.preventDefault(); doRename(f) }}>
-                      <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
-                        className="w-full rounded-lg bg-white px-2 py-1 text-sm ring-2 ring-brand focus:outline-none" />
-                      <button className="rounded p-1 text-emerald-600" aria-label="Simpan nama"><Check className="h-4 w-4" /></button>
-                      <button type="button" onClick={() => setRenaming(null)} className="rounded p-1 text-ink-mute" aria-label="Batal"><X className="h-4 w-4" /></button>
-                    </form>
-                  ) : canPreview(f)
-                    ? <button type="button" onClick={() => setPreview(f)} className="block max-w-full truncate text-left text-sm font-semibold hover:text-brand hover:underline">{f.name}</button>
-                    : <p className="truncate text-sm font-semibold">{f.name}</p>}
-                  <p className="truncate text-[11px] text-ink-mute">{subLabel(f.subId)} · {f.source}{f.usedIn?.length ? ` · dipakai di ${f.usedIn.join(', ')}` : ''} · {kb(f.size || 0)}{f.uploaded_at ? ` · ${jam(f.uploaded_at)}` : ''}</p>
-                </div>
-                {renaming !== f.key && (
-                  <div className="flex shrink-0">
-                    {canPreview(f) && <button onClick={() => setPreview(f)} className="rounded-lg p-1.5 text-ink-mute hover:bg-slate-100 hover:text-brand" aria-label="Preview" title="Preview"><Eye className="h-4 w-4" /></button>}
-                    {canPreview(f) && <button onClick={() => printFile(f)} className="rounded-lg p-1.5 text-ink-mute hover:bg-slate-100 hover:text-brand" aria-label="Print" title="Print"><Printer className="h-4 w-4" /></button>}
-                    <button onClick={() => download(f)} className="rounded-lg p-1.5 text-ink-mute hover:bg-slate-100 hover:text-brand" aria-label="Download" title="Download"><Download className="h-4 w-4" /></button>
-                    {!readOnly && <><button onClick={() => startRename(f)} className="rounded-lg p-1.5 text-ink-mute hover:bg-slate-100 hover:text-ink" aria-label="Ganti nama" title="Ganti nama"><Pencil className="h-4 w-4" /></button>
-                    <button onClick={() => remove([f])} className="rounded-lg p-1.5 text-ink-mute hover:bg-rose-50 hover:text-rose-600" aria-label="Hapus" title="Hapus"><Trash2 className="h-4 w-4" /></button></>}
-                  </div>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-      )}
-      <div className="h-2" />
+      {/* Bilah status */}
+      <div className="flex items-center gap-3 border-t border-slate-200 bg-[#f3f3f3] px-3 py-1 text-[11.5px] text-ink-soft dark:border-white/10 dark:bg-white/5">
+        <span>{diAkar ? `${daftarFolder.length} folder` : `${berkas.length} item`}</span>
+        {selList.length > 0 && <span>{selList.length} dipilih · {kb(selList.reduce((a, f) => a + (Number(f.size) || 0), 0))}</span>}
+        {!readOnly && <span className="ml-auto hidden sm:inline">Unggah tersimpan ke <b>{diAkar ? 'Umum' : folderLabel}</b></span>}
+      </div>
       {preview && <FilePreview file={preview} onClose={() => setPreview(null)} />}
       {namerDialog}
     </Card>

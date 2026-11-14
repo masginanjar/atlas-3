@@ -166,7 +166,7 @@ export const supabaseDrive = {
     return { name: fname, size: file.size, url: null, path, bucket: BUCKET, uploaded_at: new Date().toISOString() }
   },
   async blob(f) {
-    if (f?.path) return unwrap(await sb().storage.from(BUCKET).download(f.path))
+    if (f?.path) return unwrap(await sb().storage.from(f.bucket || BUCKET).download(f.path))
     if (f?.url?.startsWith('data:')) { const r = await fetch(f.url); return r.blob() }
     if (f?.url) { const r = await fetch(f.url); if (!r.ok) throw new Error(`Gagal mengunduh "${f.name}"`); return r.blob() }
     throw new Error(`"${f?.name || 'file'}" tidak tersedia untuk diunduh`)
