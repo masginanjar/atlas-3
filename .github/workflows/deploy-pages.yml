@@ -23,7 +23,7 @@ jobs:
       - name: Build (live)
         run: npm run build:live
         env:
-          VITE_BASE: /atlas-3/
+          VITE_BASE: ./
           VITE_MASK_PII: "1"
           VITE_SUPABASE_URL: https://cdeiirdxrxogspqmesik.supabase.co
           VITE_SUPABASE_KEY: sb_publishable_wvCWE64SK9COIBVaSOLD3Q_aQo2I1wM
